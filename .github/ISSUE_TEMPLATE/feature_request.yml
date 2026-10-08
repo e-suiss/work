@@ -1,0 +1,22 @@
+name: Feature request
+description: Suggest a new capability or a change to the specification.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What problem would this solve, and for whom?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+    validations:
+      required: true
+  - type: textarea
+    id: spec
+    attributes:
+      label: Related specification rules
+      description: Rule IDs or sections this affects, if known.

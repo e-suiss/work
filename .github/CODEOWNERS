@@ -1,0 +1,13 @@
+# Default owner for the whole repository.
+*                         @ademceper
+
+# Security-sensitive paths: changes here need a threat assessment.
+/crates/kernel/           @ademceper
+/crates/store/            @ademceper
+/crates/ledger/           @ademceper
+/crates/federation/       @ademceper
+/bins/work-signer/        @ademceper
+/crates/access-client/    @ademceper
+/sdks/bindings/           @ademceper
+/Cargo.toml               @ademceper
+/Cargo.lock               @ademceper
