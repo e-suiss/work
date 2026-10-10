@@ -80,13 +80,14 @@ Work records and derives; it does not execute. Identity, authority and the actua
 
 ## Getting started
 
-Work is in active design; implementation has not started yet. When the first build lands, local development will be one command:
+Work is pre-alpha: the repository foundation, CI gates and local environment are in place; the protocol and features land stage by stage. You need Rust (the toolchain in `rust-toolchain.toml` installs itself), [`just`](https://github.com/casey/just) and Docker.
 
 ```sh
 git clone https://github.com/e-suiss/work.git
 cd work
-just dev    # PostgreSQL, NATS, local Access and Relay
-just test
+just dev     # PostgreSQL, NATS, SoftHSM and the observability stack; local Access and Relay join once their images are published
+just test    # the tests CI runs on every change
+just check   # the same gates as CI
 ```
 
 ## Tech stack

@@ -2,7 +2,7 @@
 
 Thank you for your interest in Work. This guide explains how to set up a development environment, the rules code must follow, and how changes get merged.
 
-The project is in active design; implementation has not started. The rules below are already binding.
+The project is pre-alpha. The rules below are binding and enforced in CI.
 
 ## Reporting security issues
 
@@ -10,18 +10,20 @@ Do **not** open a public issue for a vulnerability. Follow [`SECURITY.md`](SECUR
 
 ## Development environment
 
-Once the codebase exists, getting started will take three steps:
+You need Rust (installed from `rust-toolchain.toml` on first use), [`just`](https://github.com/casey/just), Docker and, for the pre-commit hook, [`gitleaks`](https://github.com/gitleaks/gitleaks).
 
 ```sh
 git clone https://github.com/e-suiss/work.git
 cd work
-just dev    # starts PostgreSQL, NATS, a local Access and a local Relay (with their dependencies) and sample data
-just test   # runs the same tests as CI on pull requests
+git config core.hooksPath .githooks
+just dev    # PostgreSQL 18, NATS JetStream, SoftHSM, OpenTelemetry Collector, Jaeger, Prometheus, Grafana
+just test   # the same tests CI runs on pull requests
+just check  # the same checks CI runs: format, clippy, repository rules, cargo-deny, compose
 ```
 
-Other commands: `just check` (the same checks as CI) and `just gen` (regenerate the OpenAPI document, SDKs and kernel bindings).
+`just dev` prints the local addresses. Local Access and Relay run in the same environment; until their images are published, `compat.toml` marks them `unpublished` and their services stay off. Other commands: `just --list`.
 
-There is no "development mode": security checks are never disabled locally, and Access and Relay are never faked. Local equivalents replace production services instead.
+There is no "development mode": security checks are never disabled locally, and Access and Relay are never faked. Local equivalents replace production services: SoftHSM stands in for the HSM (keys are reached only through PKCS#11), and each product has its own database and role on the shared PostgreSQL server.
 
 ## Code rules (summary)
 
@@ -32,16 +34,15 @@ There is no "development mode": security checks are never disabled locally, and 
 - A rule outcome is a result, not an error. Errors use RFC 9457 problem details.
 - Secrets and personal data use self-redacting types and are never logged.
 - SQL lives only in the `store` crate (`sqlx`, no ORM). There are no physical deletes (`DELETE`/`TRUNCATE`); migrations are forward-only.
-- TypeScript: `strict` mode, the shared lint config, the shared design system, and the generated API client.
-- Code that implements a specification rule names its ID in a comment, e.g. `// CM-25: fulfilment is a separate record`.
-- `TODO` comments must reference an issue.
-- Tests are named after behavior; tests run against real PostgreSQL, NATS, Access and Relay; flaky tests are quarantined, never retried until green.
+- TypeScript: every package is an independent npm project with `strict` mode, the shared design system and the generated API client; there are no JavaScript files at the repository root.
+- No explanatory comments. Allowed: `// SAFETY:` notes, `///` docs and a one-paragraph `//!` per module, bare specification ID lines such as `// CM-25`, `// TODO(#123): short text`, and tool directives. The reasoning lives in the specification.
+- Tests carry the rule ID they prove in their name or on a bare ID line above them (`cargo xtask check rule-coverage`); tests run against real PostgreSQL, NATS, Access and Relay; flaky tests are quarantined, never retried until green.
 
 ## Commits and changes
 
 - Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/), with the crate or area as scope: `feat(kernel): derive commitment state from records`.
 - Commits must be signed. `main` has a linear history; force pushes are not allowed.
-- External contributions come as pull requests, are kept small and are merged with squash merge after CI passes.
+- External contributions come as pull requests, are kept small and are merged with squash merge after CI passes. The maintainer pushes signed commits to `main` directly; CI runs after the push.
 - Changes that add or change a specification decision carry the `decision` label and update the decision register.
 
 ## Code of conduct
