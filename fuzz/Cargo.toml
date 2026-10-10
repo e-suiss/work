@@ -1,0 +1,24 @@
+[package]
+name = "work-fuzz"
+description = "Fuzz targets for Work parsers and the kernel (T-37, T-31)."
+version = "0.0.0"
+edition = "2024"
+license = "Apache-2.0"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "=0.4.13"
+work-kernel = { package = "esuiss-work-kernel", path = "../crates/kernel" }
+
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "smoke"
+path = "fuzz_targets/smoke.rs"
+test = false
+doc = false
+bench = false
