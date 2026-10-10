@@ -1,0 +1,22 @@
+# T-51, T-40
+
+[work]
+version = "0.0.0"
+
+[access]
+status = "unpublished"
+version = ""
+image = "ghcr.io/e-suiss/access"
+digest = ""
+
+[relay]
+status = "unpublished"
+version = ""
+image = "ghcr.io/e-suiss/relay"
+digest = ""
+
+# T-54
+[shared-crates]
+esuiss-crypto = "unpublished"
+esuiss-ledger = "unpublished"
+esuiss-restriction = "unpublished"

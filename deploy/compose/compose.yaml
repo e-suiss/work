@@ -1,0 +1,191 @@
+# T-41, T-51, T-56, T-57, T-32
+
+name: work-dev
+
+x-hardening: &hardening
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  restart: unless-stopped
+
+services:
+  # T-20, T-36, T-51
+  postgres:
+    <<: *hardening
+    image: postgres@sha256:74935e72241653ca55e0414067e6d8763aceb8a810eb51b452253ec3dcfc4336 # 18.6-trixie
+    user: "999:999"
+    read_only: true
+    tmpfs:
+      - /var/run/postgresql:uid=999,gid=999
+      - /tmp:uid=999,gid=999
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: local-only-not-a-secret
+      POSTGRES_INITDB_ARGS: --auth=scram-sha-256 --data-checksums
+      WORK_OWNER_PASSWORD: local-only-not-a-secret
+      WORK_APP_PASSWORD: local-only-not-a-secret
+      ACCESS_OWNER_PASSWORD: local-only-not-a-secret
+      ACCESS_APP_PASSWORD: local-only-not-a-secret
+      RELAY_OWNER_PASSWORD: local-only-not-a-secret
+      RELAY_APP_PASSWORD: local-only-not-a-secret
+    volumes:
+      - pgdata:/var/lib/postgresql
+      - ./postgres/initdb:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "127.0.0.1:${WORK_DEV_PG_PORT:-5442}:5432"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "postgres", "-d", "relay"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  # T-20, T-51
+  nats:
+    <<: *hardening
+    image: nats@sha256:ac8f88a6494bffc2c2a5289a0ca61cb28a9145c11ba5677cf24265d07f46d8d4 # 2.15.0-alpine
+    user: "65532:65532"
+    read_only: true
+    command: ["--config", "/etc/nats/nats.conf"]
+    tmpfs:
+      - /data:uid=65532,gid=65532
+    volumes:
+      - ./nats/nats.conf:/etc/nats/nats.conf:ro
+    ports:
+      - "127.0.0.1:${WORK_DEV_NATS_PORT:-4232}:4222"
+      - "127.0.0.1:${WORK_DEV_NATS_MONITOR_PORT:-8232}:8222"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://127.0.0.1:8222/healthz?js-enabled-only=true"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  # T-56
+  softhsm:
+    <<: *hardening
+    build: ./softhsm
+    image: work-dev/softhsm:local
+    read_only: true
+    environment:
+      SOFTHSM_TOKEN_LABEL: work-dev
+      SOFTHSM_SO_PIN: "12345678"
+      SOFTHSM_USER_PIN: "1234"
+    volumes:
+      - softhsm:/var/lib/softhsm/tokens
+    healthcheck:
+      test: ["CMD-SHELL", "softhsm2-util --show-slots | grep -q 'Label:.*work-dev'"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  # T-57
+  otel-collector:
+    <<: *hardening
+    image: otel/opentelemetry-collector@sha256:310a800ad69ee430e7c541796852a242c9c7db97aaad4daa5ccf843c525fbdb2 # 0.162.0
+    user: "10001:10001"
+    read_only: true
+    command: ["--config", "/etc/otelcol/config.yaml"]
+    volumes:
+      - ./observability/otel-collector.yaml:/etc/otelcol/config.yaml:ro
+    ports:
+      - "127.0.0.1:${WORK_DEV_OTLP_GRPC_PORT:-4327}:4317"
+      - "127.0.0.1:${WORK_DEV_OTLP_HTTP_PORT:-4328}:4318"
+    depends_on:
+      jaeger:
+        condition: service_healthy
+
+  jaeger:
+    <<: *hardening
+    image: jaegertracing/jaeger@sha256:46a886260e04002d8f45e213fc39063fa11a50446048fdaa64786fc0840cb9f8 # 2.20.0
+    user: "10001:10001"
+    read_only: true
+    tmpfs:
+      - /tmp:uid=10001,gid=10001
+    ports:
+      - "127.0.0.1:${WORK_DEV_JAEGER_UI_PORT:-16696}:16686"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://127.0.0.1:13133/status"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  prometheus:
+    <<: *hardening
+    image: prom/prometheus@sha256:b2a413d5a03ea6a76782a508d1c7947440bba3b973931a25676e278431891b01 # v3.15.0-distroless
+    user: "65532:65532"
+    read_only: true
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=1d
+    tmpfs:
+      - /prometheus:uid=65532,gid=65532
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "127.0.0.1:${WORK_DEV_PROMETHEUS_PORT:-9099}:9090"
+    healthcheck:
+      test: ["CMD", "promtool", "check", "healthy", "--url=http://127.0.0.1:9090"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  grafana:
+    <<: *hardening
+    image: grafana/grafana@sha256:83be3e511ede559bee80e2215bb1987cb1246075461cb961beb515b0341e7aea # 12.4.12
+    user: "472:0"
+    read_only: true
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: local-only-not-a-secret
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: "false"
+      GF_PLUGINS_PREINSTALL_DISABLED: "true"
+    tmpfs:
+      - /var/lib/grafana:uid=472,gid=0
+      - /tmp:uid=472,gid=0
+    volumes:
+      - ./observability/grafana-datasources.yaml:/etc/grafana/provisioning/datasources/work.yaml:ro
+    ports:
+      - "127.0.0.1:${WORK_DEV_GRAFANA_PORT:-3310}:3000"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://127.0.0.1:3000/api/health"]
+      interval: 3s
+      timeout: 3s
+      retries: 60
+
+  # T-51, E-2, MD-3
+  access:
+    image: ghcr.io/e-suiss/access:unpublished
+    profiles: [access]
+    depends_on: [postgres, nats, mailpit]
+
+  mailpit:
+    <<: *hardening
+    image: axllent/mailpit@sha256:ed9b00c609e77e99c79b93f1178255ebc271868920f2c69a8d166bd5634ed10d # v1.31.3
+    profiles: [access]
+    user: "65532:65532"
+    read_only: true
+    tmpfs:
+      - /tmp:uid=65532,gid=65532
+    ports:
+      - "127.0.0.1:${WORK_DEV_SMTP_PORT:-1035}:1025"
+      - "127.0.0.1:${WORK_DEV_MAIL_UI_PORT:-8035}:8025"
+
+  # T-51, T-16, MD-3
+  relay:
+    image: ghcr.io/e-suiss/relay:unpublished
+    profiles: [relay]
+    depends_on: [postgres, nats, valkey]
+
+  valkey:
+    <<: *hardening
+    image: valkey/valkey@sha256:48332870af354a799964c0012ae1194a0bf2bf894eb508f945810596dc2d8d11 # 9.1.2-alpine
+    profiles: [relay]
+    read_only: true
+    command: ["valkey-server", "--maxmemory-policy", "noeviction", "--appendonly", "no"]
+    tmpfs:
+      - /data
+
+volumes:
+  pgdata:
+  softhsm:

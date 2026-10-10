@@ -1,0 +1,17 @@
+.git
+.github
+.devcontainer
+.claude
+CLAUDE.md
+work.md
+docs
+deploy
+target
+**/target
+node_modules
+**/node_modules
+**/dist
+.env
+.env.*
+*.pem
+*.key
