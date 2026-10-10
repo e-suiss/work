@@ -1,0 +1,10 @@
+# T-46 T-47 T-37
+
+current_stage = 0
+
+enforced_families = [
+  "MD", "F", "L", "MKT", "C", "INV", "E", "X", "CM", "RC", "ST", "EV", "FD", "SEC", "P", "PR",
+  "T", "OP",
+]
+
+test_roots = ["crates", "bins", "xtask"]

@@ -1,0 +1,142 @@
+# T-46
+# F-9
+
+[[item]]
+rule = "F-9"
+number = 1
+title = "Never creates or widens authority, nor overrides an Access denial"
+rules = []
+tests = []
+
+[[item]]
+rule = "F-9"
+number = 2
+title = "Never gives normative effect to claims, observations, content, chat or notification actions"
+rules = []
+tests = []
+
+[[item]]
+rule = "F-9"
+number = 3
+title = "Never treats silence, no answer or expiry as approval or acceptance"
+rules = []
+tests = []
+
+[[item]]
+rule = "F-9"
+number = 4
+title = "Never shows a doer's done statement as acceptance"
+rules = []
+tests = []
+
+[[item]]
+rule = "F-9"
+number = 5
+title = "Never makes an agent solely accountable or leaves work without an accountable owner"
+rules = []
+tests = []
+
+[[item]]
+rule = "F-9"
+number = 6
+title = "Never rewrites record history and never deletes physically"
+rules = []
+tests = []
+
+[[item]]
+rule = "F-9"
+number = 7
+title = "Never keeps state as a hand-edited field or shows unreported work as running"
+rules = []
+tests = []
+
+[[item]]
+rule = "F-9"
+number = 8
+title = "Never offers controls the executor did not declare, nor shows revoked as stopped"
+rules = []
+tests = []
+
+[[item]]
+rule = "F-9"
+number = 9
+title = "Never shows or ranks by an agent's self-reported confidence"
+rules = []
+tests = []
+
+[[item]]
+rule = "F-9"
+number = 10
+title = "Never leaks visibility across organisations nor silently drops an authorised peer's record"
+rules = []
+tests = []
+
+[[item]]
+rule = "F-9"
+number = 11
+title = "Never stores passwords, tokens, cookies, API secrets or payment data"
+rules = []
+tests = []
+
+[[item]]
+rule = "F-9"
+number = 12
+title = "Never runs a built-in authority mode or a direct notification mode"
+rules = []
+tests = []
+
+[[item]]
+rule = "F-9"
+number = 13
+title = "Never picks or ranks the best agent, nor sells ranking"
+rules = []
+tests = []
+
+[[item]]
+rule = "F-9"
+number = 14
+title = "Never acts in the outside world or moves money"
+rules = []
+tests = []
+
+[[item]]
+rule = "F-9"
+number = 15
+title = "Never locks a feature to SaaS or a licence flag"
+rules = ["MD-15", "P-2", "T-3"]
+tests = []
+
+[[item]]
+rule = "F-9"
+number = 16
+title = "Never gives first-party Suiss components semantic privileges others lack"
+rules = []
+tests = []
+
+[[item]]
+rule = "F-9"
+number = 17
+title = "Never shows raw chain of thought nor reads personal memory"
+rules = []
+tests = []
+
+[[item]]
+rule = "F-9"
+number = 18
+title = "Never presents an agent as a human"
+rules = []
+tests = []
+
+[[item]]
+rule = "F-9"
+number = 19
+title = "Never opens person-level manager views the person cannot see"
+rules = []
+tests = []
+
+[[item]]
+rule = "F-9"
+number = 20
+title = "Never accepts a generic confirmation or agent-written text as approval content"
+rules = []
+tests = []

@@ -1,0 +1,58 @@
+# T-46
+# T-49 SEC-21
+
+[[threat]]
+key = "indirect-prompt-injection"
+title = "Indirect prompt injection through documents, email, tool output or federated bodies"
+prevent = { rules = ["SEC-1", "SEC-2", "SEC-22", "SEC-23", "EV-16"], tests = [] }
+limit = { rules = ["EV-15", "RC-27", "SEC-27"], tests = [] }
+detect = { rules = ["ST-3", "ST-8"], tests = [] }
+recover = { rules = ["SEC-19", "CM-34"], tests = [] }
+
+[[threat]]
+key = "compromised-agent"
+title = "Compromised or mistaken agent"
+prevent = { rules = ["SEC-4", "SEC-26"], tests = [] }
+limit = { rules = ["SEC-3", "CM-49"], tests = [] }
+detect = { rules = ["EV-1", "EV-7", "CM-38"], tests = [] }
+recover = { rules = ["RC-37", "RC-8"], tests = [] }
+
+[[threat]]
+key = "memory-poisoning"
+title = "Shared memory poisoning"
+prevent = { rules = ["EV-13"], tests = [] }
+limit = { rules = ["EV-18"], tests = [] }
+detect = { rules = ["EV-11"], tests = [] }
+recover = { rules = ["INV-2", "P-24"], tests = [] }
+
+[[threat]]
+key = "malicious-federation-peer"
+title = "Malicious federation counterparty"
+prevent = { rules = ["FD-1", "FD-16"], tests = [] }
+limit = { rules = ["FD-19", "FD-20", "SEC-18"], tests = [] }
+detect = { rules = ["FD-24", "FD-25"], tests = [] }
+recover = { rules = ["SEC-19", "FD-27"], tests = [] }
+
+[[threat]]
+key = "stale-authority"
+title = "Stale authority"
+prevent = { rules = ["EV-32", "SEC-14"], tests = [] }
+limit = { rules = ["EV-32", "T-28"], tests = [] }
+detect = { rules = ["SEC-8"], tests = [] }
+recover = { rules = ["EV-32", "T-28"], tests = [] }
+
+[[threat]]
+key = "forged-approval"
+title = "Forged approval through notification buttons or agent text"
+prevent = { rules = ["SEC-11", "SEC-28"], tests = [] }
+limit = { rules = ["SEC-28"], tests = [] }
+detect = { rules = ["SEC-27", "SEC-28"], tests = [] }
+recover = { rules = ["SEC-27", "SEC-10"], tests = [] }
+
+[[threat]]
+key = "secret-leakage"
+title = "Secret leakage"
+prevent = { rules = ["SEC-24", "SEC-25"], tests = [] }
+limit = { rules = ["SEC-24"], tests = [] }
+detect = { rules = ["SEC-13"], tests = [] }
+recover = { rules = ["SEC-13", "OP-15"], tests = [] }

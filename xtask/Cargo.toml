@@ -1,0 +1,17 @@
+[package]
+name = "xtask"
+description = "Development automation and repository rule checks (T-46, T-52)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+serde = { workspace = true, features = ["std", "derive"] }
+serde_json = { workspace = true, features = ["std"] }
+toml = { workspace = true, features = ["std", "parse", "serde"] }
+
+[lints]
+workspace = true

@@ -1,0 +1,190 @@
+# T-48
+# F-24 INV-34 SEC-33 SEC-34 MKT-1 T-42 T-49
+
+[scan]
+include = [
+  "*.md", "*.mdx", "*.rs", ".github/**", "sdks/openapi/**", "sdks/asyncapi/**",
+  "packages/i18n/**", "**/locales/**", "**/i18n/**",
+]
+exclude = [
+  "docs/**", "target/**", "**/node_modules/**", "conformance/catalog/**", "xtask/**",
+  "CLAUDE.md", "work.md",
+]
+extensions = ["md", "mdx", "txt", "html", "rs", "json", "yml", "yaml", "ftl", "po"]
+
+[comparison]
+file = "COMPARISON.md"
+sections = ["set", "date", "counterexample"]
+
+[[claim]]
+id = "done-without-acceptance"
+rules = ["F-24", "SEC-34", "INV-34"]
+phrases = [
+  "is done", "marked done", "marked as done", "marked complete", "marked as complete",
+  "is completed", "work completed", "task completed",
+]
+replacement = "The doer declared it done; acceptance is pending"
+negation = true
+
+[[claim.allow]]
+context = "accept"
+reason = "Done and completed describe only a state derived from a recorded acceptance"
+
+[[claim]]
+id = "stopped-without-confirmation"
+rules = ["F-24", "SEC-34", "SEC-33"]
+phrases = [
+  "agent stopped", "agent was stopped", "agent is stopped", "execution stopped",
+  "work stopped", "has been stopped", "was stopped", "revoked, so it stopped",
+]
+replacement = "Stop requested; the executor reported that it stopped"
+negation = true
+
+[[claim.allow]]
+context = "executor reported"
+reason = "A stop the executor reported is confirmed"
+
+[[claim.allow]]
+context = "executor confirmed"
+reason = "A stop the executor confirmed is confirmed"
+
+[[claim]]
+id = "approved-through-a-channel"
+rules = ["F-24", "SEC-34"]
+phrases = [
+  "approved via notification", "approved from the notification", "approved in chat",
+  "approved by chat", "approved by reply", "approved by the agent", "approved by agent",
+  "agent approved",
+]
+replacement = "Approved on the Access approval surface (decision record)"
+negation = true
+
+[[claim]]
+id = "authority-approved-by-a-gate"
+rules = ["SEC-34", "F-24"]
+phrases = [
+  "authority approved", "authorization approved", "authorisation approved",
+  "authority granted by the gate", "gate grants authority",
+]
+replacement = "Gate closed; Access permitted"
+negation = true
+
+[[claim]]
+id = "verified-by-signature"
+rules = ["F-24", "SEC-34", "SEC-33"]
+phrases = [
+  "verified correct", "verified as correct", "verified true", "proven correct",
+  "proven true", "signature proves", "guaranteed correct", "guaranteed accurate",
+]
+replacement = "Signed by X; verified by Y"
+negation = true
+
+[[claim]]
+id = "exactly-once"
+rules = ["SEC-33", "F-24"]
+phrases = ["exactly-once", "exactly once"]
+replacement = "Effectively once with an idempotency key; no guarantee when the external system is not idempotent"
+negation = true
+
+[[claim.allow]]
+context = "idempotency key"
+reason = "Allowed only with the idempotency condition stated"
+
+[[claim]]
+id = "permanently-deleted"
+rules = ["SEC-33", "OP-12", "F-24"]
+phrases = [
+  "permanently deleted", "permanently delete", "permanently erased", "permanently removed",
+  "deleted forever", "irreversibly deleted",
+]
+replacement = "Made unreadable by crypto-shredding; the record skeleton remains"
+negation = true
+
+[[claim]]
+id = "end-to-end-encrypted"
+rules = ["SEC-33", "F-24"]
+phrases = ["end-to-end encrypted", "end-to-end encryption", "e2e encrypted", "e2ee", "zero-knowledge"]
+replacement = "Only client-side encrypted parts are unreadable to the operator"
+negation = true
+
+[[claim]]
+id = "guaranteed-safe"
+rules = ["SEC-33", "INV-34"]
+phrases = [
+  "guaranteed safe", "guarantees safety", "always safe", "completely secure", "fully secure",
+  "100% secure", "unhackable", "immune to prompt injection", "prompt-injection proof",
+]
+replacement = "State the guarantee class and its condition"
+negation = true
+
+[[claim]]
+id = "approval-as-judgement"
+rules = ["SEC-33", "INV-34"]
+phrases = [
+  "approval proves", "approval guarantees", "approved, therefore correct",
+  "human approval makes it safe", "human-approved means safe",
+]
+replacement = "A named person approved this content (digest …)"
+negation = true
+
+[[claim]]
+id = "agent-confidence"
+rules = ["F-24", "SEC-34"]
+phrases = ["% confident", "% sure", "agent is confident", "confidence score"]
+replacement = "Independent verification: two sources; reversible"
+negation = true
+
+[[claim]]
+id = "running-without-report"
+rules = ["F-24", "SEC-34"]
+phrases = ["still running"]
+replacement = "No report; state unknown (last report at …)"
+negation = true
+
+[[claim.allow]]
+context = "reported"
+reason = "Running is allowed when a current report says so"
+
+[[claim]]
+id = "legal-responsibility"
+rules = ["SEC-33", "F-24"]
+phrases = ["legally responsible", "legally accountable", "legally liable", "legal liability"]
+replacement = "Accountable owner according to the Work record: X"
+negation = true
+
+[[claim]]
+id = "counterparty-accepted"
+rules = ["SEC-34", "F-24"]
+phrases = [
+  "counterparty accepted", "the other organization accepted",
+  "the other organisation accepted", "peer accepted",
+]
+replacement = "The counterparty received it (receipt); the counterparty wrote an acceptance record"
+negation = true
+
+[[claim.allow]]
+context = "acceptance record"
+reason = "Acceptance is claimed only with the counterparty's own acceptance record"
+
+[[claim]]
+id = "reproducible-build"
+rules = ["T-59", "F-24"]
+phrases = [
+  "reproducible builds", "reproducible build", "bit-for-bit reproducible",
+  "independently reproducible", "reproducibly built",
+]
+replacement = "Release builds are pinned; a second build is compared for information"
+negation = true
+
+[[claim]]
+id = "comparison-without-set"
+rules = ["MKT-1", "T-49"]
+phrases = [
+  "better than", "unlike other", "unlike any", "the only open", "the first open",
+  "first-ever", "outperforms", "faster than", "superior to", "compared to", "compared with",
+]
+replacement = "Write comparisons only in COMPARISON.md with the comparison set, the date and a counterexample"
+
+[[claim.exception]]
+path = "COMPARISON.md"
+reason = "The public comparison text carries its comparison set, date and counterexample (MKT-1, T-49)"

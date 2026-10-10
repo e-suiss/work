@@ -1,0 +1,1948 @@
+# T-46
+
+[[rule]]
+id = "C-1"
+family = "C"
+status = "canonical-invariant"
+stage = 4
+title = ""
+tests = []
+
+[[rule]]
+id = "C-2"
+family = "C"
+status = "canonical-invariant"
+stage = 4
+title = ""
+tests = []
+
+[[rule]]
+id = "C-3"
+family = "C"
+status = "canonical-invariant"
+stage = 4
+title = ""
+tests = []
+
+[[rule]]
+id = "C-4"
+family = "C"
+status = "canonical-invariant"
+stage = 1
+title = ""
+tests = []
+
+[[rule]]
+id = "C-8"
+family = "C"
+status = "canonical-invariant"
+stage = 2
+title = ""
+tests = []
+
+[[rule]]
+id = "C-9"
+family = "C"
+status = "canonical-invariant"
+stage = 3
+title = ""
+tests = []
+
+[[rule]]
+id = "C-10"
+family = "C"
+status = "canonical-invariant"
+stage = 4
+title = ""
+tests = []
+
+[[rule]]
+id = "C-11"
+family = "C"
+status = "canonical-invariant"
+stage = 4
+title = ""
+tests = []
+
+[[rule]]
+id = "C-12"
+family = "C"
+status = "canonical-invariant"
+stage = 4
+title = ""
+tests = []
+
+[[rule]]
+id = "C-13"
+family = "C"
+status = "canonical-invariant"
+stage = 4
+title = ""
+tests = []
+
+[[rule]]
+id = "C-14"
+family = "C"
+status = "canonical-invariant"
+stage = 4
+title = ""
+tests = []
+
+[[rule]]
+id = "C-15"
+family = "C"
+status = "canonical-invariant"
+stage = 1
+title = ""
+tests = []
+
+[[rule]]
+id = "C-16"
+family = "C"
+status = "canonical-invariant"
+stage = 1
+title = ""
+tests = []
+
+[[rule]]
+id = "C-17"
+family = "C"
+status = "canonical-invariant"
+stage = 3
+title = ""
+tests = []
+
+[[rule]]
+id = "C-24"
+family = "C"
+status = "canonical-invariant"
+stage = 4
+title = ""
+tests = []
+
+[[rule]]
+id = "C-25"
+family = "C"
+status = "canonical-invariant"
+stage = 1
+title = ""
+tests = []
+
+[[rule]]
+id = "C-26"
+family = "C"
+status = "canonical-invariant"
+stage = 1
+title = ""
+tests = []
+
+[[rule]]
+id = "C-28"
+family = "C"
+status = "canonical-invariant"
+stage = 5
+title = ""
+tests = []
+
+[[rule]]
+id = "C-29"
+family = "C"
+status = "canonical-invariant"
+stage = 5
+title = ""
+tests = []
+
+[[rule]]
+id = "C-30"
+family = "C"
+status = "canonical-invariant"
+stage = 4
+title = ""
+tests = []
+
+[[rule]]
+id = "C-31"
+family = "C"
+status = "canonical-invariant"
+stage = 1
+title = ""
+tests = []
+
+[[rule]]
+id = "C-33"
+family = "C"
+status = "canonical-invariant"
+stage = 1
+title = ""
+tests = []
+
+[[rule]]
+id = "C-34"
+family = "C"
+status = "canonical-invariant"
+stage = 2
+title = ""
+tests = []
+
+[[rule]]
+id = "C-36"
+family = "C"
+status = "canonical-invariant"
+stage = 4
+title = ""
+tests = []
+
+[[rule]]
+id = "C-40"
+family = "C"
+status = "canonical-invariant"
+stage = 2
+title = ""
+tests = []
+
+[[rule]]
+id = "C-41"
+family = "C"
+status = "canonical-invariant"
+stage = 6
+title = ""
+tests = []
+
+[[rule]]
+id = "INV-1"
+family = "INV"
+status = "canonical-invariant"
+stage = 2
+title = ""
+tests = []
+
+[[rule]]
+id = "INV-2"
+family = "INV"
+status = "canonical-invariant"
+stage = 1
+title = ""
+tests = []
+
+[[rule]]
+id = "INV-3"
+family = "INV"
+status = "canonical-invariant"
+stage = 2
+title = ""
+tests = []
+
+[[rule]]
+id = "INV-4"
+family = "INV"
+status = "canonical-invariant"
+stage = 1
+title = ""
+tests = []
+
+[[rule]]
+id = "INV-5"
+family = "INV"
+status = "canonical-invariant"
+stage = 2
+title = ""
+tests = []
+
+[[rule]]
+id = "INV-6"
+family = "INV"
+status = "canonical-invariant"
+stage = 2
+title = ""
+tests = []
+
+[[rule]]
+id = "INV-7"
+family = "INV"
+status = "canonical-invariant"
+stage = 1
+title = ""
+tests = []
+
+[[rule]]
+id = "INV-8"
+family = "INV"
+status = "canonical-invariant"
+stage = 1
+title = ""
+tests = []
+
+[[rule]]
+id = "INV-9"
+family = "INV"
+status = "canonical-invariant"
+stage = 1
+title = ""
+tests = []
+
+[[rule]]
+id = "INV-10"
+family = "INV"
+status = "canonical-invariant"
+stage = 4
+title = ""
+tests = []
+
+[[rule]]
+id = "INV-11"
+family = "INV"
+status = "canonical-invariant"
+stage = 5
+title = ""
+tests = []
+
+[[rule]]
+id = "INV-12"
+family = "INV"
+status = "canonical-invariant"
+stage = 7
+title = ""
+tests = []
+
+[[rule]]
+id = "INV-13"
+family = "INV"
+status = "canonical-invariant"
+stage = 7
+title = ""
+tests = []
+
+[[rule]]
+id = "INV-14"
+family = "INV"
+status = "canonical-invariant"
+stage = 3
+title = ""
+tests = []
+
+[[rule]]
+id = "INV-15"
+family = "INV"
+status = "canonical-invariant"
+stage = 6
+title = ""
+tests = []
+
+[[rule]]
+id = "INV-16"
+family = "INV"
+status = "canonical-invariant"
+stage = 8
+title = ""
+tests = []
+
+[[rule]]
+id = "INV-17"
+family = "INV"
+status = "canonical-invariant"
+stage = 6
+title = ""
+tests = []
+
+[[rule]]
+id = "INV-18"
+family = "INV"
+status = "canonical-invariant"
+stage = 1
+title = ""
+tests = []
+
+[[rule]]
+id = "INV-19"
+family = "INV"
+status = "canonical-invariant"
+stage = 6
+title = ""
+tests = []
+
+[[rule]]
+id = "INV-20"
+family = "INV"
+status = "canonical-invariant"
+stage = 1
+title = ""
+tests = []
+
+[[rule]]
+id = "INV-21"
+family = "INV"
+status = "canonical-invariant"
+stage = 6
+title = ""
+tests = []
+
+[[rule]]
+id = "INV-22"
+family = "INV"
+status = "canonical-invariant"
+stage = 6
+title = ""
+tests = []
+
+[[rule]]
+id = "INV-23"
+family = "INV"
+status = "canonical-invariant"
+stage = 1
+title = ""
+tests = []
+
+[[rule]]
+id = "INV-24"
+family = "INV"
+status = "canonical-invariant"
+stage = 8
+title = ""
+tests = []
+
+[[rule]]
+id = "INV-25"
+family = "INV"
+status = "canonical-invariant"
+stage = 12
+title = ""
+tests = []
+
+[[rule]]
+id = "INV-26"
+family = "INV"
+status = "canonical-invariant"
+stage = 8
+title = ""
+tests = []
+
+[[rule]]
+id = "INV-27"
+family = "INV"
+status = "canonical-invariant"
+stage = 7
+title = ""
+tests = []
+
+[[rule]]
+id = "INV-28"
+family = "INV"
+status = "canonical-invariant"
+stage = 4
+title = ""
+tests = []
+
+[[rule]]
+id = "INV-29"
+family = "INV"
+status = "canonical-invariant"
+stage = 3
+title = ""
+tests = []
+
+[[rule]]
+id = "INV-30"
+family = "INV"
+status = "canonical-invariant"
+stage = 3
+title = ""
+tests = []
+
+[[rule]]
+id = "INV-31"
+family = "INV"
+status = "canonical-invariant"
+stage = 9
+title = ""
+tests = []
+
+[[rule]]
+id = "INV-32"
+family = "INV"
+status = "canonical-invariant"
+stage = 6
+title = ""
+tests = []
+
+[[rule]]
+id = "INV-33"
+family = "INV"
+status = "canonical-invariant"
+stage = 2
+title = ""
+tests = []
+
+[[rule]]
+id = "INV-34"
+family = "INV"
+status = "canonical-invariant"
+stage = 0
+title = "Wording never exceeds the guarantee"
+tests = [
+  "xtask/src/catalog_claims.rs::f_24_inv_34_sec_33_sec_34_every_forbidden_phrase_is_caught",
+]
+
+[[rule]]
+id = "INV-35"
+family = "INV"
+status = "canonical-invariant"
+stage = 13
+title = ""
+tests = []
+
+[[rule]]
+id = "E-1"
+family = "E"
+status = "canonical-invariant"
+title = ""
+tests = []
+
+[[rule]]
+id = "E-5"
+family = "E"
+status = "canonical-invariant"
+stage = 3
+title = ""
+tests = []
+
+[[rule]]
+id = "E-6"
+family = "E"
+status = "canonical-invariant"
+stage = 3
+title = ""
+tests = []
+
+[[rule]]
+id = "E-8"
+family = "E"
+status = "canonical-invariant"
+stage = 3
+title = ""
+tests = []
+
+[[rule]]
+id = "E-12"
+family = "E"
+status = "canonical-invariant"
+stage = 5
+title = ""
+tests = []
+
+[[rule]]
+id = "E-15"
+family = "E"
+status = "canonical-invariant"
+stage = 3
+title = ""
+tests = []
+
+[[rule]]
+id = "E-17"
+family = "E"
+status = "canonical-invariant"
+stage = 3
+title = ""
+tests = []
+
+[[rule]]
+id = "E-18"
+family = "E"
+status = "canonical-invariant"
+stage = 3
+title = ""
+tests = []
+
+[[rule]]
+id = "E-22"
+family = "E"
+status = "canonical-invariant"
+stage = 7
+title = ""
+tests = []
+
+[[rule]]
+id = "E-25"
+family = "E"
+status = "canonical-invariant"
+stage = 7
+title = ""
+tests = []
+
+[[rule]]
+id = "E-28"
+family = "E"
+status = "canonical-invariant"
+stage = 6
+title = ""
+tests = []
+
+[[rule]]
+id = "E-29"
+family = "E"
+status = "canonical-invariant"
+stage = 6
+title = ""
+tests = []
+
+[[rule]]
+id = "E-30"
+family = "E"
+status = "canonical-invariant"
+stage = 6
+title = ""
+tests = []
+
+[[rule]]
+id = "E-31"
+family = "E"
+status = "canonical-invariant"
+stage = 8
+title = ""
+tests = []
+
+[[rule]]
+id = "E-32"
+family = "E"
+status = "canonical-invariant"
+stage = 8
+title = ""
+tests = []
+
+[[rule]]
+id = "E-33"
+family = "E"
+status = "canonical-invariant"
+stage = 8
+title = ""
+tests = []
+
+[[rule]]
+id = "E-35"
+family = "E"
+status = "canonical-invariant"
+stage = 5
+title = ""
+tests = []
+
+[[rule]]
+id = "E-39"
+family = "E"
+status = "canonical-invariant"
+stage = 3
+title = ""
+tests = []
+
+[[rule]]
+id = "E-41"
+family = "E"
+status = "canonical-invariant"
+stage = 8
+title = ""
+tests = []
+
+[[rule]]
+id = "E-42"
+family = "E"
+status = "canonical-invariant"
+stage = 8
+title = ""
+tests = []
+
+[[rule]]
+id = "X-1"
+family = "X"
+status = "canonical-invariant"
+stage = 10
+title = ""
+tests = []
+
+[[rule]]
+id = "X-7"
+family = "X"
+status = "canonical-invariant"
+stage = 7
+title = ""
+tests = []
+
+[[rule]]
+id = "X-14"
+family = "X"
+status = "canonical-invariant"
+stage = 8
+title = ""
+tests = []
+
+[[rule]]
+id = "X-15"
+family = "X"
+status = "canonical-invariant"
+stage = 10
+title = ""
+tests = []
+
+[[rule]]
+id = "X-16"
+family = "X"
+status = "canonical-invariant"
+stage = 10
+title = ""
+tests = []
+
+[[rule]]
+id = "X-18"
+family = "X"
+status = "canonical-invariant"
+stage = 8
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-1"
+family = "CM"
+status = "canonical-invariant"
+stage = 5
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-2"
+family = "CM"
+status = "canonical-invariant"
+stage = 5
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-3"
+family = "CM"
+status = "canonical-invariant"
+stage = 5
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-4"
+family = "CM"
+status = "canonical-invariant"
+stage = 5
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-28"
+family = "CM"
+status = "canonical-invariant"
+stage = 5
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-29"
+family = "CM"
+status = "canonical-invariant"
+stage = 5
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-34"
+family = "CM"
+status = "canonical-invariant"
+stage = 5
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-37"
+family = "CM"
+status = "canonical-invariant"
+stage = 5
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-41"
+family = "CM"
+status = "canonical-invariant"
+stage = 5
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-42"
+family = "CM"
+status = "canonical-invariant"
+stage = 5
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-44"
+family = "CM"
+status = "canonical-invariant"
+stage = 5
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-52"
+family = "CM"
+status = "canonical-invariant"
+stage = 5
+title = ""
+tests = []
+
+[[rule]]
+id = "RC-1"
+family = "RC"
+status = "canonical-invariant"
+stage = 6
+title = ""
+tests = []
+
+[[rule]]
+id = "RC-2"
+family = "RC"
+status = "canonical-invariant"
+stage = 6
+title = ""
+tests = []
+
+[[rule]]
+id = "RC-3"
+family = "RC"
+status = "canonical-invariant"
+stage = 6
+title = ""
+tests = []
+
+[[rule]]
+id = "RC-6"
+family = "RC"
+status = "canonical-invariant"
+stage = 6
+title = ""
+tests = []
+
+[[rule]]
+id = "RC-7"
+family = "RC"
+status = "canonical-invariant"
+stage = 6
+title = ""
+tests = []
+
+[[rule]]
+id = "RC-9"
+family = "RC"
+status = "canonical-invariant"
+stage = 6
+title = ""
+tests = []
+
+[[rule]]
+id = "RC-12"
+family = "RC"
+status = "canonical-invariant"
+stage = 6
+title = ""
+tests = []
+
+[[rule]]
+id = "RC-15"
+family = "RC"
+status = "canonical-invariant"
+stage = 6
+title = ""
+tests = []
+
+[[rule]]
+id = "RC-20"
+family = "RC"
+status = "canonical-invariant"
+stage = 6
+title = ""
+tests = []
+
+[[rule]]
+id = "RC-26"
+family = "RC"
+status = "canonical-invariant"
+stage = 6
+title = ""
+tests = []
+
+[[rule]]
+id = "RC-27"
+family = "RC"
+status = "canonical-invariant"
+stage = 6
+title = ""
+tests = []
+
+[[rule]]
+id = "RC-30"
+family = "RC"
+status = "canonical-invariant"
+stage = 6
+title = ""
+tests = []
+
+[[rule]]
+id = "RC-37"
+family = "RC"
+status = "canonical-invariant"
+stage = 6
+title = ""
+tests = []
+
+[[rule]]
+id = "RC-39"
+family = "RC"
+status = "canonical-invariant"
+stage = 6
+title = ""
+tests = []
+
+[[rule]]
+id = "RC-45"
+family = "RC"
+status = "canonical-invariant"
+stage = 6
+title = ""
+tests = []
+
+[[rule]]
+id = "ST-1"
+family = "ST"
+status = "canonical-invariant"
+stage = 7
+title = ""
+tests = []
+
+[[rule]]
+id = "ST-2"
+family = "ST"
+status = "canonical-invariant"
+stage = 7
+title = ""
+tests = []
+
+[[rule]]
+id = "ST-4"
+family = "ST"
+status = "canonical-invariant"
+stage = 7
+title = ""
+tests = []
+
+[[rule]]
+id = "ST-10"
+family = "ST"
+status = "canonical-invariant"
+stage = 7
+title = ""
+tests = []
+
+[[rule]]
+id = "ST-12"
+family = "ST"
+status = "canonical-invariant"
+stage = 7
+title = ""
+tests = []
+
+[[rule]]
+id = "ST-13"
+family = "ST"
+status = "canonical-invariant"
+stage = 7
+title = ""
+tests = []
+
+[[rule]]
+id = "ST-16"
+family = "ST"
+status = "canonical-invariant"
+stage = 7
+title = ""
+tests = []
+
+[[rule]]
+id = "ST-21"
+family = "ST"
+status = "canonical-invariant"
+title = ""
+tests = []
+
+[[rule]]
+id = "ST-22"
+family = "ST"
+status = "canonical-invariant"
+stage = 7
+title = ""
+tests = []
+
+[[rule]]
+id = "ST-26"
+family = "ST"
+status = "canonical-invariant"
+stage = 7
+title = ""
+tests = []
+
+[[rule]]
+id = "ST-29"
+family = "ST"
+status = "canonical-invariant"
+stage = 7
+title = ""
+tests = []
+
+[[rule]]
+id = "ST-35"
+family = "ST"
+status = "canonical-invariant"
+stage = 7
+title = ""
+tests = []
+
+[[rule]]
+id = "ST-41"
+family = "ST"
+status = "canonical-invariant"
+stage = 3
+title = ""
+tests = []
+
+[[rule]]
+id = "ST-42"
+family = "ST"
+status = "canonical-invariant"
+stage = 7
+title = ""
+tests = []
+
+[[rule]]
+id = "ST-48"
+family = "ST"
+status = "canonical-invariant"
+stage = 7
+title = ""
+tests = []
+
+[[rule]]
+id = "EV-1"
+family = "EV"
+status = "canonical-invariant"
+stage = 8
+title = ""
+tests = []
+
+[[rule]]
+id = "EV-2"
+family = "EV"
+status = "canonical-invariant"
+stage = 8
+title = ""
+tests = []
+
+[[rule]]
+id = "EV-5"
+family = "EV"
+status = "canonical-invariant"
+stage = 8
+title = ""
+tests = []
+
+[[rule]]
+id = "EV-7"
+family = "EV"
+status = "canonical-invariant"
+stage = 8
+title = ""
+tests = []
+
+[[rule]]
+id = "EV-9"
+family = "EV"
+status = "canonical-invariant"
+stage = 8
+title = ""
+tests = []
+
+[[rule]]
+id = "EV-13"
+family = "EV"
+status = "canonical-invariant"
+stage = 8
+title = ""
+tests = []
+
+[[rule]]
+id = "EV-15"
+family = "EV"
+status = "canonical-invariant"
+stage = 8
+title = ""
+tests = []
+
+[[rule]]
+id = "EV-16"
+family = "EV"
+status = "canonical-invariant"
+stage = 8
+title = ""
+tests = []
+
+[[rule]]
+id = "EV-18"
+family = "EV"
+status = "canonical-invariant"
+stage = 8
+title = ""
+tests = []
+
+[[rule]]
+id = "EV-19"
+family = "EV"
+status = "canonical-invariant"
+stage = 8
+title = ""
+tests = []
+
+[[rule]]
+id = "EV-21"
+family = "EV"
+status = "canonical-invariant"
+stage = 8
+title = ""
+tests = []
+
+[[rule]]
+id = "EV-22"
+family = "EV"
+status = "canonical-invariant"
+stage = 8
+title = ""
+tests = []
+
+[[rule]]
+id = "EV-23"
+family = "EV"
+status = "canonical-invariant"
+stage = 8
+title = ""
+tests = []
+
+[[rule]]
+id = "EV-26"
+family = "EV"
+status = "canonical-invariant"
+stage = 8
+title = ""
+tests = []
+
+[[rule]]
+id = "EV-31"
+family = "EV"
+status = "canonical-invariant"
+stage = 8
+title = ""
+tests = []
+
+[[rule]]
+id = "EV-33"
+family = "EV"
+status = "canonical-invariant"
+stage = 2
+title = ""
+tests = []
+
+[[rule]]
+id = "EV-34"
+family = "EV"
+status = "canonical-invariant"
+stage = 8
+title = ""
+tests = []
+
+[[rule]]
+id = "FD-3"
+family = "FD"
+status = "canonical-invariant"
+title = ""
+tests = []
+
+[[rule]]
+id = "FD-4"
+family = "FD"
+status = "canonical-invariant"
+title = ""
+tests = []
+
+[[rule]]
+id = "FD-9"
+family = "FD"
+status = "canonical-invariant"
+stage = 12
+title = ""
+tests = []
+
+[[rule]]
+id = "FD-10"
+family = "FD"
+status = "canonical-invariant"
+stage = 12
+title = ""
+tests = []
+
+[[rule]]
+id = "FD-13"
+family = "FD"
+status = "canonical-invariant"
+stage = 12
+title = ""
+tests = []
+
+[[rule]]
+id = "FD-15"
+family = "FD"
+status = "canonical-invariant"
+stage = 12
+title = ""
+tests = []
+
+[[rule]]
+id = "FD-16"
+family = "FD"
+status = "canonical-invariant"
+stage = 12
+title = ""
+tests = []
+
+[[rule]]
+id = "FD-17"
+family = "FD"
+status = "canonical-invariant"
+stage = 12
+title = ""
+tests = []
+
+[[rule]]
+id = "FD-18"
+family = "FD"
+status = "canonical-invariant"
+stage = 12
+title = ""
+tests = []
+
+[[rule]]
+id = "FD-19"
+family = "FD"
+status = "canonical-invariant"
+stage = 12
+title = ""
+tests = []
+
+[[rule]]
+id = "FD-21"
+family = "FD"
+status = "canonical-invariant"
+stage = 12
+title = ""
+tests = []
+
+[[rule]]
+id = "FD-22"
+family = "FD"
+status = "canonical-invariant"
+stage = 12
+title = ""
+tests = []
+
+[[rule]]
+id = "FD-23"
+family = "FD"
+status = "canonical-invariant"
+stage = 12
+title = ""
+tests = []
+
+[[rule]]
+id = "FD-25"
+family = "FD"
+status = "canonical-invariant"
+stage = 12
+title = ""
+tests = []
+
+[[rule]]
+id = "FD-27"
+family = "FD"
+status = "canonical-invariant"
+stage = 12
+title = ""
+tests = []
+
+[[rule]]
+id = "SEC-1"
+family = "SEC"
+status = "canonical-invariant"
+stage = 8
+title = ""
+tests = []
+
+[[rule]]
+id = "SEC-2"
+family = "SEC"
+status = "canonical-invariant"
+stage = 8
+title = ""
+tests = []
+
+[[rule]]
+id = "SEC-3"
+family = "SEC"
+status = "canonical-invariant"
+stage = 3
+title = ""
+tests = []
+
+[[rule]]
+id = "SEC-4"
+family = "SEC"
+status = "canonical-invariant"
+stage = 3
+title = ""
+tests = []
+
+[[rule]]
+id = "SEC-5"
+family = "SEC"
+status = "canonical-invariant"
+stage = 1
+title = ""
+tests = []
+
+[[rule]]
+id = "SEC-6"
+family = "SEC"
+status = "canonical-invariant"
+stage = 6
+title = ""
+tests = []
+
+[[rule]]
+id = "SEC-7"
+family = "SEC"
+status = "canonical-invariant"
+stage = 6
+title = ""
+tests = []
+
+[[rule]]
+id = "SEC-8"
+family = "SEC"
+status = "canonical-invariant"
+stage = 3
+title = ""
+tests = []
+
+[[rule]]
+id = "SEC-9"
+family = "SEC"
+status = "canonical-invariant"
+stage = 8
+title = ""
+tests = []
+
+[[rule]]
+id = "SEC-10"
+family = "SEC"
+status = "canonical-invariant"
+stage = 5
+title = ""
+tests = []
+
+[[rule]]
+id = "SEC-11"
+family = "SEC"
+status = "canonical-invariant"
+stage = 7
+title = ""
+tests = []
+
+[[rule]]
+id = "SEC-12"
+family = "SEC"
+status = "canonical-invariant"
+stage = 7
+title = ""
+tests = []
+
+[[rule]]
+id = "SEC-13"
+family = "SEC"
+status = "canonical-invariant"
+stage = 2
+title = ""
+tests = []
+
+[[rule]]
+id = "SEC-14"
+family = "SEC"
+status = "canonical-invariant"
+stage = 8
+title = ""
+tests = []
+
+[[rule]]
+id = "SEC-15"
+family = "SEC"
+status = "canonical-invariant"
+stage = 6
+title = ""
+tests = []
+
+[[rule]]
+id = "SEC-16"
+family = "SEC"
+status = "canonical-invariant"
+stage = 12
+title = ""
+tests = []
+
+[[rule]]
+id = "SEC-17"
+family = "SEC"
+status = "canonical-invariant"
+stage = 7
+title = ""
+tests = []
+
+[[rule]]
+id = "SEC-18"
+family = "SEC"
+status = "canonical-invariant"
+stage = 1
+title = ""
+tests = []
+
+[[rule]]
+id = "SEC-19"
+family = "SEC"
+status = "canonical-invariant"
+stage = 3
+title = ""
+tests = []
+
+[[rule]]
+id = "SEC-20"
+family = "SEC"
+status = "canonical-invariant"
+stage = 6
+title = ""
+tests = []
+
+[[rule]]
+id = "SEC-22"
+family = "SEC"
+status = "canonical-invariant"
+stage = 8
+title = ""
+tests = []
+
+[[rule]]
+id = "SEC-23"
+family = "SEC"
+status = "canonical-invariant"
+stage = 8
+title = ""
+tests = []
+
+[[rule]]
+id = "SEC-24"
+family = "SEC"
+status = "canonical-invariant"
+stage = 2
+title = ""
+tests = []
+
+[[rule]]
+id = "SEC-25"
+family = "SEC"
+status = "canonical-invariant"
+stage = 7
+title = ""
+tests = []
+
+[[rule]]
+id = "SEC-26"
+family = "SEC"
+status = "canonical-invariant"
+stage = 6
+title = ""
+tests = []
+
+[[rule]]
+id = "SEC-27"
+family = "SEC"
+status = "canonical-invariant"
+stage = 7
+title = ""
+tests = []
+
+[[rule]]
+id = "SEC-28"
+family = "SEC"
+status = "canonical-invariant"
+stage = 7
+title = ""
+tests = []
+
+[[rule]]
+id = "SEC-30"
+family = "SEC"
+status = "canonical-invariant"
+stage = 7
+title = ""
+tests = []
+
+[[rule]]
+id = "SEC-31"
+family = "SEC"
+status = "canonical-invariant"
+stage = 1
+title = ""
+tests = []
+
+[[rule]]
+id = "SEC-33"
+family = "SEC"
+status = "canonical-invariant"
+stage = 0
+title = "Things Work does not claim are never stated in guarantee language"
+tests = [
+  "xtask/src/catalog_claims.rs::f_24_inv_34_sec_33_sec_34_every_forbidden_phrase_is_caught",
+  "xtask/src/catalog_claims.rs::t_48_claims_match_across_wrapped_lines_and_skip_negations",
+  "xtask/src/catalog_spec.rs::sec_33_section_tables_are_counted",
+]
+
+[[rule]]
+id = "P-9"
+family = "P"
+status = "canonical-invariant"
+stage = 1
+title = ""
+tests = []
+
+[[rule]]
+id = "P-12"
+family = "P"
+status = "canonical-invariant"
+stage = 3
+title = ""
+tests = []
+
+[[rule]]
+id = "P-13"
+family = "P"
+status = "canonical-invariant"
+stage = 1
+title = ""
+tests = []
+
+[[rule]]
+id = "P-14"
+family = "P"
+status = "canonical-invariant"
+stage = 1
+title = ""
+tests = []
+
+[[rule]]
+id = "P-17"
+family = "P"
+status = "canonical-invariant"
+stage = 2
+title = ""
+tests = []
+
+[[rule]]
+id = "P-20"
+family = "P"
+status = "canonical-invariant"
+stage = 2
+title = ""
+tests = []
+
+[[rule]]
+id = "P-22"
+family = "P"
+status = "canonical-invariant"
+stage = 1
+title = ""
+tests = []
+
+[[rule]]
+id = "P-23"
+family = "P"
+status = "canonical-invariant"
+stage = 2
+title = ""
+tests = []
+
+[[rule]]
+id = "P-24"
+family = "P"
+status = "canonical-invariant"
+stage = 1
+title = ""
+tests = []
+
+[[rule]]
+id = "P-26"
+family = "P"
+status = "canonical-invariant"
+stage = 2
+title = ""
+tests = []
+
+[[rule]]
+id = "P-27"
+family = "P"
+status = "canonical-invariant"
+stage = 2
+title = ""
+tests = []
+
+[[rule]]
+id = "P-28"
+family = "P"
+status = "canonical-invariant"
+stage = 1
+title = ""
+tests = []
+
+[[rule]]
+id = "P-31"
+family = "P"
+status = "canonical-invariant"
+stage = 1
+title = ""
+tests = []
+
+[[rule]]
+id = "P-34"
+family = "P"
+status = "canonical-invariant"
+stage = 2
+title = ""
+tests = []
+
+[[rule]]
+id = "P-43"
+family = "P"
+status = "canonical-invariant"
+stage = 2
+title = ""
+tests = []
+
+[[rule]]
+id = "P-44"
+family = "P"
+status = "canonical-invariant"
+stage = 11
+title = ""
+tests = []
+
+[[rule]]
+id = "P-52"
+family = "P"
+status = "canonical-invariant"
+stage = 11
+title = ""
+tests = []
+
+[[rule]]
+id = "P-56"
+family = "P"
+status = "canonical-invariant"
+stage = 3
+title = ""
+tests = []
+
+[[rule]]
+id = "PR-1"
+family = "PR"
+status = "canonical-invariant"
+stage = 9
+title = ""
+tests = []
+
+[[rule]]
+id = "PR-3"
+family = "PR"
+status = "canonical-invariant"
+stage = 9
+title = ""
+tests = []
+
+[[rule]]
+id = "PR-6"
+family = "PR"
+status = "canonical-invariant"
+stage = 8
+title = ""
+tests = []
+
+[[rule]]
+id = "PR-8"
+family = "PR"
+status = "canonical-invariant"
+stage = 6
+title = ""
+tests = []
+
+[[rule]]
+id = "PR-9"
+family = "PR"
+status = "canonical-invariant"
+stage = 4
+title = ""
+tests = []
+
+[[rule]]
+id = "PR-11"
+family = "PR"
+status = "canonical-invariant"
+stage = 8
+title = ""
+tests = []
+
+[[rule]]
+id = "PR-14"
+family = "PR"
+status = "canonical-invariant"
+stage = 9
+title = ""
+tests = []
+
+[[rule]]
+id = "PR-16"
+family = "PR"
+status = "canonical-invariant"
+stage = 9
+title = ""
+tests = []
+
+[[rule]]
+id = "T-4"
+family = "T"
+status = "canonical-invariant"
+stage = 1
+title = "The kernel is no_std, forbids unsafe, has no I/O and never panics"
+tests = [
+  "crates/kernel/src/lib.rs::t_4_api_versions_order_by_major_then_minor",
+  "xtask/src/rules_deps.rs::t_31_kernel_depends_only_on_suiss_crypto",
+  "xtask/src/rules_kernel.rs::t_31_kernel_binds_suiss_crypto_without_default_features",
+  "xtask/src/rules_kernel.rs::t_31_std_pulling_crate_in_kernel_tree_is_rejected",
+  "xtask/src/rules_source.rs::t_32_kernel_and_domain_layers_are_pure_paths",
+  "xtask/src/rules_source.rs::t_4_clock_in_kernel_is_rejected",
+  "xtask/src/rules_source.rs::t_4_kernel_root_without_no_std_is_rejected",
+  "xtask/src/rules_source.rs::t_4_std_and_ffi_in_kernel_are_rejected_but_alloc_is_not",
+]
+
+[[rule]]
+id = "T-5"
+family = "T"
+status = "canonical-invariant"
+stage = 1
+title = ""
+tests = []
+
+[[rule]]
+id = "T-6"
+family = "T"
+status = "canonical-invariant"
+stage = 1
+title = ""
+tests = []
+
+[[rule]]
+id = "T-8"
+family = "T"
+status = "canonical-invariant"
+stage = 0
+title = "Code is shared but data and keys are not; Access only through its public API"
+tests = [
+  "xtask/src/rules_deps.rs::t_31_component_crates_must_not_depend_on_each_other",
+  "xtask/src/rules_deps.rs::t_8_access_internal_crates_and_relay_code_are_forbidden",
+]
+
+[[rule]]
+id = "T-11"
+family = "T"
+status = "canonical-invariant"
+stage = 2
+title = ""
+tests = []
+
+[[rule]]
+id = "T-13"
+family = "T"
+status = "canonical-invariant"
+stage = 2
+title = ""
+tests = []
+
+[[rule]]
+id = "T-18"
+family = "T"
+status = "canonical-invariant"
+stage = 2
+title = ""
+tests = []
+
+[[rule]]
+id = "T-21"
+family = "T"
+status = "canonical-invariant"
+stage = 2
+title = ""
+tests = []
+
+[[rule]]
+id = "T-25"
+family = "T"
+status = "canonical-invariant"
+stage = 10
+title = ""
+tests = []
+
+[[rule]]
+id = "T-28"
+family = "T"
+status = "canonical-invariant"
+stage = 3
+title = ""
+tests = []
+
+[[rule]]
+id = "OP-1"
+family = "OP"
+status = "canonical-invariant"
+stage = 2
+title = ""
+tests = []
+
+[[rule]]
+id = "OP-3"
+family = "OP"
+status = "canonical-invariant"
+stage = 2
+title = ""
+tests = []
+
+[[rule]]
+id = "OP-5"
+family = "OP"
+status = "canonical-invariant"
+stage = 2
+pd = "unset"
+title = ""
+tests = []
+
+[[rule]]
+id = "OP-6"
+family = "OP"
+status = "canonical-invariant"
+stage = 2
+title = ""
+tests = []
+
+[[rule]]
+id = "OP-7"
+family = "OP"
+status = "canonical-invariant"
+stage = 2
+title = ""
+tests = []
+
+[[rule]]
+id = "OP-9"
+family = "OP"
+status = "canonical-invariant"
+stage = 2
+title = ""
+tests = []
+
+[[rule]]
+id = "OP-11"
+family = "OP"
+status = "canonical-invariant"
+stage = 8
+title = ""
+tests = []
+
+[[rule]]
+id = "OP-12"
+family = "OP"
+status = "canonical-invariant"
+stage = 0
+title = "Records are never physically deleted; personal data is crypto-shredded"
+tests = [
+  "xtask/src/rules_source.rs::t_36_allowlisted_job_queue_table_needs_a_reason",
+  "xtask/src/rules_source.rs::t_36_physical_delete_statements_are_rejected",
+  "xtask/src/rules_source.rs::t_36_sql_comments_do_not_count",
+]
+
+[[rule]]
+id = "OP-13"
+family = "OP"
+status = "canonical-invariant"
+stage = 2
+title = ""
+tests = []
+
+[[rule]]
+id = "OP-15"
+family = "OP"
+status = "canonical-invariant"
+stage = 1
+title = ""
+tests = []
+
+[[rule]]
+id = "OP-16"
+family = "OP"
+status = "canonical-invariant"
+stage = 12
+title = ""
+tests = []
+
+[[rule]]
+id = "OP-17"
+family = "OP"
+status = "canonical-invariant"
+stage = 2
+title = ""
+tests = []
+
+[[rule]]
+id = "OP-19"
+family = "OP"
+status = "canonical-invariant"
+stage = 2
+title = ""
+tests = []
+
+[[rule]]
+id = "OP-24"
+family = "OP"
+status = "canonical-invariant"
+stage = 14
+title = ""
+tests = []

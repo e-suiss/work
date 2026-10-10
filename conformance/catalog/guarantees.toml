@@ -1,0 +1,352 @@
+# T-46
+# SEC-31 SEC-32 SEC-33
+
+[[guarantee]]
+rule = "SEC-31"
+number = 1
+class = "BS"
+title = "Normative state changes only through a Declaration"
+tests = []
+
+[[guarantee]]
+rule = "SEC-31"
+number = 2
+class = "BS"
+title = "Claims and Acts alone have no normative effect"
+tests = []
+
+[[guarantee]]
+rule = "SEC-31"
+number = 3
+class = "BS"
+title = "Work never creates or widens authority; autonomy stays within authority"
+tests = []
+
+[[guarantee]]
+rule = "SEC-31"
+number = 4
+class = "BS"
+title = "Every agent action traces to a recorded normative basis"
+tests = []
+
+[[guarantee]]
+rule = "SEC-31"
+number = 5
+class = "BS"
+title = "The accountability chain ends in a Party under a declared regime"
+tests = []
+
+[[guarantee]]
+rule = "SEC-31"
+number = 6
+class = "BS"
+title = "Signed record bytes and provenance never change; corrections use supersedes"
+tests = []
+
+[[guarantee]]
+rule = "SEC-31"
+number = 7
+class = "BS"
+title = "The same semantic inputs give the same normative result"
+tests = []
+
+[[guarantee]]
+rule = "SEC-31"
+number = 8
+class = "BS"
+title = "Normative time is ledger time, not a client clock"
+tests = []
+
+[[guarantee]]
+rule = "SEC-31"
+number = 9
+class = "BS"
+title = "No approval exists without an underlying commitment or gate"
+tests = []
+
+[[guarantee]]
+rule = "SEC-31"
+number = 10
+class = "BS"
+title = "Experience and metrics never create canonical state"
+tests = []
+
+[[guarantee]]
+rule = "SEC-31"
+number = 11
+class = "BS"
+title = "Record verification needs no online Suiss service"
+tests = []
+
+[[guarantee]]
+rule = "SEC-31"
+number = 12
+class = "BS"
+title = "A foreign record has no local normative effect before local admission"
+tests = []
+
+[[guarantee]]
+rule = "SEC-31"
+number = 13
+class = "BS"
+title = "An authenticated federation record is never silently dropped"
+tests = []
+
+[[guarantee]]
+rule = "SEC-31"
+number = 14
+class = "BS"
+title = "A statement without evidence is marked so on every surface"
+tests = []
+
+[[guarantee]]
+rule = "SEC-31"
+number = 15
+class = "BS"
+title = "An unanswered decision is never a yes; implicit acceptance needs a prior Declaration"
+tests = []
+
+[[guarantee]]
+rule = "SEC-31"
+number = 16
+class = "BS"
+title = "Delivery, acknowledgement and channel replies are never approval or authority"
+tests = []
+
+[[guarantee]]
+rule = "SEC-31"
+number = 17
+class = "BS"
+title = "Work is not the sole recovery authority for a Party identity"
+tests = []
+
+[[guarantee]]
+rule = "SEC-32"
+number = 1
+class = "UDC"
+title = "A recorded entry survives a region loss with multi-region placement"
+tests = []
+
+[[guarantee]]
+rule = "SEC-32"
+number = 2
+class = "UDC"
+title = "Execution stops after revocation when the executor supports and confirms it"
+tests = []
+
+[[guarantee]]
+rule = "SEC-32"
+number = 3
+class = "UDC"
+title = "A safe state is reached when policy defines a reachable one"
+tests = []
+
+[[guarantee]]
+rule = "SEC-32"
+number = 4
+class = "UDC"
+title = "Existence at a time holds with an external witness or timestamp"
+tests = []
+
+[[guarantee]]
+rule = "SEC-32"
+number = 5
+class = "UDC"
+title = "Ledger equivocation is detected when witnesses or checkpoints are compared"
+tests = []
+
+[[guarantee]]
+rule = "SEC-32"
+number = 6
+class = "UDC"
+title = "An agent's real-world identity holds with a trusted identity binding in Access"
+tests = []
+
+[[guarantee]]
+rule = "SEC-32"
+number = 7
+class = "UDC"
+title = "Runtime and model configuration hold under compatible remote attestation"
+tests = []
+
+[[guarantee]]
+rule = "SEC-32"
+number = 8
+class = "UDC"
+title = "Personal data bodies become unreadable by crypto-shredding without other key copies"
+tests = []
+
+[[guarantee]]
+rule = "SEC-32"
+number = 9
+class = "UDC"
+title = "Approval surface integrity holds on a conforming trusted surface"
+tests = []
+
+[[guarantee]]
+rule = "SEC-32"
+number = 10
+class = "UDC"
+title = "Operators cannot read only client-side encrypted parts"
+tests = []
+
+[[guarantee]]
+rule = "SEC-32"
+number = 11
+class = "UDC"
+title = "Reads never use authority older than the freshness bound Access declares"
+tests = []
+
+[[guarantee]]
+rule = "SEC-32"
+number = 12
+class = "UDC"
+title = "A consequential external effect happens once when the system supports idempotency"
+tests = []
+
+[[guarantee]]
+rule = "SEC-33"
+number = 1
+class = "PU"
+title = "Making a recipient forget disclosed data"
+tests = []
+
+[[guarantee]]
+rule = "SEC-33"
+number = 2
+class = "PU"
+title = "Knowing an offline or compromised executor stopped without confirmation"
+tests = []
+
+[[guarantee]]
+rule = "SEC-33"
+number = 3
+class = "PU"
+title = "Proving a signed Claim is true"
+tests = []
+
+[[guarantee]]
+rule = "SEC-33"
+number = 4
+class = "PU"
+title = "Fully preventing a model from inferring from private data it saw"
+tests = []
+
+[[guarantee]]
+rule = "SEC-33"
+number = 5
+class = "PU"
+title = "Turning human approval into proof of good judgement"
+tests = []
+
+[[guarantee]]
+rule = "SEC-33"
+number = 6
+class = "NG"
+title = "Guaranteeing a model is immune to prompt injection"
+tests = []
+
+[[guarantee]]
+rule = "SEC-33"
+number = 7
+class = "NG"
+title = "Telling a compromised but authorised agent from legitimate behaviour before detection"
+tests = []
+
+[[guarantee]]
+rule = "SEC-33"
+number = 8
+class = "NG"
+title = "Detecting undeclared operator configuration changes without remote attestation"
+tests = []
+
+[[guarantee]]
+rule = "SEC-33"
+number = 9
+class = "NG"
+title = "Proving that seemingly independent Parties are not colluding"
+tests = []
+
+[[guarantee]]
+rule = "SEC-33"
+number = 10
+class = "NG"
+title = "Stopping colluding humans from getting around split authority"
+tests = []
+
+[[guarantee]]
+rule = "SEC-33"
+number = 11
+class = "PU"
+title = "Guaranteeing exactly-once external effects without idempotency support"
+tests = []
+
+[[guarantee]]
+rule = "SEC-33"
+number = 12
+class = "NG"
+title = "Guaranteeing no ledger equivocation when nobody compares witnesses"
+tests = []
+
+[[guarantee]]
+rule = "SEC-33"
+number = 13
+class = "NG"
+title = "Claiming the hosted service cannot read body content"
+tests = []
+
+[[guarantee]]
+rule = "SEC-33"
+number = 14
+class = "NG"
+title = "Detecting censorship before recording on its own"
+tests = []
+
+[[guarantee]]
+rule = "SEC-33"
+number = 15
+class = "NG"
+title = "Fully preventing cross-work leakage through external model providers"
+tests = []
+
+[[guarantee]]
+rule = "SEC-33"
+number = 16
+class = "NG"
+title = "Equating accountability in Work with legal responsibility"
+tests = []
+
+[[guarantee]]
+rule = "SEC-33"
+number = 17
+class = "NG"
+title = "Forcing an ambient-session action to look distinct from the user externally"
+tests = []
+
+[[guarantee]]
+rule = "SEC-33"
+number = 18
+class = "PU"
+title = "Deleting previously distributed copies by redaction or crypto-shredding"
+tests = []
+
+[[guarantee]]
+rule = "SEC-33"
+number = 19
+class = "PU"
+title = "Promising every action has a meaningful safe state"
+tests = []
+
+[[guarantee]]
+rule = "SEC-33"
+number = 20
+class = "NG"
+title = "Guaranteeing a federation peer honours a redaction request"
+tests = []
+
+[[guarantee]]
+rule = "SEC-33"
+number = 21
+class = "NG"
+title = "Guaranteeing trust-zone labels alone make agent behaviour safe"
+tests = []

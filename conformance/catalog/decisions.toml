@@ -1,0 +1,4047 @@
+# T-46
+
+[[rule]]
+id = "MD-1"
+family = "MD"
+status = "central-decision"
+title = ""
+tests = []
+
+[[rule]]
+id = "MD-2"
+family = "MD"
+status = "central-decision"
+stage = 7
+title = ""
+tests = []
+
+[[rule]]
+id = "MD-3"
+family = "MD"
+status = "central-decision"
+stage = 3
+title = ""
+tests = []
+
+[[rule]]
+id = "MD-4"
+family = "MD"
+status = "central-decision"
+stage = 3
+title = ""
+tests = []
+
+[[rule]]
+id = "MD-5"
+family = "MD"
+status = "central-decision"
+stage = 5
+title = ""
+tests = []
+
+[[rule]]
+id = "MD-6"
+family = "MD"
+status = "central-decision"
+title = ""
+tests = []
+
+[[rule]]
+id = "MD-7"
+family = "MD"
+status = "central-decision"
+title = ""
+tests = []
+
+[[rule]]
+id = "MD-8"
+family = "MD"
+status = "central-decision"
+stage = 6
+title = ""
+tests = []
+
+[[rule]]
+id = "MD-9"
+family = "MD"
+status = "central-decision"
+stage = 7
+title = ""
+tests = []
+
+[[rule]]
+id = "MD-10"
+family = "MD"
+status = "central-decision"
+stage = 6
+title = ""
+tests = []
+
+[[rule]]
+id = "MD-11"
+family = "MD"
+status = "central-decision"
+stage = 12
+title = ""
+tests = []
+
+[[rule]]
+id = "MD-12"
+family = "MD"
+status = "central-decision"
+stage = 1
+title = ""
+tests = []
+
+[[rule]]
+id = "MD-13"
+family = "MD"
+status = "central-decision"
+title = ""
+tests = []
+
+[[rule]]
+id = "MD-14"
+family = "MD"
+status = "central-decision"
+stage = 0
+title = "Required infrastructure is PostgreSQL and NATS JetStream, used only as a signal"
+tests = [
+  "xtask/src/policy_compat.rs::t_56_kms_emulator_bundle_and_missing_services_are_rejected",
+  "xtask/src/rules_deps.rs::t_22_accelerator_clients_in_the_default_tree_are_rejected",
+  "xtask/src/rules_switches.rs::t_32_dev_mode_and_security_skipping_switches_are_rejected",
+]
+
+[[rule]]
+id = "MD-15"
+family = "MD"
+status = "central-decision"
+stage = 0
+title = "Fully open source under Apache-2.0 with no open core"
+tests = [
+  "xtask/src/policy.rs::md_15_f_9_p_2_paid_or_cloud_only_names_are_rejected",
+  "xtask/src/policy.rs::t_3_non_apache_package_or_licence_file_is_rejected",
+]
+
+[[rule]]
+id = "MD-16"
+family = "MD"
+status = "central-decision"
+stage = 2
+title = ""
+tests = []
+
+[[rule]]
+id = "MD-17"
+family = "MD"
+status = "central-decision"
+stage = 8
+title = ""
+tests = []
+
+[[rule]]
+id = "MD-18"
+family = "MD"
+status = "central-decision"
+stage = 4
+title = ""
+tests = []
+
+[[rule]]
+id = "MD-19"
+family = "MD"
+status = "central-decision"
+title = ""
+tests = []
+
+[[rule]]
+id = "MD-20"
+family = "MD"
+status = "central-decision"
+stage = 5
+title = ""
+tests = []
+
+[[rule]]
+id = "F-1"
+family = "F"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "F-2"
+family = "F"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "F-3"
+family = "F"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "F-4"
+family = "F"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "F-5"
+family = "F"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "F-6"
+family = "F"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "F-7"
+family = "F"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "F-8"
+family = "F"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "F-9"
+family = "F"
+status = "frozen-product"
+stage = 0
+title = "The must-never list is binding"
+tests = [
+  "xtask/src/policy.rs::md_15_f_9_p_2_paid_or_cloud_only_names_are_rejected",
+]
+
+[[rule]]
+id = "F-10"
+family = "F"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "F-11"
+family = "F"
+status = "out-of-scope"
+title = ""
+tests = []
+
+[[rule]]
+id = "F-12"
+family = "F"
+status = "out-of-scope"
+title = ""
+tests = []
+
+[[rule]]
+id = "F-13"
+family = "F"
+status = "out-of-scope"
+title = ""
+tests = []
+
+[[rule]]
+id = "F-14"
+family = "F"
+status = "out-of-scope"
+stage = 4
+title = ""
+tests = []
+
+[[rule]]
+id = "F-15"
+family = "F"
+status = "out-of-scope"
+title = ""
+tests = []
+
+[[rule]]
+id = "F-16"
+family = "F"
+status = "out-of-scope"
+title = ""
+tests = []
+
+[[rule]]
+id = "F-17"
+family = "F"
+status = "out-of-scope"
+title = ""
+tests = []
+
+[[rule]]
+id = "F-18"
+family = "F"
+status = "out-of-scope"
+title = ""
+tests = []
+
+[[rule]]
+id = "F-19"
+family = "F"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "F-20"
+family = "F"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "F-21"
+family = "F"
+status = "frozen-product"
+stage = 0
+title = "Frozen technical, protocol and MKT rows carry acceptance tests and counterexamples"
+tests = [
+  "xtask/src/catalog.rs::f_21_to_fill_acceptance_rows_are_reported_not_failed",
+  "xtask/src/catalog.rs::t_46_frozen_technical_rows_need_an_acceptance_state",
+  "xtask/src/catalog_spec.rs::f_21_acceptance_cells_mark_rows_filled_or_to_fill",
+]
+
+[[rule]]
+id = "F-22"
+family = "F"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "F-23"
+family = "F"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "F-24"
+family = "F"
+status = "frozen-product"
+stage = 0
+title = "Guarantee classes and claim language bind product and documentation text"
+tests = [
+  "xtask/src/catalog_claims.rs::f_24_inv_34_sec_33_sec_34_every_forbidden_phrase_is_caught",
+  "xtask/src/catalog_claims.rs::t_48_reasoned_exceptions_pass",
+]
+
+[[rule]]
+id = "F-25"
+family = "F"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "F-26"
+family = "F"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "F-27"
+family = "F"
+status = "frozen-product"
+stage = 0
+title = "Unset policy defaults are marked and block dependent features from release"
+tests = [
+  "xtask/src/catalog.rs::f_27_op_26_unset_values_block_only_the_release",
+  "xtask/src/catalog_spec.rs::f_27_op_26_values_to_be_measured_are_unset",
+]
+
+[[rule]]
+id = "F-28"
+family = "F"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "F-29"
+family = "F"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-1"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-2"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-3"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-4"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-5"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-6"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-7"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-8"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-9"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-10"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-11"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-12"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-13"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-14"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-15"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-16"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-17"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-18"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-19"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-20"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-21"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-22"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-23"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-24"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-25"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-26"
+family = "L"
+status = "frozen-product"
+pd = "set"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-27"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-28"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-29"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-30"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-31"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-32"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-33"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-34"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-35"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-36"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-37"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-38"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-39"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-40"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-41"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-42"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-43"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-44"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-45"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-46"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-47"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-48"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-49"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-50"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-51"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-52"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-53"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-54"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-55"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-56"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-57"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-58"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-59"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-60"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-61"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-62"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-63"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-64"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-65"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-66"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-67"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-68"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-69"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-70"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-71"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-72"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-73"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-74"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-75"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-76"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-77"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-78"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-79"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-80"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-81"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-82"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-83"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-84"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-85"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-86"
+family = "L"
+status = "frozen-product"
+stage = 4
+title = ""
+tests = []
+
+[[rule]]
+id = "L-87"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-88"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "L-89"
+family = "L"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "MKT-1"
+family = "MKT"
+status = "frozen-product"
+acceptance = "to-fill"
+title = "Differentiation claims carry a comparison set, a date and a counterexample"
+tests = [
+  "xtask/src/catalog_claims.rs::mkt_1_comparison_claims_only_in_the_comparison_text",
+  "xtask/src/catalog_claims.rs::t_42_mkt_1_docs_links_and_incomplete_comparison_are_rejected",
+]
+
+[[rule]]
+id = "MKT-2"
+family = "MKT"
+status = "watch"
+title = ""
+tests = []
+
+[[rule]]
+id = "MKT-3"
+family = "MKT"
+status = "watch"
+title = ""
+tests = []
+
+[[rule]]
+id = "MKT-4"
+family = "MKT"
+status = "watch"
+title = ""
+tests = []
+
+[[rule]]
+id = "MKT-5"
+family = "MKT"
+status = "watch"
+title = ""
+tests = []
+
+[[rule]]
+id = "MKT-6"
+family = "MKT"
+status = "watch"
+title = ""
+tests = []
+
+[[rule]]
+id = "MKT-7"
+family = "MKT"
+status = "watch"
+title = ""
+tests = []
+
+[[rule]]
+id = "MKT-8"
+family = "MKT"
+status = "watch"
+title = ""
+tests = []
+
+[[rule]]
+id = "MKT-9"
+family = "MKT"
+status = "watch"
+title = ""
+tests = []
+
+[[rule]]
+id = "MKT-10"
+family = "MKT"
+status = "watch"
+title = ""
+tests = []
+
+[[rule]]
+id = "MKT-11"
+family = "MKT"
+status = "watch"
+title = ""
+tests = []
+
+[[rule]]
+id = "MKT-12"
+family = "MKT"
+status = "watch"
+title = ""
+tests = []
+
+[[rule]]
+id = "MKT-13"
+family = "MKT"
+status = "frozen-product"
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "MKT-14"
+family = "MKT"
+status = "frozen-product"
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "MKT-15"
+family = "MKT"
+status = "frozen-product"
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "MKT-16"
+family = "MKT"
+status = "frozen-product"
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "MKT-17"
+family = "MKT"
+status = "frozen-product"
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "MKT-18"
+family = "MKT"
+status = "frozen-product"
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "C-5"
+family = "C"
+status = "frozen-protocol"
+stage = 1
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "C-6"
+family = "C"
+status = "frozen-product"
+stage = 5
+title = ""
+tests = []
+
+[[rule]]
+id = "C-7"
+family = "C"
+status = "frozen-product"
+stage = 9
+title = ""
+tests = []
+
+[[rule]]
+id = "C-18"
+family = "C"
+status = "frozen-product"
+stage = 4
+title = ""
+tests = []
+
+[[rule]]
+id = "C-19"
+family = "C"
+status = "frozen-product"
+stage = 4
+title = ""
+tests = []
+
+[[rule]]
+id = "C-20"
+family = "C"
+status = "frozen-product"
+stage = 4
+title = ""
+tests = []
+
+[[rule]]
+id = "C-21"
+family = "C"
+status = "frozen-product"
+stage = 4
+title = ""
+tests = []
+
+[[rule]]
+id = "C-22"
+family = "C"
+status = "frozen-product"
+stage = 6
+title = ""
+tests = []
+
+[[rule]]
+id = "C-23"
+family = "C"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "C-27"
+family = "C"
+status = "frozen-protocol"
+stage = 1
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "C-32"
+family = "C"
+status = "frozen-protocol"
+stage = 1
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "C-35"
+family = "C"
+status = "frozen-technical"
+stage = 1
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "C-37"
+family = "C"
+status = "frozen-product"
+stage = 7
+title = ""
+tests = []
+
+[[rule]]
+id = "C-38"
+family = "C"
+status = "frozen-product"
+stage = 5
+title = ""
+tests = []
+
+[[rule]]
+id = "C-39"
+family = "C"
+status = "frozen-product"
+stage = 6
+title = ""
+tests = []
+
+[[rule]]
+id = "C-42"
+family = "C"
+status = "frozen-product"
+stage = 4
+title = ""
+tests = []
+
+[[rule]]
+id = "E-2"
+family = "E"
+status = "central-decision"
+stage = 3
+title = ""
+tests = []
+
+[[rule]]
+id = "E-3"
+family = "E"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "E-4"
+family = "E"
+status = "frozen-product"
+stage = 14
+title = ""
+tests = []
+
+[[rule]]
+id = "E-7"
+family = "E"
+status = "frozen-product"
+stage = 3
+title = ""
+tests = []
+
+[[rule]]
+id = "E-9"
+family = "E"
+status = "central-decision"
+stage = 7
+title = ""
+tests = []
+
+[[rule]]
+id = "E-10"
+family = "E"
+status = "frozen-product"
+stage = 7
+title = ""
+tests = []
+
+[[rule]]
+id = "E-11"
+family = "E"
+status = "frozen-product"
+stage = 7
+title = ""
+tests = []
+
+[[rule]]
+id = "E-13"
+family = "E"
+status = "frozen-protocol"
+stage = 3
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "E-14"
+family = "E"
+status = "frozen-product"
+stage = 3
+title = ""
+tests = []
+
+[[rule]]
+id = "E-16"
+family = "E"
+status = "frozen-product"
+stage = 6
+title = ""
+tests = []
+
+[[rule]]
+id = "E-19"
+family = "E"
+status = "frozen-technical"
+stage = 10
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "E-20"
+family = "E"
+status = "frozen-product"
+stage = 7
+title = ""
+tests = []
+
+[[rule]]
+id = "E-21"
+family = "E"
+status = "frozen-product"
+stage = 7
+title = ""
+tests = []
+
+[[rule]]
+id = "E-23"
+family = "E"
+status = "frozen-product"
+stage = 6
+title = ""
+tests = []
+
+[[rule]]
+id = "E-24"
+family = "E"
+status = "frozen-technical"
+stage = 7
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "E-26"
+family = "E"
+status = "frozen-product"
+stage = 10
+title = ""
+tests = []
+
+[[rule]]
+id = "E-27"
+family = "E"
+status = "central-decision"
+stage = 6
+title = ""
+tests = []
+
+[[rule]]
+id = "E-34"
+family = "E"
+status = "frozen-product"
+stage = 11
+title = ""
+tests = []
+
+[[rule]]
+id = "E-36"
+family = "E"
+status = "out-of-scope"
+title = ""
+tests = []
+
+[[rule]]
+id = "E-37"
+family = "E"
+status = "out-of-scope"
+title = ""
+tests = []
+
+[[rule]]
+id = "E-38"
+family = "E"
+status = "frozen-product"
+stage = 3
+title = ""
+tests = []
+
+[[rule]]
+id = "E-40"
+family = "E"
+status = "central-decision"
+stage = 0
+title = "Access and Relay counterpart clauses are tracked one to one"
+tests = [
+  "xtask/src/counterparts.rs::t_50_changed_counterpart_is_reported",
+  "xtask/src/counterparts.rs::t_50_clause_text_covers_definitions_rows_and_sections",
+  "xtask/src/counterparts.rs::t_50_e40_table_lists_every_counterpart_clause",
+]
+
+[[rule]]
+id = "E-43"
+family = "E"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "E-44"
+family = "E"
+status = "frozen-product"
+stage = 10
+title = ""
+tests = []
+
+[[rule]]
+id = "X-2"
+family = "X"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "X-3"
+family = "X"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "X-4"
+family = "X"
+status = "frozen-product"
+stage = 7
+title = ""
+tests = []
+
+[[rule]]
+id = "X-5"
+family = "X"
+status = "frozen-product"
+stage = 7
+title = ""
+tests = []
+
+[[rule]]
+id = "X-6"
+family = "X"
+status = "frozen-product"
+stage = 7
+title = ""
+tests = []
+
+[[rule]]
+id = "X-8"
+family = "X"
+status = "frozen-product"
+stage = 10
+title = ""
+tests = []
+
+[[rule]]
+id = "X-9"
+family = "X"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "X-10"
+family = "X"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "X-11"
+family = "X"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "X-12"
+family = "X"
+status = "frozen-product"
+stage = 10
+title = ""
+tests = []
+
+[[rule]]
+id = "X-13"
+family = "X"
+status = "frozen-product"
+stage = 10
+title = ""
+tests = []
+
+[[rule]]
+id = "X-17"
+family = "X"
+status = "frozen-product"
+stage = 7
+title = ""
+tests = []
+
+[[rule]]
+id = "X-19"
+family = "X"
+status = "frozen-product"
+stage = 10
+title = ""
+tests = []
+
+[[rule]]
+id = "X-20"
+family = "X"
+status = "frozen-product"
+stage = 10
+title = ""
+tests = []
+
+[[rule]]
+id = "X-21"
+family = "X"
+status = "frozen-technical"
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "X-22"
+family = "X"
+status = "out-of-scope"
+title = ""
+tests = []
+
+[[rule]]
+id = "X-23"
+family = "X"
+status = "frozen-technical"
+stage = 10
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "X-24"
+family = "X"
+status = "frozen-technical"
+stage = 1
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "X-25"
+family = "X"
+status = "frozen-technical"
+stage = 10
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-5"
+family = "CM"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-6"
+family = "CM"
+status = "frozen-protocol"
+stage = 5
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-7"
+family = "CM"
+status = "frozen-product"
+stage = 5
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-8"
+family = "CM"
+status = "frozen-protocol"
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-9"
+family = "CM"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-10"
+family = "CM"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-11"
+family = "CM"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-12"
+family = "CM"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-13"
+family = "CM"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-14"
+family = "CM"
+status = "frozen-protocol"
+stage = 5
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-15"
+family = "CM"
+status = "frozen-protocol"
+stage = 5
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-16"
+family = "CM"
+status = "frozen-product"
+stage = 5
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-17"
+family = "CM"
+status = "frozen-protocol"
+stage = 5
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-18"
+family = "CM"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-19"
+family = "CM"
+status = "frozen-protocol"
+stage = 5
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-20"
+family = "CM"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-21"
+family = "CM"
+status = "frozen-protocol"
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-22"
+family = "CM"
+status = "frozen-protocol"
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-23"
+family = "CM"
+status = "frozen-protocol"
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-24"
+family = "CM"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-25"
+family = "CM"
+status = "frozen-protocol"
+stage = 5
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-26"
+family = "CM"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-27"
+family = "CM"
+status = "frozen-product"
+stage = 8
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-30"
+family = "CM"
+status = "frozen-protocol"
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-31"
+family = "CM"
+status = "frozen-protocol"
+stage = 5
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-32"
+family = "CM"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-33"
+family = "CM"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-35"
+family = "CM"
+status = "frozen-protocol"
+stage = 5
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-36"
+family = "CM"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-38"
+family = "CM"
+status = "policy-default"
+stage = 5
+pd = "set"
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-39"
+family = "CM"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-40"
+family = "CM"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-43"
+family = "CM"
+status = "frozen-product"
+stage = 5
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-45"
+family = "CM"
+status = "frozen-protocol"
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-46"
+family = "CM"
+status = "frozen-protocol"
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-47"
+family = "CM"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-48"
+family = "CM"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-49"
+family = "CM"
+status = "frozen-product"
+stage = 5
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-50"
+family = "CM"
+status = "frozen-product"
+stage = 7
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-51"
+family = "CM"
+status = "frozen-technical"
+stage = 5
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-53"
+family = "CM"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-54"
+family = "CM"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-55"
+family = "CM"
+status = "frozen-product"
+stage = 5
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-56"
+family = "CM"
+status = "frozen-protocol"
+stage = 5
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-57"
+family = "CM"
+status = "policy-default"
+pd = "set"
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-58"
+family = "CM"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-59"
+family = "CM"
+status = "frozen-protocol"
+stage = 12
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "RC-4"
+family = "RC"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "RC-5"
+family = "RC"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "RC-8"
+family = "RC"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "RC-10"
+family = "RC"
+status = "frozen-protocol"
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "RC-11"
+family = "RC"
+status = "frozen-protocol"
+acceptance = "to-fill"
+pd = "set"
+title = ""
+tests = []
+
+[[rule]]
+id = "RC-13"
+family = "RC"
+status = "frozen-product"
+stage = 7
+title = ""
+tests = []
+
+[[rule]]
+id = "RC-14"
+family = "RC"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "RC-16"
+family = "RC"
+status = "frozen-protocol"
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "RC-17"
+family = "RC"
+status = "frozen-protocol"
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "RC-18"
+family = "RC"
+status = "frozen-product"
+stage = 7
+title = ""
+tests = []
+
+[[rule]]
+id = "RC-19"
+family = "RC"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "RC-21"
+family = "RC"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "RC-22"
+family = "RC"
+status = "frozen-product"
+stage = 6
+title = ""
+tests = []
+
+[[rule]]
+id = "RC-23"
+family = "RC"
+status = "frozen-protocol"
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "RC-24"
+family = "RC"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "RC-25"
+family = "RC"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "RC-28"
+family = "RC"
+status = "policy-default"
+pd = "set"
+title = ""
+tests = []
+
+[[rule]]
+id = "RC-29"
+family = "RC"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "RC-31"
+family = "RC"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "RC-32"
+family = "RC"
+status = "frozen-protocol"
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "RC-33"
+family = "RC"
+status = "frozen-product"
+stage = 6
+title = ""
+tests = []
+
+[[rule]]
+id = "RC-34"
+family = "RC"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "RC-35"
+family = "RC"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "RC-36"
+family = "RC"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "RC-38"
+family = "RC"
+status = "frozen-product"
+stage = 6
+title = ""
+tests = []
+
+[[rule]]
+id = "RC-40"
+family = "RC"
+status = "frozen-product"
+stage = 6
+title = ""
+tests = []
+
+[[rule]]
+id = "RC-41"
+family = "RC"
+status = "central-decision"
+title = ""
+tests = []
+
+[[rule]]
+id = "RC-42"
+family = "RC"
+status = "frozen-protocol"
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "RC-43"
+family = "RC"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "RC-44"
+family = "RC"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "RC-46"
+family = "RC"
+status = "out-of-scope"
+title = ""
+tests = []
+
+[[rule]]
+id = "RC-47"
+family = "RC"
+status = "out-of-scope"
+title = ""
+tests = []
+
+[[rule]]
+id = "ST-3"
+family = "ST"
+status = "frozen-product"
+stage = 7
+title = ""
+tests = []
+
+[[rule]]
+id = "ST-5"
+family = "ST"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "ST-6"
+family = "ST"
+status = "frozen-technical"
+acceptance = "to-fill"
+pd = "unset"
+title = ""
+tests = []
+
+[[rule]]
+id = "ST-7"
+family = "ST"
+status = "frozen-product"
+stage = 7
+title = ""
+tests = []
+
+[[rule]]
+id = "ST-8"
+family = "ST"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "ST-9"
+family = "ST"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "ST-11"
+family = "ST"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "ST-14"
+family = "ST"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "ST-15"
+family = "ST"
+status = "frozen-protocol"
+stage = 7
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "ST-17"
+family = "ST"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "ST-18"
+family = "ST"
+status = "frozen-technical"
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "ST-19"
+family = "ST"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "ST-20"
+family = "ST"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "ST-23"
+family = "ST"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "ST-24"
+family = "ST"
+status = "frozen-technical"
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "ST-25"
+family = "ST"
+status = "frozen-product"
+stage = 7
+title = ""
+tests = []
+
+[[rule]]
+id = "ST-27"
+family = "ST"
+status = "frozen-product"
+stage = 7
+title = ""
+tests = []
+
+[[rule]]
+id = "ST-28"
+family = "ST"
+status = "frozen-protocol"
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "ST-30"
+family = "ST"
+status = "frozen-product"
+stage = 7
+title = ""
+tests = []
+
+[[rule]]
+id = "ST-31"
+family = "ST"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "ST-32"
+family = "ST"
+status = "frozen-product"
+stage = 7
+title = ""
+tests = []
+
+[[rule]]
+id = "ST-33"
+family = "ST"
+status = "frozen-product"
+stage = 7
+title = ""
+tests = []
+
+[[rule]]
+id = "ST-34"
+family = "ST"
+status = "frozen-product"
+pd = "unset"
+title = ""
+tests = []
+
+[[rule]]
+id = "ST-36"
+family = "ST"
+status = "frozen-product"
+stage = 7
+pd = "unset"
+title = ""
+tests = []
+
+[[rule]]
+id = "ST-37"
+family = "ST"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "ST-38"
+family = "ST"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "ST-39"
+family = "ST"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "ST-40"
+family = "ST"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "ST-43"
+family = "ST"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "ST-44"
+family = "ST"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "ST-45"
+family = "ST"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "ST-46"
+family = "ST"
+status = "frozen-technical"
+stage = 7
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "ST-47"
+family = "ST"
+status = "frozen-technical"
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "ST-49"
+family = "ST"
+status = "frozen-technical"
+stage = 7
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "ST-50"
+family = "ST"
+status = "frozen-technical"
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "ST-51"
+family = "ST"
+status = "frozen-product"
+stage = 3
+title = ""
+tests = []
+
+[[rule]]
+id = "EV-3"
+family = "EV"
+status = "frozen-protocol"
+stage = 1
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "EV-4"
+family = "EV"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "EV-6"
+family = "EV"
+status = "frozen-product"
+stage = 8
+title = ""
+tests = []
+
+[[rule]]
+id = "EV-8"
+family = "EV"
+status = "frozen-product"
+stage = 2
+title = ""
+tests = []
+
+[[rule]]
+id = "EV-10"
+family = "EV"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "EV-11"
+family = "EV"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "EV-12"
+family = "EV"
+status = "frozen-protocol"
+stage = 11
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "EV-14"
+family = "EV"
+status = "frozen-product"
+stage = 8
+title = ""
+tests = []
+
+[[rule]]
+id = "EV-17"
+family = "EV"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "EV-20"
+family = "EV"
+status = "frozen-product"
+stage = 8
+title = ""
+tests = []
+
+[[rule]]
+id = "EV-24"
+family = "EV"
+status = "frozen-product"
+stage = 8
+title = ""
+tests = []
+
+[[rule]]
+id = "EV-25"
+family = "EV"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "EV-27"
+family = "EV"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "EV-28"
+family = "EV"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "EV-29"
+family = "EV"
+status = "frozen-product"
+stage = 8
+pd = "set"
+title = ""
+tests = []
+
+[[rule]]
+id = "EV-30"
+family = "EV"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "EV-32"
+family = "EV"
+status = "central-decision"
+stage = 3
+title = ""
+tests = []
+
+[[rule]]
+id = "FD-1"
+family = "FD"
+status = "central-decision"
+stage = 12
+title = ""
+tests = []
+
+[[rule]]
+id = "FD-2"
+family = "FD"
+status = "out-of-scope"
+title = ""
+tests = []
+
+[[rule]]
+id = "FD-5"
+family = "FD"
+status = "frozen-protocol"
+stage = 12
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "FD-6"
+family = "FD"
+status = "frozen-protocol"
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "FD-7"
+family = "FD"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "FD-8"
+family = "FD"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "FD-11"
+family = "FD"
+status = "frozen-protocol"
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "FD-12"
+family = "FD"
+status = "frozen-protocol"
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "FD-14"
+family = "FD"
+status = "frozen-protocol"
+stage = 12
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "FD-20"
+family = "FD"
+status = "frozen-protocol"
+stage = 12
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "FD-24"
+family = "FD"
+status = "frozen-protocol"
+stage = 12
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "FD-26"
+family = "FD"
+status = "frozen-protocol"
+stage = 12
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "SEC-21"
+family = "SEC"
+status = "frozen-product"
+stage = 13
+title = ""
+tests = [
+  "xtask/src/catalog.rs::t_49_threat_cell_without_known_rule_is_reported",
+]
+
+[[rule]]
+id = "SEC-29"
+family = "SEC"
+status = "frozen-protocol"
+stage = 13
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "SEC-32"
+family = "SEC"
+status = "frozen-product"
+stage = 2
+title = ""
+tests = []
+
+[[rule]]
+id = "SEC-34"
+family = "SEC"
+status = "frozen-product"
+stage = 0
+title = "Claim language binds product text, API field names and documentation"
+tests = [
+  "xtask/src/catalog_claims.rs::f_24_inv_34_sec_33_sec_34_every_forbidden_phrase_is_caught",
+  "xtask/src/catalog_claims.rs::sec_34_api_field_names_and_rustdoc_are_scanned",
+]
+
+[[rule]]
+id = "P-1"
+family = "P"
+status = "frozen-protocol"
+acceptance = "filled"
+title = "Protocol, API and normative external surfaces are separate layers"
+tests = [
+  "xtask/src/rules_deps.rs::p_1_protocol_crates_do_not_depend_on_transport_crates",
+]
+
+[[rule]]
+id = "P-2"
+family = "P"
+status = "frozen-protocol"
+stage = 0
+acceptance = "filled"
+title = "Protocol, CDDL, vectors and verifier are Apache-2.0 and verifiable offline"
+tests = [
+  "xtask/src/policy.rs::md_15_f_9_p_2_paid_or_cloud_only_names_are_rejected",
+]
+
+[[rule]]
+id = "P-3"
+family = "P"
+status = "frozen-protocol"
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "P-4"
+family = "P"
+status = "frozen-protocol"
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "P-5"
+family = "P"
+status = "frozen-protocol"
+stage = 1
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "P-6"
+family = "P"
+status = "frozen-protocol"
+stage = 1
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "P-7"
+family = "P"
+status = "frozen-protocol"
+stage = 1
+acceptance = "to-fill"
+pd = "set"
+title = ""
+tests = [
+  "xtask/src/supply_chain.rs::t_33_serde_json_with_unbounded_depth_is_rejected",
+]
+
+[[rule]]
+id = "P-8"
+family = "P"
+status = "frozen-technical"
+stage = 1
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "P-10"
+family = "P"
+status = "frozen-protocol"
+stage = 1
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "P-11"
+family = "P"
+status = "frozen-protocol"
+stage = 1
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "P-15"
+family = "P"
+status = "frozen-protocol"
+stage = 8
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "P-16"
+family = "P"
+status = "frozen-protocol"
+stage = 7
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "P-18"
+family = "P"
+status = "frozen-protocol"
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "P-19"
+family = "P"
+status = "frozen-protocol"
+stage = 1
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "P-21"
+family = "P"
+status = "frozen-protocol"
+stage = 3
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "P-25"
+family = "P"
+status = "frozen-protocol"
+stage = 2
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "P-29"
+family = "P"
+status = "frozen-protocol"
+stage = 2
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "P-30"
+family = "P"
+status = "frozen-protocol"
+stage = 10
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "P-32"
+family = "P"
+status = "frozen-technical"
+stage = 1
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "P-33"
+family = "P"
+status = "frozen-protocol"
+stage = 1
+acceptance = "to-fill"
+pd = "set"
+title = ""
+tests = []
+
+[[rule]]
+id = "P-35"
+family = "P"
+status = "frozen-protocol"
+stage = 3
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "P-36"
+family = "P"
+status = "frozen-protocol"
+stage = 11
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "P-37"
+family = "P"
+status = "frozen-protocol"
+stage = 3
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "P-38"
+family = "P"
+status = "frozen-protocol"
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "P-39"
+family = "P"
+status = "frozen-protocol"
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "P-40"
+family = "P"
+status = "frozen-product"
+stage = 10
+title = ""
+tests = []
+
+[[rule]]
+id = "P-41"
+family = "P"
+status = "frozen-protocol"
+stage = 3
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "P-42"
+family = "P"
+status = "frozen-technical"
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "P-45"
+family = "P"
+status = "frozen-protocol"
+stage = 11
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "P-46"
+family = "P"
+status = "frozen-protocol"
+stage = 11
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "P-47"
+family = "P"
+status = "frozen-protocol"
+stage = 6
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "P-48"
+family = "P"
+status = "frozen-protocol"
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "P-49"
+family = "P"
+status = "frozen-protocol"
+stage = 11
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "P-50"
+family = "P"
+status = "frozen-protocol"
+stage = 12
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "P-51"
+family = "P"
+status = "frozen-protocol"
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "P-53"
+family = "P"
+status = "frozen-technical"
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "P-54"
+family = "P"
+status = "frozen-technical"
+stage = 3
+acceptance = "to-fill"
+pd = "set"
+title = ""
+tests = []
+
+[[rule]]
+id = "P-55"
+family = "P"
+status = "frozen-product"
+stage = 5
+title = ""
+tests = []
+
+[[rule]]
+id = "P-57"
+family = "P"
+status = "frozen-technical"
+stage = 3
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "P-58"
+family = "P"
+status = "frozen-protocol"
+stage = 13
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "P-59"
+family = "P"
+status = "out-of-scope"
+title = ""
+tests = []
+
+[[rule]]
+id = "P-60"
+family = "P"
+status = "out-of-scope"
+title = ""
+tests = []
+
+[[rule]]
+id = "P-61"
+family = "P"
+status = "out-of-scope"
+title = ""
+tests = []
+
+[[rule]]
+id = "P-62"
+family = "P"
+status = "out-of-scope"
+title = ""
+tests = []
+
+[[rule]]
+id = "P-63"
+family = "P"
+status = "watch"
+title = ""
+tests = []
+
+[[rule]]
+id = "P-64"
+family = "P"
+status = "watch"
+title = ""
+tests = []
+
+[[rule]]
+id = "P-65"
+family = "P"
+status = "out-of-scope"
+title = ""
+tests = []
+
+[[rule]]
+id = "P-66"
+family = "P"
+status = "frozen-product"
+stage = 11
+title = ""
+tests = []
+
+[[rule]]
+id = "PR-2"
+family = "PR"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "PR-4"
+family = "PR"
+status = "frozen-product"
+stage = 9
+title = ""
+tests = []
+
+[[rule]]
+id = "PR-5"
+family = "PR"
+status = "frozen-protocol"
+stage = 1
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "PR-7"
+family = "PR"
+status = "central-decision"
+stage = 6
+title = ""
+tests = []
+
+[[rule]]
+id = "PR-10"
+family = "PR"
+status = "frozen-product"
+stage = 4
+title = ""
+tests = []
+
+[[rule]]
+id = "PR-12"
+family = "PR"
+status = "frozen-product"
+stage = 9
+title = ""
+tests = []
+
+[[rule]]
+id = "PR-13"
+family = "PR"
+status = "frozen-protocol"
+stage = 9
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "PR-15"
+family = "PR"
+status = "frozen-product"
+stage = 9
+title = ""
+tests = []
+
+[[rule]]
+id = "PR-17"
+family = "PR"
+status = "frozen-technical"
+stage = 3
+acceptance = "to-fill"
+pd = "set"
+title = ""
+tests = []
+
+[[rule]]
+id = "PR-18"
+family = "PR"
+status = "frozen-product"
+stage = 9
+title = ""
+tests = []
+
+[[rule]]
+id = "PR-19"
+family = "PR"
+status = "frozen-product"
+stage = 12
+title = ""
+tests = []
+
+[[rule]]
+id = "PR-20"
+family = "PR"
+status = "out-of-scope"
+stage = 9
+title = ""
+tests = []
+
+[[rule]]
+id = "PR-21"
+family = "PR"
+status = "out-of-scope"
+title = ""
+tests = []
+
+[[rule]]
+id = "PR-22"
+family = "PR"
+status = "out-of-scope"
+title = ""
+tests = []
+
+[[rule]]
+id = "T-1"
+family = "T"
+status = "central-decision"
+title = ""
+tests = []
+
+[[rule]]
+id = "T-2"
+family = "T"
+status = "frozen-technical"
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "T-3"
+family = "T"
+status = "central-decision"
+title = "All code is Apache-2.0 in a public repository with no open core"
+tests = [
+  "xtask/src/policy.rs::t_3_non_apache_package_or_licence_file_is_rejected",
+]
+
+[[rule]]
+id = "T-7"
+family = "T"
+status = "central-decision"
+title = ""
+tests = []
+
+[[rule]]
+id = "T-9"
+family = "T"
+status = "frozen-technical"
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "T-10"
+family = "T"
+status = "frozen-technical"
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "T-12"
+family = "T"
+status = "frozen-technical"
+stage = 7
+acceptance = "to-fill"
+pd = "unset"
+title = ""
+tests = []
+
+[[rule]]
+id = "T-14"
+family = "T"
+status = "frozen-technical"
+stage = 3
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "T-15"
+family = "T"
+status = "frozen-technical"
+stage = 7
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "T-16"
+family = "T"
+status = "central-decision"
+stage = 7
+title = ""
+tests = []
+
+[[rule]]
+id = "T-17"
+family = "T"
+status = "frozen-technical"
+stage = 2
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "T-19"
+family = "T"
+status = "frozen-technical"
+stage = 10
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "T-20"
+family = "T"
+status = "central-decision"
+stage = 3
+title = ""
+tests = []
+
+[[rule]]
+id = "T-22"
+family = "T"
+status = "frozen-technical"
+acceptance = "filled"
+title = "Accelerators only with measured need; optional components are never canonical"
+tests = [
+  "xtask/src/rules_deps.rs::t_22_accelerator_clients_in_the_default_tree_are_rejected",
+]
+
+[[rule]]
+id = "T-23"
+family = "T"
+status = "frozen-technical"
+stage = 3
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "T-24"
+family = "T"
+status = "frozen-product"
+title = ""
+tests = []
+
+[[rule]]
+id = "T-26"
+family = "T"
+status = "frozen-technical"
+stage = 3
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "T-27"
+family = "T"
+status = "frozen-technical"
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "T-29"
+family = "T"
+status = "frozen-technical"
+acceptance = "filled"
+title = "Engineering rules follow Access; Work adaptations are written down with reasons"
+tests = []
+
+[[rule]]
+id = "T-30"
+family = "T"
+status = "out-of-scope"
+title = "Out of scope: workflow engines owning state, execution and delivery timers"
+tests = []
+
+[[rule]]
+id = "T-31"
+family = "T"
+status = "frozen-technical"
+stage = 0
+acceptance = "filled"
+title = "One repository, exact shared crate versions and an enforced dependency direction"
+tests = [
+  "xtask/src/policy_compat.rs::t_51_shared_crate_versions_match_manifest_and_lockfile",
+  "xtask/src/rules_deps.rs::t_31_bins_may_depend_on_every_crate_and_xtask_on_none",
+  "xtask/src/rules_deps.rs::t_31_component_crates_must_not_depend_on_each_other",
+  "xtask/src/rules_deps.rs::t_31_crate_in_unknown_directory_fails_closed",
+  "xtask/src/rules_deps.rs::t_31_http_uses_component_app_interfaces_and_clients_stay_thin",
+  "xtask/src/rules_deps.rs::t_31_kernel_depends_only_on_suiss_crypto",
+  "xtask/src/rules_deps.rs::t_31_testkit_is_a_dev_dependency_only",
+  "xtask/src/rules_deps.rs::t_8_access_internal_crates_and_relay_code_are_forbidden",
+  "xtask/src/rules_files.rs::t_31_walk_skips_docs_target_and_hidden_dirs",
+  "xtask/src/rules_kernel.rs::t_31_kernel_binds_suiss_crypto_without_default_features",
+  "xtask/src/rules_kernel.rs::t_31_std_pulling_crate_in_kernel_tree_is_rejected",
+  "xtask/src/rules_source.rs::t_4_clock_in_kernel_is_rejected",
+  "xtask/src/rules_source.rs::t_4_std_and_ffi_in_kernel_are_rejected_but_alloc_is_not",
+  "xtask/src/supply_cooldown.rs::t_31_git_sources_in_the_lockfile_are_rejected",
+]
+
+[[rule]]
+id = "T-32"
+family = "T"
+status = "frozen-technical"
+stage = 0
+acceptance = "to-fill"
+title = "Component layers and ports; clock and randomness only through ports"
+tests = [
+  "bins/work-server/src/config.rs::t_32_invalid_configuration_stops_the_process",
+  "bins/work-server/src/config.rs::t_32_unknown_keys_such_as_a_dev_mode_are_rejected",
+  "xtask/src/policy.rs::t_32_component_crate_without_layers_is_reported",
+  "xtask/src/rules.rs::t_32_clippy_disallows_direct_clock_and_rng",
+  "xtask/src/rules_source.rs::t_32_async_and_tokio_in_domain_layer_are_rejected",
+  "xtask/src/rules_source.rs::t_32_impure_words_in_comments_strings_and_tests_are_ignored",
+  "xtask/src/rules_source.rs::t_32_kernel_and_domain_layers_are_pure_paths",
+  "xtask/src/rules_switches.rs::t_32_config_key_naming_a_weakening_switch_is_rejected",
+  "xtask/src/rules_switches.rs::t_32_dev_mode_and_security_skipping_switches_are_rejected",
+  "xtask/src/rules_switches.rs::t_32_flags_in_code_are_rejected_but_comments_and_tests_are_not",
+  "xtask/src/rules_switches.rs::t_32_identifiers_are_split_into_words",
+  "xtask/src/rules_switches.rs::t_32_ordinary_words_are_accepted",
+]
+
+[[rule]]
+id = "T-33"
+family = "T"
+status = "frozen-technical"
+stage = 0
+acceptance = "filled"
+title = "Strict lints, no request-path panics, checked arithmetic and redacting types"
+tests = [
+  "xtask/src/rules_profile.rs::t_33_panic_abort_in_any_profile_is_rejected",
+  "xtask/src/rules_profile.rs::t_33_panic_abort_rustflag_is_rejected",
+  "xtask/src/rules_profile.rs::t_33_release_without_overflow_checks_is_rejected",
+  "xtask/src/rules_profile.rs::t_33_unwinding_release_with_overflow_checks_is_accepted",
+  "xtask/src/rules_source.rs::t_33_forbid_unsafe_attribute_is_not_an_unsafe_use",
+  "xtask/src/rules_source.rs::t_33_todo_without_issue_number_is_rejected",
+  "xtask/src/rules_source.rs::t_33_unsafe_in_bindings_needs_a_safety_comment",
+  "xtask/src/rules_source.rs::t_33_unsafe_outside_bindings_is_rejected",
+  "xtask/src/supply_chain.rs::t_33_backtracking_regex_and_io_uring_in_lockfile_are_rejected",
+  "xtask/src/supply_chain.rs::t_33_serde_json_with_unbounded_depth_is_rejected",
+]
+
+[[rule]]
+id = "T-34"
+family = "T"
+status = "frozen-technical"
+stage = 10
+acceptance = "to-fill"
+title = "Strict TypeScript clients on esuiss-ui with a generated API client"
+tests = []
+
+[[rule]]
+id = "T-35"
+family = "T"
+status = "frozen-technical"
+stage = 3
+acceptance = "to-fill"
+title = "OpenAPI from code, AsyncAPI events, CDDL first and internal ConnectRPC"
+tests = []
+
+[[rule]]
+id = "T-36"
+family = "T"
+status = "frozen-technical"
+stage = 0
+acceptance = "to-fill"
+title = "No ORM, SQL only in store, no physical delete, real PostgreSQL in tests"
+tests = [
+  "xtask/src/rules_source.rs::t_36_allowlisted_job_queue_table_needs_a_reason",
+  "xtask/src/rules_source.rs::t_36_english_text_is_not_mistaken_for_sql",
+  "xtask/src/rules_source.rs::t_36_physical_delete_statements_are_rejected",
+  "xtask/src/rules_source.rs::t_36_sql_comments_do_not_count",
+  "xtask/src/rules_source.rs::t_36_sqlx_macro_outside_store_is_rejected",
+]
+
+[[rule]]
+id = "T-37"
+family = "T"
+status = "frozen-technical"
+stage = 0
+acceptance = "filled"
+title = "Every normative rule has a test; flaky tests are never retried until green"
+tests = [
+  "xtask/src/catalog.rs::t_37_untested_boundary_fails_only_for_completed_stages_or_release",
+  "xtask/src/catalog_spec.rs::t_46_stages_come_from_boundary_bullets",
+  "xtask/src/policy_scan.rs::t_37_nonzero_retries_are_rejected",
+  "xtask/src/rules_files.rs::t_37_integration_tests_and_test_modules_count_as_test_files",
+]
+
+[[rule]]
+id = "T-38"
+family = "T"
+status = "frozen-technical"
+stage = 0
+acceptance = "filled"
+title = "Supply chain gates: deny, vet, audit, cooldown and a build script allowlist"
+tests = [
+  "xtask/src/catalog_watchlist.rs::t_38_civil_dates_convert_to_epoch_days",
+  "xtask/src/catalog_watchlist.rs::t_38_six_month_threshold_separates_fresh_from_stale",
+  "xtask/src/catalog_watchlist.rs::t_38_watchlist_entries_need_github_repository_sources_and_reason",
+  "xtask/src/supply_chain.rs::t_38_new_build_script_and_stale_entry_are_both_reported",
+  "xtask/src/supply_chain.rs::t_58_npm_package_needs_its_own_lockfile_and_npmrc",
+  "xtask/src/supply_cooldown.rs::t_31_git_sources_in_the_lockfile_are_rejected",
+  "xtask/src/supply_cooldown.rs::t_60_crates_io_timestamps_parse_to_unix_seconds",
+  "xtask/src/supply_cooldown.rs::t_60_new_version_fails_unless_a_reasoned_exception_covers_it",
+  "xtask/src/supply_cooldown.rs::t_60_version_published_six_days_ago_is_too_new",
+  "xtask/src/supply_pinning.rs::t_60_action_pinned_to_tag_is_rejected",
+  "xtask/src/supply_pinning.rs::t_60_renovate_must_wait_seven_days",
+]
+
+[[rule]]
+id = "T-39"
+family = "T"
+status = "frozen-technical"
+stage = 0
+acceptance = "to-fill"
+title = "OpenTelemetry signals with trace context, no identity labels and no secrets"
+tests = [
+  "crates/telemetry/tests/redaction_canary.rs::t_39_json_logs_never_contain_secrets",
+]
+
+[[rule]]
+id = "T-40"
+family = "T"
+status = "frozen-technical"
+stage = 0
+acceptance = "filled"
+title = "Separate product, SDK, kernel and protocol versions with a compatibility table"
+tests = [
+  "xtask/src/policy_compat.rs::t_40_malformed_compat_rows_are_rejected",
+  "xtask/src/policy_compat.rs::t_51_published_access_image_must_match_the_compat_digest",
+  "xtask/src/policy_compat.rs::t_51_unpublished_products_stay_in_a_profile",
+]
+
+[[rule]]
+id = "T-41"
+family = "T"
+status = "frozen-technical"
+stage = 0
+acceptance = "filled"
+title = "The local environment always includes local Access and Relay"
+tests = [
+  "bins/work-server/src/config.rs::t_32_unknown_keys_such_as_a_dev_mode_are_rejected",
+  "xtask/src/policy_scan.rs::t_41_generator_differences_are_reported",
+  "xtask/src/rules_comments.rs::t_53_justfile_recipe_docs_are_tool_docs",
+  "xtask/src/rules_switches.rs::t_32_config_key_naming_a_weakening_switch_is_rejected",
+  "xtask/src/rules_switches.rs::t_32_dev_mode_and_security_skipping_switches_are_rejected",
+  "xtask/src/rules_switches.rs::t_32_flags_in_code_are_rejected_but_comments_and_tests_are_not",
+]
+
+[[rule]]
+id = "T-42"
+family = "T"
+status = "frozen-technical"
+acceptance = "filled"
+title = "Spec registers are the decision record; the README never links to docs"
+tests = [
+  "xtask/src/catalog_claims.rs::t_42_mkt_1_docs_links_and_incomplete_comparison_are_rejected",
+  "xtask/src/policy.rs::t_42_adr_directory_is_rejected",
+]
+
+[[rule]]
+id = "T-43"
+family = "T"
+status = "frozen-technical"
+acceptance = "filled"
+title = "Contribution process as in Access with sensitive paths in CODEOWNERS"
+tests = [
+  "xtask/src/policy_scan.rs::t_43_sensitive_path_without_owner_is_reported",
+]
+
+[[rule]]
+id = "T-44"
+family = "T"
+status = "frozen-technical"
+stage = 0
+acceptance = "filled"
+title = "Benchmarks and an instruction-count gate; nothing optimised without measurement"
+tests = [
+  "xtask/src/policy_scan.rs::t_62_bench_job_with_pull_request_trigger_is_rejected",
+]
+
+[[rule]]
+id = "T-45"
+family = "T"
+status = "out-of-scope"
+title = "Engineering paths deliberately not used, such as an ORM or a second kernel"
+tests = []
+
+[[rule]]
+id = "T-46"
+family = "T"
+status = "frozen-technical"
+class = "UDC"
+acceptance = "filled"
+title = "Tracked rule catalog generated from the spec with coverage and value reports"
+tests = [
+  "xtask/src/catalog.rs::f_21_to_fill_acceptance_rows_are_reported_not_failed",
+  "xtask/src/catalog.rs::t_37_untested_boundary_fails_only_for_completed_stages_or_release",
+  "xtask/src/catalog.rs::t_46_catalog_format_rejects_duplicates_unknown_status_and_turkish_titles",
+  "xtask/src/catalog.rs::t_46_family_stage_override_lowers_but_never_raises_stage",
+  "xtask/src/catalog.rs::t_46_frozen_technical_rows_need_an_acceptance_state",
+  "xtask/src/catalog.rs::t_46_rendered_files_parse_back_identically",
+  "xtask/src/catalog.rs::t_46_stage_rows_and_curated_rows_need_titles",
+  "xtask/src/catalog_claims.rs::t_48_dictionary_entries_need_rules_replacements_and_reasons",
+  "xtask/src/catalog_ids.rs::t_46_ranges_expand_within_one_family",
+  "xtask/src/catalog_spec.rs::t_46_register_rows_come_only_from_register_tables",
+  "xtask/src/catalog_spec.rs::t_46_stages_come_from_boundary_bullets",
+  "xtask/src/catalog_spec.rs::t_46_status_slugs_and_qualifiers_are_read",
+]
+
+[[rule]]
+id = "T-47"
+family = "T"
+status = "frozen-technical"
+class = "UDC"
+acceptance = "filled"
+title = "Tests carry rule IDs in their name or a bare ID line"
+tests = [
+  "xtask/src/catalog.rs::t_47_unknown_ids_and_stale_links_fail",
+  "xtask/src/catalog_ids.rs::t_47_foreign_ids_are_marked",
+  "xtask/src/catalog_ids.rs::t_47_test_names_cite_their_leading_ids",
+  "xtask/src/catalog_ids.rs::t_47_work_families_are_recognised",
+  "xtask/src/catalog_scan.rs::t_47_test_names_and_bare_id_lines_cite_rules",
+  "xtask/src/catalog_scan.rs::t_47_unknown_rule_id_in_test_is_rejected",
+]
+
+[[rule]]
+id = "T-48"
+family = "T"
+status = "frozen-technical"
+class = "UDC"
+acceptance = "filled"
+title = "A forbidden-claims dictionary is scanned over documents, API files and messages"
+tests = [
+  "xtask/src/catalog_claims.rs::t_48_claims_match_across_wrapped_lines_and_skip_negations",
+  "xtask/src/catalog_claims.rs::t_48_dictionary_entries_need_rules_replacements_and_reasons",
+  "xtask/src/catalog_claims.rs::t_48_globs_match_names_anywhere_and_paths_by_segment",
+  "xtask/src/catalog_claims.rs::t_48_reasoned_exceptions_pass",
+]
+
+[[rule]]
+id = "T-49"
+family = "T"
+status = "frozen-technical"
+acceptance = "filled"
+title = "Threat model as code; public comparison text only in COMPARISON.md"
+tests = [
+  "xtask/src/catalog.rs::t_49_curated_threat_model_has_four_linked_cells_per_threat",
+  "xtask/src/catalog.rs::t_49_threat_cell_without_known_rule_is_reported",
+  "xtask/src/catalog_claims.rs::mkt_1_comparison_claims_only_in_the_comparison_text",
+  "xtask/src/catalog_spec.rs::sec_33_section_tables_are_counted",
+]
+
+[[rule]]
+id = "T-50"
+family = "T"
+status = "frozen-technical"
+acceptance = "filled"
+title = "A local check detects changed Access and Relay counterpart clauses"
+tests = [
+  "xtask/src/counterparts.rs::t_50_changed_counterpart_is_reported",
+  "xtask/src/counterparts.rs::t_50_clause_text_covers_definitions_rows_and_sections",
+  "xtask/src/counterparts.rs::t_50_e40_table_lists_every_counterpart_clause",
+  "xtask/src/counterparts.rs::t_50_record_round_trips",
+  "xtask/src/sha256.rs::t_50_sha256_matches_the_fips_vectors",
+]
+
+[[rule]]
+id = "T-51"
+family = "T"
+status = "frozen-technical"
+acceptance = "filled"
+title = "compat.toml pins Access, Relay and shared crates for one local compose file"
+tests = [
+  "xtask/src/policy_compat.rs::t_40_malformed_compat_rows_are_rejected",
+  "xtask/src/policy_compat.rs::t_51_published_access_image_must_match_the_compat_digest",
+  "xtask/src/policy_compat.rs::t_51_shared_crate_versions_match_manifest_and_lockfile",
+  "xtask/src/policy_compat.rs::t_51_unpublished_products_stay_in_a_profile",
+  "xtask/src/supply_pinning.rs::t_60_images_need_a_digest_except_unpublished_suiss_products",
+]
+
+[[rule]]
+id = "T-52"
+family = "T"
+status = "policy-default"
+pd = "set"
+title = "Each rule check has exactly one tool"
+tests = [
+  "xtask/src/rules.rs::t_32_clippy_disallows_direct_clock_and_rng",
+  "xtask/src/rules_lex.rs::t_52_cfg_test_module_is_a_test_region",
+  "xtask/src/rules_lex.rs::t_52_comments_and_strings_are_blanked_in_code_view",
+  "xtask/src/rules_lex.rs::t_52_nested_block_comments_end_at_the_outer_close",
+  "xtask/src/rules_lex.rs::t_52_raw_strings_and_lifetimes_are_lexed",
+  "xtask/src/rules_lex.rs::t_52_tokens_match_only_at_identifier_boundaries",
+  "xtask/src/yaml.rs::t_52_compose_services_profiles_and_anchors_are_read",
+  "xtask/src/yaml.rs::t_52_scalar_and_flow_triggers_are_read",
+  "xtask/src/yaml.rs::t_52_workflow_structure_is_read",
+]
+
+[[rule]]
+id = "T-53"
+family = "T"
+status = "frozen-technical"
+acceptance = "filled"
+title = "Code carries no explanatory comments"
+tests = [
+  "xtask/src/catalog_ids.rs::t_53_bare_id_lines_are_recognised",
+  "xtask/src/rules_comments.rs::t_53_comments_inside_strings_are_not_comments",
+  "xtask/src/rules_comments.rs::t_53_explanatory_rust_comments_are_rejected",
+  "xtask/src/rules_comments.rs::t_53_hash_comments_allow_ids_directives_and_version_notes",
+  "xtask/src/rules_comments.rs::t_53_justfile_recipe_docs_are_tool_docs",
+  "xtask/src/rules_comments.rs::t_53_module_docs_with_two_paragraphs_are_rejected",
+  "xtask/src/rules_comments.rs::t_53_shebang_and_dockerfile_directives_pass_but_prose_fails",
+  "xtask/src/rules_comments.rs::t_53_toml_strings_attributes_and_tool_annotations_are_not_comments",
+  "xtask/src/rules_comments.rs::t_53_version_note_needs_a_pinned_reference",
+  "xtask/src/rules_source.rs::t_33_todo_without_issue_number_is_rejected",
+  "xtask/src/rules_source.rs::t_33_unsafe_in_bindings_needs_a_safety_comment",
+]
+
+[[rule]]
+id = "T-54"
+family = "T"
+status = "policy-default"
+pd = "set"
+title = "Published package names carry the esuiss prefix"
+tests = [
+  "xtask/src/policy.rs::t_54_published_crates_carry_the_esuiss_work_prefix",
+  "xtask/src/policy.rs::t_54_shared_crates_are_bound_by_package_with_the_library_name",
+  "xtask/src/rules_kernel.rs::t_54_kernel_package_carries_the_published_name",
+]
+
+[[rule]]
+id = "T-55"
+family = "T"
+status = "frozen-technical"
+acceptance = "filled"
+title = "The maintainer pushes signed commits to main; everyone else uses pull requests"
+tests = []
+
+[[rule]]
+id = "T-56"
+family = "T"
+status = "frozen-technical"
+acceptance = "filled"
+title = "Keys and secrets only through PKCS#11, with SoftHSM locally"
+tests = [
+  "xtask/src/policy_compat.rs::t_56_kms_emulator_bundle_and_missing_services_are_rejected",
+]
+
+[[rule]]
+id = "T-57"
+family = "T"
+status = "policy-default"
+pd = "set"
+title = "Observability with OpenTelemetry Collector, Jaeger, Prometheus and Grafana locally"
+tests = [
+  "xtask/src/policy_compat.rs::t_56_kms_emulator_bundle_and_missing_services_are_rejected",
+]
+
+[[rule]]
+id = "T-58"
+family = "T"
+status = "policy-default"
+pd = "set"
+title = "Every JavaScript or TypeScript package is an independent npm project"
+tests = [
+  "xtask/src/supply_chain.rs::t_58_npm_package_needs_its_own_lockfile_and_npmrc",
+]
+
+[[rule]]
+id = "T-59"
+family = "T"
+status = "frozen-technical"
+acceptance = "filled"
+title = "Reproducible builds are a goal, not a release gate"
+tests = []
+
+[[rule]]
+id = "T-60"
+family = "T"
+status = "frozen-technical"
+class = "UDC"
+acceptance = "filled"
+pd = "set"
+title = "Five percent instruction threshold, seven-day cooldown and pinned references"
+tests = [
+  "xtask/src/rules_comments.rs::t_53_hash_comments_allow_ids_directives_and_version_notes",
+  "xtask/src/supply_cooldown.rs::t_60_crates_io_timestamps_parse_to_unix_seconds",
+  "xtask/src/supply_cooldown.rs::t_60_new_version_fails_unless_a_reasoned_exception_covers_it",
+  "xtask/src/supply_cooldown.rs::t_60_version_published_six_days_ago_is_too_new",
+  "xtask/src/supply_pinning.rs::t_60_action_pinned_to_tag_is_rejected",
+  "xtask/src/supply_pinning.rs::t_60_dockerfile_base_images_need_a_digest",
+  "xtask/src/supply_pinning.rs::t_60_images_need_a_digest_except_unpublished_suiss_products",
+  "xtask/src/supply_pinning.rs::t_60_renovate_must_wait_seven_days",
+]
+
+[[rule]]
+id = "T-61"
+family = "T"
+status = "frozen-technical"
+acceptance = "to-fill"
+title = "Browser endpoints may use a CDN tunnel; mTLS endpoints use passthrough"
+tests = []
+
+[[rule]]
+id = "T-62"
+family = "T"
+status = "policy-default"
+pd = "set"
+title = "Benchmarks run on a dedicated runner for scheduled and manual main jobs only"
+tests = [
+  "xtask/src/policy_scan.rs::t_62_bench_job_with_pull_request_trigger_is_rejected",
+]
+
+[[rule]]
+id = "T-63"
+family = "T"
+status = "policy-default"
+pd = "set"
+title = "Stage 0 items that need later code move to that stage"
+tests = []
+
+[[rule]]
+id = "OP-2"
+family = "OP"
+status = "frozen-technical"
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "OP-4"
+family = "OP"
+status = "frozen-technical"
+stage = 2
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "OP-8"
+family = "OP"
+status = "frozen-technical"
+stage = 2
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "OP-10"
+family = "OP"
+status = "frozen-technical"
+stage = 14
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "OP-14"
+family = "OP"
+status = "frozen-technical"
+stage = 2
+acceptance = "to-fill"
+pd = "set"
+title = ""
+tests = []
+
+[[rule]]
+id = "OP-18"
+family = "OP"
+status = "frozen-technical"
+stage = 0
+acceptance = "to-fill"
+pd = "set"
+title = "Telemetry is minimised, pseudonymous and never a decision input"
+tests = [
+  "crates/telemetry/tests/redaction_canary.rs::t_39_json_logs_never_contain_secrets",
+]
+
+[[rule]]
+id = "OP-20"
+family = "OP"
+status = "frozen-technical"
+stage = 14
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "OP-21"
+family = "OP"
+status = "frozen-technical"
+stage = 14
+acceptance = "to-fill"
+pd = "set"
+title = ""
+tests = []
+
+[[rule]]
+id = "OP-22"
+family = "OP"
+status = "frozen-technical"
+stage = 14
+acceptance = "to-fill"
+pd = "set"
+title = ""
+tests = []
+
+[[rule]]
+id = "OP-23"
+family = "OP"
+status = "frozen-technical"
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "OP-25"
+family = "OP"
+status = "frozen-technical"
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "OP-26"
+family = "OP"
+status = "engineering-assumption"
+stage = 0
+pd = "unset"
+title = "Capacity and latency numbers are set only by measurement"
+tests = [
+  "xtask/src/catalog.rs::f_27_op_26_unset_values_block_only_the_release",
+  "xtask/src/catalog_spec.rs::f_27_op_26_values_to_be_measured_are_unset",
+]
+
+[[rule]]
+id = "OP-27"
+family = "OP"
+status = "central-decision"
+title = ""
+tests = []
+
+[[rule]]
+id = "OP-28"
+family = "OP"
+status = "frozen-technical"
+stage = 1
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "OP-29"
+family = "OP"
+status = "out-of-scope"
+title = ""
+tests = []
