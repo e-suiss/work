@@ -1,0 +1,93 @@
+# T-52
+rules:
+  - id: sql-outside-store
+    # T-36
+    message: >-
+      Database access outside crates/store (T-36 rule 2). Move the query into the
+      store crate and call it through a port.
+    severity: ERROR
+    languages: [rust]
+    paths:
+      exclude:
+        - "crates/store/**"
+        - "xtask/**"
+    pattern-either:
+      - pattern: sqlx::query(...)
+      - pattern: sqlx::query_as(...)
+      - pattern: sqlx::query_scalar(...)
+      - pattern: sqlx::query!(...)
+      - pattern: sqlx::query_as!(...)
+      - pattern: sqlx::query_scalar!(...)
+      - pattern-regex: '\b(sqlx|tokio_postgres|deadpool_postgres)::'
+
+  - id: secret-derive-debug
+    # T-33, OP-18
+    message: >-
+      A type that carries a secret, key, token, body or personal data derives Debug
+      (T-33 rule 7, OP-18 rule 4). Implement Debug by hand and redact the value.
+    severity: ERROR
+    languages: [rust]
+    paths:
+      exclude:
+        - "xtask/**"
+    patterns:
+      - pattern: |
+          #[derive(..., Debug, ...)]
+          struct $NAME { ... }
+      - metavariable-regex:
+          metavariable: $NAME
+          regex: '(?i).*(secret|password|passphrase|token|credential|privatekey|apikey|pin|body|personal).*'
+
+  - id: secret-formatted
+    # T-33, OP-18
+    message: >-
+      An exposed secret is formatted or logged (T-33 rule 7). Log a fingerprint or
+      a redacted marker instead.
+    severity: ERROR
+    languages: [rust]
+    paths:
+      exclude:
+        - "**/tests/**"
+        - "**/tests.rs"
+    patterns:
+      - pattern-not-inside: |
+          mod tests { ... }
+      - pattern-either:
+        - pattern: format!(..., $S.expose(), ...)
+        - pattern: format!(..., $S.expose_secret(), ...)
+        - pattern-regex: '\b(trace|debug|info|warn|error|event)!\([^;]*\.expose(_secret)?\(\)'
+
+  - id: paid-or-cloud-only-path
+    # T-3, P-2, MD-15
+    message: >-
+      A licence, plan or cloud-only switch (T-3, P-2). Every capability is open and
+      the same in every deployment.
+    severity: ERROR
+    languages: [rust]
+    paths:
+      exclude:
+        - "xtask/**"
+    pattern-regex: '(?i)\b(license_key|licence_key|is_enterprise|enterprise_only|premium_only|paid_tier|cloud_only|saas_only|plan_tier)\b'
+
+  - id: metric-identity-label
+    # T-39, OP-18
+    message: >-
+      A metric label carries a tenant, organization, ledger, Work, Party or record
+      identity (T-39 rule 5, OP-18 rule 3). Use a bounded label set.
+    severity: ERROR
+    languages: [rust]
+    pattern-regex: '(?i)(counter|gauge|histogram|KeyValue::new)\s*!?\(\s*"[^"]*"\s*,\s*[^)]*"(tenant_id|org_id|organization_id|ledger_id|work_id|party_id|record_id|commitment_id)"'
+
+  - id: process-exit-in-library
+    # T-33
+    message: >-
+      std::process::exit in a library crate. Return an error and let the binary decide.
+    severity: ERROR
+    languages: [rust]
+    paths:
+      include:
+        - "crates/**"
+    pattern-either:
+      - pattern: std::process::exit(...)
+      - pattern: process::exit(...)
+      - pattern: std::process::abort()

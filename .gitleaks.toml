@@ -1,0 +1,16 @@
+# T-38
+
+title = "Work gitleaks configuration"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Generated and third-party files"
+paths = [
+    '''(^|/)target/''',
+    '''(^|/)node_modules/''',
+    '''(^|/)Cargo\.lock$''',
+    '''(^|/)package-lock\.json$''',
+    '''^supply-chain/imports\.lock$''',
+]

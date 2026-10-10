@@ -1,0 +1,76 @@
+# T-38, T-60
+
+[graph]
+all-features = false
+no-default-features = false
+
+[output]
+feature-depth = 1
+
+[advisories]
+unmaintained = "all"
+unsound = "all"
+yanked = "deny"
+ignore = []
+
+# T-38
+[licenses]
+allow = [
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "MIT",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-3.0",
+    "Zlib",
+    "CC0-1.0",
+]
+confidence-threshold = 0.93
+unused-allowed-license = "allow"
+
+[licenses.private]
+ignore = true
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+allow-wildcard-paths = true
+highlight = "all"
+deny = [
+    # T-7, P-8
+    { crate = "openssl", reason = "T-7: shared crypto is aws-lc-rs only" },
+    { crate = "openssl-sys", reason = "T-7: shared crypto is aws-lc-rs only" },
+    { crate = "ring", reason = "T-7: shared crypto is aws-lc-rs only" },
+    { crate = "rsa", reason = "T-7: Marvin timing side channel, no fix" },
+    { crate = "pqcrypto", reason = "T-7: post-quantum comes from aws-lc-rs" },
+    { crate = "pqcrypto-traits", reason = "T-7: post-quantum comes from aws-lc-rs" },
+    # T-36, T-45
+    { crate = "diesel", reason = "T-36: no ORM" },
+    { crate = "sea-orm", reason = "T-36: no ORM" },
+    { crate = "rbatis", reason = "T-36: no ORM" },
+    # T-22
+    { crate = "redis", reason = "T-22: no unmeasured accelerator on the mandatory surface" },
+    { crate = "fred", reason = "T-22: no unmeasured accelerator on the mandatory surface" },
+    { crate = "rdkafka", reason = "T-22: no second queue" },
+    { crate = "lapin", reason = "T-22: no second queue" },
+    { crate = "elasticsearch", reason = "T-22: no separate search engine" },
+    { crate = "meilisearch-sdk", reason = "T-22: no separate search engine" },
+    # T-1, T-30
+    { crate = "temporal-sdk", reason = "T-30: no workflow engine owns Work state" },
+]
+
+[[bans.features]]
+crate = "serde_json"
+deny = ["unbounded_depth"]
+
+[[bans.features]]
+crate = "rustls"
+deny = ["ring"]
+
+# T-31, T-38
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []
