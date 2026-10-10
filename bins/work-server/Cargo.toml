@@ -1,0 +1,21 @@
+[package]
+name = "work-server"
+description = "Work server: composes the Work components into one process (T-1, T-31). No business logic."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+work-telemetry = { workspace = true }
+axum = { workspace = true, features = ["http1", "http2", "tokio"] }
+figment = { workspace = true, features = ["env", "toml"] }
+serde = { workspace = true, features = ["derive", "std"] }
+thiserror = { workspace = true, features = ["std"] }
+tokio = { workspace = true, features = ["macros", "net", "rt-multi-thread", "signal"] }
+tracing = { workspace = true, features = ["std"] }
+
+[lints]
+workspace = true

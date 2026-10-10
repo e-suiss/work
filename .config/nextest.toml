@@ -1,0 +1,13 @@
+# T-37
+
+[profile.default]
+# T-37
+retries = 0
+
+# T-37
+[profile.ci]
+retries = 0
+fail-fast = false
+
+[profile.ci.junit]
+path = "junit.xml"

@@ -1,0 +1,24 @@
+# T-41
+
+default_job = "clippy"
+
+[jobs.check]
+command = ["cargo", "check", "--workspace", "--all-targets", "--locked"]
+need_stdout = false
+
+# T-33
+[jobs.clippy]
+command = ["cargo", "clippy", "--workspace", "--all-targets", "--locked", "--", "-D", "warnings"]
+need_stdout = false
+
+[jobs.test]
+command = [
+    "cargo", "nextest", "run", "--workspace", "--locked", "--no-tests=pass",
+    "--hide-progress-bar", "--failure-output", "final",
+]
+need_stdout = true
+analyzer = "nextest"
+
+[jobs.doc]
+command = ["cargo", "doc", "--workspace", "--no-deps", "--locked"]
+need_stdout = false

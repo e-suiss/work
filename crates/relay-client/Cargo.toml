@@ -1,0 +1,12 @@
+[package]
+name = "work-relay-client"
+description = "Relay public API client: wait points and notification requests."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true

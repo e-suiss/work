@@ -1,0 +1,12 @@
+[package]
+name = "work-query"
+description = "Query service, permitted next transitions, incremental sync (T-13, T-14, T-26)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true

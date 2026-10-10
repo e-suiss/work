@@ -1,0 +1,12 @@
+[package]
+name = "work-testkit"
+description = "Shared test helpers: virtual clock, seeded generators, record builders."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true

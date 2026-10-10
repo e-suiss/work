@@ -1,0 +1,12 @@
+[package]
+name = "work-signer"
+description = "Work signer process: ledger acknowledgements, checkpoints and event signatures through PKCS#11 (T-7, T-56)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true

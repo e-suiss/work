@@ -1,0 +1,12 @@
+[package]
+name = "work-cli"
+description = "Work command line: administration, export, replay and offline verification."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true

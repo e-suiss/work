@@ -1,0 +1,28 @@
+[package]
+name = "esuiss-work-kernel"
+description = "Work kernel: the single no_std implementation of Work semantics (T-4)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lib]
+name = "work_kernel"
+
+# T-44
+[target.'cfg(any(target_os = "linux", target_os = "macos"))'.dev-dependencies]
+divan = { workspace = true }
+gungraun = { workspace = true, features = ["default"] }
+
+[[bench]]
+name = "kernel_wallclock"
+harness = false
+
+[[bench]]
+name = "kernel_instructions"
+harness = false
+
+[lints]
+workspace = true

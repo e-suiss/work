@@ -1,0 +1,26 @@
+# T-33
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-panic-in-tests = true
+allow-indexing-slicing-in-tests = true
+
+# T-32, T-52
+disallowed-methods = [
+    { path = "std::time::SystemTime::now", reason = "T-32: time comes from the Clock port (ledger time)" },
+    { path = "std::time::Instant::now", reason = "T-32: time comes from the Clock port" },
+    { path = "chrono::Utc::now", reason = "T-32: time comes from the Clock port" },
+    { path = "chrono::Local::now", reason = "T-32: time comes from the Clock port" },
+    { path = "time::OffsetDateTime::now_utc", reason = "T-32: time comes from the Clock port" },
+    { path = "time::OffsetDateTime::now_local", reason = "T-32: time comes from the Clock port" },
+    { path = "rand::thread_rng", reason = "T-32: randomness comes from the Rng port" },
+    { path = "rand::rng", reason = "T-32: randomness comes from the Rng port" },
+    { path = "rand::random", reason = "T-32: randomness comes from the Rng port" },
+    { path = "uuid::Uuid::new_v4", reason = "T-32: identifiers come from the Rng port" },
+    { path = "uuid::Uuid::now_v7", reason = "T-32: identifiers come from the Clock and Rng ports" },
+    { path = "getrandom::getrandom", reason = "T-32: randomness comes from the Rng port" },
+    { path = "getrandom::fill", reason = "T-32: randomness comes from the Rng port" },
+]
+disallowed-types = [
+    { path = "rand::rngs::ThreadRng", reason = "T-32: randomness comes from the Rng port" },
+    { path = "rand::rngs::OsRng", reason = "T-32: randomness comes from the Rng port" },
+]

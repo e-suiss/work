@@ -1,0 +1,12 @@
+[package]
+name = "work-views"
+description = "Derivation workers: attention, summary, Work View, search (T-10)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true

@@ -1,0 +1,12 @@
+# T-33, T-60
+[toolchain]
+channel = "1.99.0"
+profile = "minimal"
+components = ["rustfmt", "clippy"]
+# T-31, T-5
+targets = [
+    "wasm32-unknown-unknown",
+    "thumbv7em-none-eabihf",
+    "x86_64-unknown-linux-gnu",
+    "aarch64-unknown-linux-gnu",
+]

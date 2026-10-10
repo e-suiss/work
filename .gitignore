@@ -1,0 +1,11 @@
+/target/
+node_modules/
+dist/
+
+# T-38, T-41
+.env
+.env.*
+!.env.example
+
+.DS_Store
+*.swp

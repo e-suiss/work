@@ -1,0 +1,12 @@
+[package]
+name = "work-http"
+description = "HTTP and WebSocket layer for every API family."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true
