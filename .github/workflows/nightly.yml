@@ -1,0 +1,131 @@
+# T-40, T-37, T-38, T-44, T-62
+name: Nightly
+
+on:
+  schedule:
+    - cron: "53 2 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: nightly-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+  RUST_BACKTRACE: "1"
+
+jobs:
+  audit:
+    name: audit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          cache-key: tools
+          tools: audit
+      - name: cargo-audit (T-38)
+        run: just audit
+
+  supply-chain-watch:
+    name: supply-chain-watch
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          cache-key: lint
+      - name: Cooldown (T-60)
+        env:
+          XTASK_ONLINE: "1"
+        run: cargo xtask check cooldown
+      - name: Maintainer watch list (T-38)
+        env:
+          XTASK_ONLINE: "1"
+        run: cargo xtask check maintainer-watchlist
+
+  test-full:
+    name: test-full
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          cache-key: test
+          tools: nextest
+      - name: Full suite, including long-running tests (T-37)
+        run: just test-full
+
+  mutants:
+    name: mutants
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          cache-key: test
+          tools: nextest mutants
+      - name: cargo-mutants on the kernel (T-37)
+        run: just mutants
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: mutants-report
+          path: mutants.out
+          retention-days: 30
+          if-no-files-found: ignore
+
+  bench-wallclock:
+    name: bench-wallclock
+    if: github.ref == 'refs/heads/main' && github.repository == 'e-suiss/work'
+    runs-on: [self-hosted, linux, bench]
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          cache-key: bench-wallclock
+      - name: Wall-clock benchmarks (T-44, T-62)
+        run: |
+          mkdir -p bench-results
+          {
+            echo "commit: $GITHUB_SHA"
+            echo "date: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "host: $(uname -srm)"
+            echo "governor: $(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor 2>/dev/null || echo unknown)"
+            echo
+          } > bench-results/wallclock.txt
+          just bench | tee -a bench-results/wallclock.txt
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: bench-wallclock-${{ github.run_id }}
+          path: bench-results
+          retention-days: 90
+          if-no-files-found: error

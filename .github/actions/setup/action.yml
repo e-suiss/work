@@ -1,0 +1,103 @@
+# T-40, T-41, T-60
+name: Setup
+description: Install the pinned Rust toolchain, restore the Cargo cache and install CI tools.
+
+inputs:
+  tools:
+    description: >-
+      Space-separated CI tools to install (just is always installed). Known names:
+      nextest deny audit auditable cyclonedx mutants git-cliff wasmtime gungraun
+      syft cosign wasm-bindgen vet.
+    required: false
+    default: ""
+  cache-key:
+    description: Cargo cache key suffix; jobs with different build profiles use different keys.
+    required: false
+    default: default
+  cache:
+    description: >-
+      "false" builds from a clean state with no Cargo cache (release builds, so a release
+      never depends on cache contents).
+    required: false
+    default: "true"
+  toolchain:
+    description: >-
+      Override the toolchain from rust-toolchain.toml.
+    required: false
+    default: ""
+  components:
+    description: Extra rustup components for the override toolchain.
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Install Rust toolchain
+      shell: bash
+      env:
+        TOOLCHAIN: ${{ inputs.toolchain }}
+        COMPONENTS: ${{ inputs.components }}
+      run: |
+        if [[ -n "$TOOLCHAIN" ]]; then
+          args=(--profile minimal)
+          [[ -n "$COMPONENTS" ]] && args+=(--component "$COMPONENTS")
+          rustup toolchain install "$TOOLCHAIN" "${args[@]}"
+        elif ! rustup toolchain install 2>/dev/null; then
+          rustup show active-toolchain
+        fi
+        rustc --version --verbose
+
+    - name: Resolve tool versions
+      id: tools
+      shell: bash
+      env:
+        WANTED: ${{ inputs.tools }}
+      run: |
+        pinned() {
+          case "$1" in
+            nextest) echo cargo-nextest@0.9.146 ;;
+            deny) echo cargo-deny@0.20.2 ;;
+            audit) echo cargo-audit@0.22.2 ;;
+            auditable) echo cargo-auditable@0.7.6 ;;
+            cyclonedx) echo cargo-cyclonedx@0.5.9 ;;
+            mutants) echo cargo-mutants@27.1.0 ;;
+            git-cliff) echo git-cliff@2.14.2 ;;
+            wasmtime) echo wasmtime@49.0.1 ;;
+            gungraun) echo gungraun-runner@0.20.0 ;;
+            syft) echo syft@1.52.0 ;;
+            cosign) echo cosign@3.1.3 ;;
+            wasm-bindgen) echo wasm-bindgen@0.2.129 ;;
+          esac
+        }
+        list="just@1.58.0"
+        vet=false
+        for name in $WANTED; do
+          if [[ "$name" == vet ]]; then vet=true; continue; fi
+          spec="$(pinned "$name")"
+          if [[ -z "$spec" ]]; then echo "::error::unknown tool '$name'"; exit 1; fi
+          list="$list,$spec"
+        done
+        echo "list=$list" >> "$GITHUB_OUTPUT"
+        echo "vet=$vet" >> "$GITHUB_OUTPUT"
+
+    - name: Restore Cargo cache
+      if: inputs.cache == 'true'
+      uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      with:
+        shared-key: ${{ inputs.cache-key }}
+        save-if: ${{ github.ref == 'refs/heads/main' }}
+
+    - name: Install CI tools
+      uses: taiki-e/install-action@83ac0ad63c0167e6f06796fab0fce28db1bf3db0 # v2.87.22
+      with:
+        tool: ${{ steps.tools.outputs.list }}
+        fallback: none
+
+    - name: Install cargo-vet
+      if: steps.tools.outputs.vet == 'true'
+      shell: bash
+      run: |
+        if [[ "$(cargo vet --version 2>/dev/null || true)" != "cargo-vet 0.10.2" ]]; then
+          cargo install --locked cargo-vet --version 0.10.2
+        fi

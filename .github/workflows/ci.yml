@@ -1,0 +1,195 @@
+# T-40, T-37, T-55, T-41, T-43
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions: {}
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+  RUST_BACKTRACE: "1"
+
+jobs:
+  fast:
+    name: fast
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          cache-key: lint
+      - name: Format (T-33)
+        run: just fmt-check
+      - name: Clippy, warnings are errors (T-33)
+        run: just lint
+      - name: Repository rules (T-31, T-36, T-46, T-52)
+        run: just rules
+      - name: Migration safety (T-36)
+        run: just squawk
+
+  test:
+    name: test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          cache-key: test
+          tools: nextest
+      - name: Tests (T-37)
+        env:
+          NEXTEST_PROFILE: ci
+        run: just test
+
+  cross:
+    name: cross
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          cache-key: cross
+      - name: Kernel no_std and WebAssembly builds (T-31, T-4)
+        run: just cross
+
+  supply-chain:
+    name: supply-chain
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          cache-key: tools
+          tools: deny vet
+      - name: cargo-deny (T-38)
+        run: just deny
+      - name: cargo-vet (T-38)
+        run: just vet
+
+  secrets:
+    name: secrets
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Install gitleaks 8.30.1 (T-38, T-60)
+        env:
+          GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/gitleaks.tar.gz" \
+            https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz
+          echo "$GITLEAKS_SHA256  $RUNNER_TEMP/gitleaks.tar.gz" | sha256sum --check --strict
+          tar -xzf "$RUNNER_TEMP/gitleaks.tar.gz" -C "$RUNNER_TEMP" gitleaks
+      - name: Scan history
+        run: '"$RUNNER_TEMP/gitleaks" git --redact --no-banner --exit-code 1 .'
+
+  compose:
+    name: compose
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          cache-key: compose
+      - name: Local environment starts (T-41, T-51, T-56, T-57)
+        run: just dev
+      - name: Product databases are isolated (T-51, T-8)
+        run: |
+          c() { docker compose -f deploy/compose/compose.yaml "$@"; }
+          c exec -T -e PGPASSWORD=local-only-not-a-secret postgres psql -h 127.0.0.1 -U work_app -d work -tAc 'select 1'
+          if c exec -T -e PGPASSWORD=local-only-not-a-secret postgres psql -h 127.0.0.1 -U work_app -d access -tAc 'select 1'; then
+            echo "work_app reached the access database" >&2
+            exit 1
+          fi
+      - name: Server starts and stops
+        run: |
+          cargo build --locked -p work-server
+          WORK_LISTEN=127.0.0.1:18090 target/debug/work-server &
+          pid=$!
+          for _ in $(seq 1 50); do (echo > /dev/tcp/127.0.0.1/18090) 2>/dev/null && break; sleep 0.2; done
+          (echo > /dev/tcp/127.0.0.1/18090) 2>/dev/null
+          kill -TERM "$pid"
+          wait "$pid"
+      - name: Stop
+        if: always()
+        run: just dev-down
+
+  bench-instructions:
+    name: bench-instructions
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: ./.github/actions/setup
+        with:
+          cache-key: bench
+          tools: gungraun
+      - name: Install Valgrind
+        run: sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends valgrind
+      - name: Baseline (base commit)
+        env:
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [[ -z "$BASE_SHA" || "$BASE_SHA" =~ ^0+$ ]] || ! git cat-file -e "$BASE_SHA^{commit}" 2>/dev/null; then
+            echo "HAVE_BASELINE=false" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          head="$(git rev-parse HEAD)"
+          git checkout --quiet "$BASE_SHA"
+          if [[ -f crates/kernel/benches/kernel_instructions.rs ]]; then
+            just bench-instructions --save-baseline=base
+            echo "HAVE_BASELINE=true" >> "$GITHUB_ENV"
+          else
+            echo "HAVE_BASELINE=false" >> "$GITHUB_ENV"
+          fi
+          git checkout --quiet "$head"
+      - name: Kernel regression gate, fails above 5 % (T-44, T-60)
+        run: |
+          if [[ "$HAVE_BASELINE" == true ]]; then
+            just bench-instructions --baseline=base --callgrind-limits='ir=5%'
+          else
+            just bench-instructions
+          fi

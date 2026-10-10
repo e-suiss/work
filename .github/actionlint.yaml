@@ -1,0 +1,4 @@
+# T-62
+self-hosted-runner:
+  labels:
+    - bench
