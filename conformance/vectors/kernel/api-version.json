@@ -1,5 +1,5 @@
 {
-  "api_version": "0.0",
+  "api_version": "0.1",
   "compare": [
     { "id": "older-minor", "a": { "major": 0, "minor": 0 }, "b": { "major": 0, "minor": 1 }, "expected": "less" },
     { "id": "major-before-minor", "a": { "major": 0, "minor": 9 }, "b": { "major": 1, "minor": 0 }, "expected": "less" },

@@ -11,8 +11,12 @@ use crate::rules::lex::{in_regions, lex, test_regions};
 
 const RULE: &str = "no-dev-mode";
 
-/// Reviewed exceptions: (relative path, matched phrase, reason). Empty on purpose.
-const ALLOWLIST: &[(&str, &str, &str)] = &[];
+/// Reviewed exceptions: (relative path, matched phrase, reason).
+const ALLOWLIST: &[(&str, &str, &str)] = &[(
+    "crates/kernel/src/catalog.rs",
+    "no_authority",
+    "P-85: the CM-20 decline reason wire value, not a switch",
+)];
 
 const SELF_PATH: &str = "xtask/src/rules_switches.rs";
 

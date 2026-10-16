@@ -3,10 +3,22 @@
 #![no_std]
 #![forbid(unsafe_code)]
 
+extern crate alloc;
+
+pub mod catalog;
+pub mod derive;
+pub mod id;
+pub mod limits;
 pub mod policy_default;
+pub mod reason;
+pub mod record;
+pub mod relation;
+pub mod uri;
+pub mod validate;
+pub mod verify;
 
 /// Version of the kernel public API (T-4 rule 4).
-pub const API_VERSION: ApiVersion = ApiVersion { major: 0, minor: 0 };
+pub const API_VERSION: ApiVersion = ApiVersion { major: 0, minor: 1 };
 
 /// A kernel public API version.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
