@@ -1644,7 +1644,9 @@ status = "frozen-technical"
 stage = 1
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "sdks/bindings/core/tests/vectors.rs::t_5_t_37_inv_7_native_record_vectors_through_bindings_core",
+]
 
 [[rule]]
 id = "X-25"
@@ -2915,6 +2917,7 @@ tests = [
   "crates/kernel/src/reason.rs::p_11_reason_codes_round_trip_through_their_wire_strings",
   "crates/kernel/tests/derivation.rs::p_11_ledger_order_violations_are_errors",
   "crates/kernel/tests/record_vectors.rs::p_11_accepted_record_vectors",
+  "sdks/bindings/core/tests/vectors.rs::t_5_t_37_inv_7_native_record_vectors_through_bindings_core",
 ]
 
 [[rule]]
@@ -2946,7 +2949,9 @@ family = "P"
 status = "frozen-protocol"
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/records.rs::t_4_rule_set_is_selected_from_the_record_version_only",
+]
 
 [[rule]]
 id = "P-19"
@@ -2957,11 +2962,14 @@ acceptance = "to-fill"
 title = ""
 tests = [
   "crates/kernel/tests/derivation.rs::p_19_quarantined_record_has_no_effect",
+  "crates/kernel/tests/derivation.rs::t_4_p_87_unknown_protocol_version_is_quarantined_in_derivation",
   "crates/kernel/tests/record_vectors.rs::p_11_accepted_record_vectors",
   "crates/kernel/tests/record_vectors.rs::p_19_quarantine_record_vectors",
   "crates/kernel/tests/records.rs::p_19_unknown_critical_extension_quarantines",
   "crates/kernel/tests/records.rs::p_19_unknown_non_critical_extension_is_preserved_uninterpreted",
   "crates/kernel/tests/records.rs::p_69_critical_key_must_be_present_in_ext",
+  "crates/kernel/tests/records.rs::t_4_p_87_unknown_protocol_version_is_quarantined_before_any_rule",
+  "sdks/bindings/core/tests/vectors.rs::t_5_t_37_inv_7_native_record_vectors_through_bindings_core",
 ]
 
 [[rule]]
@@ -3331,6 +3339,7 @@ tests = [
   "crates/kernel/tests/records.rs::p_72_empty_optional_lists_are_rejected",
   "crates/kernel/tests/records.rs::p_72_p_69_empty_optional_maps_are_rejected",
   "crates/kernel/tests/records.rs::p_72_set_lists_are_sorted_and_duplicate_free",
+  "sdks/bindings/core/tests/vectors.rs::t_5_t_37_inv_7_native_record_vectors_through_bindings_core",
 ]
 
 [[rule]]
@@ -3355,6 +3364,8 @@ title = ""
 tests = [
   "crates/kernel/tests/derivation.rs::p_28_p_74_concurrent_transitions_by_different_authors_conflict",
   "crates/kernel/tests/derivation.rs::p_74_same_author_same_chain_same_version_is_rejected",
+  "crates/kernel/tests/derivation.rs::p_86_a_target_in_another_chain_does_not_raise_the_version",
+  "crates/kernel/tests/derivation.rs::p_86_version_is_one_more_than_the_highest_superseded_version_in_the_chain",
 ]
 
 [[rule]]
@@ -3486,6 +3497,34 @@ title = ""
 tests = [
   "crates/kernel/src/catalog.rs::p_85_wire_names_have_no_hyphen",
   "crates/kernel/tests/records.rs::p_80_params_follow_the_core_subtype_schema",
+]
+
+[[rule]]
+id = "P-86"
+family = "P"
+status = "frozen-protocol"
+class = "BS"
+acceptance = "filled"
+title = ""
+tests = [
+  "crates/kernel/tests/derivation.rs::p_86_a_target_in_another_chain_does_not_raise_the_version",
+  "crates/kernel/tests/derivation.rs::p_86_version_is_one_more_than_the_highest_superseded_version_in_the_chain",
+]
+
+[[rule]]
+id = "P-87"
+family = "P"
+status = "frozen-protocol"
+class = "BS"
+acceptance = "filled"
+title = ""
+tests = [
+  "crates/kernel/src/rules.rs::t_4_rule_sets_are_ordered_and_unique_by_protocol_version",
+  "crates/kernel/tests/derivation.rs::t_4_p_87_older_record_keeps_its_own_rules_under_a_newer_active_protocol",
+  "crates/kernel/tests/derivation.rs::t_4_p_87_record_newer_than_the_active_protocol_has_no_effect",
+  "crates/kernel/tests/derivation.rs::t_4_p_87_unknown_protocol_version_is_quarantined_in_derivation",
+  "crates/kernel/tests/records.rs::t_4_p_87_unknown_protocol_version_is_quarantined_before_any_rule",
+  "crates/kernel/tests/records.rs::t_4_rule_set_is_selected_from_the_record_version_only",
 ]
 
 [[rule]]
@@ -3782,6 +3821,7 @@ acceptance = "filled"
 title = "One repository, exact shared crate versions and an enforced dependency direction"
 tests = [
   "xtask/src/policy_compat.rs::t_51_shared_crate_versions_match_manifest_and_lockfile",
+  "xtask/src/rules_deps.rs::t_31_bindings_share_crates_inside_sdks_bindings_only",
   "xtask/src/rules_deps.rs::t_31_bins_may_depend_on_every_crate_and_xtask_on_none",
   "xtask/src/rules_deps.rs::t_31_component_crates_must_not_depend_on_each_other",
   "xtask/src/rules_deps.rs::t_31_crate_in_unknown_directory_fails_closed",
@@ -3887,6 +3927,10 @@ tests = [
   "crates/kernel/tests/properties.rs::t_4_position_overflow_is_typed",
   "crates/kernel/tests/vectors.rs::t_5_t_37_native_api_version_matches_shared_vectors",
   "crates/kernel/tests/vectors.rs::t_5_t_37_native_policy_defaults_match_shared_vectors",
+  "sdks/bindings/core/tests/vectors.rs::t_5_t_37_input_errors_are_not_decisions",
+  "sdks/bindings/core/tests/vectors.rs::t_5_t_37_inv_7_native_derivation_through_bindings_core",
+  "sdks/bindings/core/tests/vectors.rs::t_5_t_37_inv_7_native_record_vectors_through_bindings_core",
+  "sdks/bindings/core/tests/vectors.rs::t_5_t_37_kernel_derivation_errors_cross_the_binding",
   "sdks/bindings/uniffi/tests/vectors.rs::t_5_t_37_uniffi_api_version_matches_shared_vectors",
   "sdks/bindings/uniffi/tests/vectors.rs::t_5_t_37_uniffi_policy_defaults_match_shared_vectors",
   "xtask/src/catalog.rs::t_37_untested_boundary_fails_only_for_completed_stages_or_release",
@@ -4411,7 +4455,9 @@ status = "frozen-technical"
 stage = 1
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/derivation.rs::t_4_p_87_record_newer_than_the_active_protocol_has_no_effect",
+]
 
 [[rule]]
 id = "OP-29"

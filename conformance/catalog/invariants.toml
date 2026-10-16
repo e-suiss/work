@@ -291,6 +291,8 @@ title = ""
 tests = [
   "crates/kernel/tests/derivation.rs::inv_7_same_inputs_give_the_same_result",
   "crates/kernel/tests/properties.rs::inv_7_derivation_is_a_pure_function",
+  "sdks/bindings/core/tests/vectors.rs::t_5_t_37_inv_7_native_derivation_through_bindings_core",
+  "sdks/bindings/core/tests/vectors.rs::t_5_t_37_inv_7_native_record_vectors_through_bindings_core",
 ]
 
 [[rule]]
@@ -299,7 +301,9 @@ family = "INV"
 status = "canonical-invariant"
 stage = 1
 title = ""
-tests = []
+tests = [
+  "sdks/bindings/core/tests/vectors.rs::t_5_t_37_inv_7_native_record_vectors_through_bindings_core",
+]
 
 [[rule]]
 id = "INV-9"
@@ -1685,6 +1689,7 @@ tests = [
   "crates/kernel/tests/derivation.rs::p_24_superseding_an_unknown_record_has_no_effect",
   "crates/kernel/tests/derivation.rs::p_24_terminal_outcome_never_changes",
   "crates/kernel/tests/derivation.rs::p_74_same_author_same_chain_same_version_is_rejected",
+  "crates/kernel/tests/derivation.rs::p_86_version_is_one_more_than_the_highest_superseded_version_in_the_chain",
 ]
 
 [[rule]]
@@ -1729,6 +1734,8 @@ tests = [
   "crates/kernel/tests/derivation.rs::t_6_different_trust_inputs_diverge_explicitly",
   "crates/kernel/tests/properties.rs::inv_7_derivation_is_a_pure_function",
   "crates/kernel/tests/properties.rs::p_31_validation_is_a_pure_function",
+  "sdks/bindings/core/tests/vectors.rs::t_5_t_37_inv_7_native_derivation_through_bindings_core",
+  "sdks/bindings/core/tests/vectors.rs::t_5_t_37_kernel_derivation_errors_cross_the_binding",
 ]
 
 [[rule]]
@@ -1843,9 +1850,15 @@ stage = 1
 title = "The kernel is no_std, forbids unsafe, has no I/O and never panics"
 tests = [
   "crates/kernel/src/lib.rs::t_4_api_versions_order_by_major_then_minor",
+  "crates/kernel/src/rules.rs::t_4_rule_sets_are_ordered_and_unique_by_protocol_version",
   "crates/kernel/tests/derivation.rs::t_23_restriction_results_gate_normative_effect",
+  "crates/kernel/tests/derivation.rs::t_4_p_87_older_record_keeps_its_own_rules_under_a_newer_active_protocol",
+  "crates/kernel/tests/derivation.rs::t_4_p_87_record_newer_than_the_active_protocol_has_no_effect",
+  "crates/kernel/tests/derivation.rs::t_4_p_87_unknown_protocol_version_is_quarantined_in_derivation",
   "crates/kernel/tests/derivation.rs::t_4_position_overflow_is_a_typed_error",
   "crates/kernel/tests/properties.rs::t_4_position_overflow_is_typed",
+  "crates/kernel/tests/records.rs::t_4_p_87_unknown_protocol_version_is_quarantined_before_any_rule",
+  "crates/kernel/tests/records.rs::t_4_rule_set_is_selected_from_the_record_version_only",
   "xtask/src/rules_deps.rs::t_31_kernel_depends_only_on_suiss_crypto",
   "xtask/src/rules_kernel.rs::t_31_kernel_binds_suiss_crypto_without_default_features",
   "xtask/src/rules_kernel.rs::t_31_std_pulling_crate_in_kernel_tree_is_rejected",
@@ -1864,8 +1877,13 @@ title = ""
 tests = [
   "crates/kernel/tests/vectors.rs::t_5_t_37_native_api_version_matches_shared_vectors",
   "crates/kernel/tests/vectors.rs::t_5_t_37_native_policy_defaults_match_shared_vectors",
+  "sdks/bindings/core/tests/vectors.rs::t_5_t_37_input_errors_are_not_decisions",
+  "sdks/bindings/core/tests/vectors.rs::t_5_t_37_inv_7_native_derivation_through_bindings_core",
+  "sdks/bindings/core/tests/vectors.rs::t_5_t_37_inv_7_native_record_vectors_through_bindings_core",
+  "sdks/bindings/core/tests/vectors.rs::t_5_t_37_kernel_derivation_errors_cross_the_binding",
   "sdks/bindings/uniffi/tests/vectors.rs::t_5_t_37_uniffi_api_version_matches_shared_vectors",
   "sdks/bindings/uniffi/tests/vectors.rs::t_5_t_37_uniffi_policy_defaults_match_shared_vectors",
+  "xtask/src/rules_deps.rs::t_31_bindings_share_crates_inside_sdks_bindings_only",
 ]
 
 [[rule]]

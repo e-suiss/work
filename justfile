@@ -90,7 +90,7 @@ test-swift: bindings-swift
       -L target/debug -lwork_kernel_ffi -Xlinker -rpath -Xlinker "{{justfile_directory()}}/target/debug" \
       target/uniffi/swift/work_kernel_ffi.swift sdks/bindings/uniffi/tests/swift/main.swift \
       -o target/uniffi/swift/kernel-vectors
-    target/uniffi/swift/kernel-vectors conformance/vectors/kernel
+    target/uniffi/swift/kernel-vectors conformance/vectors/kernel conformance/vectors/records sdks/bindings/core/tests/fixtures
 
 # T-58
 npm_packages := "packages/kernel"
@@ -166,6 +166,13 @@ image tag="work-server:local":
 # T-44, T-62
 bench *args:
     cargo bench --locked -p esuiss-work-kernel --bench kernel_wallclock -- {{args}}
+
+# T-44
+wasm-size:
+    CARGO_PROFILE_RELEASE_DEBUG=false CARGO_PROFILE_RELEASE_STRIP=true \
+      cargo build --locked --release --target wasm32-unknown-unknown --target-dir target/wasm-size -p work-kernel-wasm
+    f=target/wasm-size/wasm32-unknown-unknown/release/work_kernel_wasm.wasm; \
+    echo "work_kernel_wasm.wasm: $(wc -c < "$f" | tr -d ' ') bytes, $(gzip -9 -c "$f" | wc -c | tr -d ' ') bytes gzip -9"
 
 bench-instructions *args:
     cargo bench --locked -p esuiss-work-kernel --bench kernel_instructions -- {{args}}
