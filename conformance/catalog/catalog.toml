@@ -8,3 +8,8 @@ enforced_families = [
 ]
 
 test_roots = ["crates", "bins", "xtask"]
+
+[[value_stages]]
+id = "OP-26"
+stage = 14
+reason = "F-27: capacity, latency and request budgets are measured before the stage 14 capacity work; stage 0 only builds the gate"

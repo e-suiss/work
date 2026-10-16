@@ -19,6 +19,7 @@ mod policy;
 mod rules;
 mod sha256;
 mod supply_chain;
+mod watch;
 mod yaml;
 
 use std::path::{Path, PathBuf};
@@ -106,6 +107,7 @@ fn usage() -> ExitCode {
     eprintln!(
         "  spec-counterparts [--update] compare E-40 counterpart clauses with recorded digests (T-50)"
     );
+    eprintln!("  watch-report                 list WATCH rows for the scheduled review (F-25)");
     ExitCode::FAILURE
 }
 
@@ -132,6 +134,16 @@ fn main() -> ExitCode {
             ExitCode::SUCCESS
         }
         Some("catalog") => report("catalog", catalog::generate(&root, flag("--links-only"))),
+        Some("watch-report") => match watch::report(&root) {
+            Ok(text) => {
+                print!("{text}");
+                ExitCode::SUCCESS
+            }
+            Err(error) => {
+                eprintln!("watch-report: {error}");
+                ExitCode::FAILURE
+            }
+        },
         Some("spec-counterparts") => report(
             "spec-counterparts",
             counterparts::run(&root, flag("--update")),

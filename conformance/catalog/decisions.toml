@@ -37,7 +37,9 @@ family = "MD"
 status = "central-decision"
 stage = 5
 title = ""
-tests = []
+tests = [
+  "crates/kernel/src/policy_default.rs::f_26_security_switch_turns_off_only_with_a_recorded_declaration",
+]
 
 [[rule]]
 id = "MD-6"
@@ -129,7 +131,9 @@ family = "MD"
 status = "central-decision"
 stage = 2
 title = ""
-tests = []
+tests = [
+  "crates/kernel/src/policy_default.rs::f_26_retention_only_extends",
+]
 
 [[rule]]
 id = "MD-17"
@@ -348,14 +352,22 @@ id = "F-25"
 family = "F"
 status = "frozen-product"
 title = ""
-tests = []
+tests = [
+  "xtask/src/watch.rs::f_25_a_catalog_without_watch_rows_is_an_error",
+  "xtask/src/watch.rs::f_25_watch_rows_are_listed_for_review",
+]
 
 [[rule]]
 id = "F-26"
 family = "F"
 status = "frozen-product"
-title = ""
-tests = []
+title = "Policy defaults state who changes them, the bounds and the direction"
+tests = [
+  "crates/kernel/src/policy_default.rs::f_26_operational_values_move_both_ways_inside_bounds",
+  "crates/kernel/src/policy_default.rs::f_26_retention_only_extends",
+  "crates/kernel/src/policy_default.rs::f_26_security_switch_turns_off_only_with_a_recorded_declaration",
+  "crates/kernel/src/policy_default.rs::f_26_security_values_only_tighten",
+]
 
 [[rule]]
 id = "F-27"
@@ -1022,77 +1034,77 @@ tests = [
 id = "MKT-2"
 family = "MKT"
 status = "watch"
-title = ""
+title = "Durable, vendor-independent work identity"
 tests = []
 
 [[rule]]
 id = "MKT-3"
 family = "MKT"
 status = "watch"
-title = ""
+title = "Recorded hand-off of responsibility"
 tests = []
 
 [[rule]]
 id = "MKT-4"
 family = "MKT"
 status = "watch"
-title = ""
+title = "General delivery acceptance with a declared verifier"
 tests = []
 
 [[rule]]
 id = "MKT-5"
 family = "MKT"
 status = "watch"
-title = ""
+title = "Commitment semantics on top of agent protocols"
 tests = []
 
 [[rule]]
 id = "MKT-6"
 family = "MKT"
 status = "watch"
-title = ""
+title = "Accountable owner at the level of the work"
 tests = []
 
 [[rule]]
 id = "MKT-7"
 family = "MKT"
 status = "watch"
-title = ""
+title = "Typed, addressed, concurrent waits"
 tests = []
 
 [[rule]]
 id = "MKT-8"
 family = "MKT"
 status = "watch"
-title = ""
+title = "A view of the work instead of an inventory"
 tests = []
 
 [[rule]]
 id = "MKT-9"
 family = "MKT"
 status = "watch"
-title = ""
+title = "Domain-independent cross-organization commitment events"
 tests = []
 
 [[rule]]
 id = "MKT-10"
 family = "MKT"
 status = "watch"
-title = ""
+title = "Machine mechanisms in the common model"
 tests = []
 
 [[rule]]
 id = "MKT-11"
 family = "MKT"
 status = "watch"
-title = ""
+title = "Four-eyes acceptance by default on agent output"
 tests = []
 
 [[rule]]
 id = "MKT-12"
 family = "MKT"
 status = "watch"
-title = ""
+title = "Attention ranking with external signals"
 tests = []
 
 [[rule]]
@@ -1271,8 +1283,13 @@ id = "C-42"
 family = "C"
 status = "frozen-product"
 stage = 4
-title = ""
-tests = []
+title = "Each term has one meaning across code, API and UI"
+tests = [
+  "xtask/src/policy_terms.rs::c_42_allow_entries_need_a_reason",
+  "xtask/src/policy_terms.rs::c_42_api_schema_keys_are_checked",
+  "xtask/src/policy_terms.rs::c_42_canonical_names_and_external_paths_pass",
+  "xtask/src/policy_terms.rs::c_42_task_and_assignee_names_are_rejected",
+]
 
 [[rule]]
 id = "E-2"
@@ -3157,14 +3174,14 @@ tests = []
 id = "P-63"
 family = "P"
 status = "watch"
-title = ""
+title = "Timing of the post-quantum signature default follows Access"
 tests = []
 
 [[rule]]
 id = "P-64"
 family = "P"
 status = "watch"
-title = ""
+title = "Agent protocol and telemetry convention versions, and adoption of the Work A2A extension"
 tests = []
 
 [[rule]]

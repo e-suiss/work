@@ -13,6 +13,8 @@ use crate::{Check, Violation};
 mod compat;
 #[path = "policy_scan.rs"]
 mod scan;
+#[path = "policy_terms.rs"]
+mod terms;
 
 pub(crate) fn checks() -> Vec<Check> {
     let mut all = vec![
@@ -39,6 +41,10 @@ pub(crate) fn checks() -> Vec<Check> {
         Check {
             name: "compat",
             run: compat::check,
+        },
+        Check {
+            name: "canonical-terms",
+            run: terms::check,
         },
     ];
     all.extend(scan::checks());

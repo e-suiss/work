@@ -207,6 +207,36 @@ pub(crate) const TITLES: &[(&str, &str)] = &[
         "OP-26",
         "Capacity and latency numbers are set only by measurement",
     ),
+    ("MKT-2", "Durable, vendor-independent work identity"),
+    ("MKT-3", "Recorded hand-off of responsibility"),
+    (
+        "MKT-4",
+        "General delivery acceptance with a declared verifier",
+    ),
+    ("MKT-5", "Commitment semantics on top of agent protocols"),
+    ("MKT-6", "Accountable owner at the level of the work"),
+    ("MKT-7", "Typed, addressed, concurrent waits"),
+    ("MKT-8", "A view of the work instead of an inventory"),
+    (
+        "MKT-9",
+        "Domain-independent cross-organization commitment events",
+    ),
+    ("MKT-10", "Machine mechanisms in the common model"),
+    ("MKT-11", "Four-eyes acceptance by default on agent output"),
+    ("MKT-12", "Attention ranking with external signals"),
+    (
+        "P-63",
+        "Timing of the post-quantum signature default follows Access",
+    ),
+    (
+        "P-64",
+        "Agent protocol and telemetry convention versions, and adoption of the Work A2A extension",
+    ),
+    (
+        "F-26",
+        "Policy defaults state who changes them, the bounds and the direction",
+    ),
+    ("C-42", "Each term has one meaning across code, API and UI"),
 ];
 
 /// IDs whose title must not be empty regardless of stage.
@@ -215,7 +245,8 @@ pub(crate) const REQUIRED_TITLES: &[&str] = &[
     "MD-15", "OP-12", "OP-18", "OP-26", "T-29", "T-30", "T-31", "T-32", "T-33", "T-34", "T-35",
     "T-36", "T-37", "T-38", "T-39", "T-40", "T-41", "T-42", "T-43", "T-44", "T-45", "T-46", "T-47",
     "T-48", "T-49", "T-50", "T-51", "T-52", "T-53", "T-54", "T-55", "T-56", "T-57", "T-58", "T-59",
-    "T-60", "T-61", "T-62", "T-63",
+    "T-60", "T-61", "T-62", "T-63", "MKT-2", "MKT-3", "MKT-4", "MKT-5", "MKT-6", "MKT-7", "MKT-8",
+    "MKT-9", "MKT-10", "MKT-11", "MKT-12", "P-63", "P-64",
 ];
 
 /// The F-9 must-never list, in spec order.

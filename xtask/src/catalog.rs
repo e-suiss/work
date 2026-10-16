@@ -66,6 +66,18 @@ pub(crate) struct Config {
     pub(crate) test_roots: Vec<String>,
     #[serde(default)]
     pub(crate) stage_overrides: Vec<StageOverride>,
+    #[serde(default)]
+    pub(crate) value_stages: Vec<ValueStage>,
+}
+
+/// The stage whose feature first depends on a PD/EA value, when it differs from
+/// the rule's own stage (F-27).
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct ValueStage {
+    pub(crate) id: String,
+    pub(crate) stage: u8,
+    pub(crate) reason: String,
 }
 
 /// A family-wide stage decided outside the Ek B text, with its reason.
@@ -722,6 +734,15 @@ fn item_violations(catalog: &Catalog, seen: &BTreeSet<String>) -> Vec<Violation>
 
 fn config_violations(config: &Config) -> Vec<Violation> {
     let mut out = Vec::new();
+    for v in &config.value_stages {
+        if v.reason.trim().is_empty() || v.stage > LAST_STAGE {
+            out.push(violation(
+                "catalog-format",
+                CONFIG_FILE,
+                format!("value stage for {} needs a stage 0–14 and a reason", v.id),
+            ));
+        }
+    }
     for o in &config.stage_overrides {
         if o.reason.trim().is_empty()
             || o.stage > LAST_STAGE
@@ -853,8 +874,14 @@ pub(crate) fn coverage(
             cov.to_fill.push(r.id.clone());
         }
         if r.pd.as_deref() == Some("unset") {
-            cov.unset_values.push(format!("{} (stage {stage})", r.id));
-            if release && reached {
+            let value_stage = config
+                .value_stages
+                .iter()
+                .find(|v| v.id == r.id)
+                .map_or(stage, |v| v.stage);
+            cov.unset_values
+                .push(format!("{} (stage {value_stage})", r.id));
+            if release && value_stage <= config.current_stage {
                 cov.violations.push(format!(
                     "{} has no PD/EA value and its stage ships in this release (F-27, T-46)",
                     r.id
@@ -1008,6 +1035,7 @@ mod tests {
             enforced_families: FAMILIES.iter().map(|f| (*f).to_owned()).collect(),
             test_roots: vec![],
             stage_overrides: vec![],
+            value_stages: vec![],
         }
     }
 
@@ -1145,6 +1173,15 @@ mod tests {
             coverage(&catalog, &config(0), &scan, true).violations.len(),
             1
         );
+        let mut deferred = config(0);
+        deferred.value_stages.push(ValueStage {
+            id: "OP-26".into(),
+            stage: 14,
+            reason: "capacity budgets are measured in stage 14".into(),
+        });
+        let released = coverage(&catalog, &deferred, &scan, true);
+        assert!(released.violations.is_empty(), "{:?}", released.violations);
+        assert_eq!(released.unset_values, ["OP-26 (stage 14)"]);
     }
 
     // T-47

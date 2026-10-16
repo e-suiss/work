@@ -1,0 +1,17 @@
+# C-42 C-1 C-2 MD-8
+
+[[term]]
+canonical = "work"
+not = ["task", "tasks", "ticket", "tickets", "card", "cards"]
+
+[[term]]
+canonical = "party"
+not = ["user_id", "user_account", "user_accounts"]
+
+[[term]]
+canonical = "commitment"
+not = ["assignee", "assignees"]
+
+[[term]]
+canonical = "gate"
+not = ["approval_ui", "approval_screen"]
