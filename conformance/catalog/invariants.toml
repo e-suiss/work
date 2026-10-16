@@ -1761,7 +1761,10 @@ family = "T"
 status = "canonical-invariant"
 stage = 1
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/vectors.rs::t_5_t_37_native_api_version_matches_shared_vectors",
+  "crates/kernel/tests/vectors.rs::t_5_t_37_native_policy_defaults_match_shared_vectors",
+]
 
 [[rule]]
 id = "T-6"

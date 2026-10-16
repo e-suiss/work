@@ -63,6 +63,29 @@ squawk:
 cross:
     for t in {{kernel_targets}}; do cargo build --locked -p esuiss-work-kernel --target "$t"; done
 
+# T-5, T-58
+wasm:
+    want="$(grep -A1 '^name = "wasm-bindgen"$' Cargo.lock | sed -n 's/^version = "\(.*\)"$/\1/p')"; \
+    have="$(wasm-bindgen --version 2>/dev/null | cut -d' ' -f2)"; \
+    if [ "$have" != "$want" ]; then echo "wasm-bindgen-cli $want required (found '${have:-none}'): cargo install wasm-bindgen-cli --version $want --locked" >&2; exit 1; fi
+    cargo build --locked --release --target wasm32-unknown-unknown -p work-kernel-wasm
+    wasm-bindgen --target web --out-dir packages/kernel/wasm target/wasm32-unknown-unknown/release/work_kernel_wasm.wasm
+
+# T-58
+npm_packages := "packages/kernel"
+
+# T-58, T-60
+web-install:
+    for p in {{npm_packages}}; do (cd "$p" && npm ci); done
+
+# T-34, T-58
+web-check: wasm
+    for p in {{npm_packages}}; do (cd "$p" && npm run lint && npm run typecheck && npm run format:check && npm run build); done
+
+# T-5, T-37
+web-test: wasm
+    cd packages/kernel && npm test
+
 # T-41, T-51
 compose-check:
     {{compose}} config -q

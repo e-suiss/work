@@ -367,6 +367,7 @@ tests = [
   "crates/kernel/src/policy_default.rs::f_26_retention_only_extends",
   "crates/kernel/src/policy_default.rs::f_26_security_switch_turns_off_only_with_a_recorded_declaration",
   "crates/kernel/src/policy_default.rs::f_26_security_values_only_tighten",
+  "crates/kernel/tests/vectors.rs::t_5_t_37_native_policy_defaults_match_shared_vectors",
 ]
 
 [[rule]]
@@ -3552,7 +3553,9 @@ status = "frozen-technical"
 stage = 10
 acceptance = "to-fill"
 title = "Strict TypeScript clients on esuiss-ui with a generated API client"
-tests = []
+tests = [
+  "xtask/src/supply_chain.rs::t_34_npm_package_without_strict_compiler_options_is_rejected",
+]
 
 [[rule]]
 id = "T-35"
@@ -3586,6 +3589,8 @@ stage = 0
 acceptance = "filled"
 title = "Every normative rule has a test; flaky tests are never retried until green"
 tests = [
+  "crates/kernel/tests/vectors.rs::t_5_t_37_native_api_version_matches_shared_vectors",
+  "crates/kernel/tests/vectors.rs::t_5_t_37_native_policy_defaults_match_shared_vectors",
   "xtask/src/catalog.rs::t_37_untested_boundary_fails_only_for_completed_stages_or_release",
   "xtask/src/catalog_spec.rs::t_46_stages_come_from_boundary_bullets",
   "xtask/src/policy_scan.rs::t_37_nonzero_retries_are_rejected",
@@ -3871,6 +3876,7 @@ status = "policy-default"
 pd = "set"
 title = "Every JavaScript or TypeScript package is an independent npm project"
 tests = [
+  "xtask/src/supply_chain.rs::t_34_npm_package_without_strict_compiler_options_is_rejected",
   "xtask/src/supply_chain.rs::t_58_npm_package_needs_its_own_lockfile_and_npmrc",
 ]
 
