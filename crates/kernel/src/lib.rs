@@ -3,6 +3,8 @@
 #![no_std]
 #![forbid(unsafe_code)]
 
+pub mod policy_default;
+
 /// Version of the kernel public API (T-4 rule 4).
 pub const API_VERSION: ApiVersion = ApiVersion { major: 0, minor: 0 };
 
