@@ -1597,6 +1597,14 @@ name = "work-agents"
 version = "0.1.0"
 
 [[package]]
+name = "work-bindings-core"
+version = "0.1.0"
+dependencies = [
+ "esuiss-work-kernel",
+ "serde_json",
+]
+
+[[package]]
 name = "work-cli"
 version = "0.1.0"
 
@@ -1624,6 +1632,7 @@ dependencies = [
  "serde",
  "serde_json",
  "uniffi",
+ "work-bindings-core",
 ]
 
 [[package]]
@@ -1632,6 +1641,7 @@ version = "0.1.0"
 dependencies = [
  "esuiss-work-kernel",
  "wasm-bindgen",
+ "work-bindings-core",
 ]
 
 [[package]]

@@ -1,0 +1,17 @@
+[package]
+name = "work-bindings-core"
+description = "JSON projection front end shared by the Work kernel bindings (T-5)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+# T-31
+work-kernel = { workspace = true }
+serde_json = { workspace = true, features = ["std"] }
+
+[lints]
+workspace = true

@@ -14,6 +14,7 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 # T-31
 work-kernel = { workspace = true }
+work-bindings-core = { workspace = true }
 wasm-bindgen = { workspace = true, features = ["std"] }
 
 [lints]

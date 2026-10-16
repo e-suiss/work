@@ -122,7 +122,7 @@ fn allowed_targets(from: Class) -> Option<&'static [Class]> {
         ],
         Class::Http => &[Component, Kernel, Proto, Telemetry],
         Rpc => &[Proto],
-        Class::Bindings => &[Kernel, Proto, SuissRestriction],
+        Class::Bindings => &[Class::Bindings, Kernel, Proto, SuissRestriction],
         Telemetry
         | Class::Tooling
         | SuissCrypto
@@ -400,6 +400,25 @@ mod tests {
         let bad = run(&[
             member("crates/kernel", &[]),
             member("xtask", &[("crates/kernel", None)]),
+        ]);
+        assert_eq!(bad.len(), 1);
+    }
+
+    // T-31 T-5
+    #[test]
+    fn t_31_bindings_share_crates_inside_sdks_bindings_only() {
+        let ok = run(&[
+            member("crates/kernel", &[]),
+            member("sdks/bindings/core", &[("crates/kernel", None)]),
+            member(
+                "sdks/bindings/wasm",
+                &[("sdks/bindings/core", None), ("crates/kernel", None)],
+            ),
+        ]);
+        assert!(ok.is_empty(), "{ok:?}");
+        let bad = run(&[
+            member("sdks/bindings/core", &[]),
+            member("crates/views", &[("sdks/bindings/core", None)]),
         ]);
         assert_eq!(bad.len(), 1);
     }

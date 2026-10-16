@@ -103,3 +103,19 @@ pub fn evaluate_security_switch(
 ) -> SwitchOutcome {
     work_kernel::policy_default::evaluate_security_switch(current, proposed, basis)
 }
+
+/// Validates one record given as its `decoded` JSON projection against a verifier context in the vector `context` shape;
+/// returns `{"outcome", "reason"?}` or `{"error": {"code"}}` as JSON text (P-11, P-19).
+#[uniffi::export]
+#[must_use]
+pub fn validate_record(decoded: &str, context: &str) -> String {
+    work_bindings_core::validate_record(decoded, context)
+}
+
+/// Folds ledger entries into the derived view under the given inputs;
+/// returns `{"derivation": …}` or `{"error": {"code", …}}` as JSON text (P-31, T-6).
+#[uniffi::export]
+#[must_use]
+pub fn derive_records(entries: &str, inputs: &str) -> String {
+    work_bindings_core::derive_records(entries, inputs)
+}

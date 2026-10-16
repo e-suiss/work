@@ -23,6 +23,7 @@ work-relay-client = { path = "crates/relay-client" }
 work-telemetry = { path = "crates/telemetry" }
 work-http = { path = "crates/http" }
 work-testkit = { path = "crates/testkit" }
+work-bindings-core = { path = "sdks/bindings/core" }
 
 # T-60
 thiserror = { version = "2.0.21", default-features = false }
