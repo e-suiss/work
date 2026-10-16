@@ -71,6 +71,27 @@ wasm:
     cargo build --locked --release --target wasm32-unknown-unknown -p work-kernel-wasm
     wasm-bindgen --target web --out-dir packages/kernel/wasm target/wasm32-unknown-unknown/release/work_kernel_wasm.wasm
 
+# T-5
+ffi_lib := "target/debug/libwork_kernel_ffi." + if os() == "macos" { "dylib" } else { "so" }
+
+uniffi-bindgen language:
+    cargo build --locked -p work-kernel-ffi
+    cargo run --locked -q -p work-kernel-ffi --features cli --bin uniffi-bindgen -- \
+      generate --library {{ffi_lib}} --language {{language}} --no-format --out-dir target/uniffi/{{language}}
+
+bindings-swift: (uniffi-bindgen "swift")
+
+bindings-kotlin: (uniffi-bindgen "kotlin")
+
+# T-5, T-37
+test-swift: bindings-swift
+    swiftc -swift-version 6 -warnings-as-errors \
+      -Xcc -fmodule-map-file=target/uniffi/swift/work_kernel_ffiFFI.modulemap -I target/uniffi/swift \
+      -L target/debug -lwork_kernel_ffi -Xlinker -rpath -Xlinker "{{justfile_directory()}}/target/debug" \
+      target/uniffi/swift/work_kernel_ffi.swift sdks/bindings/uniffi/tests/swift/main.swift \
+      -o target/uniffi/swift/kernel-vectors
+    target/uniffi/swift/kernel-vectors conformance/vectors/kernel
+
 # T-58
 npm_packages := "packages/kernel"
 
