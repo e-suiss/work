@@ -7,6 +7,7 @@ x-hardening: &hardening
   security_opt: ["no-new-privileges:true"]
   restart: unless-stopped
 
+
 services:
   # T-20, T-36, T-51
   postgres:
@@ -155,14 +156,24 @@ services:
 
   # T-51, E-2, MD-3
   access:
-    image: ghcr.io/e-suiss/access:unpublished
-    profiles: [access]
-    depends_on: [postgres, nats, mailpit]
+    <<: *hardening
+    image: ghcr.io/e-suiss/access@sha256:d92918789fcb59d03a5496a9f1b8b5e2953cfa5979a7f6e206e6b067729bd0a9
+    read_only: true
+    environment:
+      ACCESS_LISTEN: 0.0.0.0:8080
+    ports:
+      - "127.0.0.1:${WORK_DEV_ACCESS_PORT:-8180}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
 
   mailpit:
     <<: *hardening
     image: axllent/mailpit@sha256:ed9b00c609e77e99c79b93f1178255ebc271868920f2c69a8d166bd5634ed10d # v1.31.3
-    profiles: [access]
     user: "65532:65532"
     read_only: true
     tmpfs:
@@ -172,15 +183,65 @@ services:
       - "127.0.0.1:${WORK_DEV_MAIL_UI_PORT:-8035}:8025"
 
   # T-51, T-16, MD-3
+  relay-migrate:
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    image: ghcr.io/e-suiss/relay@sha256:6706e46030ed51e55ee208c8ab8d59f1c58dd17a04c4ba054f74f43210d6c3a1
+    read_only: true
+    tmpfs:
+      - /tmp:uid=10001,gid=10001
+      - /app/tmp:uid=10001,gid=10001
+    secrets:
+      - source: relay_db_password
+        target: /run/secrets/db-password
+    restart: "no"
+    command: ["eval", "Relay.Release.migrate()"]
+    environment:
+      DATABASE_PASSWORD_FILE: /run/secrets/db-password
+      POOL_SIZE: "5"
+      RELAY_HOST: localhost
+      PORT: "4000"
+      SECRET_KEY_BASE: local-only-not-a-secret-local-only-not-a-secret-local-only-not-a-secret
+      DATABASE_URL: ecto://relay_owner@postgres:5432/relay
+      RELAY_ROLES: worker
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   relay:
-    image: ghcr.io/e-suiss/relay:unpublished
-    profiles: [relay]
-    depends_on: [postgres, nats, valkey]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    image: ghcr.io/e-suiss/relay@sha256:6706e46030ed51e55ee208c8ab8d59f1c58dd17a04c4ba054f74f43210d6c3a1
+    read_only: true
+    tmpfs:
+      - /tmp:uid=10001,gid=10001
+      - /app/tmp:uid=10001,gid=10001
+    secrets:
+      - source: relay_db_password
+        target: /run/secrets/db-password
+    restart: unless-stopped
+    command: ["start"]
+    environment:
+      DATABASE_PASSWORD_FILE: /run/secrets/db-password
+      POOL_SIZE: "5"
+      RELAY_HOST: localhost
+      PORT: "4000"
+      SECRET_KEY_BASE: local-only-not-a-secret-local-only-not-a-secret-local-only-not-a-secret
+      DATABASE_URL: ecto://relay_app@postgres:5432/relay
+      RELAY_ROLES: api,worker,socket
+    ports:
+      - "127.0.0.1:${WORK_DEV_RELAY_PORT:-4010}:4000"
+    depends_on:
+      relay-migrate:
+        condition: service_completed_successfully
+      nats:
+        condition: service_healthy
+      valkey:
+        condition: service_started
 
   valkey:
     <<: *hardening
     image: valkey/valkey@sha256:48332870af354a799964c0012ae1194a0bf2bf894eb508f945810596dc2d8d11 # 9.1.2-alpine
-    profiles: [relay]
     read_only: true
     command: ["valkey-server", "--maxmemory-policy", "noeviction", "--appendonly", "no"]
     tmpfs:
@@ -189,3 +250,7 @@ services:
 volumes:
   pgdata:
   softhsm:
+
+secrets:
+  relay_db_password:
+    file: ./relay/db-password

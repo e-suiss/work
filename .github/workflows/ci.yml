@@ -148,6 +148,12 @@ jobs:
             echo "work_app reached the access database" >&2
             exit 1
           fi
+      - name: Access and Relay answer (T-51, E-2, MD-3)
+        run: |
+          for _ in $(seq 1 60); do curl -fsS http://127.0.0.1:8180/healthz >/dev/null 2>&1 && break; sleep 1; done
+          curl -fsS http://127.0.0.1:8180/healthz
+          for _ in $(seq 1 60); do curl -fsS http://127.0.0.1:4010/readyz >/dev/null 2>&1 && break; sleep 1; done
+          curl -fsS http://127.0.0.1:4010/readyz
       - name: Server starts and stops
         run: |
           cargo build --locked -p work-server
@@ -157,6 +163,9 @@ jobs:
           (echo > /dev/tcp/127.0.0.1/18090) 2>/dev/null
           kill -TERM "$pid"
           wait "$pid"
+      - name: Logs on failure
+        if: failure()
+        run: docker compose -f deploy/compose/compose.yaml logs --no-color --tail 80 access relay relay-migrate
       - name: Stop
         if: always()
         run: just dev-down

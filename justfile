@@ -84,24 +84,11 @@ dev:
     @echo "Grafana        http://127.0.0.1:${WORK_DEV_GRAFANA_PORT:-3310}  (user admin, password local-only-not-a-secret)"
     @echo "Jaeger         http://127.0.0.1:${WORK_DEV_JAEGER_UI_PORT:-16696}   Prometheus http://127.0.0.1:${WORK_DEV_PROMETHEUS_PORT:-9099}"
     @echo "OTLP           127.0.0.1:${WORK_DEV_OTLP_GRPC_PORT:-4327} (gRPC), 127.0.0.1:${WORK_DEV_OTLP_HTTP_PORT:-4328} (HTTP)"
-    @just dev-products
-
-# T-51
-dev-products:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    for product in access relay; do
-        status="$(sed -n "/^\[$product\]/,/^\[/s/^status = \"\(.*\)\"/\1/p" compat.toml)"
-        if [[ "$status" == published ]]; then
-            {{compose}} --profile "$product" up --detach --wait
-            echo "$product         started from compat.toml"
-        else
-            echo "$product         not published yet (compat.toml status: $status); the service stays off"
-        fi
-    done
+    @echo "Access         http://127.0.0.1:${WORK_DEV_ACCESS_PORT:-8180}  (Mailpit http://127.0.0.1:${WORK_DEV_MAIL_UI_PORT:-8035})"
+    @echo "Relay          http://127.0.0.1:${WORK_DEV_RELAY_PORT:-4010}"
 
 dev-down:
-    {{compose}} --profile access --profile relay down
+    {{compose}} down
 
 dev-status:
     {{compose}} ps
