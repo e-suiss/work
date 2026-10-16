@@ -37,6 +37,8 @@ jobs:
         run: just lint
       - name: Repository rules (T-31, T-36, T-46, T-52)
         run: just rules
+      - name: Record vectors regenerate byte for byte (P-11, P-72)
+        run: just vectors
       - name: Install squawk 2.68.0 (T-52, T-60)
         env:
           SQUAWK_SHA256: 53070672cbe0b8adce55372931d4435cc2395edd8b5736819a82e483b08d4d09

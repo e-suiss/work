@@ -1164,7 +1164,11 @@ status = "frozen-protocol"
 stage = 1
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/record_vectors.rs::p_72_rejected_record_vectors",
+  "crates/kernel/tests/records.rs::c_5_pinned_practice_values_are_accepted",
+  "crates/kernel/tests/records.rs::c_5_unmapped_extension_values_are_rejected",
+]
 
 [[rule]]
 id = "C-6"
@@ -1236,7 +1240,12 @@ status = "frozen-protocol"
 stage = 1
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/src/catalog.rs::p_81_core_roles_are_full_uris_and_basis_is_not_one",
+  "crates/kernel/src/relation.rs::c_27_p_14_core_roles_belong_only_to_derived_from",
+  "crates/kernel/src/relation.rs::c_27_p_81_derived_from_requires_a_full_uri_role_and_basis_is_not_one",
+  "crates/kernel/tests/record_vectors.rs::p_72_rejected_record_vectors",
+]
 
 [[rule]]
 id = "C-32"
@@ -1245,7 +1254,11 @@ status = "frozen-protocol"
 stage = 1
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/records.rs::p_13_c_32_consequential_record_without_authority_is_rejected",
+  "crates/kernel/tests/records.rs::p_13_inv_23_human_authors_need_authority_too",
+  "crates/kernel/tests/records.rs::p_9_vector_examples_are_accepted",
+]
 
 [[rule]]
 id = "C-35"
@@ -1254,7 +1267,9 @@ status = "frozen-technical"
 stage = 1
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/src/id.rs::c_35_work_id_is_sixteen_opaque_bytes",
+]
 
 [[rule]]
 id = "C-37"
@@ -1355,7 +1370,10 @@ status = "frozen-protocol"
 stage = 3
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/records.rs::p_13_e_13_capacity_must_match_on_behalf_of",
+  "crates/kernel/tests/records.rs::p_9_vector_examples_are_accepted",
+]
 
 [[rule]]
 id = "E-14"
@@ -2534,7 +2552,9 @@ id = "EV-4"
 family = "EV"
 status = "frozen-product"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/src/catalog.rs::c_16_closed_core_lists_have_their_sizes",
+]
 
 [[rule]]
 id = "EV-6"
@@ -2831,7 +2851,12 @@ status = "frozen-protocol"
 stage = 1
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/record_vectors.rs::p_72_rejected_record_vectors",
+  "crates/kernel/tests/records.rs::p_69_ext_keys_are_in_canonical_map_order",
+  "crates/kernel/tests/records.rs::p_72_empty_optional_lists_are_rejected",
+  "crates/kernel/tests/records.rs::p_72_set_lists_are_sorted_and_duplicate_free",
+]
 
 [[rule]]
 id = "P-6"
@@ -2840,7 +2865,9 @@ status = "frozen-protocol"
 stage = 1
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/src/verify.rs::p_6_rejected_signature_carries_its_detail",
+]
 
 [[rule]]
 id = "P-7"
@@ -2851,6 +2878,7 @@ acceptance = "to-fill"
 pd = "set"
 title = ""
 tests = [
+  "crates/kernel/src/verify.rs::p_6_rejected_signature_carries_its_detail",
   "xtask/src/supply_chain.rs::t_33_serde_json_with_unbounded_depth_is_rejected",
 ]
 
@@ -2870,7 +2898,11 @@ status = "frozen-protocol"
 stage = 1
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/record_vectors.rs::p_11_accepted_record_vectors",
+  "crates/kernel/tests/records.rs::c_16_declaration_occurred_at_is_optional_and_claims_need_it",
+  "crates/kernel/tests/records.rs::p_9_vector_examples_are_accepted",
+]
 
 [[rule]]
 id = "P-11"
@@ -2879,7 +2911,11 @@ status = "frozen-protocol"
 stage = 1
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/src/reason.rs::p_11_reason_codes_round_trip_through_their_wire_strings",
+  "crates/kernel/tests/derivation.rs::p_11_ledger_order_violations_are_errors",
+  "crates/kernel/tests/record_vectors.rs::p_11_accepted_record_vectors",
+]
 
 [[rule]]
 id = "P-15"
@@ -2888,7 +2924,10 @@ status = "frozen-protocol"
 stage = 8
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/records.rs::p_15_agent_records_carry_producer",
+  "crates/kernel/tests/records.rs::p_9_vector_examples_are_accepted",
+]
 
 [[rule]]
 id = "P-16"
@@ -2897,7 +2936,9 @@ status = "frozen-protocol"
 stage = 7
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/records.rs::p_9_vector_examples_are_accepted",
+]
 
 [[rule]]
 id = "P-18"
@@ -2914,7 +2955,14 @@ status = "frozen-protocol"
 stage = 1
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/derivation.rs::p_19_quarantined_record_has_no_effect",
+  "crates/kernel/tests/record_vectors.rs::p_11_accepted_record_vectors",
+  "crates/kernel/tests/record_vectors.rs::p_19_quarantine_record_vectors",
+  "crates/kernel/tests/records.rs::p_19_unknown_critical_extension_quarantines",
+  "crates/kernel/tests/records.rs::p_19_unknown_non_critical_extension_is_preserved_uninterpreted",
+  "crates/kernel/tests/records.rs::p_69_critical_key_must_be_present_in_ext",
+]
 
 [[rule]]
 id = "P-21"
@@ -2923,7 +2971,9 @@ status = "frozen-protocol"
 stage = 3
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/src/verify.rs::p_21_only_humans_with_auth_context_may_be_unsigned",
+]
 
 [[rule]]
 id = "P-25"
@@ -2969,7 +3019,12 @@ stage = 1
 acceptance = "to-fill"
 pd = "set"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/src/limits.rs::t_65_defaults_match_the_p_33_table",
+  "crates/kernel/tests/record_vectors.rs::p_72_rejected_record_vectors",
+  "crates/kernel/tests/records.rs::p_33_sec_18_semantic_limits_accept_the_bound_and_reject_one_more",
+  "crates/kernel/tests/records.rs::t_65_a_narrower_configured_limit_rejects_what_the_default_accepts",
+]
 
 [[rule]]
 id = "P-35"
@@ -3208,7 +3263,7 @@ status = "frozen-protocol"
 stage = 1
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = ["crates/kernel/src/id.rs::p_67_party_ref_is_one_to_255_bytes"]
 
 [[rule]]
 id = "P-68"
@@ -3217,7 +3272,9 @@ status = "frozen-protocol"
 stage = 1
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/src/record/parts.rs::p_68_part_names_are_lowercase_snake_case_up_to_64_bytes",
+]
 
 [[rule]]
 id = "P-69"
@@ -3226,7 +3283,14 @@ status = "frozen-protocol"
 stage = 1
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/record_vectors.rs::p_19_quarantine_record_vectors",
+  "crates/kernel/tests/record_vectors.rs::p_72_rejected_record_vectors",
+  "crates/kernel/tests/records.rs::p_19_unknown_critical_extension_quarantines",
+  "crates/kernel/tests/records.rs::p_69_critical_key_must_be_present_in_ext",
+  "crates/kernel/tests/records.rs::p_69_ext_keys_are_in_canonical_map_order",
+  "crates/kernel/tests/records.rs::p_72_p_69_empty_optional_maps_are_rejected",
+]
 
 [[rule]]
 id = "P-70"
@@ -3235,7 +3299,11 @@ status = "frozen-protocol"
 stage = 1
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/src/uri.rs::p_70_core_root_is_suiss_app_work",
+  "crates/kernel/src/uri.rs::p_70_only_absolute_https_uris_parse",
+  "crates/kernel/tests/record_vectors.rs::p_72_rejected_record_vectors",
+]
 
 [[rule]]
 id = "P-71"
@@ -3244,7 +3312,10 @@ status = "frozen-protocol"
 stage = 1
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/src/catalog.rs::p_71_core_declaration_catalog_is_closed",
+  "crates/kernel/tests/records.rs::c_5_unmapped_extension_values_are_rejected",
+]
 
 [[rule]]
 id = "P-72"
@@ -3253,7 +3324,14 @@ status = "frozen-protocol"
 stage = 1
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/src/id.rs::p_72_text_orders_by_encoded_length_first",
+  "crates/kernel/tests/record_vectors.rs::p_72_rejected_record_vectors",
+  "crates/kernel/tests/records.rs::p_72_author_ordered_lists_reject_repeated_entries",
+  "crates/kernel/tests/records.rs::p_72_empty_optional_lists_are_rejected",
+  "crates/kernel/tests/records.rs::p_72_p_69_empty_optional_maps_are_rejected",
+  "crates/kernel/tests/records.rs::p_72_set_lists_are_sorted_and_duplicate_free",
+]
 
 [[rule]]
 id = "P-73"
@@ -3262,7 +3340,9 @@ status = "frozen-protocol"
 stage = 1
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/src/relation.rs::p_73_each_relation_allows_only_its_endpoint_types",
+]
 
 [[rule]]
 id = "P-74"
@@ -3272,7 +3352,10 @@ class = "BS"
 stage = 1
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/derivation.rs::p_28_p_74_concurrent_transitions_by_different_authors_conflict",
+  "crates/kernel/tests/derivation.rs::p_74_same_author_same_chain_same_version_is_rejected",
+]
 
 [[rule]]
 id = "P-75"
@@ -3282,6 +3365,128 @@ stage = 1
 acceptance = "to-fill"
 title = ""
 tests = []
+
+[[rule]]
+id = "P-76"
+family = "P"
+status = "frozen-protocol"
+stage = 1
+acceptance = "filled"
+title = ""
+tests = []
+
+[[rule]]
+id = "P-77"
+family = "P"
+status = "frozen-protocol"
+stage = 1
+acceptance = "to-fill"
+title = ""
+tests = [
+  "crates/kernel/tests/record_vectors.rs::p_11_accepted_record_vectors",
+  "crates/kernel/tests/record_vectors.rs::p_72_rejected_record_vectors",
+  "crates/kernel/tests/records.rs::p_77_party_audience_is_sorted_and_excludes_author_and_principals",
+  "crates/kernel/tests/records.rs::p_77_work_audience_needs_a_concerned_work",
+]
+
+[[rule]]
+id = "P-78"
+family = "P"
+status = "frozen-protocol"
+stage = 1
+acceptance = "to-fill"
+title = ""
+tests = [
+  "crates/kernel/tests/record_vectors.rs::p_72_rejected_record_vectors",
+  "crates/kernel/tests/records.rs::p_78_on_behalf_of_chain_has_no_repeated_party",
+]
+
+[[rule]]
+id = "P-79"
+family = "P"
+status = "frozen-protocol"
+stage = 1
+acceptance = "filled"
+title = ""
+tests = []
+
+[[rule]]
+id = "P-80"
+family = "P"
+status = "frozen-protocol"
+class = "BS"
+stage = 1
+acceptance = "to-fill"
+title = ""
+tests = [
+  "crates/kernel/tests/record_vectors.rs::p_11_accepted_record_vectors",
+  "crates/kernel/tests/record_vectors.rs::p_72_rejected_record_vectors",
+  "crates/kernel/tests/records.rs::p_80_params_follow_the_core_subtype_schema",
+]
+
+[[rule]]
+id = "P-81"
+family = "P"
+status = "frozen-protocol"
+stage = 1
+acceptance = "to-fill"
+title = ""
+tests = [
+  "crates/kernel/src/catalog.rs::p_81_core_roles_are_full_uris_and_basis_is_not_one",
+  "crates/kernel/src/relation.rs::c_27_p_81_derived_from_requires_a_full_uri_role_and_basis_is_not_one",
+  "crates/kernel/tests/record_vectors.rs::p_72_rejected_record_vectors",
+  "crates/kernel/tests/records.rs::p_81_basis_is_required_on_declarations_and_never_empty_elsewhere",
+]
+
+[[rule]]
+id = "P-82"
+family = "P"
+status = "frozen-protocol"
+stage = 1
+acceptance = "to-fill"
+title = ""
+tests = [
+  "crates/kernel/src/catalog.rs::p_82_the_only_core_act_subtype_is_action",
+  "crates/kernel/tests/records.rs::p_82_core_act_subtype_is_action_only",
+]
+
+[[rule]]
+id = "P-83"
+family = "P"
+status = "frozen-protocol"
+stage = 1
+acceptance = "to-fill"
+title = ""
+tests = [
+  "crates/kernel/src/catalog.rs::p_71_core_declaration_catalog_is_closed",
+  "crates/kernel/tests/record_vectors.rs::p_11_accepted_record_vectors",
+  "crates/kernel/tests/record_vectors.rs::p_72_rejected_record_vectors",
+  "crates/kernel/tests/records.rs::p_83_acts_and_claims_need_no_authority",
+  "crates/kernel/tests/records.rs::p_83_every_declaration_is_consequential_including_practice_subtypes",
+]
+
+[[rule]]
+id = "P-84"
+family = "P"
+status = "frozen-protocol"
+stage = 1
+acceptance = "to-fill"
+title = ""
+tests = [
+  "crates/kernel/tests/records.rs::p_83_acts_and_claims_need_no_authority",
+]
+
+[[rule]]
+id = "P-85"
+family = "P"
+status = "frozen-protocol"
+stage = 1
+acceptance = "to-fill"
+title = ""
+tests = [
+  "crates/kernel/src/catalog.rs::p_85_wire_names_have_no_hyphen",
+  "crates/kernel/tests/records.rs::p_80_params_follow_the_core_subtype_schema",
+]
 
 [[rule]]
 id = "PR-2"
@@ -3305,7 +3510,10 @@ status = "frozen-protocol"
 stage = 1
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/records.rs::c_5_pinned_practice_values_are_accepted",
+  "crates/kernel/tests/records.rs::c_5_unmapped_extension_values_are_rejected",
+]
 
 [[rule]]
 id = "PR-7"
@@ -3522,7 +3730,9 @@ status = "frozen-technical"
 stage = 3
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/derivation.rs::t_23_restriction_results_gate_normative_effect",
+]
 
 [[rule]]
 id = "T-24"
@@ -3672,6 +3882,9 @@ stage = 0
 acceptance = "filled"
 title = "Every normative rule has a test; flaky tests are never retried until green"
 tests = [
+  "crates/kernel/tests/properties.rs::inv_7_derivation_is_a_pure_function",
+  "crates/kernel/tests/properties.rs::p_31_validation_is_a_pure_function",
+  "crates/kernel/tests/properties.rs::t_4_position_overflow_is_typed",
   "crates/kernel/tests/vectors.rs::t_5_t_37_native_api_version_matches_shared_vectors",
   "crates/kernel/tests/vectors.rs::t_5_t_37_native_policy_defaults_match_shared_vectors",
   "sdks/bindings/uniffi/tests/vectors.rs::t_5_t_37_uniffi_api_version_matches_shared_vectors",
@@ -4033,7 +4246,14 @@ status = "frozen-technical"
 stage = 1
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/src/limits.rs::t_65_defaults_match_the_p_33_table",
+  "crates/kernel/src/limits.rs::t_65_limits_only_narrow",
+  "crates/kernel/tests/properties.rs::p_31_validation_is_a_pure_function",
+  "crates/kernel/tests/properties.rs::t_65_wider_limits_cannot_be_constructed",
+  "crates/kernel/tests/records.rs::p_33_sec_18_semantic_limits_accept_the_bound_and_reject_one_more",
+  "crates/kernel/tests/records.rs::t_65_a_narrower_configured_limit_rejects_what_the_default_accepts",
+]
 
 [[rule]]
 id = "T-66"
@@ -4042,13 +4262,24 @@ status = "frozen-technical"
 stage = 1
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/records.rs::inv_20_t_66_automation_needs_a_bound_system_author_and_basis",
+]
 
 [[rule]]
 id = "T-67"
 family = "T"
 status = "frozen-technical"
 acceptance = "filled"
+title = ""
+tests = []
+
+[[rule]]
+id = "T-68"
+family = "T"
+status = "frozen-technical"
+stage = 1
+acceptance = "to-fill"
 title = ""
 tests = []
 

@@ -78,7 +78,9 @@ family = "C"
 status = "canonical-invariant"
 stage = 4
 title = ""
-tests = []
+tests = [
+  "crates/kernel/src/uri.rs::c_13_external_reference_has_a_scheme",
+]
 
 [[rule]]
 id = "C-14"
@@ -86,7 +88,9 @@ family = "C"
 status = "canonical-invariant"
 stage = 4
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/derivation.rs::inv_9_claims_and_acts_never_change_normative_state",
+]
 
 [[rule]]
 id = "C-15"
@@ -94,7 +98,9 @@ family = "C"
 status = "canonical-invariant"
 stage = 1
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/derivation.rs::inv_9_claims_and_acts_never_change_normative_state",
+]
 
 [[rule]]
 id = "C-16"
@@ -102,7 +108,13 @@ family = "C"
 status = "canonical-invariant"
 stage = 1
 title = ""
-tests = []
+tests = [
+  "crates/kernel/src/catalog.rs::c_16_closed_core_lists_have_their_sizes",
+  "crates/kernel/tests/derivation.rs::inv_9_claims_and_acts_never_change_normative_state",
+  "crates/kernel/tests/record_vectors.rs::p_11_accepted_record_vectors",
+  "crates/kernel/tests/records.rs::c_16_core_claim_subtypes_are_typed",
+  "crates/kernel/tests/records.rs::c_16_declaration_occurred_at_is_optional_and_claims_need_it",
+]
 
 [[rule]]
 id = "C-17"
@@ -126,7 +138,9 @@ family = "C"
 status = "canonical-invariant"
 stage = 1
 title = ""
-tests = []
+tests = [
+  "crates/kernel/src/relation.rs::c_25_p_14_exactly_eight_relation_names",
+]
 
 [[rule]]
 id = "C-26"
@@ -134,7 +148,10 @@ family = "C"
 status = "canonical-invariant"
 stage = 1
 title = ""
-tests = []
+tests = [
+  "crates/kernel/src/relation.rs::c_26_depends_on_is_not_a_relation",
+  "crates/kernel/tests/record_vectors.rs::p_72_rejected_record_vectors",
+]
 
 [[rule]]
 id = "C-28"
@@ -166,7 +183,9 @@ family = "C"
 status = "canonical-invariant"
 stage = 1
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/records.rs::c_31_p_9_a_record_is_exactly_one_of_three_kinds",
+]
 
 [[rule]]
 id = "C-33"
@@ -174,7 +193,9 @@ family = "C"
 status = "canonical-invariant"
 stage = 1
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/derivation.rs::p_24_superseded_record_is_marked_never_removed",
+]
 
 [[rule]]
 id = "C-34"
@@ -222,7 +243,9 @@ family = "INV"
 status = "canonical-invariant"
 stage = 1
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/derivation.rs::p_24_superseded_record_is_marked_never_removed",
+]
 
 [[rule]]
 id = "INV-3"
@@ -238,7 +261,10 @@ family = "INV"
 status = "canonical-invariant"
 stage = 1
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/derivation.rs::inv_4_retroactive_declaration_is_rejected",
+  "crates/kernel/tests/record_vectors.rs::p_72_rejected_record_vectors",
+]
 
 [[rule]]
 id = "INV-5"
@@ -262,7 +288,10 @@ family = "INV"
 status = "canonical-invariant"
 stage = 1
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/derivation.rs::inv_7_same_inputs_give_the_same_result",
+  "crates/kernel/tests/properties.rs::inv_7_derivation_is_a_pure_function",
+]
 
 [[rule]]
 id = "INV-8"
@@ -278,7 +307,9 @@ family = "INV"
 status = "canonical-invariant"
 stage = 1
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/derivation.rs::inv_9_claims_and_acts_never_change_normative_state",
+]
 
 [[rule]]
 id = "INV-10"
@@ -350,7 +381,9 @@ family = "INV"
 status = "canonical-invariant"
 stage = 1
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/records.rs::inv_18_every_on_behalf_of_ring_has_an_actor_type",
+]
 
 [[rule]]
 id = "INV-19"
@@ -366,7 +399,11 @@ family = "INV"
 status = "canonical-invariant"
 stage = 1
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/record_vectors.rs::p_11_accepted_record_vectors",
+  "crates/kernel/tests/record_vectors.rs::p_72_rejected_record_vectors",
+  "crates/kernel/tests/records.rs::inv_20_t_66_automation_needs_a_bound_system_author_and_basis",
+]
 
 [[rule]]
 id = "INV-21"
@@ -390,7 +427,10 @@ family = "INV"
 status = "canonical-invariant"
 stage = 1
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/records.rs::inv_23_actor_type_is_not_an_authority_input",
+  "crates/kernel/tests/records.rs::p_13_inv_23_human_authors_need_authority_too",
+]
 
 [[rule]]
 id = "INV-24"
@@ -751,7 +791,9 @@ family = "CM"
 status = "canonical-invariant"
 stage = 5
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/derivation.rs::p_24_terminal_outcome_never_changes",
+]
 
 [[rule]]
 id = "CM-37"
@@ -943,7 +985,9 @@ family = "ST"
 status = "canonical-invariant"
 stage = 7
 title = ""
-tests = []
+tests = [
+  "crates/kernel/src/catalog.rs::c_16_closed_core_lists_have_their_sizes",
+]
 
 [[rule]]
 id = "ST-12"
@@ -974,7 +1018,9 @@ id = "ST-21"
 family = "ST"
 status = "canonical-invariant"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/src/catalog.rs::c_16_closed_core_lists_have_their_sizes",
+]
 
 [[rule]]
 id = "ST-22"
@@ -1118,7 +1164,9 @@ family = "EV"
 status = "canonical-invariant"
 stage = 8
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/records.rs::ev_21_party_audience_is_never_empty",
+]
 
 [[rule]]
 id = "EV-22"
@@ -1324,7 +1372,9 @@ family = "SEC"
 status = "canonical-invariant"
 stage = 1
 title = ""
-tests = []
+tests = [
+  "crates/kernel/src/verify.rs::sec_5_p_22_verification_states_only_authorship_and_inclusion",
+]
 
 [[rule]]
 id = "SEC-6"
@@ -1428,7 +1478,10 @@ family = "SEC"
 status = "canonical-invariant"
 stage = 1
 title = ""
-tests = []
+tests = [
+  "crates/kernel/src/reason.rs::p_11_reason_codes_round_trip_through_their_wire_strings",
+  "crates/kernel/tests/records.rs::p_33_sec_18_semantic_limits_accept_the_bound_and_reject_one_more",
+]
 
 [[rule]]
 id = "SEC-19"
@@ -1516,7 +1569,9 @@ family = "SEC"
 status = "canonical-invariant"
 stage = 1
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/derivation.rs::inv_9_claims_and_acts_never_change_normative_state",
+]
 
 [[rule]]
 id = "SEC-33"
@@ -1536,7 +1591,11 @@ family = "P"
 status = "canonical-invariant"
 stage = 1
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/record_vectors.rs::p_11_accepted_record_vectors",
+  "crates/kernel/tests/records.rs::c_31_p_9_a_record_is_exactly_one_of_three_kinds",
+  "crates/kernel/tests/records.rs::p_9_vector_examples_are_accepted",
+]
 
 [[rule]]
 id = "P-12"
@@ -1544,7 +1603,10 @@ family = "P"
 status = "canonical-invariant"
 stage = 3
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/records.rs::inv_18_every_on_behalf_of_ring_has_an_actor_type",
+  "crates/kernel/tests/records.rs::inv_23_actor_type_is_not_an_authority_input",
+]
 
 [[rule]]
 id = "P-13"
@@ -1552,7 +1614,16 @@ family = "P"
 status = "canonical-invariant"
 stage = 1
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/record_vectors.rs::p_11_accepted_record_vectors",
+  "crates/kernel/tests/record_vectors.rs::p_72_rejected_record_vectors",
+  "crates/kernel/tests/records.rs::p_13_c_32_consequential_record_without_authority_is_rejected",
+  "crates/kernel/tests/records.rs::p_13_e_13_capacity_must_match_on_behalf_of",
+  "crates/kernel/tests/records.rs::p_13_inv_23_human_authors_need_authority_too",
+  "crates/kernel/tests/records.rs::p_83_acts_and_claims_need_no_authority",
+  "crates/kernel/tests/records.rs::p_83_every_declaration_is_consequential_including_practice_subtypes",
+  "crates/kernel/tests/records.rs::p_9_vector_examples_are_accepted",
+]
 
 [[rule]]
 id = "P-14"
@@ -1560,7 +1631,11 @@ family = "P"
 status = "canonical-invariant"
 stage = 1
 title = ""
-tests = []
+tests = [
+  "crates/kernel/src/relation.rs::c_25_p_14_exactly_eight_relation_names",
+  "crates/kernel/src/relation.rs::c_27_p_14_core_roles_belong_only_to_derived_from",
+  "crates/kernel/tests/record_vectors.rs::p_72_rejected_record_vectors",
+]
 
 [[rule]]
 id = "P-17"
@@ -1568,7 +1643,9 @@ family = "P"
 status = "canonical-invariant"
 stage = 2
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/records.rs::p_9_vector_examples_are_accepted",
+]
 
 [[rule]]
 id = "P-20"
@@ -1584,7 +1661,9 @@ family = "P"
 status = "canonical-invariant"
 stage = 1
 title = ""
-tests = []
+tests = [
+  "crates/kernel/src/verify.rs::sec_5_p_22_verification_states_only_authorship_and_inclusion",
+]
 
 [[rule]]
 id = "P-23"
@@ -1600,7 +1679,13 @@ family = "P"
 status = "canonical-invariant"
 stage = 1
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/derivation.rs::inv_4_retroactive_declaration_is_rejected",
+  "crates/kernel/tests/derivation.rs::p_24_superseded_record_is_marked_never_removed",
+  "crates/kernel/tests/derivation.rs::p_24_superseding_an_unknown_record_has_no_effect",
+  "crates/kernel/tests/derivation.rs::p_24_terminal_outcome_never_changes",
+  "crates/kernel/tests/derivation.rs::p_74_same_author_same_chain_same_version_is_rejected",
+]
 
 [[rule]]
 id = "P-26"
@@ -1616,7 +1701,10 @@ family = "P"
 status = "canonical-invariant"
 stage = 2
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/derivation.rs::p_11_ledger_order_violations_are_errors",
+  "crates/kernel/tests/derivation.rs::p_27_ledger_time_input_decides_pending_effect",
+]
 
 [[rule]]
 id = "P-28"
@@ -1624,7 +1712,11 @@ family = "P"
 status = "canonical-invariant"
 stage = 1
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/derivation.rs::p_28_a_transition_that_saw_the_head_does_not_conflict",
+  "crates/kernel/tests/derivation.rs::p_28_p_74_concurrent_transitions_by_different_authors_conflict",
+  "crates/kernel/tests/derivation.rs::p_28_resolution_citing_both_heads_closes_the_conflict",
+]
 
 [[rule]]
 id = "P-31"
@@ -1632,7 +1724,12 @@ family = "P"
 status = "canonical-invariant"
 stage = 1
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/derivation.rs::inv_7_same_inputs_give_the_same_result",
+  "crates/kernel/tests/derivation.rs::t_6_different_trust_inputs_diverge_explicitly",
+  "crates/kernel/tests/properties.rs::inv_7_derivation_is_a_pure_function",
+  "crates/kernel/tests/properties.rs::p_31_validation_is_a_pure_function",
+]
 
 [[rule]]
 id = "P-34"
@@ -1746,6 +1843,9 @@ stage = 1
 title = "The kernel is no_std, forbids unsafe, has no I/O and never panics"
 tests = [
   "crates/kernel/src/lib.rs::t_4_api_versions_order_by_major_then_minor",
+  "crates/kernel/tests/derivation.rs::t_23_restriction_results_gate_normative_effect",
+  "crates/kernel/tests/derivation.rs::t_4_position_overflow_is_a_typed_error",
+  "crates/kernel/tests/properties.rs::t_4_position_overflow_is_typed",
   "xtask/src/rules_deps.rs::t_31_kernel_depends_only_on_suiss_crypto",
   "xtask/src/rules_kernel.rs::t_31_kernel_binds_suiss_crypto_without_default_features",
   "xtask/src/rules_kernel.rs::t_31_std_pulling_crate_in_kernel_tree_is_rejected",
@@ -1774,7 +1874,12 @@ family = "T"
 status = "canonical-invariant"
 stage = 1
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/derivation.rs::inv_7_same_inputs_give_the_same_result",
+  "crates/kernel/tests/derivation.rs::p_27_ledger_time_input_decides_pending_effect",
+  "crates/kernel/tests/derivation.rs::t_6_different_trust_inputs_diverge_explicitly",
+  "crates/kernel/tests/properties.rs::inv_7_derivation_is_a_pure_function",
+]
 
 [[rule]]
 id = "T-8"
