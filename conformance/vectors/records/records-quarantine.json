@@ -337,6 +337,12 @@
           "author": [
             "agent",
             "access_binding"
+          ],
+          "on_behalf_of": [
+            [
+              "organization",
+              "access_binding"
+            ]
           ]
         },
         "understood_extensions": []

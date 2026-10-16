@@ -30,24 +30,7 @@ fn cases() -> Vec<Value> {
     all
 }
 
-/// The vectors carry the author's actor type only; every `on_behalf_of` ring is an Access-bound organization, as in the envelopes.
-fn context(case: &Value) -> Value {
-    let mut context = case["context"].clone();
-    let rings = case["decoded"]
-        .get("on_behalf_of")
-        .and_then(Value::as_array)
-        .map_or(0, Vec::len);
-    let actors = context["actor_type"].as_object_mut().unwrap();
-    if rings > 0 && !actors.contains_key("on_behalf_of") {
-        actors.insert(
-            "on_behalf_of".to_owned(),
-            json!(vec![json!(["organization", "access_binding"]); rings]),
-        );
-    }
-    context
-}
-
-// T-5 T-37 INV-7 INV-8 X-24 P-11 P-19 P-72
+// T-5 T-37 T-69 INV-7 INV-8 X-24 P-11 P-19 P-72
 #[test]
 fn t_5_t_37_inv_7_native_record_vectors_through_bindings_core() {
     let cases = cases();
@@ -55,7 +38,7 @@ fn t_5_t_37_inv_7_native_record_vectors_through_bindings_core() {
         assert!(cases.iter().any(|c| c["expect"]["outcome"] == outcome));
     }
     for case in &cases {
-        let out = validate_record(&case["decoded"].to_string(), &context(case).to_string());
+        let out = validate_record(&case["decoded"].to_string(), &case["context"].to_string());
         assert_eq!(out, case["expect"].to_string(), "{}", case["id"]);
     }
 }
@@ -85,7 +68,7 @@ fn entries() -> String {
     Value::from(entries).to_string()
 }
 
-// T-5 T-37 INV-7 P-31
+// T-5 T-37 T-69 INV-7 P-31
 #[test]
 fn t_5_t_37_inv_7_native_derivation_through_bindings_core() {
     assert_eq!(
@@ -94,7 +77,7 @@ fn t_5_t_37_inv_7_native_derivation_through_bindings_core() {
     );
 }
 
-// T-5 T-37
+// T-5 T-37 T-69
 #[test]
 fn t_5_t_37_input_errors_are_not_decisions() {
     let context = r#"{"origin":"direct","actor_type":{"author":["human","access_binding"]},"understood_extensions":[]}"#;
@@ -120,7 +103,7 @@ fn t_5_t_37_input_errors_are_not_decisions() {
     );
 }
 
-// T-5 T-37 P-31
+// T-5 T-37 T-69 P-31
 #[test]
 fn t_5_t_37_kernel_derivation_errors_cross_the_binding() {
     let mut entries: Vec<Value> = serde_json::from_str(&entries()).unwrap();

@@ -5,7 +5,7 @@
     "leaf_hash = SHA-256(0x00 || det-CBOR(LedgerEnvelope))",
     "proof_commit = SHA-256 of the full tagged WorkRecordCose bytes as received; these vectors carry no signatures, so proof_commit values are placeholders",
     "Digest values labelled work-vector:* are SHA-256 of ASCII placeholder strings, not real objects",
-    "context holds verifier inputs that are not record bytes: origin, the author actor type from the Access binding, understood_extensions, and recorded_at when the record carries params.effective_at",
+    "context holds verifier inputs that are not record bytes: origin, actor_type exactly as the envelope ActorTypeAnnotation (author and one entry per on_behalf_of party), understood_extensions, and recorded_at when the record carries params.effective_at",
     "prev of the first envelope is the all-zero placeholder until suiss-ledger fixes the genesis rule",
     "PartyRef values are placeholder text until the Access Party reference byte form is fixed"
   ],
@@ -102,6 +102,12 @@
           "author": [
             "agent",
             "access_binding"
+          ],
+          "on_behalf_of": [
+            [
+              "organization",
+              "access_binding"
+            ]
           ]
         },
         "understood_extensions": []

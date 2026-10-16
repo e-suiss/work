@@ -3,7 +3,7 @@
   "notes": [
     "each case is a single-field mutation of a records.json example; hex is canonical CBOR, so rejection is semantic or schema-level, never encoding-level",
     "cddl = fail means work-record.cddl alone rejects the bytes; cddl = pass means a kernel rule rejects them",
-    "context holds verifier inputs that are not record bytes (origin, author actor type, understood_extensions, recorded_at)"
+    "context holds verifier inputs that are not record bytes (origin, actor_type as the envelope ActorTypeAnnotation with one entry per on_behalf_of party, understood_extensions, recorded_at)"
   ],
   "cases": [
     {
@@ -81,6 +81,12 @@
           "author": [
             "agent",
             "access_binding"
+          ],
+          "on_behalf_of": [
+            [
+              "organization",
+              "access_binding"
+            ]
           ]
         },
         "understood_extensions": []
@@ -254,6 +260,12 @@
           "author": [
             "agent",
             "access_binding"
+          ],
+          "on_behalf_of": [
+            [
+              "organization",
+              "access_binding"
+            ]
           ]
         },
         "understood_extensions": []
@@ -345,6 +357,12 @@
           "author": [
             "agent",
             "access_binding"
+          ],
+          "on_behalf_of": [
+            [
+              "organization",
+              "access_binding"
+            ]
           ]
         },
         "understood_extensions": []
@@ -1137,6 +1155,12 @@
           "author": [
             "agent",
             "access_binding"
+          ],
+          "on_behalf_of": [
+            [
+              "organization",
+              "access_binding"
+            ]
           ]
         },
         "understood_extensions": []
@@ -1509,6 +1533,12 @@
           "author": [
             "agent",
             "access_binding"
+          ],
+          "on_behalf_of": [
+            [
+              "organization",
+              "access_binding"
+            ]
           ]
         },
         "understood_extensions": []
@@ -2327,6 +2357,44 @@
           "author": [
             "agent",
             "access_binding"
+          ],
+          "on_behalf_of": [
+            [
+              "organization",
+              "access_binding"
+            ],
+            [
+              "organization",
+              "access_binding"
+            ],
+            [
+              "organization",
+              "access_binding"
+            ],
+            [
+              "organization",
+              "access_binding"
+            ],
+            [
+              "organization",
+              "access_binding"
+            ],
+            [
+              "organization",
+              "access_binding"
+            ],
+            [
+              "organization",
+              "access_binding"
+            ],
+            [
+              "organization",
+              "access_binding"
+            ],
+            [
+              "organization",
+              "access_binding"
+            ]
           ]
         },
         "understood_extensions": []
@@ -3137,6 +3205,12 @@
           "author": [
             "agent",
             "access_binding"
+          ],
+          "on_behalf_of": [
+            [
+              "organization",
+              "access_binding"
+            ]
           ]
         },
         "understood_extensions": []
@@ -3464,6 +3538,12 @@
           "author": [
             "agent",
             "access_binding"
+          ],
+          "on_behalf_of": [
+            [
+              "organization",
+              "access_binding"
+            ]
           ]
         },
         "understood_extensions": []
@@ -3662,6 +3742,16 @@
           "author": [
             "agent",
             "access_binding"
+          ],
+          "on_behalf_of": [
+            [
+              "organization",
+              "access_binding"
+            ],
+            [
+              "organization",
+              "access_binding"
+            ]
           ]
         },
         "understood_extensions": []

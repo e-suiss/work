@@ -91,7 +91,7 @@ pub(crate) fn classify_name(name: &str) -> Option<Class> {
     Some(class)
 }
 
-/// The T-31 rule 4 table: what a crate of class `from` may depend on; `None` means
+/// The T-31 rule 4 table, read with T-70: what a crate of class `from` may depend on; `None` means
 /// every internal and shared class.
 fn allowed_targets(from: Class) -> Option<&'static [Class]> {
     use Class::{
@@ -122,6 +122,7 @@ fn allowed_targets(from: Class) -> Option<&'static [Class]> {
         ],
         Class::Http => &[Component, Kernel, Proto, Telemetry],
         Rpc => &[Proto],
+        // T-70
         Class::Bindings => &[Class::Bindings, Kernel, Proto, SuissRestriction],
         Telemetry
         | Class::Tooling
@@ -404,7 +405,7 @@ mod tests {
         assert_eq!(bad.len(), 1);
     }
 
-    // T-31 T-5
+    // T-70 T-31 T-5
     #[test]
     fn t_31_bindings_share_crates_inside_sdks_bindings_only() {
         let ok = run(&[

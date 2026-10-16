@@ -169,19 +169,6 @@ func cases(_ file: [String: Any], _ key: String, _ name: String) throws -> [[Str
     return list
 }
 
-/// The vectors carry the author's actor type only; every `on_behalf_of` ring is an Access-bound organization, as in the envelopes.
-func context(_ c: [String: Any], _ id: String) throws -> [String: Any] {
-    guard var context = c["context"] as? [String: Any],
-        var actors = context["actor_type"] as? [String: Any],
-        let decoded = c["decoded"] as? [String: Any]
-    else { throw HarnessError.malformed(id) }
-    if let rings = decoded["on_behalf_of"] as? [Any], !rings.isEmpty, actors["on_behalf_of"] == nil {
-        actors["on_behalf_of"] = rings.map { _ in ["organization", "access_binding"] }
-        context["actor_type"] = actors
-    }
-    return context
-}
-
 func outcomeText(_ value: Any?, _ id: String) throws -> String {
     guard let fields = value as? [String: String], let outcome = fields["outcome"] else {
         throw HarnessError.malformed(id)
@@ -202,10 +189,10 @@ func t_5_t_37_inv_7_swift_record_vectors_match(_ dir: URL, _ tally: inout Tally)
     }
     var seen = Set<String>()
     for c in all {
-        guard let id = c["id"] as? String, let decoded = c["decoded"] else {
+        guard let id = c["id"] as? String, let decoded = c["decoded"], let context = c["context"] else {
             throw HarnessError.malformed("record case")
         }
-        let out = validateRecord(decoded: try json(decoded, id), context: try json(try context(c, id), id))
+        let out = validateRecord(decoded: try json(decoded, id), context: try json(context, id))
         let actual = try outcomeText(try JSONSerialization.jsonObject(with: Data(out.utf8)), id)
         let expected = try outcomeText(c["expect"], id)
         check(&tally, name, id, actual, expected)

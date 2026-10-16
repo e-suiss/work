@@ -361,19 +361,13 @@ fn actor_entry(v: &Value) -> ActorTypeEntry {
 }
 
 fn actor_types(case: &Value) -> ActorTypes {
-    let rings = case["decoded"]
-        .get("on_behalf_of")
-        .and_then(Value::as_array)
-        .map_or(0, Vec::len);
+    let actors = &case["context"]["actor_type"];
     ActorTypes {
-        author: actor_entry(&case["context"]["actor_type"]["author"]),
-        on_behalf_of: vec![
-            ActorTypeEntry {
-                actor_type: ActorType::Organization,
-                source: ActorTypeSource::AccessBinding,
-            };
-            rings
-        ],
+        author: actor_entry(&actors["author"]),
+        on_behalf_of: actors
+            .get("on_behalf_of")
+            .map(|l| l.as_array().unwrap().iter().map(actor_entry).collect())
+            .unwrap_or_default(),
     }
 }
 

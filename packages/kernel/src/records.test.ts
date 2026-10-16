@@ -50,20 +50,6 @@ const cases = [...records.records, ...rejects.cases, ...quarantine.cases];
 const inputs = JSON.parse(await text(fixtures, "derive-inputs.json")) as DerivationInputs;
 const expectedDerivation = (await text(fixtures, "derive-expected.json")).trimEnd();
 
-function context(c: RecordCase): RecordContext {
-  const rings = c.decoded["on_behalf_of"];
-  if (!Array.isArray(rings) || rings.length === 0 || c.context.actor_type.on_behalf_of) {
-    return c.context;
-  }
-  return {
-    ...c.context,
-    actor_type: {
-      ...c.context.actor_type,
-      on_behalf_of: rings.map(() => ["organization", "access_binding"] as const),
-    },
-  };
-}
-
 const entries: DerivationEntry[] = records.records.map((r, i) => {
   const envelope = records.envelopes[i];
   if (envelope === undefined) {
@@ -91,9 +77,9 @@ describe("t_5_t_37_inv_7 WebAssembly kernel matches every record vector", () => 
 
   it.each(cases)("$id", (c) => {
     const decoded = JSON.stringify(c.decoded);
-    const ctx = JSON.stringify(context(c));
+    const ctx = JSON.stringify(c.context);
     expect(JSON.parse(validateRecord(decoded, ctx))).toStrictEqual(c.expect);
-    expect(kernel.validateRecord(c.decoded, context(c))).toStrictEqual(c.expect);
+    expect(kernel.validateRecord(c.decoded, c.context)).toStrictEqual(c.expect);
   });
 });
 

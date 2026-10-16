@@ -1,4 +1,4 @@
-//! JSON front end shared by the Work kernel bindings (T-5, T-31): it maps the `decoded` JSON projection of records and their verifier inputs onto kernel types, calls `work_kernel::validate` or `work_kernel::derive::derive`, and writes the kernel's answer as compact JSON with sorted keys, so every binding returns the same bytes for the same input (T-37, INV-7, INV-8).
+//! JSON front end shared by the Work kernel bindings (T-5, T-69, T-70): it maps the `decoded` JSON projection of records and their verifier inputs onto kernel types, calls `work_kernel::validate` or `work_kernel::derive::derive`, and writes the kernel's answer as compact JSON with sorted keys, so every binding returns the same bytes for the same input (T-37, INV-7, INV-8).
 
 #![forbid(unsafe_code)]
 

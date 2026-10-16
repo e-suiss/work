@@ -17,7 +17,7 @@ just cddl            # validate every record, envelope and digest vector with th
 - `diag` is CBOR diagnostic notation, for reading only.
 - `context` holds verifier inputs that are not record bytes:
   - `origin`: `direct` or `automation`, supplied by the Work service (T-66, T-68);
-  - `actor_type.author`: `[type, source]` of the author from the Access identity binding (P-12);
+  - `actor_type`: the envelope's `ActorTypeAnnotation`: `author` is `[type, source]` of the author from the Access identity binding (P-12), and `on_behalf_of`, present when the record has an `on_behalf_of` chain, holds one entry per party in chain order (INV-18);
   - `understood_extensions`: the `ExtKey`s this verifier implements (P-19, P-69);
   - `recorded_at`: the ledger time, present when the record carries `params.effective_at` (P-80);
   - `tag_allowlist`: CBOR tags allowed at this position (`cbor-canonical.json` only).

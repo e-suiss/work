@@ -417,9 +417,10 @@ def vis(see="work", **kw):
 
 
 def ctx(rec, origin="direct", understood=(), actor=None, recorded_at=None):
-    c = {"origin": origin,
-         "actor_type": {"author": actor or [ACTOR[rec["author"]], "access_binding"]},
-         "understood_extensions": list(understood)}
+    actors = {"author": actor or [ACTOR[rec["author"]], "access_binding"]}
+    if rec.get("on_behalf_of"):
+        actors["on_behalf_of"] = [["organization", "access_binding"] for _ in rec["on_behalf_of"]]
+    c = {"origin": origin, "actor_type": actors, "understood_extensions": list(understood)}
     if recorded_at is not None:
         c["recorded_at"] = recorded_at
     return c
@@ -572,11 +573,9 @@ def envelope(rec, c, rid, ingest):
         "pos": s["pos"],
         "recorded_at": s["recorded_at"],
         "prev": s["prev"],
-        "actor_type": {"author": c["actor_type"]["author"]},
+        "actor_type": c["actor_type"],
         "ingest": ingest,
     }
-    if "on_behalf_of" in rec:
-        env["actor_type"]["on_behalf_of"] = [["organization", "access_binding"] for _ in rec["on_behalf_of"]]
     if c["actor_type"]["author"][0] == "human":
         env["auth_context"] = {"ref": label("access:auth-context:alice"), "assurance": "aal2", "step_up": False}
     else:
@@ -621,7 +620,7 @@ write_json("records.json", {
               "leaf_hash = SHA-256(0x00 || det-CBOR(LedgerEnvelope))",
               "proof_commit = SHA-256 of the full tagged WorkRecordCose bytes as received; these vectors carry no signatures, so proof_commit values are placeholders",
               "Digest values labelled work-vector:* are SHA-256 of ASCII placeholder strings, not real objects",
-              "context holds verifier inputs that are not record bytes: origin, the author actor type from the Access binding, understood_extensions, and recorded_at when the record carries params.effective_at",
+              "context holds verifier inputs that are not record bytes: origin, actor_type exactly as the envelope ActorTypeAnnotation (author and one entry per on_behalf_of party), understood_extensions, and recorded_at when the record carries params.effective_at",
               "prev of the first envelope is the all-zero placeholder until suiss-ledger fixes the genesis rule",
               "PartyRef values are placeholder text until the Access Party reference byte form is fixed"],
     "records": out_recs, "envelopes": out_envs})
@@ -838,7 +837,7 @@ write_json("records-reject.json", {
     "file": "records-reject.json",
     "notes": ["each case is a single-field mutation of a records.json example; hex is canonical CBOR, so rejection is semantic or schema-level, never encoding-level",
               "cddl = fail means work-record.cddl alone rejects the bytes; cddl = pass means a kernel rule rejects them",
-              "context holds verifier inputs that are not record bytes (origin, author actor type, understood_extensions, recorded_at)"],
+              "context holds verifier inputs that are not record bytes (origin, actor_type as the envelope ActorTypeAnnotation with one entry per on_behalf_of party, understood_extensions, recorded_at)"],
     "cases": out_rej})
 
 quarantine = [
