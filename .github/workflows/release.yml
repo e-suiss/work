@@ -130,6 +130,10 @@ jobs:
           tools: nextest
       - name: Tests
         run: just test
+      - name: Release gate for rule coverage and unset values (F-27, T-46, OP-26)
+        env:
+          XTASK_RELEASE: "1"
+        run: cargo xtask check rule-coverage
       - name: Test-result predicate
         env:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}

@@ -1,0 +1,31 @@
+# F-25, MKT-1, P-63, P-64
+name: Watch review
+
+on:
+  schedule:
+    - cron: "0 7 1 1,4,7,10 *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  watch-review:
+    name: watch-review
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          cache-key: lint
+      - name: Open the quarterly review issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cargo xtask watch-report > "$RUNNER_TEMP/watch.md"
+          gh issue create --title "WATCH review $(date -u +%Y-%m)" --label decision --body-file "$RUNNER_TEMP/watch.md"
