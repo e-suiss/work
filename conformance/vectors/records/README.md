@@ -61,6 +61,7 @@ just cddl            # validate every record, envelope and digest vector with th
 | `retroactive_declaration` | `params.effective_at` earlier than `recorded_at` |
 | `extension_critical_dangling` | `critical` names a key that is not in `ext` |
 | `extension_critical_unknown` | `critical` names a key the verifier does not understand (quarantine) |
+| `protocol_version_unknown` | `versions.protocol` has no rule set in this verifier; no other rule is applied (quarantine) |
 | `signature:<detail>` | `alg_not_allowed`, `invalid`, `high_s`, `non_canonical_ed25519`, `small_order_key`, `kid_unknown`, `header_profile` |
 | `producer_missing`, `author_signature_missing`, `auth_context_missing`, `duplicate_version`, `envelope_mismatch:<field>` | Used by the planned files below |
 
@@ -71,7 +72,7 @@ just cddl            # validate every record, envelope and digest vector with th
 | `cbor-canonical.json` | 39: 13 accept, 26 reject (one generated from `generator`) | P-5, P-6, P-7, P-72, Access CR-10 |
 | `digest.json` | 6: 4 computations, 2 reject (`cddl: fail`) | P-5, P-6, P-11, P-17, P-67, P-68, P-79, Access CR-1 |
 | `records.json` | 7 records and 7 chained envelopes, all accept | P-9…P-19, P-21, P-24, P-67…P-85, C-5, C-16, C-27, C-29, E-13, EV-3, EV-4, EV-21, EV-24, INV-20, T-66, T-68 |
-| `records-quarantine.json` | 2 records and 2 envelopes, quarantine | P-19, P-69, C-5 |
+| `records-quarantine.json` | 3 records and 3 envelopes, quarantine | P-18, P-19, P-69, P-87, C-5, T-4 |
 | `records-reject.json` | 64: 28 `cddl: fail`, 36 `cddl: pass` | P-10, P-13, P-14, P-33, P-69…P-85, T-65, T-66, T-68 |
 
 The accept records are an agent promise on behalf of a principal; an Act of the core `action` subtype that fulfills a promise; an automation-originated system Observation; a human amendment with `params.effective_at`, a pinned Practice and an extension; a private Practice comment Claim; a Practice Claim with a critical extension; and a decline with a catalog reason code visible to one named Party. Non-human authors' envelopes carry `proof_commit`; the human author's carry `auth_context`.

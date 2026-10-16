@@ -13,12 +13,13 @@ pub mod policy_default;
 pub mod reason;
 pub mod record;
 pub mod relation;
+pub mod rules;
 pub mod uri;
 pub mod validate;
 pub mod verify;
 
 /// Version of the kernel public API (T-4 rule 4).
-pub const API_VERSION: ApiVersion = ApiVersion { major: 0, minor: 1 };
+pub const API_VERSION: ApiVersion = ApiVersion { major: 0, minor: 2 };
 
 /// A kernel public API version.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]

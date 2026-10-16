@@ -18,6 +18,7 @@ use crate::record::{
     RecordCore, Visibility,
 };
 use crate::relation::{DerivedRole, Relation};
+use crate::rules::RuleSet;
 use crate::uri::{ExtKey, TypeUri};
 
 wire_enum! {
@@ -100,17 +101,20 @@ pub enum Outcome {
     Rejected(Reason),
 }
 
-/// Applies the record rules in a fixed order; the first failing rule decides.
+/// Applies the rules of the record's own protocol version in a fixed order; the first failing rule decides, and a record of a version without a rule set is quarantined (T-4 rule 4, P-87).
 #[must_use]
 pub fn validate(record: &Record, ctx: &ValidationContext<'_>) -> Outcome {
-    match check(record, ctx) {
-        Err(reason) => Outcome::Rejected(reason),
-        Ok(()) => quarantine(record.core(), ctx.understood_extensions)
-            .map_or(Outcome::Accepted, Outcome::Quarantined),
+    match RuleSet::of(record) {
+        None => Outcome::Quarantined(Reason::ProtocolVersionUnknown),
+        Some(RuleSet::V1_0) => match check_v1_0(record, ctx) {
+            Err(reason) => Outcome::Rejected(reason),
+            Ok(()) => quarantine(record.core(), ctx.understood_extensions)
+                .map_or(Outcome::Accepted, Outcome::Quarantined),
+        },
     }
 }
 
-fn check(record: &Record, ctx: &ValidationContext<'_>) -> Result<(), Reason> {
+fn check_v1_0(record: &Record, ctx: &ValidationContext<'_>) -> Result<(), Reason> {
     let core = record.core();
     schema(record)?;
     limits(record, ctx.limits)?;

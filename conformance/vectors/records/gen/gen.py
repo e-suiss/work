@@ -349,7 +349,12 @@ def repeated(xs):
     return len(keys) != len(set(keys))
 
 
+KNOWN_PROTOCOLS = ([1, 0],)
+
+
 def semantic(rec, ctx):
+    if rec["versions"]["protocol"] not in KNOWN_PROTOCOLS:
+        return ("quarantine", "protocol_version_unknown")
     see = rec["visibility"]["see"]
     parties = see[1] if isinstance(see, list) else []
     for field, xs in (("basis", rec.get("basis")), ("concerns", rec["concerns"]),
@@ -839,26 +844,33 @@ write_json("records-reject.json", {
 quarantine = [
     ("critical-ext-not-understood", rec_consent, {},
      ["P-19", "P-69", "C-5"],
-     "Same bytes as record/claim-critical-ext-understood; this verifier does not understand the critical extension."),
+     "Same bytes as record/claim-critical-ext-understood; this verifier does not understand the critical extension.",
+     "extension_critical_unknown"),
     ("one-of-two-critical-not-understood", variant(rec_consent, critical=two_critical), {"understood": [CONSENT]},
      ["P-19", "P-69"],
-     "Two critical extensions, the verifier understands only one."),
+     "Two critical extensions, the verifier understands only one.",
+     "extension_critical_unknown"),
+    ("protocol-version-unknown",
+     variant(rec_promise, authority=None, versions=dict(rec_promise["versions"], protocol=[2, 0])), {},
+     ["T-4", "P-18", "P-19", "P-87"],
+     "Protocol 2.0 has no rule set in this verifier; the record is quarantined before any other rule, so the missing authority is not judged.",
+     "protocol_version_unknown"),
 ]
 out_q = []
-for name, rec, kw, rules, purpose in quarantine:
+for name, rec, kw, rules, purpose, reason in quarantine:
     b = enc(rec)
     c = ctx(rec, **kw)
-    assert semantic(rec, c) == ("quarantine", "extension_critical_unknown"), name
+    assert semantic(rec, c) == ("quarantine", reason), name
     rid = [-16, sha(b)]
     write_cbor("SignedRecord", "quarantine-" + name, b, "pass")
-    env, eb, leaf = envelope(rec, c, rid, ["quarantined", "extension_critical_unknown"])
+    env, eb, leaf = envelope(rec, c, rid, ["quarantined", reason])
     write_cbor("LedgerEnvelope", "quarantine-envelope-" + name, eb, "pass")
     out_q.append({"id": "record-quarantine/" + name, "rules": rules, "purpose": purpose,
                   "hex": b.hex(), "decoded": decoded(b), "context": c, "record_digest": enc(rid).hex(),
                   "cddl": "pass",
                   "envelope": {"rules": ENVELOPE_RULES, "diag": diag(env), "hex": eb.hex(), "decoded": decoded(eb),
                                "leaf_hash": leaf.hex(), "cddl": "pass"},
-                  "expect": {"outcome": "quarantine", "reason": "extension_critical_unknown"}})
+                  "expect": {"outcome": "quarantine", "reason": reason}})
 
 write_json("records-quarantine.json", {
     "file": "records-quarantine.json",

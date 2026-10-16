@@ -18,9 +18,10 @@ use work_kernel::reason::{
 };
 use work_kernel::record::{
     Audience, Capacity, Claim, ClaimType, Correlation, EvidenceType, Param, ParamScalar,
-    ParamValue, PartName, Record, RecordCore,
+    ParamValue, PartName, ProtocolVersion, Record, RecordCore,
 };
 use work_kernel::relation::{DerivedRole, DerivedTarget, Relation};
+use work_kernel::rules::RuleSet;
 use work_kernel::uri::ExtKey;
 use work_kernel::validate::{
     ActorType, ActorTypeSource, Origin, Outcome, uninterpreted_extensions, validate,
@@ -712,4 +713,31 @@ fn c_16_declaration_occurred_at_is_optional_and_claims_need_it() {
     };
     d.occurred_at = Some(Time(1));
     assert_eq!(direct(&Record::Declaration(d)), Outcome::Accepted);
+}
+
+// T-4 P-87 P-18
+#[test]
+fn t_4_rule_set_is_selected_from_the_record_version_only() {
+    assert_eq!(RuleSet::of(&promise()), Some(RuleSet::V1_0));
+    assert_eq!(RuleSet::ALL, &[RuleSet::V1_0]);
+    let newer = mutate(promise(), |c| {
+        c.versions.protocol = ProtocolVersion { major: 1, minor: 1 };
+    });
+    assert_eq!(RuleSet::of(&newer), None);
+}
+
+// T-4 P-87 P-19
+#[test]
+fn t_4_p_87_unknown_protocol_version_is_quarantined_before_any_rule() {
+    for (major, minor) in [(2, 0), (1, 1), (0, 9), (u64::MAX, u64::MAX)] {
+        let record = mutate(promise(), |c| {
+            c.versions.protocol = ProtocolVersion { major, minor };
+            c.authority = None;
+        });
+        assert_eq!(
+            direct(&record),
+            Outcome::Quarantined(Reason::ProtocolVersionUnknown),
+            "{major}.{minor}"
+        );
+    }
 }

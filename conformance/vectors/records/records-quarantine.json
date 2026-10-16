@@ -259,6 +259,144 @@
         "outcome": "quarantine",
         "reason": "extension_critical_unknown"
       }
+    },
+    {
+      "id": "record-quarantine/protocol-version-unknown",
+      "rules": [
+        "T-4",
+        "P-18",
+        "P-19",
+        "P-87"
+      ],
+      "purpose": "Protocol 2.0 has no rule set in this verifier; the record is quarantined before any other rule, so the missing authority is not judged.",
+      "hex": "ad64626f647981a26470617274657465726d7366636f6d6d6974822f582062b38a840000a72b70ada334eb12c9dba46e2ac7cbd1ff648c28af1be0cd046e646b696e646b6465636c61726174696f6e6474797065782d68747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f70726f6d69736565626173697381822f582034652546558611697ac7366fb82fa846579b73842dfdd35bd368148ef5a6aa2166617574686f72781a70617274793a61636d653a6167656e742d70726f637572652d37666c6564676572822f5820ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce26863617061636974798263666f727470617274793a61636d653a62757965722d6f726768636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786870726f6475636572a3656d6f64656c781b75726e3a6578616d706c653a6d6f64656c3a6d2d323032362d303966636f6e666967822f5820eeca01d5aad719bb2d97b002128a3dc82b270df133900492d033ed3792dd51296776657273696f6e7370726f637572652d6167656e742f332e322e306876657273696f6e73a266736368656d61822f58203f765db7a715d24969b634a12d2c8a65d7673af9c682b851ecf49a8ae0e468016870726f746f636f6c8202006a7669736962696c697479a16373656564776f726b6b636f7272656c6174696f6e8182782368747470733a2f2f6132612d70726f746f636f6c2e6f72672f636f6e746578742d6964686374782d386632636c6f6e5f626568616c665f6f66817470617274793a61636d653a62757965722d6f7267",
+      "decoded": {
+        "body": [
+          {
+            "part": "terms",
+            "commit": [
+              -16,
+              "62b38a840000a72b70ada334eb12c9dba46e2ac7cbd1ff648c28af1be0cd046e"
+            ]
+          }
+        ],
+        "kind": "declaration",
+        "type": "https://suiss.app/ns/work/declaration/promise",
+        "basis": [
+          [
+            -16,
+            "34652546558611697ac7366fb82fa846579b73842dfdd35bd368148ef5a6aa21"
+          ]
+        ],
+        "author": "party:acme:agent-procure-7",
+        "ledger": [
+          -16,
+          "ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce2"
+        ],
+        "capacity": [
+          "for",
+          "party:acme:buyer-org"
+        ],
+        "concerns": [
+          "019a2f4c8e1b7c3da5e6f70812345678"
+        ],
+        "producer": {
+          "model": "urn:example:model:m-2026-09",
+          "config": [
+            -16,
+            "eeca01d5aad719bb2d97b002128a3dc82b270df133900492d033ed3792dd5129"
+          ],
+          "version": "procure-agent/3.2.0"
+        },
+        "versions": {
+          "schema": [
+            -16,
+            "3f765db7a715d24969b634a12d2c8a65d7673af9c682b851ecf49a8ae0e46801"
+          ],
+          "protocol": [
+            2,
+            0
+          ]
+        },
+        "visibility": {
+          "see": "work"
+        },
+        "correlation": [
+          [
+            "https://a2a-protocol.org/context-id",
+            "ctx-8f2c"
+          ]
+        ],
+        "on_behalf_of": [
+          "party:acme:buyer-org"
+        ]
+      },
+      "context": {
+        "origin": "direct",
+        "actor_type": {
+          "author": [
+            "agent",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": []
+      },
+      "record_digest": "822f58209f25116db90be1fa57881a3d6f1338f0c0b3ee56ae3e939212cbb94d30581758",
+      "cddl": "pass",
+      "envelope": {
+        "rules": [
+          "P-11",
+          "P-12",
+          "P-21",
+          "P-67",
+          "P-75",
+          "P-76"
+        ],
+        "diag": "{\n  \"pos\": 50,\n  \"prev\": [-16, h'8d80afb07a67ab4944c97268783990ba0c43b2e01c1d75a7489776f74ca0d073'],\n  \"ingest\": [\"quarantined\", \"protocol_version_unknown\"],\n  \"ledger\": [-16, h'ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce2'],\n  \"record\": [-16, h'9f25116db90be1fa57881a3d6f1338f0c0b3ee56ae3e939212cbb94d30581758'],\n  \"actor_type\": {\n    \"author\": [\"agent\", \"access_binding\"],\n    \"on_behalf_of\": [\n      [\"organization\", \"access_binding\"]\n    ]\n  },\n  \"recorded_at\": 1792109109000,\n  \"proof_commit\": [-16, h'435b4e463e9bf4e875c10056ef0fa323822e0d69c887eb584fca9c10e8815f7a']\n}",
+        "hex": "a863706f7318326470726576822f58208d80afb07a67ab4944c97268783990ba0c43b2e01c1d75a7489776f74ca0d07366696e67657374826b71756172616e74696e6564781870726f746f636f6c5f76657273696f6e5f756e6b6e6f776e666c6564676572822f5820ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce2667265636f7264822f58209f25116db90be1fa57881a3d6f1338f0c0b3ee56ae3e939212cbb94d305817586a6163746f725f74797065a266617574686f7282656167656e746e6163636573735f62696e64696e676c6f6e5f626568616c665f6f6681826c6f7267616e697a6174696f6e6e6163636573735f62696e64696e676b7265636f726465645f61741b000001a14206df086c70726f6f665f636f6d6d6974822f5820435b4e463e9bf4e875c10056ef0fa323822e0d69c887eb584fca9c10e8815f7a",
+        "decoded": {
+          "pos": 50,
+          "prev": [
+            -16,
+            "8d80afb07a67ab4944c97268783990ba0c43b2e01c1d75a7489776f74ca0d073"
+          ],
+          "ingest": [
+            "quarantined",
+            "protocol_version_unknown"
+          ],
+          "ledger": [
+            -16,
+            "ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce2"
+          ],
+          "record": [
+            -16,
+            "9f25116db90be1fa57881a3d6f1338f0c0b3ee56ae3e939212cbb94d30581758"
+          ],
+          "actor_type": {
+            "author": [
+              "agent",
+              "access_binding"
+            ],
+            "on_behalf_of": [
+              [
+                "organization",
+                "access_binding"
+              ]
+            ]
+          },
+          "recorded_at": 1792109109000,
+          "proof_commit": [
+            -16,
+            "435b4e463e9bf4e875c10056ef0fa323822e0d69c887eb584fca9c10e8815f7a"
+          ]
+        },
+        "leaf_hash": "f4026fde7626950b99005a41f7080b45a9ac194645fafae96e41aa001727107c",
+        "cddl": "pass"
+      },
+      "expect": {
+        "outcome": "quarantine",
+        "reason": "protocol_version_unknown"
+      }
     }
   ]
 }

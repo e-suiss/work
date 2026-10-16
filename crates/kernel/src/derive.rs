@@ -7,6 +7,7 @@ use crate::catalog::DeclarationSubtype;
 use crate::id::{PartyRef, RecordId, Time};
 use crate::reason::Reason;
 use crate::record::{PracticePin, ProtocolVersion, Record};
+use crate::rules::RuleSet;
 
 /// The result of the shared restriction engine for one record, supplied as input (T-4 rule 5, T-23).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -77,7 +78,7 @@ pub struct TrustInputs<'a> {
 /// Every input besides the records that the normative result depends on (P-31, T-6).
 #[derive(Clone, Copy, Debug)]
 pub struct DerivationInputs<'a> {
-    /// The protocol version the kernel interprets.
+    /// The active protocol version of the evaluation, set by an activation record (OP-28 rule 3, P-87).
     pub protocol: ProtocolVersion,
     /// The profile version.
     pub profile: ProfileVersion,
@@ -109,7 +110,7 @@ pub enum NoEffect {
     NotADeclaration,
     /// The record was not admitted.
     NotAdmitted,
-    /// The record's protocol major version is not the one evaluated.
+    /// The record's protocol version is newer than the active protocol version of the evaluation (OP-28 rule 3, P-87).
     ProtocolVersion,
     /// The restriction result is `DENY`.
     Denied,
@@ -169,7 +170,7 @@ pub enum ChainStatus {
 pub struct Chain {
     /// The first record.
     pub root: RecordId,
-    /// The highest admitted version.
+    /// The highest admitted version in the chain (P-86).
     pub version: u32,
     /// The records currently in normative effect; more than one while conflicted.
     pub heads: Vec<RecordId>,
@@ -278,7 +279,10 @@ impl Fold<'_> {
         }
         let author = &entry.record.core().author;
         let place = self.place(entry.record)?;
-        let admission = self.admission(entry, &place);
+        let admission = match RuleSet::of(entry.record) {
+            None => Admission::Quarantined(Reason::ProtocolVersionUnknown),
+            Some(RuleSet::V1_0) => self.admission_v1_0(entry, &place),
+        };
         let slot = self.records.len();
         let mut member = Member {
             chain: None,
@@ -327,22 +331,31 @@ impl Fold<'_> {
         Ok(())
     }
 
+    fn member(&self, id: &RecordId) -> Option<&Member> {
+        self.index.get(id).and_then(|&i| self.members.get(i))
+    }
+
+    // P-24 P-86
     fn place(&self, record: &Record) -> Result<Place, DeriveError> {
-        let Some(target) = record.supersedes().next() else {
+        let Some(first) = record.supersedes().next() else {
             return Ok(Place::Root);
         };
-        let Some(member) = self.index.get(target).and_then(|&i| self.members.get(i)) else {
+        let Some(chain) = self.member(first).and_then(|m| m.chain) else {
             return Ok(Place::Unknown);
         };
-        let Some(chain) = member.chain else {
-            return Ok(Place::Unknown);
-        };
-        let version = member.version.checked_add(1).ok_or(DeriveError::Overflow)?;
+        let latest = record
+            .supersedes()
+            .filter_map(|t| self.member(t))
+            .filter(|m| m.chain == Some(chain))
+            .map(|m| m.version)
+            .max()
+            .unwrap_or(0);
+        let version = latest.checked_add(1).ok_or(DeriveError::Overflow)?;
         Ok(Place::Existing { chain, version })
     }
 
-    // INV-4 P-24 P-74
-    fn admission(&self, entry: &Entry<'_>, place: &Place) -> Admission {
+    // INV-4 P-24 P-74 P-86
+    fn admission_v1_0(&self, entry: &Entry<'_>, place: &Place) -> Admission {
         if let Ingest::Quarantined(reason) = entry.ingest {
             return Admission::Quarantined(reason);
         }
@@ -366,19 +379,16 @@ impl Fold<'_> {
     }
 
     fn author_of(&self, id: &RecordId) -> Option<&PartyRef> {
-        self.index
-            .get(id)
-            .and_then(|&i| self.members.get(i))
-            .map(|m| &m.author)
+        self.member(id).map(|m| &m.author)
     }
 
-    // INV-9 C-15 C-16 P-28 T-23
+    // INV-9 C-15 C-16 P-28 T-23 P-87
     fn effect(&mut self, entry: &Entry<'_>, chain: Option<usize>) -> Effect {
         let Record::Declaration(declaration) = entry.record else {
             return Effect::None(NoEffect::NotADeclaration);
         };
         let core = &declaration.core;
-        let blocked = if core.versions.protocol.major != self.inputs.protocol.major {
+        let blocked = if core.versions.protocol > self.inputs.protocol {
             Some(NoEffect::ProtocolVersion)
         } else if entry.restriction == Restriction::Deny {
             Some(NoEffect::Denied)

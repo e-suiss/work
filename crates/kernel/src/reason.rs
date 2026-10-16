@@ -229,6 +229,8 @@ pub enum Reason {
     VisibilityNoWork,
     /// `critical` names a key the verifier does not understand (P-19); a quarantine, never a rejection.
     ExtensionCriticalUnknown,
+    /// The record's protocol version has no rule set in this kernel (P-87); a quarantine, never a rejection.
+    ProtocolVersionUnknown,
     /// The same author wrote the same version twice in one supersede chain (P-24, P-74).
     DuplicateVersion,
     /// A Declaration whose effect would start before its `recorded_at` (INV-4, P-24).
@@ -259,6 +261,7 @@ impl Reason {
             Self::ExtensionCriticalDangling => "extension_critical_dangling",
             Self::VisibilityNoWork => "visibility_no_work",
             Self::ExtensionCriticalUnknown => "extension_critical_unknown",
+            Self::ProtocolVersionUnknown => "protocol_version_unknown",
             Self::DuplicateVersion => "duplicate_version",
             Self::RetroactiveDeclaration => "retroactive_declaration",
             Self::EnvelopeMismatch(_) => "envelope_mismatch",
@@ -299,6 +302,7 @@ impl Reason {
             "extension_critical_dangling" => Some(Self::ExtensionCriticalDangling),
             "visibility_no_work" => Some(Self::VisibilityNoWork),
             "extension_critical_unknown" => Some(Self::ExtensionCriticalUnknown),
+            "protocol_version_unknown" => Some(Self::ProtocolVersionUnknown),
             "duplicate_version" => Some(Self::DuplicateVersion),
             "retroactive_declaration" => Some(Self::RetroactiveDeclaration),
             _ => None,
@@ -352,6 +356,7 @@ mod tests {
             Reason::DuplicateEntry(ListField::Body),
             Reason::EnvelopeMismatch(EnvelopeField::ActorType),
             Reason::ExtensionCriticalUnknown,
+            Reason::ProtocolVersionUnknown,
             Reason::DuplicateVersion,
             Reason::VisibilityNoWork,
             Reason::Schema(Schema::Params),

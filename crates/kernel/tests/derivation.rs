@@ -22,6 +22,7 @@ use work_kernel::record::{
     Param, ParamScalar, ParamValue, PartName, ProtocolVersion, Record, RecordCore,
 };
 use work_kernel::relation::Relation;
+use work_kernel::rules::RuleSet;
 
 const BOB: &str = "party:acme:bob";
 const PEER: &str = "party:peer:access";
@@ -44,6 +45,25 @@ fn op(author: &str, name: &str, supersedes: Option<RecordId>, basis: &[RecordId]
             ..core(author)
         },
     )
+}
+
+fn superseding(author: &str, targets: &[RecordId], basis: &[RecordId]) -> Record {
+    let mut record = op(author, "amend", None, basis);
+    core_mut(&mut record).relations = Some(
+        targets
+            .iter()
+            .map(|&target| Relation::Supersedes {
+                target,
+                qualifier: None,
+            })
+            .collect(),
+    );
+    record
+}
+
+fn at_protocol(mut record: Record, major: u64, minor: u64) -> Record {
+    core_mut(&mut record).versions.protocol = ProtocolVersion { major, minor };
+    record
 }
 
 fn effective(mut record: Record, at: u64) -> Record {
@@ -369,5 +389,91 @@ fn p_11_ledger_order_violations_are_errors() {
     assert_eq!(
         derive(&entries(&dup), &inputs(&[])),
         Err(DeriveError::DuplicateRecord(rid(1)))
+    );
+}
+
+// P-86 P-24 P-74
+#[test]
+fn p_86_version_is_one_more_than_the_highest_superseded_version_in_the_chain() {
+    let records = [
+        (rid(1), op(ALICE, "promise", None, &[])),
+        (rid(2), op(ALICE, "amend", Some(rid(1)), &[rid(1)])),
+        (rid(3), superseding(ALICE, &[rid(1), rid(2)], &[rid(2)])),
+    ];
+    let d = run(&entries(&records));
+    assert_eq!(d.records[2].admission, Admission::Admitted);
+    assert_eq!(d.records[2].effect, Effect::Normative);
+    assert_eq!(d.chains.len(), 1);
+    assert_eq!(d.chains[0].version, 2);
+    assert_eq!(d.chains[0].heads, vec![rid(3)]);
+}
+
+// P-86 P-74
+#[test]
+fn p_86_a_target_in_another_chain_does_not_raise_the_version() {
+    let records = [
+        (rid(1), op(ALICE, "promise", None, &[])),
+        (rid(2), op(BOB, "promise", None, &[])),
+        (rid(3), op(BOB, "amend", Some(rid(2)), &[rid(2)])),
+        (rid(4), superseding(ALICE, &[rid(1), rid(3)], &[rid(1)])),
+        (rid(5), op(ALICE, "amend", Some(rid(1)), &[rid(1)])),
+    ];
+    let d = run(&entries(&records));
+    assert_eq!(d.records[3].admission, Admission::Admitted);
+    assert_eq!(
+        d.records[4].admission,
+        Admission::Rejected(Reason::DuplicateVersion)
+    );
+    assert_eq!(d.chains[0].version, 1);
+    assert_eq!(d.chains[1].version, 1);
+}
+
+// T-4 P-87 P-19
+#[test]
+fn t_4_p_87_unknown_protocol_version_is_quarantined_in_derivation() {
+    for (major, minor) in [(2, 0), (1, 1), (0, 9)] {
+        let records = [(
+            rid(1),
+            at_protocol(op(ALICE, "promise", None, &[]), major, minor),
+        )];
+        let d = run(&entries(&records));
+        assert_eq!(
+            d.records[0].admission,
+            Admission::Quarantined(Reason::ProtocolVersionUnknown)
+        );
+        assert_eq!(d.records[0].effect, Effect::None(NoEffect::NotAdmitted));
+        assert_eq!(d.chains.len(), 0);
+    }
+}
+
+// T-4 P-87 OP-28
+#[test]
+fn t_4_p_87_record_newer_than_the_active_protocol_has_no_effect() {
+    let records = [(rid(1), op(ALICE, "promise", None, &[]))];
+    let e = entries(&records);
+    let mut older = inputs(&[]);
+    older.protocol = ProtocolVersion { major: 0, minor: 9 };
+    let d = derive(&e, &older).unwrap();
+    assert_eq!(d.records[0].admission, Admission::Admitted);
+    assert_eq!(d.records[0].effect, Effect::None(NoEffect::ProtocolVersion));
+}
+
+// T-4 P-87
+#[test]
+fn t_4_p_87_older_record_keeps_its_own_rules_under_a_newer_active_protocol() {
+    let records = [
+        (rid(1), op(ALICE, "promise", None, &[])),
+        (rid(2), op(ALICE, "amend", Some(rid(1)), &[rid(1)])),
+    ];
+    let e = entries(&records);
+    let mut newer = inputs(&[]);
+    newer.protocol = ProtocolVersion { major: 2, minor: 0 };
+    let d = derive(&e, &newer).unwrap();
+    assert_eq!(d, run(&e));
+    assert_eq!(d.records[1].effect, Effect::Normative);
+    assert!(
+        records
+            .iter()
+            .all(|(_, r)| RuleSet::of(r) == Some(RuleSet::V1_0))
     );
 }
