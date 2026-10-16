@@ -41,6 +41,24 @@ for (let run = 0; run < runs; run += 1) {
   firstCall.push(t2 - t1);
 }
 
+const steady = (await import(
+  new URL("../wasm/work_kernel_wasm.js?run=steady", import.meta.url).href
+)) as Glue;
+await steady.default({ module_or_path: bytes });
+const iterations = 2000;
+const perCall: string[] = [];
+for (const record of vectors.records) {
+  const d = JSON.stringify(record.decoded);
+  const c = JSON.stringify(record.context);
+  const samples: number[] = [];
+  for (let i = 0; i < iterations; i += 1) {
+    const t0 = performance.now();
+    steady.validateRecord(d, c);
+    samples.push(performance.now() - t0);
+  }
+  perCall.push(`${record.id} ${(median(samples) * 1000).toFixed(1)} µs`);
+}
+
 function median(values: readonly number[]): number {
   const sorted = [...values].sort((a, b) => a - b);
   return sorted[Math.floor(sorted.length / 2)] ?? Number.NaN;
@@ -49,4 +67,7 @@ function median(values: readonly number[]): number {
 const ms = (t: number): string => `${t.toFixed(2)} ms`;
 console.log(
   `wasm start-up node ${process.version}: ${String(bytes.byteLength)} bytes; instantiate cold ${ms(instantiate[0] ?? Number.NaN)}, warm median ${ms(median(instantiate.slice(1)))}; first validateRecord (${first.id}) cold ${ms(firstCall[0] ?? Number.NaN)}, warm median ${ms(median(firstCall.slice(1)))}; ${String(runs - 1)} warm runs reuse the same Node process`,
+);
+console.log(
+  `wasm validateRecord median per call over ${String(iterations)} calls: ${perCall.join("; ")}`,
 );
