@@ -10,6 +10,24 @@ struct WorkTitle {
     value: String,
 }
 
+// ok: secret-derive-debug
+#[derive(Clone, Debug)]
+struct BodyCommitment {
+    digest: Vec<u8>,
+}
+
+// ok: secret-derive-debug
+#[derive(Clone, Debug)]
+struct PracticePin {
+    digest: Vec<u8>,
+}
+
+// ruleid: secret-derive-debug
+#[derive(Debug)]
+struct RecordBody {
+    bytes: Vec<u8>,
+}
+
 fn metrics() {
     // ruleid: metric-identity-label
     counter!("work_declarations_total", "work_id" => id);

@@ -36,7 +36,7 @@ rules:
           struct $NAME { ... }
       - metavariable-regex:
           metavariable: $NAME
-          regex: '(?i).*(secret|password|passphrase|token|credential|privatekey|apikey|pin|body|personal).*'
+          regex: '^([A-Za-z0-9]*)(Secret|Secrets|Password|Passphrase|Token|Tokens|Credential|Credentials|PrivateKey|ApiKey|PinCode|Body|PersonalData)$'
 
   - id: secret-formatted
     # T-33, OP-18
