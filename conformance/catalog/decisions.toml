@@ -368,6 +368,7 @@ tests = [
   "crates/kernel/src/policy_default.rs::f_26_security_switch_turns_off_only_with_a_recorded_declaration",
   "crates/kernel/src/policy_default.rs::f_26_security_values_only_tighten",
   "crates/kernel/tests/vectors.rs::t_5_t_37_native_policy_defaults_match_shared_vectors",
+  "sdks/bindings/uniffi/tests/vectors.rs::t_5_t_37_uniffi_policy_defaults_match_shared_vectors",
 ]
 
 [[rule]]
@@ -3201,6 +3202,88 @@ title = ""
 tests = []
 
 [[rule]]
+id = "P-67"
+family = "P"
+status = "frozen-protocol"
+stage = 1
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "P-68"
+family = "P"
+status = "frozen-protocol"
+stage = 1
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "P-69"
+family = "P"
+status = "frozen-protocol"
+stage = 1
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "P-70"
+family = "P"
+status = "frozen-protocol"
+stage = 1
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "P-71"
+family = "P"
+status = "frozen-protocol"
+stage = 1
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "P-72"
+family = "P"
+status = "frozen-protocol"
+stage = 1
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "P-73"
+family = "P"
+status = "frozen-protocol"
+stage = 1
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "P-74"
+family = "P"
+status = "frozen-protocol"
+class = "BS"
+stage = 1
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "P-75"
+family = "P"
+status = "frozen-protocol"
+stage = 1
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
 id = "PR-2"
 family = "PR"
 status = "frozen-product"
@@ -3591,6 +3674,8 @@ title = "Every normative rule has a test; flaky tests are never retried until gr
 tests = [
   "crates/kernel/tests/vectors.rs::t_5_t_37_native_api_version_matches_shared_vectors",
   "crates/kernel/tests/vectors.rs::t_5_t_37_native_policy_defaults_match_shared_vectors",
+  "sdks/bindings/uniffi/tests/vectors.rs::t_5_t_37_uniffi_api_version_matches_shared_vectors",
+  "sdks/bindings/uniffi/tests/vectors.rs::t_5_t_37_uniffi_policy_defaults_match_shared_vectors",
   "xtask/src/catalog.rs::t_37_untested_boundary_fails_only_for_completed_stages_or_release",
   "xtask/src/catalog_spec.rs::t_46_stages_come_from_boundary_bullets",
   "xtask/src/policy_scan.rs::t_37_nonzero_retries_are_rejected",
@@ -3931,6 +4016,40 @@ family = "T"
 status = "policy-default"
 pd = "set"
 title = "Stage 0 items that need later code move to that stage"
+tests = []
+
+[[rule]]
+id = "T-64"
+family = "T"
+status = "frozen-technical"
+acceptance = "filled"
+title = ""
+tests = []
+
+[[rule]]
+id = "T-65"
+family = "T"
+status = "frozen-technical"
+stage = 1
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "T-66"
+family = "T"
+status = "frozen-technical"
+stage = 1
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "T-67"
+family = "T"
+status = "frozen-technical"
+acceptance = "filled"
+title = ""
 tests = []
 
 [[rule]]

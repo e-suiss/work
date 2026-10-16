@@ -1764,6 +1764,8 @@ title = ""
 tests = [
   "crates/kernel/tests/vectors.rs::t_5_t_37_native_api_version_matches_shared_vectors",
   "crates/kernel/tests/vectors.rs::t_5_t_37_native_policy_defaults_match_shared_vectors",
+  "sdks/bindings/uniffi/tests/vectors.rs::t_5_t_37_uniffi_api_version_matches_shared_vectors",
+  "sdks/bindings/uniffi/tests/vectors.rs::t_5_t_37_uniffi_policy_defaults_match_shared_vectors",
 ]
 
 [[rule]]

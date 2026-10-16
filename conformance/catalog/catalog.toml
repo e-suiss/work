@@ -7,7 +7,7 @@ enforced_families = [
   "T", "OP",
 ]
 
-test_roots = ["crates", "bins", "xtask"]
+test_roots = ["crates", "bins", "sdks", "xtask"]
 
 [[value_stages]]
 id = "OP-26"
