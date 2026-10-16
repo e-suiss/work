@@ -107,6 +107,10 @@ web-check: wasm
 web-test: wasm
     cd packages/kernel && npm test
 
+# T-5, T-37
+web-e2e: wasm
+    cd packages/kernel && npm run e2e
+
 # T-41, T-51
 compose-check:
     {{compose}} config -q
@@ -173,6 +177,11 @@ wasm-size:
       cargo build --locked --release --target wasm32-unknown-unknown --target-dir target/wasm-size -p work-kernel-wasm
     f=target/wasm-size/wasm32-unknown-unknown/release/work_kernel_wasm.wasm; \
     echo "work_kernel_wasm.wasm: $(wc -c < "$f" | tr -d ' ') bytes, $(gzip -9 -c "$f" | wc -c | tr -d ' ') bytes gzip -9"
+
+# T-44
+wasm-startup: wasm
+    cd packages/kernel && npm run startup
+    cd packages/kernel && npm run e2e -- --grep t_44 --workers=1
 
 bench-instructions *args:
     cargo bench --locked -p esuiss-work-kernel --bench kernel_instructions -- {{args}}

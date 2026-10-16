@@ -113,6 +113,53 @@ jobs:
         run: just web-check
       - name: Differential kernel vectors through WebAssembly (T-5, T-37)
         run: just web-test
+      - name: Keep the WebAssembly build for the browser tests
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: kernel-wasm
+          path: packages/kernel/wasm
+          retention-days: 1
+          if-no-files-found: error
+
+  kernel-browser:
+    name: kernel-browser
+    needs: kernel-bindings
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    container:
+      image: mcr.microsoft.com/playwright@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27 # v1.63.0-noble
+      options: --ipc=host
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.21.0
+          cache: npm
+          # T-58
+          cache-dependency-path: |
+            packages/kernel/package-lock.json
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: kernel-wasm
+          path: packages/kernel/wasm
+      - name: Differential kernel vectors and start-up time in Chromium, Firefox and WebKit (T-5, T-37, T-44)
+        env:
+          HOME: /root
+        working-directory: packages/kernel
+        run: |
+          npm ci
+          npm run e2e
+      - name: Upload the Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: playwright-report
+          path: packages/kernel/playwright-report
+          retention-days: 7
 
   kernel-swift:
     name: kernel-swift

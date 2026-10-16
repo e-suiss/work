@@ -1,2 +1,4 @@
 /wasm/
 /dist/
+/test-results/
+/playwright-report/

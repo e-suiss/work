@@ -5,7 +5,7 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   {
-    ignores: ["node_modules/**", "wasm/**", "dist/**"],
+    ignores: ["node_modules/**", "wasm/**", "dist/**", "test-results/**", "playwright-report/**"],
   },
   js.configs.recommended,
   ...tseslint.configs.strictTypeChecked,

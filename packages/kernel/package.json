@@ -16,6 +16,8 @@
     "build": "vite build",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
+    "e2e": "playwright test",
+    "startup": "node scripts/wasm-startup.ts",
     "lint": "eslint --max-warnings=0 .",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
@@ -26,6 +28,7 @@
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
+    "@playwright/test": "1.63.0",
     "@types/node": "25.9.9",
     "eslint": "10.11.0",
     "globals": "17.13.0",
