@@ -1,6 +1,10 @@
 # T-38, T-60
+anyhow
 bincode-next
+camino
 figment
+fs-err
+getrandom
 gungraun
 gungraun-common
 gungraun-macros
@@ -9,6 +13,7 @@ libc
 proc-macro2
 proc-macro2-diagnostics
 quote
+rustix
 rustversion
 serde
 serde_core

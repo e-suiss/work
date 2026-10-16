@@ -9,4 +9,6 @@ rustversion
 serde_derive
 thiserror-impl
 tokio-macros
+uniffi_internal_macros
+uniffi_macros
 wasm-bindgen-macro

@@ -1,0 +1,33 @@
+[package]
+name = "work-kernel-ffi"
+description = "uniffi binding of the Work kernel for Swift and Kotlin (T-5)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lib]
+crate-type = ["cdylib", "staticlib", "lib"]
+
+[dependencies]
+# T-31
+work-kernel = { workspace = true }
+uniffi = { workspace = true }
+
+# T-37
+[dev-dependencies]
+serde = { workspace = true, features = ["std", "derive"] }
+serde_json = { workspace = true, features = ["std"] }
+
+[features]
+cli = ["uniffi/cli", "uniffi/cargo-metadata"]
+
+[[bin]]
+name = "uniffi-bindgen"
+path = "src/bin/uniffi-bindgen.rs"
+required-features = ["cli"]
+
+[lints]
+workspace = true
