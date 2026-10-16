@@ -1,0 +1,20 @@
+[package]
+name = "work-kernel-wasm"
+description = "WebAssembly binding of the Work kernel for web and Node (T-5)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# T-31
+work-kernel = { workspace = true }
+wasm-bindgen = { workspace = true, features = ["std"] }
+
+[lints]
+workspace = true

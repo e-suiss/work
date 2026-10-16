@@ -16,4 +16,6 @@ serde_json
 thiserror
 uncased
 valuable
+wasm-bindgen
+wasm-bindgen-shared
 zmij

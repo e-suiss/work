@@ -9,3 +9,4 @@ rustversion
 serde_derive
 thiserror-impl
 tokio-macros
+wasm-bindgen-macro

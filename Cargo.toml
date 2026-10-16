@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/*", "bins/*", "xtask"]
+members = ["crates/*", "bins/*", "sdks/bindings/*", "xtask"]
 
 [workspace.package]
 version = "0.1.0"
@@ -37,6 +37,8 @@ figment = { version = "0.10.19", default-features = false }
 # T-44
 divan = { version = "0.1.21", default-features = false }
 gungraun = { version = "=0.20.0", default-features = false }
+# T-5, T-58
+wasm-bindgen = { version = "=0.2.129", default-features = false }
 
 [workspace.lints.rust]
 # T-33

@@ -11,6 +11,11 @@ publish = false
 [lib]
 name = "work_kernel"
 
+# T-37
+[dev-dependencies]
+serde = { workspace = true, features = ["std", "derive"] }
+serde_json = { workspace = true, features = ["std"] }
+
 # T-44
 [target.'cfg(any(target_os = "linux", target_os = "macos"))'.dev-dependencies]
 divan = { workspace = true }
