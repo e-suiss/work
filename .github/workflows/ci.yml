@@ -37,6 +37,15 @@ jobs:
         run: just lint
       - name: Repository rules (T-31, T-36, T-46, T-52)
         run: just rules
+      - name: Install squawk 2.68.0 (T-52, T-60)
+        env:
+          SQUAWK_SHA256: 53070672cbe0b8adce55372931d4435cc2395edd8b5736819a82e483b08d4d09
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/squawk" \
+            https://github.com/sbdchd/squawk/releases/download/v2.68.0/squawk-linux-x64
+          echo "$SQUAWK_SHA256  $RUNNER_TEMP/squawk" | sha256sum --check --strict
+          chmod +x "$RUNNER_TEMP/squawk"
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
       - name: Migration safety (T-36)
         run: just squawk
 

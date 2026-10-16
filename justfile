@@ -55,6 +55,7 @@ semgrep:
 
 # T-36, T-52
 squawk:
+    if squawk crates/store/fixtures/squawk-unsafe.sql > /dev/null; then echo "squawk accepted the unsafe fixture" >&2; exit 1; fi
     files="$(find crates -path '*/migrations/*.sql' 2>/dev/null)"; \
     if [ -z "$files" ]; then echo "no migrations yet"; else squawk $files; fi
 
