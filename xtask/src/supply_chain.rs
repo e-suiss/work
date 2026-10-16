@@ -25,6 +25,10 @@ pub(crate) fn checks() -> Vec<Check> {
             run: check_lockfiles,
         },
         Check {
+            name: "ts-compiler-options",
+            run: check_ts_compiler_options,
+        },
+        Check {
             name: "build-rs-allowlist",
             run: check_build_rs,
         },
@@ -308,6 +312,59 @@ pub(crate) fn lockfile_violations(
     out
 }
 
+/// Compiler options every TypeScript package sets to `true` (T-34, T-58).
+pub(crate) const TS_STRICT_OPTIONS: &[&str] = &[
+    "strict",
+    "noUncheckedIndexedAccess",
+    "exactOptionalPropertyTypes",
+];
+
+/// Every npm package has a `tsconfig.json` that turns on the shared strict options (T-34, T-58).
+pub(crate) fn ts_compiler_option_violations(
+    files: &[String],
+    read_file: &dyn Fn(&str) -> String,
+) -> Vec<Violation> {
+    let mut out = Vec::new();
+    for pkg in files
+        .iter()
+        .filter(|f| f.rsplit('/').next() == Some("package.json"))
+    {
+        let tsconfig = sibling(parent_dir(pkg), "tsconfig.json");
+        if !files.contains(&tsconfig) {
+            out.push(v(
+                "ts-compiler-options",
+                pkg,
+                "package.json without its own tsconfig.json (T-34, T-58)".to_owned(),
+            ));
+            continue;
+        }
+        let options = serde_json::from_str::<serde_json::Value>(&read_file(&tsconfig))
+            .ok()
+            .and_then(|json| json.get("compilerOptions").cloned());
+        for option in TS_STRICT_OPTIONS {
+            let on = options
+                .as_ref()
+                .and_then(|o| o.get(*option))
+                .and_then(serde_json::Value::as_bool)
+                == Some(true);
+            if !on {
+                out.push(v(
+                    "ts-compiler-options",
+                    &tsconfig,
+                    format!("`compilerOptions.{option}` must be `true` (T-34, T-58)"),
+                ));
+            }
+        }
+    }
+    out
+}
+
+fn check_ts_compiler_options(root: &Path) -> Result<Vec<Violation>, String> {
+    let files: Vec<String> = walk(root)?.iter().map(|p| rel(root, p)).collect();
+    let read_file = |f: &str| std::fs::read_to_string(root.join(f)).unwrap_or_default();
+    Ok(ts_compiler_option_violations(&files, &read_file))
+}
+
 fn check_lockfiles(root: &Path) -> Result<Vec<Violation>, String> {
     let files: Vec<String> = walk(root)?.iter().map(|p| rel(root, p)).collect();
     let read_file = |f: &str| std::fs::read_to_string(root.join(f)).unwrap_or_default();
@@ -389,5 +446,29 @@ mod tests {
         rooted.push("package.json".to_owned());
         assert_eq!(lockfile_violations(&rooted, &good).len(), 1);
         assert_eq!(lockfile_violations(&[], &good).len(), 1);
+    }
+
+    // T-34 T-58
+    #[test]
+    fn t_34_npm_package_without_strict_compiler_options_is_rejected() {
+        let files = vec!["packages/kernel/package.json".to_owned()];
+        assert_eq!(
+            ts_compiler_option_violations(&files, &|_| String::new()).len(),
+            1
+        );
+        let mut with_config = files;
+        with_config.push("packages/kernel/tsconfig.json".to_owned());
+        let strict = |_: &str| {
+            r#"{"compilerOptions":{"strict":true,"noUncheckedIndexedAccess":true,"exactOptionalPropertyTypes":true}}"#.to_owned()
+        };
+        assert!(ts_compiler_option_violations(&with_config, &strict).is_empty());
+        let loose = |_: &str| {
+            r#"{"compilerOptions":{"strict":false,"noUncheckedIndexedAccess":true}}"#.to_owned()
+        };
+        assert_eq!(ts_compiler_option_violations(&with_config, &loose).len(), 2);
+        assert_eq!(
+            ts_compiler_option_violations(&with_config, &|_| "not json".to_owned()).len(),
+            3
+        );
     }
 }
