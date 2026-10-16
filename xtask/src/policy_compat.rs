@@ -118,6 +118,23 @@ pub(crate) fn format_violations(c: &Compat) -> Vec<Violation> {
                     ));
                 }
             }
+            "build" => {
+                if !is_build_ref(&p.version) {
+                    out.push(v(
+                        COMPAT_FILE,
+                        format!(
+                            "[{name}] build version `{}` must be `main-<sha>` or `sha-<sha>` (T-51)",
+                            p.version
+                        ),
+                    ));
+                }
+                if !is_digest(&p.digest) {
+                    out.push(v(
+                        COMPAT_FILE,
+                        format!("[{name}] build digest must be `sha256:<64 hex>` (T-51)"),
+                    ));
+                }
+            }
             "unpublished" => {
                 if !p.version.is_empty() || !p.digest.is_empty() {
                     out.push(v(
@@ -128,7 +145,9 @@ pub(crate) fn format_violations(c: &Compat) -> Vec<Violation> {
             }
             other => out.push(v(
                 COMPAT_FILE,
-                format!("[{name}] status `{other}` is not `published` or `unpublished` (T-51)"),
+                format!(
+                    "[{name}] status `{other}` is not `published`, `build` or `unpublished` (T-51)"
+                ),
             )),
         }
     }
@@ -234,7 +253,7 @@ pub(crate) fn compose_violations(c: &Compat, compose: &str) -> Vec<Violation> {
             .get("profiles")
             .map(Node::scalars)
             .unwrap_or_default();
-        if p.status == "published" {
+        if p.status == "published" || p.status == "build" {
             let want = format!("{}@{}", p.image, p.digest);
             if image != want {
                 out.push(v(
@@ -309,6 +328,14 @@ pub(crate) fn check(root: &Path) -> Result<Vec<Violation>, String> {
     Ok(out)
 }
 
+fn is_build_ref(version: &str) -> bool {
+    let hex = version
+        .strip_prefix("main-")
+        .or_else(|| version.strip_prefix("sha-"))
+        .unwrap_or_default();
+    (7..=40).contains(&hex.len()) && hex.chars().all(|c| c.is_ascii_hexdigit())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -379,6 +406,31 @@ mod tests {
         assert!(compose_violations(&c, &pinned).is_empty());
         let tagged = compose("  access:\n    image: ghcr.io/e-suiss/access:1.2.0\n", "");
         assert_eq!(compose_violations(&c, &tagged).len(), 1);
+    }
+
+    // T-51
+    #[test]
+    fn t_51_main_builds_are_pinned_by_digest_with_a_commit_reference() {
+        let text = UNPUBLISHED
+            .replacen(
+                "status = \"unpublished\"\nversion = \"\"",
+                "status = \"build\"\nversion = \"main-e711dde\"",
+                1,
+            )
+            .replacen("digest = \"\"", &format!("digest = \"{DIGEST}\""), 1);
+        let c = compat(&text);
+        assert!(
+            format_violations(&c).is_empty(),
+            "{:?}",
+            format_violations(&c)
+        );
+        let pinned = compose(
+            &format!("  access:\n    image: ghcr.io/e-suiss/access@{DIGEST}\n"),
+            "",
+        );
+        assert!(compose_violations(&c, &pinned).is_empty());
+        let floating = compat(&text.replace("main-e711dde", "main"));
+        assert_eq!(format_violations(&floating).len(), 1);
     }
 
     // T-40 T-51

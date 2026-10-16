@@ -3779,6 +3779,7 @@ acceptance = "filled"
 title = "compat.toml pins Access, Relay and shared crates for one local compose file"
 tests = [
   "xtask/src/policy_compat.rs::t_40_malformed_compat_rows_are_rejected",
+  "xtask/src/policy_compat.rs::t_51_main_builds_are_pinned_by_digest_with_a_commit_reference",
   "xtask/src/policy_compat.rs::t_51_published_access_image_must_match_the_compat_digest",
   "xtask/src/policy_compat.rs::t_51_shared_crate_versions_match_manifest_and_lockfile",
   "xtask/src/policy_compat.rs::t_51_unpublished_products_stay_in_a_profile",
