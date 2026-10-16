@@ -1,0 +1,83 @@
+{
+  "file": "digest.json",
+  "cases": [
+    {
+      "id": "digest/label-encoding",
+      "rules": [
+        "P-5",
+        "P-67",
+        "Access CR-1"
+      ],
+      "input_hex": "",
+      "digest_hex": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "encoded_digest_hex": "822f5820e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "note": "Digest = [-16, bstr .size 32]; -16 is SHA-256 in the IANA COSE algorithms registry (RFC 9054 COSE_Hash_V)"
+    },
+    {
+      "id": "digest/record-id",
+      "rules": [
+        "P-6",
+        "P-11",
+        "P-79"
+      ],
+      "input": "records.json record/declaration-promise-for-principal hex",
+      "digest_hex": "f2b44a85f678e81e9ac7fcef7b86a394faf6bb11e120e6e1f320505dd0815bd8",
+      "prefix": null
+    },
+    {
+      "id": "digest/leaf-0x00",
+      "rules": [
+        "P-5",
+        "P-67"
+      ],
+      "input": "records.json envelope/declaration-promise-for-principal hex",
+      "prefix_hex": "00",
+      "digest_hex": "07fe943f37205c1549ee4be5a151ac739e6c1e2ba6af7cf1f6fe61d22d98b901"
+    },
+    {
+      "id": "digest/body-commit-0x02",
+      "rules": [
+        "P-5",
+        "P-17",
+        "P-68"
+      ],
+      "note": "commit = SHA-256(0x02 || salt[32] || det-CBOR([name, media_type, content])); the salt is fixed here and comes from the Rng port in production",
+      "prefix_hex": "02",
+      "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "part": {
+        "name": "terms",
+        "media_type": "application/cbor",
+        "content_hex": "a2636475651b000001a18a1b3000676f626c696765657470617274793a61636d653a62757965722d6f7267"
+      },
+      "part_cbor_hex": "83657465726d73706170706c69636174696f6e2f63626f72582ba2636475651b000001a18a1b3000676f626c696765657470617274793a61636d653a62757965722d6f7267",
+      "digest_hex": "91ac4268baefb3e7a8f1efb01358a1dc66b9dcd7480662fee3ae3bc5dde966e9"
+    },
+    {
+      "id": "digest/wrong-alg-label",
+      "rules": [
+        "P-5",
+        "P-67",
+        "Access CR-1"
+      ],
+      "encoded_digest_hex": "82382b5820e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "cddl": "fail",
+      "expect": {
+        "outcome": "reject",
+        "reason": "schema:digest_alg"
+      }
+    },
+    {
+      "id": "digest/short-value",
+      "rules": [
+        "P-5",
+        "P-67"
+      ],
+      "encoded_digest_hex": "822f581fe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b8",
+      "cddl": "fail",
+      "expect": {
+        "outcome": "reject",
+        "reason": "schema:digest_length"
+      }
+    }
+  ]
+}

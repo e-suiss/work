@@ -1,0 +1,589 @@
+{
+  "file": "cbor-canonical.json",
+  "profile": "RFC 8949 section 4.2.1 core deterministic encoding with the Access CR-10 limits",
+  "limits": {
+    "depth": 16,
+    "items": 256,
+    "string_bytes": 65536
+  },
+  "cases": [
+    {
+      "id": "cbor/uint-0",
+      "rules": [
+        "P-5",
+        "Access CR-10"
+      ],
+      "hex": "00",
+      "context": {
+        "tag_allowlist": []
+      },
+      "expect": {
+        "outcome": "accept"
+      }
+    },
+    {
+      "id": "cbor/uint-23",
+      "rules": [
+        "P-5",
+        "Access CR-10"
+      ],
+      "hex": "17",
+      "context": {
+        "tag_allowlist": []
+      },
+      "expect": {
+        "outcome": "accept"
+      }
+    },
+    {
+      "id": "cbor/uint-24",
+      "rules": [
+        "P-5",
+        "Access CR-10"
+      ],
+      "hex": "1818",
+      "context": {
+        "tag_allowlist": []
+      },
+      "expect": {
+        "outcome": "accept"
+      }
+    },
+    {
+      "id": "cbor/uint-256",
+      "rules": [
+        "P-5",
+        "Access CR-10"
+      ],
+      "hex": "190100",
+      "context": {
+        "tag_allowlist": []
+      },
+      "expect": {
+        "outcome": "accept"
+      }
+    },
+    {
+      "id": "cbor/uint-2^32",
+      "rules": [
+        "P-5",
+        "Access CR-10"
+      ],
+      "hex": "1b0000000100000000",
+      "context": {
+        "tag_allowlist": []
+      },
+      "expect": {
+        "outcome": "accept"
+      }
+    },
+    {
+      "id": "cbor/nint-25",
+      "rules": [
+        "P-5",
+        "Access CR-10"
+      ],
+      "hex": "3818",
+      "context": {
+        "tag_allowlist": []
+      },
+      "expect": {
+        "outcome": "accept"
+      }
+    },
+    {
+      "id": "cbor/map-text-keys-sorted",
+      "rules": [
+        "P-5",
+        "Access CR-10"
+      ],
+      "hex": "a2616101616202",
+      "context": {
+        "tag_allowlist": []
+      },
+      "expect": {
+        "outcome": "accept"
+      }
+    },
+    {
+      "id": "cbor/map-shorter-key-first",
+      "rules": [
+        "P-5",
+        "Access CR-10"
+      ],
+      "hex": "a261620162616102",
+      "context": {
+        "tag_allowlist": []
+      },
+      "expect": {
+        "outcome": "accept"
+      }
+    },
+    {
+      "id": "cbor/map-int-before-text",
+      "rules": [
+        "P-5",
+        "Access CR-10"
+      ],
+      "hex": "a20132616100",
+      "context": {
+        "tag_allowlist": []
+      },
+      "expect": {
+        "outcome": "accept"
+      }
+    },
+    {
+      "id": "cbor/map-uint-before-nint",
+      "rules": [
+        "P-5",
+        "Access CR-10"
+      ],
+      "hex": "a201002000",
+      "context": {
+        "tag_allowlist": []
+      },
+      "expect": {
+        "outcome": "accept"
+      }
+    },
+    {
+      "id": "cbor/array-256-items",
+      "rules": [
+        "P-7",
+        "Access CR-10"
+      ],
+      "hex": "99010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "context": {
+        "tag_allowlist": []
+      },
+      "expect": {
+        "outcome": "accept"
+      }
+    },
+    {
+      "id": "cbor/depth-16",
+      "rules": [
+        "P-7",
+        "Access CR-10"
+      ],
+      "hex": "81818181818181818181818181818100",
+      "context": {
+        "tag_allowlist": []
+      },
+      "expect": {
+        "outcome": "accept"
+      }
+    },
+    {
+      "id": "cbor/cose-tag-18-at-container",
+      "rules": [
+        "P-6",
+        "Access CR-10"
+      ],
+      "hex": "d28440a0f640",
+      "context": {
+        "tag_allowlist": [
+          18
+        ]
+      },
+      "expect": {
+        "outcome": "accept"
+      }
+    },
+    {
+      "id": "cbor/uint-23-in-1-byte",
+      "rules": [
+        "P-5",
+        "Access CR-10"
+      ],
+      "hex": "1817",
+      "context": {
+        "tag_allowlist": []
+      },
+      "expect": {
+        "outcome": "reject",
+        "reason": "non_canonical_cbor:non_preferred_argument"
+      }
+    },
+    {
+      "id": "cbor/uint-23-in-2-bytes",
+      "rules": [
+        "P-5",
+        "Access CR-10"
+      ],
+      "hex": "190017",
+      "context": {
+        "tag_allowlist": []
+      },
+      "expect": {
+        "outcome": "reject",
+        "reason": "non_canonical_cbor:non_preferred_argument"
+      }
+    },
+    {
+      "id": "cbor/uint-255-in-4-bytes",
+      "rules": [
+        "P-5",
+        "Access CR-10"
+      ],
+      "hex": "1a000000ff",
+      "context": {
+        "tag_allowlist": []
+      },
+      "expect": {
+        "outcome": "reject",
+        "reason": "non_canonical_cbor:non_preferred_argument"
+      }
+    },
+    {
+      "id": "cbor/uint-255-in-8-bytes",
+      "rules": [
+        "P-5",
+        "Access CR-10"
+      ],
+      "hex": "1b00000000000000ff",
+      "context": {
+        "tag_allowlist": []
+      },
+      "expect": {
+        "outcome": "reject",
+        "reason": "non_canonical_cbor:non_preferred_argument"
+      }
+    },
+    {
+      "id": "cbor/nint-in-1-byte",
+      "rules": [
+        "P-5",
+        "Access CR-10"
+      ],
+      "hex": "3817",
+      "context": {
+        "tag_allowlist": []
+      },
+      "expect": {
+        "outcome": "reject",
+        "reason": "non_canonical_cbor:non_preferred_argument"
+      }
+    },
+    {
+      "id": "cbor/text-length-non-preferred",
+      "rules": [
+        "P-5",
+        "Access CR-10"
+      ],
+      "hex": "780161",
+      "context": {
+        "tag_allowlist": []
+      },
+      "expect": {
+        "outcome": "reject",
+        "reason": "non_canonical_cbor:non_preferred_argument"
+      }
+    },
+    {
+      "id": "cbor/map-unsorted-keys",
+      "rules": [
+        "P-5",
+        "Access CR-10"
+      ],
+      "hex": "a2616201616102",
+      "context": {
+        "tag_allowlist": []
+      },
+      "expect": {
+        "outcome": "reject",
+        "reason": "non_canonical_cbor:unsorted_map_keys"
+      }
+    },
+    {
+      "id": "cbor/map-length-first-violated",
+      "rules": [
+        "P-5",
+        "Access CR-10"
+      ],
+      "hex": "a262616101616202",
+      "context": {
+        "tag_allowlist": []
+      },
+      "expect": {
+        "outcome": "reject",
+        "reason": "non_canonical_cbor:unsorted_map_keys"
+      }
+    },
+    {
+      "id": "cbor/map-nint-before-uint",
+      "rules": [
+        "P-5",
+        "Access CR-10"
+      ],
+      "hex": "a220000100",
+      "context": {
+        "tag_allowlist": []
+      },
+      "expect": {
+        "outcome": "reject",
+        "reason": "non_canonical_cbor:unsorted_map_keys"
+      }
+    },
+    {
+      "id": "cbor/map-duplicate-key",
+      "rules": [
+        "P-5",
+        "Access CR-10"
+      ],
+      "hex": "a2616101616102",
+      "context": {
+        "tag_allowlist": []
+      },
+      "expect": {
+        "outcome": "reject",
+        "reason": "non_canonical_cbor:duplicate_map_key"
+      }
+    },
+    {
+      "id": "cbor/indefinite-array",
+      "rules": [
+        "P-5",
+        "Access CR-10"
+      ],
+      "hex": "9f01ff",
+      "context": {
+        "tag_allowlist": []
+      },
+      "expect": {
+        "outcome": "reject",
+        "reason": "non_canonical_cbor:indefinite_length"
+      }
+    },
+    {
+      "id": "cbor/indefinite-map",
+      "rules": [
+        "P-5",
+        "Access CR-10"
+      ],
+      "hex": "bf616101ff",
+      "context": {
+        "tag_allowlist": []
+      },
+      "expect": {
+        "outcome": "reject",
+        "reason": "non_canonical_cbor:indefinite_length"
+      }
+    },
+    {
+      "id": "cbor/indefinite-text",
+      "rules": [
+        "P-5",
+        "Access CR-10"
+      ],
+      "hex": "7f61616162ff",
+      "context": {
+        "tag_allowlist": []
+      },
+      "expect": {
+        "outcome": "reject",
+        "reason": "non_canonical_cbor:indefinite_length"
+      }
+    },
+    {
+      "id": "cbor/indefinite-bytes",
+      "rules": [
+        "P-5",
+        "Access CR-10"
+      ],
+      "hex": "5f4101ff",
+      "context": {
+        "tag_allowlist": []
+      },
+      "expect": {
+        "outcome": "reject",
+        "reason": "non_canonical_cbor:indefinite_length"
+      }
+    },
+    {
+      "id": "cbor/tag-1-epoch-time",
+      "rules": [
+        "P-72",
+        "Access CR-10"
+      ],
+      "hex": "c11a5f5e1000",
+      "context": {
+        "tag_allowlist": []
+      },
+      "expect": {
+        "outcome": "reject",
+        "reason": "non_canonical_cbor:tag_not_allowed"
+      }
+    },
+    {
+      "id": "cbor/tag-0-datetime-text",
+      "rules": [
+        "P-72",
+        "Access CR-10"
+      ],
+      "hex": "c074323032362d31302d31365430303a30303a30305a",
+      "context": {
+        "tag_allowlist": []
+      },
+      "expect": {
+        "outcome": "reject",
+        "reason": "non_canonical_cbor:tag_not_allowed"
+      }
+    },
+    {
+      "id": "cbor/tag-2-bignum",
+      "rules": [
+        "P-72",
+        "Access CR-10"
+      ],
+      "hex": "c249010000000000000000",
+      "context": {
+        "tag_allowlist": []
+      },
+      "expect": {
+        "outcome": "reject",
+        "reason": "non_canonical_cbor:tag_not_allowed"
+      }
+    },
+    {
+      "id": "cbor/tag-24-embedded-cbor",
+      "rules": [
+        "P-72",
+        "Access CR-10"
+      ],
+      "hex": "d8184100",
+      "context": {
+        "tag_allowlist": []
+      },
+      "expect": {
+        "outcome": "reject",
+        "reason": "non_canonical_cbor:tag_not_allowed"
+      }
+    },
+    {
+      "id": "cbor/float-half",
+      "rules": [
+        "P-5",
+        "Access CR-10"
+      ],
+      "hex": "f93c00",
+      "context": {
+        "tag_allowlist": []
+      },
+      "expect": {
+        "outcome": "reject",
+        "reason": "non_canonical_cbor:float_not_in_profile"
+      }
+    },
+    {
+      "id": "cbor/float-double-non-preferred",
+      "rules": [
+        "P-5",
+        "Access CR-10"
+      ],
+      "hex": "fb3ff0000000000000",
+      "context": {
+        "tag_allowlist": []
+      },
+      "expect": {
+        "outcome": "reject",
+        "reason": "non_canonical_cbor:float_not_in_profile"
+      }
+    },
+    {
+      "id": "cbor/simple-undefined",
+      "rules": [
+        "P-5",
+        "Access CR-10"
+      ],
+      "hex": "f7",
+      "context": {
+        "tag_allowlist": []
+      },
+      "expect": {
+        "outcome": "reject",
+        "reason": "non_canonical_cbor:simple_not_in_profile"
+      }
+    },
+    {
+      "id": "cbor/trailing-bytes",
+      "rules": [
+        "P-5",
+        "Access CR-10"
+      ],
+      "hex": "0000",
+      "context": {
+        "tag_allowlist": []
+      },
+      "expect": {
+        "outcome": "reject",
+        "reason": "malformed_cbor:trailing_bytes"
+      }
+    },
+    {
+      "id": "cbor/invalid-utf8",
+      "rules": [
+        "P-5",
+        "Access CR-10"
+      ],
+      "hex": "62c328",
+      "context": {
+        "tag_allowlist": []
+      },
+      "expect": {
+        "outcome": "reject",
+        "reason": "malformed_cbor:invalid_utf8"
+      }
+    },
+    {
+      "id": "cbor/array-257-items",
+      "rules": [
+        "P-7",
+        "Access CR-10"
+      ],
+      "hex": "9901010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "context": {
+        "tag_allowlist": []
+      },
+      "expect": {
+        "outcome": "reject",
+        "reason": "limit_exceeded:items"
+      }
+    },
+    {
+      "id": "cbor/depth-17",
+      "rules": [
+        "P-7",
+        "Access CR-10"
+      ],
+      "hex": "8181818181818181818181818181818100",
+      "context": {
+        "tag_allowlist": []
+      },
+      "expect": {
+        "outcome": "reject",
+        "reason": "limit_exceeded:depth"
+      }
+    },
+    {
+      "id": "cbor/string-65537-bytes",
+      "rules": [
+        "P-7",
+        "Access CR-10"
+      ],
+      "generator": {
+        "head_hex": "5a00010001",
+        "fill_hex": "00",
+        "fill_count": 65537
+      },
+      "context": {
+        "tag_allowlist": []
+      },
+      "expect": {
+        "outcome": "reject",
+        "reason": "limit_exceeded:string"
+      }
+    }
+  ]
+}

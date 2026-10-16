@@ -1,0 +1,264 @@
+{
+  "file": "records-quarantine.json",
+  "notes": [
+    "a quarantined record is still written to the ledger; its envelope carries ingest [\"quarantined\", reason] and continues the records.json chain"
+  ],
+  "cases": [
+    {
+      "id": "record-quarantine/critical-ext-not-understood",
+      "rules": [
+        "P-19",
+        "P-69",
+        "C-5"
+      ],
+      "purpose": "Same bytes as record/claim-critical-ext-understood; this verifier does not understand the critical extension.",
+      "hex": "ac63657874a2782268747470733a2f2f636c696e69632e6578616d706c652f6e732f6578742f7761726463422d32782d68747470733a2f2f636c696e69632e6578616d706c652f6e732f6578742f70617469656e745f636f6e73656e74822f5820d08c458c62d346fcb1ecf537aa6e5668447a32b74941d0a2fd03f1e99fe4935e64626f647981a26470617274646e6f746566636f6d6d6974822f5820f33c57f8d5ccb4578dbce1382182aa969abd9cad458d6ad7c152ade97af0d233646b696e6465636c61696d6474797065782968747470733a2f2f636c696e69632e6578616d706c652f6e732f636c61696d2f636172655f6e6f746566617574686f727070617274793a61636d653a616c696365666c6564676572822f5820ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce2686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f7088765432168637269746963616c81782d68747470733a2f2f636c696e69632e6578616d706c652f6e732f6578742f70617469656e745f636f6e73656e746876657273696f6e73a366736368656d61822f582057e6c9f6e885215721e4f3044cf52565d8a33fcec596438aef990ff8e63774ed6870726f746f636f6c82010069707261637469636573a1781a68747470733a2f2f636c696e69632e6578616d706c652f6e732f822f5820df259ebbd0eb5295241b011dbf82d2a0a72d0bb303de8f921d8cf17fcee357f56a7669736962696c697479a26373656564776f726b66736561726368f46b6f636375727265645f61741b000001a142061fa0",
+      "decoded": {
+        "ext": {
+          "https://clinic.example/ns/ext/ward": "B-2",
+          "https://clinic.example/ns/ext/patient_consent": [
+            -16,
+            "d08c458c62d346fcb1ecf537aa6e5668447a32b74941d0a2fd03f1e99fe4935e"
+          ]
+        },
+        "body": [
+          {
+            "part": "note",
+            "commit": [
+              -16,
+              "f33c57f8d5ccb4578dbce1382182aa969abd9cad458d6ad7c152ade97af0d233"
+            ]
+          }
+        ],
+        "kind": "claim",
+        "type": "https://clinic.example/ns/claim/care_note",
+        "author": "party:acme:alice",
+        "ledger": [
+          -16,
+          "ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce2"
+        ],
+        "capacity": "own",
+        "concerns": [
+          "019a2f4c8e1b7c3da5e6f70887654321"
+        ],
+        "critical": [
+          "https://clinic.example/ns/ext/patient_consent"
+        ],
+        "versions": {
+          "schema": [
+            -16,
+            "57e6c9f6e885215721e4f3044cf52565d8a33fcec596438aef990ff8e63774ed"
+          ],
+          "protocol": [
+            1,
+            0
+          ],
+          "practices": {
+            "https://clinic.example/ns/": [
+              -16,
+              "df259ebbd0eb5295241b011dbf82d2a0a72d0bb303de8f921d8cf17fcee357f5"
+            ]
+          }
+        },
+        "visibility": {
+          "see": "work",
+          "search": false
+        },
+        "occurred_at": 1792109060000
+      },
+      "context": {
+        "origin": "direct",
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": []
+      },
+      "record_digest": "822f58209603f118bf84ac8f995d6e5385f0c902f7b5a18ccbd191d436bad7654942eb81",
+      "cddl": "pass",
+      "envelope": {
+        "rules": [
+          "P-11",
+          "P-12",
+          "P-21",
+          "P-67",
+          "P-75",
+          "P-76"
+        ],
+        "diag": "{\n  \"pos\": 48,\n  \"prev\": [-16, h'04bbfef21fd4748bc5d2d164ed9a7c86564c328216dfaf8cde0d18e559cea099'],\n  \"ingest\": [\"quarantined\", \"extension_critical_unknown\"],\n  \"ledger\": [-16, h'ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce2'],\n  \"record\": [-16, h'9603f118bf84ac8f995d6e5385f0c902f7b5a18ccbd191d436bad7654942eb81'],\n  \"actor_type\": {\n    \"author\": [\"human\", \"access_binding\"]\n  },\n  \"recorded_at\": 1792109107000,\n  \"auth_context\": {\n    \"ref\": [-16, h'0b82a4c5620d4a23928c3888a88c7d6c1a2378d4b5b7712e6b60a0f4c24abe1f'],\n    \"step_up\": false,\n    \"assurance\": \"aal2\"\n  }\n}",
+        "hex": "a863706f7318306470726576822f582004bbfef21fd4748bc5d2d164ed9a7c86564c328216dfaf8cde0d18e559cea09966696e67657374826b71756172616e74696e6564781a657874656e73696f6e5f637269746963616c5f756e6b6e6f776e666c6564676572822f5820ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce2667265636f7264822f58209603f118bf84ac8f995d6e5385f0c902f7b5a18ccbd191d436bad7654942eb816a6163746f725f74797065a166617574686f72826568756d616e6e6163636573735f62696e64696e676b7265636f726465645f61741b000001a14206d7386c617574685f636f6e74657874a363726566822f58200b82a4c5620d4a23928c3888a88c7d6c1a2378d4b5b7712e6b60a0f4c24abe1f67737465705f7570f4696173737572616e63656461616c32",
+        "decoded": {
+          "pos": 48,
+          "prev": [
+            -16,
+            "04bbfef21fd4748bc5d2d164ed9a7c86564c328216dfaf8cde0d18e559cea099"
+          ],
+          "ingest": [
+            "quarantined",
+            "extension_critical_unknown"
+          ],
+          "ledger": [
+            -16,
+            "ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce2"
+          ],
+          "record": [
+            -16,
+            "9603f118bf84ac8f995d6e5385f0c902f7b5a18ccbd191d436bad7654942eb81"
+          ],
+          "actor_type": {
+            "author": [
+              "human",
+              "access_binding"
+            ]
+          },
+          "recorded_at": 1792109107000,
+          "auth_context": {
+            "ref": [
+              -16,
+              "0b82a4c5620d4a23928c3888a88c7d6c1a2378d4b5b7712e6b60a0f4c24abe1f"
+            ],
+            "step_up": false,
+            "assurance": "aal2"
+          }
+        },
+        "leaf_hash": "bc44c4eaf3f803d5593b725133d5d91c65f05df6bfcc9ffac881b7adefa227dd",
+        "cddl": "pass"
+      },
+      "expect": {
+        "outcome": "quarantine",
+        "reason": "extension_critical_unknown"
+      }
+    },
+    {
+      "id": "record-quarantine/one-of-two-critical-not-understood",
+      "rules": [
+        "P-19",
+        "P-69"
+      ],
+      "purpose": "Two critical extensions, the verifier understands only one.",
+      "hex": "ac63657874a2782268747470733a2f2f636c696e69632e6578616d706c652f6e732f6578742f7761726463422d32782d68747470733a2f2f636c696e69632e6578616d706c652f6e732f6578742f70617469656e745f636f6e73656e74822f5820d08c458c62d346fcb1ecf537aa6e5668447a32b74941d0a2fd03f1e99fe4935e64626f647981a26470617274646e6f746566636f6d6d6974822f5820f33c57f8d5ccb4578dbce1382182aa969abd9cad458d6ad7c152ade97af0d233646b696e6465636c61696d6474797065782968747470733a2f2f636c696e69632e6578616d706c652f6e732f636c61696d2f636172655f6e6f746566617574686f727070617274793a61636d653a616c696365666c6564676572822f5820ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce2686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f7088765432168637269746963616c82782268747470733a2f2f636c696e69632e6578616d706c652f6e732f6578742f77617264782d68747470733a2f2f636c696e69632e6578616d706c652f6e732f6578742f70617469656e745f636f6e73656e746876657273696f6e73a366736368656d61822f582057e6c9f6e885215721e4f3044cf52565d8a33fcec596438aef990ff8e63774ed6870726f746f636f6c82010069707261637469636573a1781a68747470733a2f2f636c696e69632e6578616d706c652f6e732f822f5820df259ebbd0eb5295241b011dbf82d2a0a72d0bb303de8f921d8cf17fcee357f56a7669736962696c697479a26373656564776f726b66736561726368f46b6f636375727265645f61741b000001a142061fa0",
+      "decoded": {
+        "ext": {
+          "https://clinic.example/ns/ext/ward": "B-2",
+          "https://clinic.example/ns/ext/patient_consent": [
+            -16,
+            "d08c458c62d346fcb1ecf537aa6e5668447a32b74941d0a2fd03f1e99fe4935e"
+          ]
+        },
+        "body": [
+          {
+            "part": "note",
+            "commit": [
+              -16,
+              "f33c57f8d5ccb4578dbce1382182aa969abd9cad458d6ad7c152ade97af0d233"
+            ]
+          }
+        ],
+        "kind": "claim",
+        "type": "https://clinic.example/ns/claim/care_note",
+        "author": "party:acme:alice",
+        "ledger": [
+          -16,
+          "ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce2"
+        ],
+        "capacity": "own",
+        "concerns": [
+          "019a2f4c8e1b7c3da5e6f70887654321"
+        ],
+        "critical": [
+          "https://clinic.example/ns/ext/ward",
+          "https://clinic.example/ns/ext/patient_consent"
+        ],
+        "versions": {
+          "schema": [
+            -16,
+            "57e6c9f6e885215721e4f3044cf52565d8a33fcec596438aef990ff8e63774ed"
+          ],
+          "protocol": [
+            1,
+            0
+          ],
+          "practices": {
+            "https://clinic.example/ns/": [
+              -16,
+              "df259ebbd0eb5295241b011dbf82d2a0a72d0bb303de8f921d8cf17fcee357f5"
+            ]
+          }
+        },
+        "visibility": {
+          "see": "work",
+          "search": false
+        },
+        "occurred_at": 1792109060000
+      },
+      "context": {
+        "origin": "direct",
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": [
+          "https://clinic.example/ns/ext/patient_consent"
+        ]
+      },
+      "record_digest": "822f5820a321738b01ec069f58ea25bf4c342e725f2a9608fdb5bad899425ecfb7000d22",
+      "cddl": "pass",
+      "envelope": {
+        "rules": [
+          "P-11",
+          "P-12",
+          "P-21",
+          "P-67",
+          "P-75",
+          "P-76"
+        ],
+        "diag": "{\n  \"pos\": 49,\n  \"prev\": [-16, h'bc44c4eaf3f803d5593b725133d5d91c65f05df6bfcc9ffac881b7adefa227dd'],\n  \"ingest\": [\"quarantined\", \"extension_critical_unknown\"],\n  \"ledger\": [-16, h'ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce2'],\n  \"record\": [-16, h'a321738b01ec069f58ea25bf4c342e725f2a9608fdb5bad899425ecfb7000d22'],\n  \"actor_type\": {\n    \"author\": [\"human\", \"access_binding\"]\n  },\n  \"recorded_at\": 1792109108000,\n  \"auth_context\": {\n    \"ref\": [-16, h'0b82a4c5620d4a23928c3888a88c7d6c1a2378d4b5b7712e6b60a0f4c24abe1f'],\n    \"step_up\": false,\n    \"assurance\": \"aal2\"\n  }\n}",
+        "hex": "a863706f7318316470726576822f5820bc44c4eaf3f803d5593b725133d5d91c65f05df6bfcc9ffac881b7adefa227dd66696e67657374826b71756172616e74696e6564781a657874656e73696f6e5f637269746963616c5f756e6b6e6f776e666c6564676572822f5820ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce2667265636f7264822f5820a321738b01ec069f58ea25bf4c342e725f2a9608fdb5bad899425ecfb7000d226a6163746f725f74797065a166617574686f72826568756d616e6e6163636573735f62696e64696e676b7265636f726465645f61741b000001a14206db206c617574685f636f6e74657874a363726566822f58200b82a4c5620d4a23928c3888a88c7d6c1a2378d4b5b7712e6b60a0f4c24abe1f67737465705f7570f4696173737572616e63656461616c32",
+        "decoded": {
+          "pos": 49,
+          "prev": [
+            -16,
+            "bc44c4eaf3f803d5593b725133d5d91c65f05df6bfcc9ffac881b7adefa227dd"
+          ],
+          "ingest": [
+            "quarantined",
+            "extension_critical_unknown"
+          ],
+          "ledger": [
+            -16,
+            "ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce2"
+          ],
+          "record": [
+            -16,
+            "a321738b01ec069f58ea25bf4c342e725f2a9608fdb5bad899425ecfb7000d22"
+          ],
+          "actor_type": {
+            "author": [
+              "human",
+              "access_binding"
+            ]
+          },
+          "recorded_at": 1792109108000,
+          "auth_context": {
+            "ref": [
+              -16,
+              "0b82a4c5620d4a23928c3888a88c7d6c1a2378d4b5b7712e6b60a0f4c24abe1f"
+            ],
+            "step_up": false,
+            "assurance": "aal2"
+          }
+        },
+        "leaf_hash": "8d80afb07a67ab4944c97268783990ba0c43b2e01c1d75a7489776f74ca0d073",
+        "cddl": "pass"
+      },
+      "expect": {
+        "outcome": "quarantine",
+        "reason": "extension_critical_unknown"
+      }
+    }
+  ]
+}

@@ -1,0 +1,401 @@
+; P-5 P-11 P-67 P-72
+
+; P-6 P-21
+WorkRecordCose = #6.18(COSE_Sign1_Record)
+
+; P-6
+COSE_Sign1_Record = [
+  protected: bstr .cbor ProtectedHeader,
+  unprotected: {},
+  payload: bstr .cbor SignedRecord,
+  signature: bstr .size (64..3309),
+]
+
+; P-6 P-69 Access CR-2 Access CR-5 Access CR-24
+ProtectedHeader = {
+  1 => SigAlg,
+  4 => bstr .size 32,
+}
+
+; P-6 Access MD-3 Access CR-5 OQ-34
+; OPEN: IANA confirmation of the RFC 9864 code points -19 and -9
+SigAlg = AlgEd25519 / AlgESP256 / AlgES256 / AlgMLDSA65
+AlgEd25519 = -19
+AlgESP256 = -9
+AlgES256 = -7
+AlgMLDSA65 = -49
+
+; P-9 C-31
+SignedRecord = ActRecord / DeclarationRecord / ClaimRecord
+
+; P-9 P-10 P-81 P-82 C-14
+ActRecord = {
+  kind: "act",
+  type: ActType,
+  occurred_at: Time,
+  ? basis: OptionalBasis,
+  RecordCore,
+}
+
+; P-9 P-10 P-24 P-81 P-83 C-15
+DeclarationRecord = {
+  kind: "declaration",
+  type: DeclarationType,
+  ? occurred_at: Time,
+  basis: Basis,
+  RecordCore,
+}
+
+; P-9 P-10 P-81 P-84 C-16
+ClaimRecord = {
+  kind: "claim",
+  type: ClaimType,
+  occurred_at: Time,
+  ? basis: OptionalBasis,
+  RecordCore,
+}
+
+; P-10 P-69 P-72 P-78 C-32
+RecordCore = (
+  author: PartyRef,                       ; P-10 INV-20
+  ? on_behalf_of: OnBehalfOfChain,        ; P-10 P-13 C-17 E-13
+  ? capacity: Capacity,                   ; P-10 P-13 E-13
+  visibility: VisibilityDecl,             ; P-10 P-77 EV-21
+  ledger: LedgerID,                       ; P-10 C-34 C-35
+  concerns: Concerns,                     ; P-10 C-34
+  ? relations: Relations,                 ; P-10 P-14 P-73 C-25
+  ? authority: AuthorityRef,              ; P-10 P-13 C-32
+  ? producer: ProducerRef,                ; P-10 P-15 C-23
+  ? correlation: Correlations,            ; P-10 P-16
+  ? evidence: EvidenceRefs,               ; P-10 EV-3
+  ? body: BodyCommitments,                ; P-10 P-17 P-68
+  ? params: Params,                       ; P-80
+  versions: VersionVector,                ; P-10 P-18
+  ? ext: Extensions,                      ; P-19 P-69
+  ? critical: CriticalExtensions,         ; P-19 P-69
+)
+
+; P-33 P-72 P-81 T-65 P-7 P-5
+OnBehalfOfChain = [1*8 PartyRef]
+Basis = [0*64 Digest]
+OptionalBasis = [1*64 Digest]
+Concerns = [0*64 WorkID]
+Relations = [1*256 Relation]
+Correlations = [1*256 Correlation]
+EvidenceRefs = [1*256 EvidenceRef]
+BodyCommitments = [1*256 BodyCommitment]
+
+; P-9 P-71 P-82 C-14 PR-3
+ActType = CoreActType / TypeURI
+CoreActType = "https://suiss.app/ns/work/act/action"
+
+; P-9 P-71 P-83 P-84 C-15 CM-17 RC-17 PR-3
+DeclarationType = CoreDeclarationType / TypeURI
+CoreDeclarationType = "https://suiss.app/ns/work/declaration/request"
+                    / "https://suiss.app/ns/work/declaration/promise"
+                    / "https://suiss.app/ns/work/declaration/promise_conditional"
+                    / "https://suiss.app/ns/work/declaration/decline"
+                    / "https://suiss.app/ns/work/declaration/counter"
+                    / "https://suiss.app/ns/work/declaration/accept_counter"
+                    / "https://suiss.app/ns/work/declaration/state"
+                    / "https://suiss.app/ns/work/declaration/accept"
+                    / "https://suiss.app/ns/work/declaration/reject"
+                    / "https://suiss.app/ns/work/declaration/cancel"
+                    / "https://suiss.app/ns/work/declaration/release"
+                    / "https://suiss.app/ns/work/declaration/delegate"
+                    / "https://suiss.app/ns/work/declaration/assign"
+                    / "https://suiss.app/ns/work/declaration/allow"
+                    / "https://suiss.app/ns/work/declaration/refuse"
+                    / "https://suiss.app/ns/work/declaration/amend"
+                    / "https://suiss.app/ns/work/declaration/declare_obsolete"
+                    / "https://suiss.app/ns/work/declaration/expire"
+                    / "https://suiss.app/ns/work/declaration/administrative_close"
+                    / "https://suiss.app/ns/work/declaration/dispute"
+                    / "https://suiss.app/ns/work/declaration/defer"
+                    / "https://suiss.app/ns/work/declaration/resume"
+                    / "https://suiss.app/ns/work/declaration/notice"
+                    / "https://suiss.app/ns/work/declaration/revoke_request"
+                    / "https://suiss.app/ns/work/declaration/revoke_promise"
+                    / "https://suiss.app/ns/work/declaration/revoke_statement"
+                    / "https://suiss.app/ns/work/declaration/revoke_acceptance"
+                    / "https://suiss.app/ns/work/declaration/claim"
+                    / "https://suiss.app/ns/work/declaration/unclaim"
+                    / "https://suiss.app/ns/work/declaration/forward"
+                    / "https://suiss.app/ns/work/declaration/nominate"
+                    / "https://suiss.app/ns/work/declaration/offer"
+                    / "https://suiss.app/ns/work/declaration/reassign"
+                    / "https://suiss.app/ns/work/declaration/renew_lease"
+                    / "https://suiss.app/ns/work/declaration/gate_decision"
+                    / "https://suiss.app/ns/work/declaration/stop_request"
+                    / "https://suiss.app/ns/work/declaration/stop_response"
+                    / "https://suiss.app/ns/work/declaration/open_condition"
+                    / "https://suiss.app/ns/work/declaration/withdraw_condition"
+                    / "https://suiss.app/ns/work/declaration/resume_after_stop"
+                    / "https://suiss.app/ns/work/declaration/practice_adoption"
+                    / "https://suiss.app/ns/work/declaration/disclosure"
+                    / "https://suiss.app/ns/work/declaration/queue_definition"
+                    / "https://suiss.app/ns/work/declaration/control_lease"
+                    / "https://suiss.app/ns/work/declaration/handoff_note"
+                    / "https://suiss.app/ns/work/declaration/conflict_resolution"
+                    / "https://suiss.app/ns/work/declaration/admission"
+                    / "https://suiss.app/ns/work/declaration/autonomy_policy"
+                    / "https://suiss.app/ns/work/declaration/implicit_acceptance_terms"
+                    / "https://suiss.app/ns/work/declaration/waiver"
+                    / "https://suiss.app/ns/work/declaration/attention_request"
+                    / "https://suiss.app/ns/work/declaration/acknowledgement"
+
+; P-71 C-16
+ClaimType = CoreClaimType / TypeURI
+CoreClaimType = "https://suiss.app/ns/work/claim/observation"
+              / "https://suiss.app/ns/work/claim/assessment"
+              / "https://suiss.app/ns/work/claim/assumption"
+
+; P-11 P-12 P-20 P-21 P-27 P-75 P-76
+LedgerEnvelope = {
+  record: Digest,
+  ledger: LedgerID,
+  pos: uint,
+  recorded_at: Time,
+  prev: Digest,                           ; OPEN: genesis value follows suiss-ledger (P-67 OQ-34)
+  actor_type: ActorTypeAnnotation,
+  ? proof_commit: Digest,                 ; P-75 P-76 Access TI-11
+  ? auth_context: AuthContextRef,         ; P-21
+  ingest: Ingest,
+}
+
+; P-12 C-17
+ActorTypeAnnotation = {
+  author: ActorTypeEntry,
+  ? on_behalf_of: [1*8 ActorTypeEntry],
+}
+ActorTypeEntry = [type: ActorType, source: ActorTypeSource]
+ActorType = "human" / "agent" / "system" / "machine" / "organization"
+ActorTypeSource = "access_binding" / "declared_unverified"
+
+; P-21
+AuthContextRef = {
+  ref: Digest,
+  assurance: tstr .size (1..64),
+  step_up: bool,
+}
+
+; P-11 P-19 P-71 SEC-18
+Ingest = "admitted" / ["quarantined", ReasonCode] / ["rejected", ReasonCode]
+ReasonCode = tstr .regexp "[a-z][a-z0-9_]*(:[a-z][a-z0-9_]*)?"
+
+; P-5 P-67 Access CR-1 Access OP-76
+Digest = [alg: DigestAlg, value: bstr .size 32]
+DigestAlg = -16
+
+; P-27 P-67 Access OP-76
+Time = uint
+
+; P-67 C-9 OQ-34
+; OPEN: byte form of the Access Party reference
+PartyRef = tstr .size (1..255)
+
+; P-67 C-8 C-35 P-54 Access OP-76
+WorkID = bstr .size 16
+
+; P-67 C-35 Access OP-76
+LedgerID = Digest
+
+; P-9 P-70 C-5 PR-5 P-19
+TypeURI = tstr .regexp "https://[a-z0-9.-]+(:[0-9]+)?/[!-~]*"
+NamespaceURI = TypeURI
+ExternalRef = tstr .regexp "[a-z][a-z0-9+.-]*:[!-~]+"
+
+; P-13 E-13 Access C12
+Capacity = "own" / ["for", PartyRef]
+
+; P-13 E-9 P-5
+AuthorityRef = {
+  proof: AuthorityProofKind,
+  digest: Digest,
+}
+AuthorityProofKind = "decision_receipt"
+                   / "portable_authority_proof"
+                   / "approval_act_statement"
+                   / "eligibility_check"
+
+; P-77 EV-21 EV-24 EV-25 RC-9
+VisibilityDecl = {
+  see: Audience,
+  ? search: false,
+  ? agent_context: false,
+}
+Audience = "work" / "author" / ["parties", [1*256 PartyRef]]
+
+; P-14 P-73 P-78 C-2 C-25 C-26
+Relation = EngagedIn
+         / ConcernsRel
+         / PartOf
+         / Serves
+         / Supersedes
+         / DerivedFrom
+         / OnBehalfOfRel
+         / References
+
+; C-25
+EngagedIn = {
+  rel: "engaged_in",
+  source: PartyTarget,
+  target: WorkTarget,
+  ? qualifier: TypeURI,
+}
+
+; C-25 C-34
+ConcernsRel = {
+  rel: "concerns",
+  source: RecordTarget / ExternalTarget,
+  target: WorkTarget,
+  ? qualifier: TypeURI,
+}
+
+; C-25
+PartOf = {
+  rel: "part_of",
+  source: WorkTarget,
+  target: WorkTarget,
+  ? qualifier: TypeURI,
+}
+
+; C-25 C-10
+Serves = {
+  rel: "serves",
+  ? source: RecordTarget,
+  target: RecordTarget,
+  ? qualifier: TypeURI,
+}
+
+; C-25 P-24
+Supersedes = {
+  rel: "supersedes",
+  target: RecordTarget,
+  ? qualifier: TypeURI,
+}
+
+; C-27 C-28 C-29 EV-2 P-71 P-81
+DerivedFrom = {
+  rel: "derived_from",
+  ? source: RecordTarget,
+  target: RecordTarget / EvidenceTarget / ExternalTarget,
+  qualifier: DerivedRole,
+}
+DerivedRole = CoreDerivedRole / (TypeURI .ne "https://suiss.app/ns/work/derived_from/basis")
+CoreDerivedRole = "https://suiss.app/ns/work/derived_from/source"
+                / "https://suiss.app/ns/work/derived_from/fulfills"
+                / "https://suiss.app/ns/work/derived_from/supports"
+
+; C-25 E-13
+OnBehalfOfRel = {
+  rel: "on_behalf_of",
+  source: PartyTarget,
+  target: PartyTarget,
+  ? qualifier: TypeURI,
+}
+
+; C-25 C-13
+References = {
+  rel: "references",
+  ? source: RecordTarget,
+  target: ExternalTarget / RecordTarget,
+  ? qualifier: TypeURI,
+}
+
+; P-73
+RecordTarget = ["record", Digest]
+WorkTarget = ["work", WorkID]
+PartyTarget = ["party", PartyRef]
+ExternalTarget = ["external", ExternalRef]
+EvidenceTarget = ["evidence", Digest]
+
+; P-15 C-23
+ProducerRef = {
+  version: tstr .size (1..255),
+  config: Digest,
+  ? model: ExternalRef,
+  ? toolset: Digest,
+  ? instructions: Digest,
+  ? attestation: Digest,
+}
+
+; P-16
+Correlation = [scheme: TypeURI, id: tstr .size (1..1024)]
+
+; EV-3 EV-4 EV-8
+EvidenceRef = {
+  EvidenceStatement,
+  signature: Digest,
+}
+
+; EV-3
+EvidenceStatement = (
+  subject: Digest / StableID,
+  type: EvidenceType,
+  presenter: PartyRef,
+  ? claimed_at: Time,
+  ? source: ExternalRef,
+  ? observation: Digest,
+  ? visibility: VisibilityDecl,
+)
+StableID = tstr .size (1..1024)
+
+; EV-4 P-71 C-5
+EvidenceType = CoreEvidenceType / TypeURI
+CoreEvidenceType = "https://suiss.app/ns/work/evidence/artifact"
+                 / "https://suiss.app/ns/work/evidence/external_event"
+                 / "https://suiss.app/ns/work/evidence/measurement"
+                 / "https://suiss.app/ns/work/evidence/human_verification"
+
+; P-17 P-68 OP-15 Access T39
+BodyCommitment = {
+  part: PartName,
+  commit: Digest,
+}
+PartName = tstr .regexp "[a-z][a-z0-9_]{0,63}"
+
+; P-18 P-31 PR-14
+VersionVector = {
+  protocol: [major: uint, minor: uint],
+  schema: Digest,
+  ? practices: { 1*256 NamespaceURI => Digest },
+}
+
+; P-19 P-69 P-70 C-5
+Extensions = { 1*256 ExtKey => any }
+CriticalExtensions = [1*256 ExtKey]
+ExtKey = TypeURI
+
+; P-80 P-17 P-72
+Params = { 1*256 ParamName => ParamValue }
+ParamName = tstr .regexp "[a-z][a-z0-9_]{0,63}"
+ParamValue = ParamScalar / [1*256 ParamScalar]
+ParamScalar = uint / bool / Time / Digest / WorkID / CatalogCode / CatalogURI / TypeURI / PartyRef
+
+; P-85 P-71 CM-17 CM-20 CM-30 RC-36 ST-11 ST-27
+CatalogCode = DeclineReason / CancelReason / NoticeType / StopType / StopResponse / WaitReason / GateForm
+DeclineReason = "no_capacity" / "no_authority" / "out_of_scope" / "missing_information"
+              / "unacceptable_terms" / "other"
+CancelReason = "cannot_complete" / "failed" / "abandoned" / "other"
+NoticeType = "at_risk" / "cannot_complete" / "obsolete_suggested"
+StopType = "immediate" / "finish_then_stop" / "pause"
+StopResponse = "accept" / "finish_then_stop" / "refuse"
+WaitReason = "internal" / "external"
+GateForm = "approval" / "pre_action_review" / "delivery_acceptance"
+
+; P-71 ST-10 ST-21
+CatalogURI = CoreConditionType / CoreDependencyType
+CoreConditionType = "https://suiss.app/ns/work/condition/information"
+                  / "https://suiss.app/ns/work/condition/commitment"
+                  / "https://suiss.app/ns/work/condition/external_event"
+                  / "https://suiss.app/ns/work/condition/time"
+                  / "https://suiss.app/ns/work/condition/third_party"
+                  / "https://suiss.app/ns/work/condition/authority"
+                  / "https://suiss.app/ns/work/condition/decision"
+                  / "https://suiss.app/ns/work/condition/acceptance"
+                  / "https://suiss.app/ns/work/condition/resource"
+CoreDependencyType = "https://suiss.app/ns/work/dependency/flow"
+                   / "https://suiss.app/ns/work/dependency/sharing"
+                   / "https://suiss.app/ns/work/dependency/fit"
+                   / "https://suiss.app/ns/work/dependency/part_whole"

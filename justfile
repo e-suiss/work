@@ -208,3 +208,33 @@ changelog:
 # T-41
 gen:
     cargo xtask check generated
+
+record_vectors := "conformance/vectors/records"
+
+# P-11 P-72
+vectors:
+    rm -rf target/vectors/records
+    python3 {{record_vectors}}/gen/gen.py target/vectors/records
+    if ! diff -r -x README.md -x gen {{record_vectors}} target/vectors/records; then echo "record vectors are stale: just vectors-write" >&2; exit 1; fi
+
+vectors-write:
+    python3 {{record_vectors}}/gen/gen.py {{record_vectors}}
+
+# P-11 P-72
+cddl:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    bin="${CDDL:-cddl}"
+    if ! command -v "$bin" > /dev/null; then echo "cddl gem 0.12.14 not found (gem install cddl -v 0.12.14, or set CDDL); skipping CDDL validation"; exit 0; fi
+    dir=target/vectors/cddl
+    rm -rf "$dir"
+    python3 {{record_vectors}}/gen/gen.py "$dir/json" "$dir/cbor"
+    bad=0
+    while read -r root name want; do
+      schema="$dir/$root.cddl"
+      [ -e "$schema" ] || { printf 'root = %s\n' "$root"; cat conformance/cddl/work-record.cddl; } > "$schema"
+      if out="$("$bin" "$schema" validate "$dir/cbor/$name.cbor" 2>&1)"; then got=pass; else got=fail; fi
+      if [ "$got" != "$want" ]; then echo "$name: CDDL $got, expected $want"; grep -v 'Unused rule' <<< "$out" | head -20; bad=1; fi
+    done < "$dir/cbor/manifest"
+    [ "$bad" = 0 ] && echo "CDDL: $(wc -l < "$dir/cbor/manifest" | tr -d ' ') vectors match their cddl expectation"
+    exit "$bad"
