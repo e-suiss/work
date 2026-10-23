@@ -18,7 +18,7 @@ use work_kernel::derive::{Derivation, DeriveError, derive};
 #[cfg(target_os = "linux")]
 use work_kernel::id::RecordId;
 #[cfg(target_os = "linux")]
-use work_kernel::limits::{SemanticLimits, WidensLimit};
+use work_kernel::limits::{NarrowError, SemanticLimits};
 #[cfg(target_os = "linux")]
 use work_kernel::reason::Limit;
 #[cfg(target_os = "linux")]
@@ -51,7 +51,7 @@ fn validate_record(record: Record) -> Outcome {
 // T-44
 #[cfg(target_os = "linux")]
 #[library_benchmark]
-#[benches::chain(args = [1, 64, 1024], setup = support::chain)]
+#[benches::chain(args = [1, 64, 1024, 10_000], setup = support::chain)]
 fn derive_chain(records: Vec<(RecordId, Record)>) -> Result<Derivation, DeriveError> {
     let entries = support::entries(&records);
     derive(black_box(&entries), black_box(&support::inputs()))
@@ -69,7 +69,7 @@ fn relation_parse(wire: support::WireRelation) -> Option<Relation> {
 // T-44 T-65
 #[cfg(target_os = "linux")]
 #[library_benchmark]
-fn limits_narrow() -> Result<SemanticLimits, WidensLimit> {
+fn limits_narrow() -> Result<SemanticLimits, NarrowError> {
     black_box(SemanticLimits::DEFAULT)
         .narrow(Limit::Basis, black_box(32))
         .and_then(|l| l.narrow(Limit::OnBehalfOf, black_box(4)))

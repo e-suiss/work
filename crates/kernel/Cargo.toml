@@ -15,6 +15,7 @@ name = "work_kernel"
 [dev-dependencies]
 serde = { workspace = true, features = ["std", "derive"] }
 serde_json = { workspace = true, features = ["std"] }
+work-bindings-core = { workspace = true }
 
 # T-44
 [target.'cfg(any(target_os = "linux", target_os = "macos"))'.dev-dependencies]

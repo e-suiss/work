@@ -11,13 +11,14 @@ use crate::catalog::{
 use crate::id::{PartyRef, Time, canonical_text_cmp};
 use crate::limits::SemanticLimits;
 use crate::reason::{
-    EnvelopeField, Limit, ListField, NonCanonicalCbor, Reason, Schema, SetField, wire_enum,
+    EnvelopeField, Limit, ListField, NonCanonicalCbor, QuarantineReason, Reason, Schema, SetField,
+    wire_enum,
 };
 use crate::record::{
-    Audience, Capacity, ClaimType, EvidenceType, ParamScalar, ParamValue, PracticePin, Record,
-    RecordCore, Visibility,
+    Audience, Capacity, ClaimType, EvidenceSubject, EvidenceType, ParamScalar, ParamValue,
+    PracticePin, Record, RecordCore, Visibility,
 };
-use crate::relation::{DerivedRole, Relation};
+use crate::relation::{DerivedRole, DerivedTarget, ReferenceTarget, Relation, RelationName};
 use crate::rules::RuleSet;
 use crate::uri::{ExtKey, TypeUri};
 
@@ -95,8 +96,8 @@ pub struct ValidationContext<'a> {
 pub enum Outcome {
     /// The record is admitted.
     Accepted,
-    /// The record is written but held for attention (P-19, SEC-18).
-    Quarantined(Reason),
+    /// The record is written but held for attention (P-19, P-87, SEC-18).
+    Quarantined(QuarantineReason),
     /// The record is not admitted, with a reason (P-11).
     Rejected(Reason),
 }
@@ -105,7 +106,7 @@ pub enum Outcome {
 #[must_use]
 pub fn validate(record: &Record, ctx: &ValidationContext<'_>) -> Outcome {
     match RuleSet::of(record) {
-        None => Outcome::Quarantined(Reason::ProtocolVersionUnknown),
+        None => Outcome::Quarantined(QuarantineReason::ProtocolVersionUnknown),
         Some(RuleSet::V1_0) => match check_v1_0(record, ctx) {
             Err(reason) => Outcome::Rejected(reason),
             Ok(()) => quarantine(record.core(), ctx.understood_extensions)
@@ -118,6 +119,7 @@ fn check_v1_0(record: &Record, ctx: &ValidationContext<'_>) -> Result<(), Reason
     let core = record.core();
     schema(record)?;
     limits(record, ctx.limits)?;
+    bounds(core)?;
     set_order(core)?;
     map_order(core)?;
     duplicates(core)?;
@@ -126,6 +128,7 @@ fn check_v1_0(record: &Record, ctx: &ValidationContext<'_>) -> Result<(), Reason
     capacity(core)?;
     actor_rings(core, ctx.actor_types)?;
     authority(record)?;
+    capacity_present(record)?;
     producer(core, ctx.actor_types)?;
     mapped(record)?;
     params(record)?;
@@ -186,6 +189,18 @@ fn catalog_text<T>(value: &ParamValue, parse: impl Fn(&str) -> Option<T>) -> boo
     matches!(value, ParamValue::Scalar(ParamScalar::Text(t)) if parse(t).is_some())
 }
 
+// P-71 P-85 P-93
+fn parent_code(text: &str) -> &str {
+    match text.split_once(':') {
+        Some((code, sub)) if TypeUri::parse(sub).is_some() => code,
+        _ => text,
+    }
+}
+
+fn reason_code<T>(value: &ParamValue, parse: impl Fn(&str) -> Option<T>) -> bool {
+    catalog_text(value, |t| parse(parent_code(t)))
+}
+
 fn condition_type_ok(value: &ParamValue, practices: &[PracticePin]) -> bool {
     catalog_text(value, |t| {
         ConditionType::from_uri(t).map(|_| ()).or_else(|| {
@@ -196,36 +211,130 @@ fn condition_type_ok(value: &ParamValue, practices: &[PracticePin]) -> bool {
     })
 }
 
-fn core_param_ok(
-    subtype: DeclarationSubtype,
-    name: &str,
-    value: &ParamValue,
-    practices: &[PracticePin],
-) -> bool {
-    match (subtype, name) {
-        (DeclarationSubtype::Decline, "reason") => {
-            catalog_text(value, DeclineReason::from_wire_name)
+#[derive(Clone, Copy)]
+enum ParamKind {
+    DeclineReason,
+    CancelReason,
+    NoticeType,
+    StopType,
+    StopAnswer,
+    ConditionType,
+    WaitReason,
+    GateForm,
+    Address,
+    Deadline,
+    Criterion,
+}
+
+struct ParamKey {
+    name: &'static str,
+    kind: ParamKind,
+    required: bool,
+}
+
+const fn key(name: &'static str, kind: ParamKind, required: bool) -> ParamKey {
+    ParamKey {
+        name,
+        kind,
+        required,
+    }
+}
+
+// P-80 P-85 P-92 CM-20 CM-30 RC-36 ST-11 ST-12 ST-27
+const DECLINE: &[ParamKey] = &[key("reason", ParamKind::DeclineReason, true)];
+const CANCEL: &[ParamKey] = &[key("reason", ParamKind::CancelReason, true)];
+const NOTICE: &[ParamKey] = &[key("notice_type", ParamKind::NoticeType, true)];
+const STOP_REQUEST: &[ParamKey] = &[key("stop_type", ParamKind::StopType, true)];
+const STOP_RESPONSE: &[ParamKey] = &[key("response", ParamKind::StopAnswer, true)];
+const OPEN_CONDITION: &[ParamKey] = &[
+    key("condition_type", ParamKind::ConditionType, true),
+    key("wait_reason", ParamKind::WaitReason, true),
+    key("gate_form", ParamKind::GateForm, false),
+    key("address", ParamKind::Address, true),
+    key("deadline", ParamKind::Deadline, true),
+    key("criterion", ParamKind::Criterion, true),
+];
+
+const fn param_keys(subtype: DeclarationSubtype) -> &'static [ParamKey] {
+    match subtype {
+        DeclarationSubtype::Decline => DECLINE,
+        DeclarationSubtype::Cancel => CANCEL,
+        DeclarationSubtype::Notice => NOTICE,
+        DeclarationSubtype::StopRequest => STOP_REQUEST,
+        DeclarationSubtype::StopResponse => STOP_RESPONSE,
+        DeclarationSubtype::OpenCondition => OPEN_CONDITION,
+        _ => &[],
+    }
+}
+
+fn kind_ok(kind: ParamKind, value: &ParamValue, practices: &[PracticePin]) -> bool {
+    match kind {
+        ParamKind::DeclineReason => reason_code(value, DeclineReason::from_wire_name),
+        ParamKind::CancelReason => reason_code(value, CancelReason::from_wire_name),
+        ParamKind::NoticeType => reason_code(value, NoticeType::from_wire_name),
+        ParamKind::StopType => catalog_text(value, StopType::from_wire_name),
+        ParamKind::StopAnswer => catalog_text(value, StopAnswer::from_wire_name),
+        ParamKind::ConditionType => condition_type_ok(value, practices),
+        ParamKind::WaitReason => catalog_text(value, WaitReason::from_wire_name),
+        ParamKind::GateForm => catalog_text(value, GateForm::from_wire_name),
+        ParamKind::Address => catalog_text(value, |t| {
+            PartyRef::new(t)
+                .map(|_| ())
+                .or_else(|| TypeUri::parse(t).map(|_| ()))
+        }),
+        ParamKind::Deadline => {
+            matches!(value, ParamValue::Scalar(ParamScalar::Uint(_)))
+                || matches!(value, ParamValue::Scalar(ParamScalar::Text(t)) if t == DEADLINE_NONE)
         }
-        (DeclarationSubtype::Cancel, "reason") => catalog_text(value, CancelReason::from_wire_name),
-        (DeclarationSubtype::Notice, "notice_type") => {
-            catalog_text(value, NoticeType::from_wire_name)
+        ParamKind::Criterion => catalog_text(value, TypeUri::parse),
+    }
+}
+
+fn scalars(value: &ParamValue) -> &[ParamScalar] {
+    match value {
+        ParamValue::Scalar(s) => core::slice::from_ref(s),
+        ParamValue::List(items) => items,
+    }
+}
+
+fn scalar_ok(scalar: &ParamScalar) -> bool {
+    match scalar {
+        ParamScalar::Text(t) => PartyRef::new(t).is_some() || TypeUri::parse(t).is_some(),
+        ParamScalar::Uint(_)
+        | ParamScalar::Bool(_)
+        | ParamScalar::Digest(_)
+        | ParamScalar::WorkId(_) => true,
+    }
+}
+
+fn text_param<'a>(record: &'a Record, name: &str) -> Option<&'a str> {
+    match record.param(name) {
+        Some(ParamValue::Scalar(ParamScalar::Text(t))) => Some(t),
+        _ => None,
+    }
+}
+
+// ST-10 ST-27 P-85
+fn gate_form_ok(record: &Record) -> bool {
+    let gate_form = text_param(record, "gate_form").and_then(GateForm::from_wire_name);
+    let present = record.param("gate_form").is_some();
+    match text_param(record, "condition_type").and_then(ConditionType::from_uri) {
+        Some(ConditionType::Acceptance) => gate_form == Some(GateForm::DeliveryAcceptance),
+        Some(ConditionType::Decision | ConditionType::Resource) => {
+            matches!(
+                gate_form,
+                Some(GateForm::Approval | GateForm::PreActionReview)
+            )
         }
-        (DeclarationSubtype::StopRequest, "stop_type") => {
-            catalog_text(value, StopType::from_wire_name)
-        }
-        (DeclarationSubtype::StopResponse, "response") => {
-            catalog_text(value, StopAnswer::from_wire_name)
-        }
-        (DeclarationSubtype::OpenCondition, "condition_type") => {
-            condition_type_ok(value, practices)
-        }
-        (DeclarationSubtype::OpenCondition, "wait_reason") => {
-            catalog_text(value, WaitReason::from_wire_name)
-        }
-        (DeclarationSubtype::OpenCondition, "gate_form") => {
-            catalog_text(value, GateForm::from_wire_name)
-        }
-        _ => false,
+        Some(
+            ConditionType::Authority
+            | ConditionType::Information
+            | ConditionType::Commitment
+            | ConditionType::ExternalEvent
+            | ConditionType::Time
+            | ConditionType::ThirdParty,
+        ) => !present,
+        None => true,
     }
 }
 
@@ -242,26 +351,36 @@ fn params(record: &Record) -> Result<(), Reason> {
     for param in core.params.iter().flatten() {
         let name = param.name.as_str();
         let value = &param.value;
-        let shape_ok = match value {
-            ParamValue::Scalar(_) => true,
-            ParamValue::List(items) => !items.is_empty() && items.len() <= MAX_PARAM_ITEMS,
-        };
+        let shape_ok = !scalars(value).is_empty() && scalars(value).iter().all(scalar_ok);
         let ok = shape_ok
             && if name == EFFECTIVE_AT {
                 matches!(record, Record::Declaration(_))
                     && matches!(value, ParamValue::Scalar(ParamScalar::Uint(_)))
             } else if let Some(d) = declaration {
-                core_param_ok(d, name, value, practices)
+                param_keys(d)
+                    .iter()
+                    .find(|k| k.name == name)
+                    .is_some_and(|k| kind_ok(k.kind, value, practices))
             } else {
                 !core_subtype
             };
         reject_if(!ok, Reason::Schema(Schema::Params))?;
     }
+    if let Some(d) = declaration {
+        let complete = param_keys(d)
+            .iter()
+            .all(|k| !k.required || record.param(k.name).is_some());
+        let gate_ok = d != DeclarationSubtype::OpenCondition || gate_form_ok(record);
+        reject_if(!(complete && gate_ok), Reason::Schema(Schema::Params))?;
+    }
     Ok(())
 }
 
 const EFFECTIVE_AT: &str = "effective_at";
-const MAX_PARAM_ITEMS: usize = 256;
+const DEADLINE_NONE: &str = "none";
+const MAX_ITEMS: usize = 256;
+const MAX_PRODUCER_VERSION: usize = 255;
+const MAX_IDENTIFIER: usize = 1024;
 
 // P-33 T-65 SEC-18
 fn limits(record: &Record, limits: SemanticLimits) -> Result<(), Reason> {
@@ -285,14 +404,52 @@ fn limits(record: &Record, limits: SemanticLimits) -> Result<(), Reason> {
     Ok(())
 }
 
+fn within(len: usize, max: usize) -> bool {
+    (1..=max).contains(&len)
+}
+
+// P-5 P-7 P-15 P-16 P-33 EV-3 SEC-18
+fn bounds(core: &RecordCore) -> Result<(), Reason> {
+    let lists = [
+        core.correlation.as_ref().map_or(0, Vec::len),
+        core.evidence.as_ref().map_or(0, Vec::len),
+        core.body.as_ref().map_or(0, Vec::len),
+        core.params.as_ref().map_or(0, Vec::len),
+        core.ext.as_ref().map_or(0, Vec::len),
+        core.critical.as_ref().map_or(0, Vec::len),
+        core.versions.practices.as_ref().map_or(0, Vec::len),
+    ];
+    let items_over = lists.iter().any(|&n| n > MAX_ITEMS)
+        || visibilities(core).any(|v| parties(v).len() > MAX_ITEMS)
+        || core
+            .params
+            .iter()
+            .flatten()
+            .any(|p| scalars(&p.value).len() > MAX_ITEMS);
+    reject_if(items_over, Reason::LimitExceeded(Limit::Items))?;
+    let producer_ok = core
+        .producer
+        .as_ref()
+        .is_none_or(|p| within(p.version.len(), MAX_PRODUCER_VERSION));
+    let correlation_ok = core
+        .correlation
+        .iter()
+        .flatten()
+        .all(|c| within(c.id.len(), MAX_IDENTIFIER));
+    let subjects_ok = core.evidence.iter().flatten().all(|e| match &e.subject {
+        EvidenceSubject::StableId(id) => within(id.len(), MAX_IDENTIFIER),
+        EvidenceSubject::Digest(_) => true,
+    });
+    reject_if(
+        !(producer_ok && correlation_ok && subjects_ok),
+        Reason::LimitExceeded(Limit::String),
+    )
+}
+
 fn strictly_ascending<T>(items: &[T], cmp: impl Fn(&T, &T) -> Ordering) -> bool {
     items
         .windows(2)
         .all(|w| matches!(w, [a, b] if cmp(a, b) == Ordering::Less))
-}
-
-fn party_cmp(a: &PartyRef, b: &PartyRef) -> Ordering {
-    canonical_text_cmp(a.as_str(), b.as_str())
 }
 
 // P-72 P-69 P-77
@@ -313,7 +470,7 @@ fn set_order(core: &RecordCore) -> Result<(), Reason> {
         Reason::NonCanonicalSetOrder(SetField::Critical),
     )?;
     reject_if(
-        visibilities(core).any(|v| !strictly_ascending(parties(v), party_cmp)),
+        visibilities(core).any(|v| !strictly_ascending(parties(v), Ord::cmp)),
         Reason::NonCanonicalSetOrder(SetField::Visibility),
     )
 }
@@ -350,39 +507,69 @@ fn map_order(core: &RecordCore) -> Result<(), Reason> {
     )
 }
 
-fn has_repeat<T>(items: &[T], same: impl Fn(&T, &T) -> bool) -> bool {
-    items
-        .iter()
-        .enumerate()
-        .any(|(i, a)| items.iter().skip(i.saturating_add(1)).any(|b| same(a, b)))
+fn has_repeat_key<'a, T, K: Ord>(items: &'a [T], key: impl Fn(&'a T) -> K) -> bool {
+    let mut keys: Vec<K> = items.iter().map(key).collect();
+    keys.sort_unstable();
+    keys.windows(2).any(|w| matches!(w, [a, b] if a == b))
 }
 
-// P-78 P-77
+fn has_repeat<'a, T: PartialEq, K: Ord>(items: &'a [T], key: impl Fn(&'a T) -> K) -> bool {
+    let mut sorted: Vec<(K, &'a T)> = items.iter().map(|item| (key(item), item)).collect();
+    sorted.sort_unstable_by(|a, b| a.0.cmp(&b.0));
+    sorted.chunk_by(|a, b| a.0 == b.0).any(|run| {
+        run.iter()
+            .enumerate()
+            .any(|(i, a)| run.iter().skip(i.saturating_add(1)).any(|b| a.1 == b.1))
+    })
+}
+
+fn relation_key(relation: &Relation) -> (RelationName, &[u8]) {
+    let target: &[u8] = match relation {
+        Relation::EngagedIn { target, .. }
+        | Relation::Concerns { target, .. }
+        | Relation::PartOf { target, .. } => target.as_bytes(),
+        Relation::Serves { target, .. } | Relation::Supersedes { target, .. } => {
+            target.0.as_bytes()
+        }
+        Relation::DerivedFrom { target, .. } => match target {
+            DerivedTarget::Record(r) => r.0.as_bytes(),
+            DerivedTarget::Evidence(d) => d.as_bytes(),
+            DerivedTarget::External(e) => e.as_str().as_bytes(),
+        },
+        Relation::OnBehalfOf { target, .. } => target.as_str().as_bytes(),
+        Relation::References { target, .. } => match target {
+            ReferenceTarget::Record(r) => r.0.as_bytes(),
+            ReferenceTarget::External(e) => e.as_str().as_bytes(),
+        },
+    };
+    (relation.name(), target)
+}
+
+// P-72 P-78 P-77
 fn duplicates(core: &RecordCore) -> Result<(), Reason> {
     let chain = core.on_behalf_of.as_deref().unwrap_or_default();
     let checks = [
         (
-            has_repeat(core.relations.as_deref().unwrap_or_default(), PartialEq::eq),
+            has_repeat(core.relations.as_deref().unwrap_or_default(), relation_key),
             ListField::Relations,
         ),
         (
-            has_repeat(core.evidence.as_deref().unwrap_or_default(), PartialEq::eq),
+            has_repeat(core.evidence.as_deref().unwrap_or_default(), |e| {
+                e.signature
+            }),
             ListField::Evidence,
         ),
         (
-            has_repeat(
-                core.correlation.as_deref().unwrap_or_default(),
-                PartialEq::eq,
-            ),
+            has_repeat_key(core.correlation.as_deref().unwrap_or_default(), |c| {
+                (c.scheme.as_str(), c.id.as_str())
+            }),
             ListField::Correlation,
         ),
         (
-            has_repeat(core.body.as_deref().unwrap_or_default(), |a, b| {
-                a.part == b.part
-            }),
+            has_repeat_key(core.body.as_deref().unwrap_or_default(), |b| &b.part),
             ListField::Body,
         ),
-        (has_repeat(chain, PartialEq::eq), ListField::OnBehalfOf),
+        (has_repeat_key(chain, |p| p), ListField::OnBehalfOf),
     ];
     for (repeated, field) in checks {
         reject_if(repeated, Reason::DuplicateEntry(field))?;
@@ -453,6 +640,14 @@ fn authority(record: &Record) -> Result<(), Reason> {
     )
 }
 
+// P-13 P-83
+fn capacity_present(record: &Record) -> Result<(), Reason> {
+    reject_if(
+        consequence(record) == Consequence::Consequential && record.core().capacity.is_none(),
+        Reason::CapacityMissing,
+    )
+}
+
 // P-15
 fn producer(core: &RecordCore, actor_types: &ActorTypes) -> Result<(), Reason> {
     reject_if(
@@ -465,7 +660,7 @@ fn pinned(uri: &TypeUri, practices: &[PracticePin]) -> bool {
     practices.iter().any(|p| uri.is_under(&p.namespace))
 }
 
-// C-5 PR-3 PR-5 P-71 P-82
+// C-5 C-27 PR-3 PR-5 P-71 P-82
 fn mapped(record: &Record) -> Result<(), Reason> {
     let core = record.core();
     let practices = core.versions.practices.as_deref().unwrap_or_default();
@@ -499,7 +694,7 @@ fn mapped(record: &Record) -> Result<(), Reason> {
             role: DerivedRole::Extension(uri),
             ..
         } => extension_ok(uri),
-        _ => true,
+        other => other.qualifier().is_none_or(extension_ok),
     });
     reject_if(
         !(subtype_ok && evidence_ok && roles_ok),
@@ -520,12 +715,12 @@ fn attribution(record: &Record, ctx: &ValidationContext<'_>) -> Result<(), Reaso
 }
 
 // P-19 P-69
-fn quarantine(core: &RecordCore, understood: &[ExtKey]) -> Option<Reason> {
+fn quarantine(core: &RecordCore, understood: &[ExtKey]) -> Option<QuarantineReason> {
     core.critical
         .iter()
         .flatten()
         .any(|k| !understood.contains(k))
-        .then_some(Reason::ExtensionCriticalUnknown)
+        .then_some(QuarantineReason::ExtensionCriticalUnknown)
 }
 
 /// Extension fields this verifier does not understand; they are preserved and not interpreted (P-19).

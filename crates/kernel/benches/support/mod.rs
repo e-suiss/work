@@ -30,7 +30,7 @@ const BUYER: &str = "party:acme:buyer-org";
 const ALICE: &str = "party:acme:alice";
 
 /// Chain lengths for the derivation benchmarks.
-pub(crate) const CHAIN_LENGTHS: [u32; 3] = [1, 64, 1024];
+pub(crate) const CHAIN_LENGTHS: [u32; 4] = [1, 64, 1024, 10_000];
 
 fn digest(n: u8) -> Digest {
     Digest::sha256([n; 32])

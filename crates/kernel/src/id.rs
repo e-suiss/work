@@ -47,9 +47,21 @@ impl WorkId {
     }
 }
 
-/// An Access Party reference; its byte form is pending Access (P-67), the draft is 1 to 255 bytes of text.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+/// An Access Party reference; its byte form is pending Access (P-67), the draft is 1 to 255 bytes of text, ordered as its canonical CBOR encoding orders (P-72).
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct PartyRef(String);
+
+impl Ord for PartyRef {
+    fn cmp(&self, other: &Self) -> Ordering {
+        canonical_text_cmp(&self.0, &other.0)
+    }
+}
+
+impl PartialOrd for PartyRef {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
 
 impl PartyRef {
     /// Longest accepted reference, in bytes.
@@ -97,6 +109,15 @@ mod tests {
         assert!(PartyRef::new("").is_none());
         assert!(PartyRef::new(&"a".repeat(255)).is_some());
         assert!(PartyRef::new(&"a".repeat(256)).is_none());
+    }
+
+    // P-72 P-77
+    #[test]
+    fn p_72_party_refs_order_canonically() {
+        let short = PartyRef::new("party:x:zz").unwrap();
+        let long = PartyRef::new("party:x:aaa").unwrap();
+        assert!(short < long);
+        assert_eq!(short.cmp(&short.clone()), Ordering::Equal);
     }
 
     // P-72

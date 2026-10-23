@@ -158,7 +158,7 @@ pub enum Relation {
 const MISMATCH: Reason = Reason::Schema(Schema::Relation);
 
 impl Relation {
-    /// Builds a relation from its decoded wire parts, rejecting a ninth name, an endpoint type the relation does not allow and a qualifier that belongs to another relation (C-25, C-26, C-27, P-14, P-73).
+    /// Builds a relation from its decoded wire parts, rejecting a ninth name, an endpoint type the relation does not allow and a qualifier that belongs to another relation: a core URI qualifies only `derived_from` (C-25, C-26, C-27, P-14, P-73).
     ///
     /// # Errors
     ///
@@ -186,7 +186,7 @@ impl Relation {
             });
         }
         let qualifier = qualifier
-            .map(|q| TypeUri::parse(q).ok_or(MISMATCH))
+            .map(|q| TypeUri::parse(q).filter(|u| !u.is_core()).ok_or(MISMATCH))
             .transpose()?;
         match (name, source, target) {
             (RelationName::EngagedIn, Some(Endpoint::Party(source)), Endpoint::Work(target)) => {
@@ -243,6 +243,21 @@ impl Relation {
                 })
             }
             _ => Err(MISMATCH),
+        }
+    }
+
+    /// The Practice qualifier of a relation other than `derived_from`; it must lie under a pinned Practice namespace (C-5, C-27).
+    #[must_use]
+    pub const fn qualifier(&self) -> Option<&TypeUri> {
+        match self {
+            Self::EngagedIn { qualifier, .. }
+            | Self::Concerns { qualifier, .. }
+            | Self::PartOf { qualifier, .. }
+            | Self::Serves { qualifier, .. }
+            | Self::Supersedes { qualifier, .. }
+            | Self::OnBehalfOf { qualifier, .. }
+            | Self::References { qualifier, .. } => qualifier.as_ref(),
+            Self::DerivedFrom { .. } => None,
         }
     }
 
@@ -362,10 +377,37 @@ mod tests {
     // C-27 P-14
     #[test]
     fn c_27_p_14_core_roles_belong_only_to_derived_from() {
+        const SUPPORTS: &str = "https://suiss.app/ns/work/derived_from/supports";
         assert_eq!(
-            Relation::from_wire("serves", None, record(), Some("supports")),
+            Relation::from_wire("serves", None, record(), Some(SUPPORTS)),
             Err(MISMATCH)
         );
+        for (rel, source, target) in [
+            ("engaged_in", Some(party()), work()),
+            ("concerns", Some(record()), work()),
+            ("part_of", Some(work()), work()),
+            ("serves", None, record()),
+            ("supersedes", None, record()),
+            ("on_behalf_of", Some(party()), party()),
+            ("references", None, record()),
+        ] {
+            assert!(Relation::from_wire(rel, source.clone(), target.clone(), None).is_ok());
+            assert_eq!(
+                Relation::from_wire(rel, source.clone(), target.clone(), Some(SUPPORTS)),
+                Err(MISMATCH),
+                "{rel}"
+            );
+            assert_eq!(
+                Relation::from_wire(
+                    rel,
+                    source,
+                    target,
+                    Some("https://suiss.app/ns/work/relation/x")
+                ),
+                Err(MISMATCH),
+                "{rel}"
+            );
+        }
         assert_eq!(
             Relation::from_wire("derived_from", None, record(), Some("supports")),
             Err(MISMATCH)
@@ -377,7 +419,8 @@ mod tests {
                 work(),
                 Some("https://procurement.example/ns/role/buyer")
             )
-            .is_ok()
+            .is_ok_and(|r| r.qualifier().map(TypeUri::as_str)
+                == Some("https://procurement.example/ns/role/buyer"))
         );
     }
 

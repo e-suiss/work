@@ -11,10 +11,10 @@
 mod fixtures;
 
 use fixtures::*;
-use work_kernel::id::{PartyRef, Time, WorkId};
+use work_kernel::id::{PartyRef, Time, WorkId, canonical_text_cmp};
 use work_kernel::limits::SemanticLimits;
 use work_kernel::reason::{
-    EnvelopeField, Limit, ListField, NonCanonicalCbor, Reason, Schema, SetField,
+    EnvelopeField, Limit, ListField, NonCanonicalCbor, QuarantineReason, Reason, Schema, SetField,
 };
 use work_kernel::record::{
     Audience, Capacity, Claim, ClaimType, Correlation, EvidenceType, Param, ParamScalar,
@@ -176,15 +176,15 @@ fn p_82_core_act_subtype_is_action_only() {
 
 fn with_params(record: Record, params: Vec<(&str, ParamValue)>) -> Record {
     mutate(record, |c| {
-        c.params = Some(
-            params
-                .into_iter()
-                .map(|(name, value)| Param {
-                    name: PartName::parse(name).unwrap(),
-                    value,
-                })
-                .collect(),
-        );
+        let mut params: Vec<Param> = params
+            .into_iter()
+            .map(|(name, value)| Param {
+                name: PartName::parse(name).unwrap(),
+                value,
+            })
+            .collect();
+        params.sort_by(|a, b| canonical_text_cmp(a.name.as_str(), b.name.as_str()));
+        c.params = Some(params);
     })
 }
 
@@ -195,14 +195,7 @@ fn text(s: &str) -> ParamValue {
 // P-80 P-85
 #[test]
 fn p_80_params_follow_the_core_subtype_schema() {
-    let decline = declaration(
-        &format!("{CORE}declaration/decline"),
-        RecordCore {
-            concerns: vec![w1()],
-            authority: Some(authority(1)),
-            ..core(ALICE)
-        },
-    );
+    let decline = consequential("decline");
     let ok = with_params(decline.clone(), vec![("reason", text("no_capacity"))]);
     assert_eq!(direct(&ok), Outcome::Accepted);
     let bad_value = with_params(decline.clone(), vec![("reason", text("busy"))]);
@@ -217,7 +210,10 @@ fn p_80_params_follow_the_core_subtype_schema() {
     );
     let effective = with_params(
         decline.clone(),
-        vec![("effective_at", ParamValue::Scalar(ParamScalar::Uint(5)))],
+        vec![
+            ("effective_at", ParamValue::Scalar(ParamScalar::Uint(5))),
+            ("reason", text("other")),
+        ],
     );
     assert_eq!(direct(&effective), Outcome::Accepted);
     let wrong_type = with_params(decline, vec![("effective_at", text("now"))]);
@@ -238,23 +234,238 @@ fn p_80_params_follow_the_core_subtype_schema() {
         rejected(&empty, Origin::Direct),
         Reason::Schema(Schema::EmptyOptionalMap)
     );
-    let open = declaration(
-        &format!("{CORE}declaration/open_condition"),
-        RecordCore {
-            concerns: vec![w1()],
-            authority: Some(authority(1)),
-            ..core(ALICE)
-        },
-    );
     let gate = with_params(
-        open,
+        consequential("open_condition"),
         vec![
             ("gate_form", text("approval")),
             ("wait_reason", text("internal")),
             ("condition_type", text(&format!("{CORE}condition/decision"))),
+            ("address", text(SUPPLIER)),
+            ("deadline", text("none")),
+            ("criterion", text(CRITERION)),
         ],
     );
     assert_eq!(direct(&gate), Outcome::Accepted);
+}
+
+fn consequential(name: &str) -> Record {
+    declaration(
+        &format!("{CORE}declaration/{name}"),
+        RecordCore {
+            capacity: Some(Capacity::Own),
+            concerns: vec![w1()],
+            authority: Some(authority(1)),
+            ..core(ALICE)
+        },
+    )
+}
+
+fn condition(kind: &str) -> ParamValue {
+    text(&format!("{CORE}condition/{kind}"))
+}
+
+const CRITERION: &str = "https://procurement.example/ns/criterion/signed_po";
+
+fn open_condition_params<'a>(
+    kind: &str,
+    wait_reason: &str,
+    extra: Vec<(&'a str, ParamValue)>,
+) -> Vec<(&'a str, ParamValue)> {
+    let mut p = vec![
+        ("condition_type", condition(kind)),
+        ("wait_reason", text(wait_reason)),
+        ("address", text(SUPPLIER)),
+        ("deadline", text("none")),
+        ("criterion", text(CRITERION)),
+    ];
+    for (key, value) in extra {
+        p.retain(|(k, _)| *k != key);
+        p.push((key, value));
+    }
+    p
+}
+
+fn params_reason(name: &str, params: Vec<(&str, ParamValue)>) -> Option<Reason> {
+    match direct(&with_params(consequential(name), params)) {
+        Outcome::Accepted => None,
+        Outcome::Rejected(reason) => Some(reason),
+        other @ Outcome::Quarantined(_) => panic!("{other:?}"),
+    }
+}
+
+// P-80 P-85 P-71 CM-20 CM-30 CM-17 RC-36
+#[test]
+fn p_80_core_subtypes_require_their_reason_and_type_keys() {
+    let bad = Some(Reason::Schema(Schema::Params));
+    for (name, key, value) in [
+        ("decline", "reason", "no_capacity"),
+        ("cancel", "reason", "abandoned"),
+        ("notice", "notice_type", "at_risk"),
+        ("stop_request", "stop_type", "pause"),
+        ("stop_response", "response", "refuse"),
+    ] {
+        assert_eq!(
+            params_reason(name, vec![(key, text(value))]),
+            None,
+            "{name}"
+        );
+        let missing = mutate(consequential(name), |c| c.params = None);
+        assert_eq!(
+            direct(&missing),
+            Outcome::Rejected(Reason::Schema(Schema::Params)),
+            "{name}"
+        );
+        assert_eq!(
+            params_reason(
+                name,
+                vec![
+                    (key, text(value)),
+                    ("effective_at", ParamValue::Scalar(ParamScalar::Uint(9)))
+                ]
+            ),
+            None,
+            "{name}"
+        );
+        assert_eq!(
+            params_reason(
+                name,
+                vec![("effective_at", ParamValue::Scalar(ParamScalar::Uint(9)))]
+            ),
+            bad,
+            "{name}"
+        );
+    }
+    assert_eq!(
+        params_reason("promise", vec![("reason", text("other"))]),
+        bad
+    );
+    assert_eq!(
+        direct(&mutate(consequential("promise"), |c| c.params = None)),
+        Outcome::Accepted
+    );
+}
+
+// P-80 ST-10 ST-12 ST-27 P-85 P-92 P-93
+#[test]
+fn p_80_open_condition_gate_form_follows_the_condition_type() {
+    let bad = Some(Reason::Schema(Schema::Params));
+    let open = |kind: &str, gate: Option<&str>| {
+        let extra = gate.map(|g| ("gate_form", text(g))).into_iter().collect();
+        params_reason(
+            "open_condition",
+            open_condition_params(kind, "external", extra),
+        )
+    };
+    assert_eq!(open("acceptance", Some("delivery_acceptance")), None);
+    assert_eq!(
+        open(
+            "acceptance",
+            Some("delivery_acceptance:https://procurement.example/ns/gate/site_check")
+        ),
+        bad
+    );
+    assert_eq!(open("acceptance", Some("approval")), bad);
+    assert_eq!(open("acceptance", None), bad);
+    for kind in ["decision", "resource"] {
+        assert_eq!(open(kind, Some("approval")), None, "{kind}");
+        assert_eq!(open(kind, Some("pre_action_review")), None, "{kind}");
+        assert_eq!(open(kind, Some("delivery_acceptance")), bad, "{kind}");
+        assert_eq!(open(kind, None), bad, "{kind}");
+    }
+    for kind in [
+        "authority",
+        "information",
+        "commitment",
+        "external_event",
+        "time",
+        "third_party",
+    ] {
+        assert_eq!(open(kind, None), None, "{kind}");
+        assert_eq!(open(kind, Some("approval")), bad, "{kind}");
+    }
+    assert_eq!(
+        params_reason(
+            "open_condition",
+            vec![("condition_type", condition("time"))]
+        ),
+        bad
+    );
+    assert_eq!(
+        params_reason("open_condition", vec![("wait_reason", text("internal"))]),
+        bad
+    );
+}
+
+// P-80 P-92 ST-12
+#[test]
+fn p_80_open_condition_address_deadline_and_criterion_are_typed() {
+    let bad = Some(Reason::Schema(Schema::Params));
+    let with = |key: &'static str, value: ParamValue| {
+        params_reason(
+            "open_condition",
+            open_condition_params("information", "internal", vec![(key, value)]),
+        )
+    };
+    for key in ["address", "deadline", "criterion"] {
+        let mut p = open_condition_params("information", "internal", vec![]);
+        p.retain(|(k, _)| *k != key);
+        assert_eq!(params_reason("open_condition", p), bad, "{key}");
+    }
+    assert_eq!(
+        with(
+            "wait_reason",
+            text("internal:https://p.example/ns/wait/review")
+        ),
+        bad
+    );
+    assert_eq!(with("address", text(SUPPLIER)), None);
+    assert_eq!(
+        with("address", text("https://supplier.example/inbox")),
+        None
+    );
+    assert_eq!(with("address", text(&"a".repeat(256))), bad);
+    assert_eq!(
+        with("address", ParamValue::Scalar(ParamScalar::Uint(1))),
+        bad
+    );
+    assert_eq!(
+        with(
+            "deadline",
+            ParamValue::Scalar(ParamScalar::Uint(1_792_200_000_000))
+        ),
+        None
+    );
+    assert_eq!(with("deadline", text("none")), None);
+    assert_eq!(with("deadline", text("never")), bad);
+    assert_eq!(
+        with(
+            "criterion",
+            text("https://procurement.example/ns/criterion/signed_po")
+        ),
+        None
+    );
+    assert_eq!(with("criterion", text("signed_po")), bad);
+    assert_eq!(with("criteria", text("https://p.example/x")), bad);
+}
+
+// P-80 P-5
+#[test]
+fn p_80_param_text_is_a_code_uri_or_party_reference() {
+    let practice = |value: ParamValue| with_params(care_note(), vec![("ward", value)]);
+    let run_care = |r: &Record| run(r, Origin::Direct, &[consent_key()]);
+    assert_eq!(run_care(&practice(text("B-2"))), Outcome::Accepted);
+    assert_eq!(
+        run_care(&practice(text(""))),
+        Outcome::Rejected(Reason::Schema(Schema::Params))
+    );
+    assert_eq!(
+        run_care(&practice(text(&"b".repeat(256)))),
+        Outcome::Rejected(Reason::Schema(Schema::Params))
+    );
+    assert_eq!(
+        run_care(&practice(ParamValue::List(vec![]))),
+        Outcome::Rejected(Reason::Schema(Schema::Params))
+    );
 }
 
 // P-77
@@ -326,6 +537,28 @@ fn p_13_e_13_capacity_must_match_on_behalf_of() {
     );
     let absent = mutate(promise(), |c| c.capacity = None);
     assert_eq!(rejected(&absent, Origin::Direct), Reason::CapacityMismatch);
+}
+
+// P-13 P-83
+#[test]
+fn p_13_p_83_every_declaration_names_its_capacity() {
+    let r = mutate(amend(), |c| c.capacity = None);
+    assert_eq!(rejected(&r, Origin::Direct), Reason::CapacityMissing);
+    let r = mutate(care_note(), |c| c.capacity = None);
+    assert_eq!(
+        run(&r, Origin::Direct, &[consent_key()]),
+        Outcome::Rejected(Reason::CapacityMissing)
+    );
+    let r = mutate(amend(), |c| {
+        c.capacity = None;
+        c.authority = None;
+    });
+    assert_eq!(rejected(&r, Origin::Direct), Reason::AuthorityMissing);
+    assert!(delivery().core().capacity.is_some());
+    let act = mutate(delivery(), |c| c.capacity = None);
+    assert_eq!(direct(&act), Outcome::Accepted);
+    assert!(comment().core().capacity.is_none());
+    assert_eq!(direct(&comment()), Outcome::Accepted);
 }
 
 // P-72 P-5
@@ -433,6 +666,105 @@ fn p_33_sec_18_semantic_limits_accept_the_bound_and_reject_one_more() {
         rejected(&over, Origin::Direct),
         Reason::LimitExceeded(Limit::Relations)
     );
+}
+
+// P-7 P-72 SEC-18
+#[test]
+fn p_7_cddl_list_and_map_bounds_reject_one_more_than_256() {
+    let items = Reason::LimitExceeded(Limit::Items);
+    let correlations = |n: usize| -> Vec<Correlation> {
+        (0..n)
+            .map(|i| Correlation {
+                scheme: uri("https://a2a-protocol.org/context-id"),
+                id: format!("ctx-{i}"),
+            })
+            .collect()
+    };
+    let at = mutate(promise(), |c| c.correlation = Some(correlations(256)));
+    assert_eq!(direct(&at), Outcome::Accepted);
+    let over = mutate(promise(), |c| c.correlation = Some(correlations(257)));
+    assert_eq!(rejected(&over, Origin::Direct), items);
+    let parties = |n: usize| -> Audience {
+        let mut p: Vec<PartyRef> = (0..n).map(|i| party(&format!("party:x:{i:03}"))).collect();
+        p.sort();
+        Audience::Parties(p)
+    };
+    let at = mutate(amend(), |c| c.visibility.see = parties(256));
+    assert_eq!(direct(&at), Outcome::Accepted);
+    let over = mutate(amend(), |c| c.visibility.see = parties(257));
+    assert_eq!(rejected(&over, Origin::Direct), items);
+    let bodies = |n: usize| {
+        (0..n)
+            .map(|i| body(&format!("p{i}"), 1))
+            .collect::<Vec<_>>()
+    };
+    let over = mutate(amend(), |c| c.body = Some(bodies(257)));
+    assert_eq!(rejected(&over, Origin::Direct), items);
+    let exts = |n: usize| {
+        let mut e: Vec<_> = (0..n)
+            .map(|i| ext(&format!("{PROC}ext/k{i:03}"), b"\x01"))
+            .collect();
+        e.sort_by(|a, b| a.key.canonical_cmp(&b.key));
+        e
+    };
+    let at = mutate(amend(), |c| c.ext = Some(exts(256)));
+    assert_eq!(direct(&at), Outcome::Accepted);
+    let over = mutate(amend(), |c| c.ext = Some(exts(257)));
+    assert_eq!(rejected(&over, Origin::Direct), items);
+    let list = |n: usize| ParamValue::List((0..n).map(|i| ParamScalar::Uint(i as u64)).collect());
+    let at = with_params(care_note(), vec![("beds", list(256))]);
+    assert_eq!(
+        run(&at, Origin::Direct, &[consent_key()]),
+        Outcome::Accepted
+    );
+    let over = with_params(care_note(), vec![("beds", list(257))]);
+    assert_eq!(
+        run(&over, Origin::Direct, &[consent_key()]),
+        Outcome::Rejected(items)
+    );
+}
+
+// P-7 P-15 P-16 EV-3 SEC-18
+#[test]
+fn p_7_cddl_string_bounds_are_enforced() {
+    let string = Reason::LimitExceeded(Limit::String);
+    let version = |v: String| {
+        mutate(promise(), |c| {
+            if let Some(p) = c.producer.as_mut() {
+                p.version = v;
+            }
+        })
+    };
+    assert_eq!(direct(&version("v".repeat(255))), Outcome::Accepted);
+    assert_eq!(rejected(&version("v".repeat(256)), Origin::Direct), string);
+    assert_eq!(rejected(&version(String::new()), Origin::Direct), string);
+    let correlation = |id: String| {
+        mutate(promise(), |c| {
+            c.correlation = Some(vec![Correlation {
+                scheme: uri("https://a2a-protocol.org/context-id"),
+                id,
+            }]);
+        })
+    };
+    assert_eq!(direct(&correlation("c".repeat(1024))), Outcome::Accepted);
+    assert_eq!(
+        rejected(&correlation("c".repeat(1025)), Origin::Direct),
+        string
+    );
+    assert_eq!(
+        rejected(&correlation(String::new()), Origin::Direct),
+        string
+    );
+    let subject = |id: String| {
+        mutate(delivery(), |c| {
+            if let Some(e) = c.evidence.as_mut() {
+                e[0].subject = work_kernel::record::EvidenceSubject::StableId(id);
+            }
+        })
+    };
+    assert_eq!(direct(&subject("s".repeat(1024))), Outcome::Accepted);
+    assert_eq!(rejected(&subject("s".repeat(1025)), Origin::Direct), string);
+    assert_eq!(rejected(&subject(String::new()), Origin::Direct), string);
 }
 
 // T-65 P-33
@@ -563,14 +895,14 @@ fn p_69_critical_key_must_be_present_in_ext() {
 fn p_19_unknown_critical_extension_quarantines() {
     assert_eq!(
         run(&care_note(), Origin::Direct, &[]),
-        Outcome::Quarantined(Reason::ExtensionCriticalUnknown)
+        Outcome::Quarantined(QuarantineReason::ExtensionCriticalUnknown)
     );
     let two = mutate(care_note(), |c| {
         c.critical = Some(vec![ward_key(), consent_key()]);
     });
     assert_eq!(
         run(&two, Origin::Direct, &[consent_key()]),
-        Outcome::Quarantined(Reason::ExtensionCriticalUnknown)
+        Outcome::Quarantined(QuarantineReason::ExtensionCriticalUnknown)
     );
     assert_eq!(
         run(&two, Origin::Direct, &[consent_key(), ward_key()]),
@@ -622,6 +954,43 @@ fn c_5_unmapped_extension_values_are_rejected() {
         }]);
     });
     assert_eq!(rejected(&r, Origin::Direct), Reason::UnmappedExtensionValue);
+}
+
+// C-5 C-27 PR-5
+#[test]
+fn c_27_relation_qualifiers_must_be_pinned_practice_values() {
+    let qualified = |q: &str| {
+        mutate(observation(), |c| {
+            c.versions = pinned(0x70, PROC);
+            c.relations = Some(vec![Relation::References {
+                source: None,
+                target: work_kernel::relation::ReferenceTarget::Record(rid(3)),
+                qualifier: Some(uri(q)),
+            }]);
+        })
+    };
+    assert_eq!(
+        run(
+            &qualified(&format!("{PROC}reference/quote")),
+            Origin::Automation,
+            &[]
+        ),
+        Outcome::Accepted
+    );
+    assert_eq!(
+        rejected(
+            &qualified("https://elsewhere.example/ns/reference/quote"),
+            Origin::Automation
+        ),
+        Reason::UnmappedExtensionValue
+    );
+    assert_eq!(
+        rejected(
+            &qualified("https://procurement.example/nsevil/reference/quote"),
+            Origin::Automation
+        ),
+        Reason::UnmappedExtensionValue
+    );
 }
 
 // C-5 PR-5
@@ -705,14 +1074,32 @@ fn inv_23_actor_type_is_not_an_authority_input() {
     }
 }
 
-// C-16 P-10
+// P-10 C-15
 #[test]
-fn c_16_declaration_occurred_at_is_optional_and_claims_need_it() {
+fn p_10_declaration_occurred_at_is_optional() {
     let Record::Declaration(mut d) = amend() else {
         panic!("declaration expected");
     };
     d.occurred_at = Some(Time(1));
     assert_eq!(direct(&Record::Declaration(d)), Outcome::Accepted);
+}
+
+// INV-4 P-24 P-80
+#[test]
+fn inv_4_effect_starting_exactly_at_recorded_at_is_not_retroactive() {
+    let r = with_params(
+        amend(),
+        vec![("effective_at", ParamValue::Scalar(ParamScalar::Uint(1_000)))],
+    );
+    let actors = actor_types(&r);
+    let at = |recorded: u64| {
+        let mut c = ctx(Origin::Direct, &actors, &[]);
+        c.recorded_at = Some(Time(recorded));
+        validate(&r, &c)
+    };
+    assert_eq!(at(999), Outcome::Accepted);
+    assert_eq!(at(1_000), Outcome::Accepted);
+    assert_eq!(at(1_001), Outcome::Rejected(Reason::RetroactiveDeclaration));
 }
 
 // T-4 P-87 P-18
@@ -736,7 +1123,7 @@ fn t_4_p_87_unknown_protocol_version_is_quarantined_before_any_rule() {
         });
         assert_eq!(
             direct(&record),
-            Outcome::Quarantined(Reason::ProtocolVersionUnknown),
+            Outcome::Quarantined(QuarantineReason::ProtocolVersionUnknown),
             "{major}.{minor}"
         );
     }

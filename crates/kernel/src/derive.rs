@@ -5,8 +5,8 @@ use alloc::vec::Vec;
 
 use crate::catalog::DeclarationSubtype;
 use crate::id::{PartyRef, RecordId, Time};
-use crate::reason::Reason;
-use crate::record::{PracticePin, ProtocolVersion, Record};
+use crate::reason::{QuarantineReason, Reason};
+use crate::record::{Kind, PracticePin, ProtocolVersion, Record};
 use crate::rules::RuleSet;
 
 /// The result of the shared restriction engine for one record, supplied as input (T-4 rule 5, T-23).
@@ -34,8 +34,8 @@ pub enum AuthorityIssuer {
 pub enum Ingest {
     /// Admitted.
     Admitted,
-    /// Written but quarantined.
-    Quarantined(Reason),
+    /// Written but quarantined (P-19, P-87).
+    Quarantined(QuarantineReason),
 }
 
 /// One ledger record with the envelope facts derivation needs.
@@ -98,7 +98,7 @@ pub enum Admission {
     /// Part of the derived history.
     Admitted,
     /// Written, held for attention, without effect.
-    Quarantined(Reason),
+    Quarantined(QuarantineReason),
     /// Refused by a derivation rule.
     Rejected(Reason),
 }
@@ -120,11 +120,11 @@ pub enum NoEffect {
     UntrustedAuthority,
     /// The effective time is after the evaluation's ledger time.
     NotYetEffective,
-    /// The superseded record is not in this ledger's history.
+    /// The first superseded record is not in any supersede chain: it is absent from this ledger, was not admitted, is not a Declaration, or never took effect (P-86 item 2).
     UnknownTarget,
     /// The chain reached a terminal outcome, which never changes (P-24 item 3, CM-34).
     TerminalOutcome,
-    /// The chain is conflicted and the record does not cite every conflicting head (P-28).
+    /// The chain is conflicted and the record is not a `conflict_resolution` that saw every conflicting head (P-28).
     Conflicted,
     /// The record replaces an outdated version written by the same author as the current head.
     Stale,
@@ -150,7 +150,7 @@ pub struct DerivedRecord {
     pub admission: Admission,
     /// Normative effect.
     pub effect: Effect,
-    /// Records that supersede this one; the record itself stays readable (P-24 item 1).
+    /// Admitted records of the same kind that supersede this admitted record, each once, in ledger order; the record itself stays readable (P-24 item 1).
     pub superseded_by: Vec<RecordId>,
 }
 
@@ -170,7 +170,7 @@ pub enum ChainStatus {
 pub struct Chain {
     /// The first record.
     pub root: RecordId,
-    /// The highest admitted version in the chain (P-86).
+    /// The highest version a record with normative or conflicting effect took in the chain (P-86).
     pub version: u32,
     /// The records currently in normative effect; more than one while conflicted.
     pub heads: Vec<RecordId>,
@@ -189,6 +189,7 @@ pub struct Derivation {
 
 /// An input sequence the ledger could not have produced.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum DeriveError {
     /// A position is not the previous one plus one.
     PositionGap {
@@ -211,11 +212,25 @@ pub enum DeriveError {
     Overflow,
 }
 
+impl DeriveError {
+    /// The stable `snake_case` code of the error.
+    #[must_use]
+    pub const fn code(self) -> &'static str {
+        match self {
+            Self::PositionGap { .. } => "position_gap",
+            Self::RecordedAtOutOfOrder { .. } => "recorded_at_out_of_order",
+            Self::DuplicateRecord(_) => "duplicate_record",
+            Self::LedgerMismatch { .. } => "ledger_mismatch",
+            Self::Overflow => "overflow",
+        }
+    }
+}
+
 struct Member {
-    chain: Option<usize>,
-    version: u32,
+    kind: Kind,
     author: PartyRef,
     admitted: bool,
+    version: Option<(usize, u32)>,
 }
 
 enum Place {
@@ -230,6 +245,7 @@ struct Fold<'i> {
     members: Vec<Member>,
     records: Vec<DerivedRecord>,
     chains: Vec<Chain>,
+    versions: BTreeMap<(usize, u32), Vec<usize>>,
 }
 
 /// Folds an ordered ledger sequence into the derived view (P-31, T-6).
@@ -247,6 +263,7 @@ pub fn derive(
         members: Vec::new(),
         records: Vec::new(),
         chains: Vec::new(),
+        versions: BTreeMap::new(),
     };
     let mut previous: Option<&Entry<'_>> = None;
     for entry in entries {
@@ -272,56 +289,38 @@ pub fn derive(
     })
 }
 
+fn saw(record: &Record, head: &RecordId) -> bool {
+    record.basis().contains(head) || record.supersedes().any(|t| t == head)
+}
+
 impl Fold<'_> {
     fn step(&mut self, entry: &Entry<'_>) -> Result<(), DeriveError> {
         if self.index.contains_key(&entry.id) {
             return Err(DeriveError::DuplicateRecord(entry.id));
         }
-        let author = &entry.record.core().author;
         let place = self.place(entry.record)?;
         let admission = match RuleSet::of(entry.record) {
-            None => Admission::Quarantined(Reason::ProtocolVersionUnknown),
+            None => Admission::Quarantined(QuarantineReason::ProtocolVersionUnknown),
             Some(RuleSet::V1_0) => self.admission_v1_0(entry, &place),
         };
         let slot = self.records.len();
-        let mut member = Member {
-            chain: None,
-            version: 0,
-            author: author.clone(),
-            admitted: admission == Admission::Admitted,
+        let admitted = admission == Admission::Admitted;
+        let (effect, version) = if admitted {
+            self.mark_superseded(entry);
+            self.effect(entry, &place)
+        } else {
+            (Effect::None(NoEffect::NotAdmitted), None)
         };
-        let mut effect = Effect::None(NoEffect::NotAdmitted);
-        if member.admitted {
-            for target in entry.record.supersedes() {
-                if let Some(&t) = self.index.get(target)
-                    && let Some(r) = self.records.get_mut(t)
-                {
-                    r.superseded_by.push(entry.id);
-                }
-            }
-            match place {
-                Place::Root => {
-                    member.chain = Some(self.chains.len());
-                    self.chains.push(Chain {
-                        root: entry.id,
-                        version: 0,
-                        heads: Vec::new(),
-                        status: ChainStatus::Open,
-                    });
-                }
-                Place::Existing { chain, version } => {
-                    member.chain = Some(chain);
-                    member.version = version;
-                    if let Some(c) = self.chains.get_mut(chain) {
-                        c.version = c.version.max(version);
-                    }
-                }
-                Place::Unknown => {}
-            }
-            effect = self.effect(entry, member.chain);
+        if let Some(key) = version {
+            self.versions.entry(key).or_default().push(slot);
         }
         self.index.insert(entry.id, slot);
-        self.members.push(member);
+        self.members.push(Member {
+            kind: entry.record.kind(),
+            author: entry.record.core().author.clone(),
+            admitted,
+            version,
+        });
         self.records.push(DerivedRecord {
             id: entry.id,
             admission,
@@ -340,14 +339,14 @@ impl Fold<'_> {
         let Some(first) = record.supersedes().next() else {
             return Ok(Place::Root);
         };
-        let Some(chain) = self.member(first).and_then(|m| m.chain) else {
+        let Some((chain, _)) = self.member(first).and_then(|m| m.version) else {
             return Ok(Place::Unknown);
         };
         let latest = record
             .supersedes()
-            .filter_map(|t| self.member(t))
-            .filter(|m| m.chain == Some(chain))
-            .map(|m| m.version)
+            .filter_map(|t| self.member(t).and_then(|m| m.version))
+            .filter(|&(c, _)| c == chain)
+            .map(|(_, v)| v)
             .max()
             .unwrap_or(0);
         let version = latest.checked_add(1).ok_or(DeriveError::Overflow)?;
@@ -359,17 +358,23 @@ impl Fold<'_> {
         if let Ingest::Quarantined(reason) = entry.ingest {
             return Admission::Quarantined(reason);
         }
-        let retroactive = entry
-            .record
-            .effective_at()
-            .is_some_and(|t| t < entry.recorded_at);
-        if retroactive {
+        let record = entry.record;
+        if record.effective_at().is_some_and(|t| t < entry.recorded_at) {
             return Admission::Rejected(Reason::RetroactiveDeclaration);
         }
-        if let Place::Existing { chain, version } = *place {
-            let author = &entry.record.core().author;
-            let repeated = self.members.iter().any(|m| {
-                m.admitted && m.chain == Some(chain) && m.version == version && &m.author == author
+        let kind = record.kind();
+        if record
+            .supersedes()
+            .any(|t| self.member(t).is_some_and(|m| m.kind != kind))
+        {
+            return Admission::Rejected(Reason::SupersedesKindMismatch);
+        }
+        if let (Kind::Declaration, Place::Existing { chain, version }) = (kind, place) {
+            let author = &record.core().author;
+            let repeated = self.versions.get(&(*chain, *version)).is_some_and(|slots| {
+                slots
+                    .iter()
+                    .any(|&m| self.members.get(m).is_some_and(|x| &x.author == author))
             });
             if repeated {
                 return Admission::Rejected(Reason::DuplicateVersion);
@@ -378,17 +383,30 @@ impl Fold<'_> {
         Admission::Admitted
     }
 
+    // P-24 C-33
+    fn mark_superseded(&mut self, entry: &Entry<'_>) {
+        for target in entry.record.supersedes() {
+            let Some(&t) = self.index.get(target) else {
+                continue;
+            };
+            if !self.members.get(t).is_some_and(|m| m.admitted) {
+                continue;
+            }
+            if let Some(r) = self.records.get_mut(t)
+                && r.superseded_by.last() != Some(&entry.id)
+            {
+                r.superseded_by.push(entry.id);
+            }
+        }
+    }
+
     fn author_of(&self, id: &RecordId) -> Option<&PartyRef> {
         self.member(id).map(|m| &m.author)
     }
 
-    // INV-9 C-15 C-16 P-28 T-23 P-87
-    fn effect(&mut self, entry: &Entry<'_>, chain: Option<usize>) -> Effect {
-        let Record::Declaration(declaration) = entry.record else {
-            return Effect::None(NoEffect::NotADeclaration);
-        };
-        let core = &declaration.core;
-        let blocked = if core.versions.protocol > self.inputs.protocol {
+    // T-23 P-87 P-27
+    fn blocked(&self, entry: &Entry<'_>) -> Option<NoEffect> {
+        if entry.record.core().versions.protocol > self.inputs.protocol {
             Some(NoEffect::ProtocolVersion)
         } else if entry.restriction == Restriction::Deny {
             Some(NoEffect::Denied)
@@ -405,53 +423,76 @@ impl Fold<'_> {
             Some(NoEffect::NotYetEffective)
         } else {
             None
-        };
-        if let Some(reason) = blocked {
-            return Effect::None(reason);
         }
-        let Some(index) = chain else {
-            return Effect::None(NoEffect::UnknownTarget);
+    }
+
+    // INV-9 C-15 C-16 P-24 P-28 P-74 P-86
+    fn effect(&mut self, entry: &Entry<'_>, place: &Place) -> (Effect, Option<(usize, u32)>) {
+        let Record::Declaration(declaration) = entry.record else {
+            return (Effect::None(NoEffect::NotADeclaration), None);
         };
-        let Some(state) = self.chains.get(index) else {
-            return Effect::None(NoEffect::UnknownTarget);
-        };
-        let terminal = DeclarationSubtype::from_uri(declaration.subtype.as_str())
-            .is_some_and(DeclarationSubtype::is_terminal);
-        let next_status = if terminal {
+        if let Some(reason) = self.blocked(entry) {
+            return (Effect::None(reason), None);
+        }
+        let subtype = DeclarationSubtype::from_uri(declaration.subtype.as_str());
+        let next_status = if subtype.is_some_and(DeclarationSubtype::is_terminal) {
             ChainStatus::Terminal
         } else {
             ChainStatus::Open
         };
-        let cites_heads = state.heads.iter().all(|h| entry.record.basis().contains(h));
-        let target_is_head = entry
-            .record
-            .supersedes()
-            .next()
-            .is_some_and(|t| state.heads.len() == 1 && state.heads.first() == Some(t));
-        let concurrent_other = state
-            .heads
-            .iter()
-            .any(|h| self.author_of(h).is_some_and(|a| a != &core.author));
-        let (heads, status, effect) = match state.status {
-            ChainStatus::Terminal => return Effect::None(NoEffect::TerminalOutcome),
-            ChainStatus::Conflicted if !cites_heads => return Effect::None(NoEffect::Conflicted),
-            ChainStatus::Open if !(cites_heads || target_is_head) => {
-                if !concurrent_other {
-                    return Effect::None(NoEffect::Stale);
-                }
-                let mut heads = state.heads.clone();
-                heads.push(entry.id);
-                (heads, ChainStatus::Conflicted, Effect::Conflicted)
+        let (index, version) = match *place {
+            Place::Root => {
+                let index = self.chains.len();
+                self.chains.push(Chain {
+                    root: entry.id,
+                    version: 0,
+                    heads: alloc::vec![entry.id],
+                    status: next_status,
+                });
+                return (Effect::Normative, Some((index, 0)));
             }
-            ChainStatus::Open | ChainStatus::Conflicted => {
-                (alloc::vec![entry.id], next_status, Effect::Normative)
+            Place::Unknown => return (Effect::None(NoEffect::UnknownTarget), None),
+            Place::Existing { chain, version } => (chain, version),
+        };
+        let Some(state) = self.chains.get(index) else {
+            return (Effect::None(NoEffect::UnknownTarget), None);
+        };
+        let record = entry.record;
+        let sees_all = state.heads.iter().all(|h| saw(record, h));
+        let effect = match state.status {
+            ChainStatus::Terminal => return (Effect::None(NoEffect::TerminalOutcome), None),
+            ChainStatus::Conflicted
+                if sees_all && subtype == Some(DeclarationSubtype::ConflictResolution) =>
+            {
+                Effect::Normative
+            }
+            ChainStatus::Conflicted => return (Effect::None(NoEffect::Conflicted), None),
+            ChainStatus::Open if sees_all => Effect::Normative,
+            ChainStatus::Open => {
+                let author = &declaration.core.author;
+                let concurrent_other = state
+                    .heads
+                    .iter()
+                    .filter(|h| !saw(record, h))
+                    .any(|h| self.author_of(h).is_some_and(|a| a != author));
+                if !concurrent_other {
+                    return (Effect::None(NoEffect::Stale), None);
+                }
+                Effect::Conflicted
             }
         };
         if let Some(state) = self.chains.get_mut(index) {
-            state.heads = heads;
-            state.status = status;
+            if effect == Effect::Conflicted {
+                state.heads.push(entry.id);
+                state.status = ChainStatus::Conflicted;
+            } else {
+                state.heads.clear();
+                state.heads.push(entry.id);
+                state.status = next_status;
+            }
+            state.version = state.version.max(version);
         }
-        effect
+        (effect, Some((index, version)))
     }
 }
 
@@ -464,26 +505,32 @@ pub enum Agreement {
     Diverged(Vec<RecordId>),
 }
 
-/// Compares two derivations, such as the same records under different trust inputs (T-6).
+/// Compares two derivations of the same records, such as under different trust inputs, matching records by identifier (T-6); records whose result differs, or that only one side holds, are listed in the order of `a` and then of `b`.
 #[must_use]
 pub fn compare(a: &Derivation, b: &Derivation) -> Agreement {
+    let index = |d: &Derivation| -> BTreeMap<RecordId, usize> {
+        d.records
+            .iter()
+            .enumerate()
+            .map(|(i, r)| (r.id, i))
+            .collect()
+    };
+    let (in_a, in_b) = (index(a), index(b));
     let mut differing: Vec<RecordId> = a
         .records
         .iter()
-        .zip(&b.records)
-        .filter(|(x, y)| x != y)
-        .map(|(x, _)| x.id)
+        .filter(|x| {
+            in_b.get(&x.id)
+                .and_then(|&i| b.records.get(i))
+                .is_none_or(|y| y != *x)
+        })
+        .map(|x| x.id)
         .collect();
-    let longer = if a.records.len() > b.records.len() {
-        &a.records
-    } else {
-        &b.records
-    };
     differing.extend(
-        longer
+        b.records
             .iter()
-            .skip(a.records.len().min(b.records.len()))
-            .map(|r| r.id),
+            .filter(|y| !in_a.contains_key(&y.id))
+            .map(|y| y.id),
     );
     if differing.is_empty() && a.chains == b.chains {
         Agreement::Same

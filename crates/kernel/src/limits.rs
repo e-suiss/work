@@ -11,15 +11,32 @@ pub struct SemanticLimits {
     concerns: usize,
 }
 
-/// A configured value wider than the current limit (T-65).
+/// Why a limit cannot be narrowed to a configured value (T-65).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct WidensLimit {
-    /// The limit that would widen.
-    pub limit: Limit,
-    /// The current maximum.
-    pub max: usize,
-    /// The requested value.
-    pub requested: usize,
+#[non_exhaustive]
+pub enum NarrowError {
+    /// The value is wider than the current maximum.
+    Widens {
+        /// The limit that would widen.
+        limit: Limit,
+        /// The current maximum.
+        max: usize,
+        /// The requested value.
+        requested: usize,
+    },
+    /// The limit is structural and belongs to the shared crate, not to these semantic limits.
+    Structural(Limit),
+}
+
+impl NarrowError {
+    /// The stable `snake_case` code of the error.
+    #[must_use]
+    pub const fn code(self) -> &'static str {
+        match self {
+            Self::Widens { .. } => "widens_limit",
+            Self::Structural(_) => "structural_limit",
+        }
+    }
 }
 
 impl SemanticLimits {
@@ -35,27 +52,26 @@ impl SemanticLimits {
     ///
     /// # Errors
     ///
-    /// Returns [`WidensLimit`] when `value` exceeds the current maximum, or when `limit` is not a semantic limit.
-    pub fn narrow(self, limit: Limit, value: usize) -> Result<Self, WidensLimit> {
-        let max = self.max(limit).ok_or(WidensLimit {
-            limit,
-            max: 0,
-            requested: value,
-        })?;
-        if value > max {
-            return Err(WidensLimit {
+    /// Returns [`NarrowError::Widens`] when `value` exceeds the current maximum and [`NarrowError::Structural`] when `limit` is not a semantic limit.
+    pub fn narrow(self, limit: Limit, value: usize) -> Result<Self, NarrowError> {
+        let mut out = self;
+        let slot = match limit {
+            Limit::Basis => &mut out.basis,
+            Limit::OnBehalfOf => &mut out.on_behalf_of,
+            Limit::Relations => &mut out.relations,
+            Limit::Concerns => &mut out.concerns,
+            Limit::Depth | Limit::Items | Limit::String | Limit::Request => {
+                return Err(NarrowError::Structural(limit));
+            }
+        };
+        if value > *slot {
+            return Err(NarrowError::Widens {
                 limit,
-                max,
+                max: *slot,
                 requested: value,
             });
         }
-        let mut out = self;
-        match limit {
-            Limit::Basis => out.basis = value,
-            Limit::OnBehalfOf => out.on_behalf_of = value,
-            Limit::Relations => out.relations = value,
-            _ => out.concerns = value,
-        }
+        *slot = value;
         Ok(out)
     }
 
@@ -100,7 +116,7 @@ mod tests {
         assert_eq!(narrowed.max(Limit::Basis), Some(10));
         assert_eq!(
             narrowed.narrow(Limit::Basis, 11),
-            Err(WidensLimit {
+            Err(NarrowError::Widens {
                 limit: Limit::Basis,
                 max: 10,
                 requested: 11
@@ -117,7 +133,11 @@ mod tests {
                 .narrow(Limit::Relations, 257)
                 .is_err()
         );
-        assert!(SemanticLimits::DEFAULT.narrow(Limit::Depth, 1).is_err());
+        for structural in [Limit::Depth, Limit::Items, Limit::String, Limit::Request] {
+            let error = SemanticLimits::DEFAULT.narrow(structural, 1);
+            assert_eq!(error, Err(NarrowError::Structural(structural)));
+            assert_eq!(error.err().map(NarrowError::code), Some("structural_limit"));
+        }
         let all = SemanticLimits::DEFAULT
             .narrow(Limit::OnBehalfOf, 2)
             .and_then(|l| l.narrow(Limit::Relations, 3))

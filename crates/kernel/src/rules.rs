@@ -4,7 +4,7 @@ use crate::record::{ProtocolVersion, Record};
 
 /// The record and derivation rules of one protocol version (T-4 rule 4, P-87).
 ///
-/// There is no public way to apply a rule set to a record: [`crate::validate::validate`] and [`crate::derive::derive`] select it with [`RuleSet::of`], from the record alone.
+/// There is no public way to apply a rule set to a record: [`crate::validate::validate`] and [`crate::derive::derive`] select it with [`RuleSet::of`], from the record alone; a decoder asks [`RuleSet::for_version`] first, so a record of an unknown version is quarantined before it is mapped.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[non_exhaustive]
 pub enum RuleSet {
@@ -24,11 +24,16 @@ impl RuleSet {
         }
     }
 
-    /// The rule set of the protocol version the record carries; `None` when this kernel does not know that exact version (P-87).
+    /// The rule set of exactly this protocol version; `None` when this kernel does not carry it and the record is quarantined as `protocol_version_unknown` (P-87).
+    #[must_use]
+    pub fn for_version(version: ProtocolVersion) -> Option<Self> {
+        Self::ALL.iter().copied().find(|r| r.protocol() == version)
+    }
+
+    /// The rule set of the protocol version the record carries (P-87).
     #[must_use]
     pub fn of(record: &Record) -> Option<Self> {
-        let version = record.core().versions.protocol;
-        Self::ALL.iter().copied().find(|r| r.protocol() == version)
+        Self::for_version(record.core().versions.protocol)
     }
 }
 
@@ -48,5 +53,16 @@ mod tests {
             RuleSet::V1_0.protocol(),
             ProtocolVersion { major: 1, minor: 0 }
         );
+    }
+
+    // P-87
+    #[test]
+    fn p_87_rule_set_is_decided_from_the_version_alone() {
+        for set in RuleSet::ALL {
+            assert_eq!(RuleSet::for_version(set.protocol()), Some(*set));
+        }
+        for (major, minor) in [(1, 1), (2, 0), (0, 9), (u64::MAX, 0)] {
+            assert_eq!(RuleSet::for_version(ProtocolVersion { major, minor }), None);
+        }
     }
 }

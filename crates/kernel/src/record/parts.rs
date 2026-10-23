@@ -40,7 +40,7 @@ pub struct AuthorityRef {
     pub digest: Digest,
 }
 
-/// Who may see the record; the audience vocabulary is still open (EV-21, EV-24, EV-25).
+/// Who may see the record: the audience and the search and agent-context exclusions (EV-21, EV-24, EV-25, P-77).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Visibility {
     /// The audience.
@@ -58,7 +58,7 @@ pub enum Audience {
     Work,
     /// The author only.
     Author,
-    /// The listed Parties; never empty on the wire.
+    /// The listed Parties, 1 to 256 on the wire, sorted and without the author or a principal (P-77).
     Parties(Vec<PartyRef>),
 }
 

@@ -12,8 +12,8 @@ mod fixtures;
 
 use fixtures::*;
 use work_kernel::derive::{
-    AuthorityIssuer, BusinessCalendar, DerivationInputs, DeriveError, Entry, Ingest,
-    ProfileVersion, Restriction, TrustInputs, derive,
+    Admission, AuthorityIssuer, BusinessCalendar, ChainStatus, DerivationInputs, DeriveError,
+    Effect, Entry, Ingest, ProfileVersion, Restriction, TrustInputs, derive,
 };
 use work_kernel::id::{RecordId, Time};
 use work_kernel::limits::SemanticLimits;
@@ -29,7 +29,7 @@ const OPS: [&str; 4] = ["promise", "amend", "accept", "notice"];
 struct Step {
     author: usize,
     op: usize,
-    target: Option<usize>,
+    targets: Vec<usize>,
     basis: Vec<usize>,
     deny: bool,
 }
@@ -52,7 +52,7 @@ impl Cases {
         Step {
             author: self.below(AUTHORS.len()),
             op: self.below(OPS.len()),
-            target: (self.below(4) != 0).then(|| self.below(32)),
+            targets: (0..self.below(4)).map(|_| self.below(32)).collect(),
             basis: (0..self.below(4)).map(|_| self.below(32)).collect(),
             deny: self.below(5) == 0,
         }
@@ -76,11 +76,15 @@ fn build(steps: &[Step]) -> Vec<(RecordId, Record)> {
             let mut basis: Vec<RecordId> = s.basis.iter().filter_map(|&k| earlier(k)).collect();
             basis.sort();
             basis.dedup();
-            let relations = s.target.and_then(earlier).map(|target| {
-                vec![Relation::Supersedes {
-                    target,
-                    qualifier: None,
-                }]
+            let targets: Vec<RecordId> = s.targets.iter().filter_map(|&k| earlier(k)).collect();
+            let relations = (!targets.is_empty()).then(|| {
+                targets
+                    .into_iter()
+                    .map(|target| Relation::Supersedes {
+                        target,
+                        qualifier: None,
+                    })
+                    .collect()
             });
             let record = declaration(
                 &format!("{CORE}declaration/{}", OPS[s.op]),
@@ -142,6 +146,62 @@ fn inv_7_derivation_is_a_pure_function() {
         let first = derive(&e, &inputs());
         assert!(first.is_ok(), "{steps:?}");
         assert_eq!(first, derive(&e, &inputs()), "{steps:?}");
+    }
+}
+
+// P-28 P-86 T-37
+#[test]
+fn p_28_order_of_the_targets_after_the_first_never_changes_the_result() {
+    let mut cases = Cases(0x0123_4567_89ab_cdef);
+    for _ in 0..CASES {
+        let steps = cases.steps(1, 32);
+        let records = build(&steps);
+        let mut swapped = records.clone();
+        for (_, record) in &mut swapped {
+            if let Some(relations) = core_mut(record).relations.as_mut()
+                && let Some((_, rest)) = relations.split_first_mut()
+            {
+                rest.reverse();
+            }
+        }
+        let a = derive(&entries(&records, &steps, 0), &inputs());
+        let b = derive(&entries(&swapped, &steps, 0), &inputs());
+        assert_eq!(a, b, "{steps:?}");
+    }
+}
+
+// P-24 P-28 P-86 T-37
+#[test]
+fn p_24_derived_view_invariants_hold() {
+    let mut cases = Cases(0x5851_f42d_4c95_7f2d);
+    for _ in 0..CASES {
+        let steps = cases.steps(1, 32);
+        let records = build(&steps);
+        let d = derive(&entries(&records, &steps, 0), &inputs()).unwrap();
+        let effect_of = |id: &RecordId| d.records.iter().find(|r| &r.id == id).map(|r| r.effect);
+        for r in &d.records {
+            let mut seen = r.superseded_by.clone();
+            seen.sort();
+            seen.dedup();
+            assert_eq!(seen.len(), r.superseded_by.len(), "{steps:?}");
+            if !r.superseded_by.is_empty() {
+                assert_eq!(r.admission, Admission::Admitted, "{steps:?}");
+            }
+        }
+        for c in &d.chains {
+            assert!(!c.heads.is_empty(), "{steps:?}");
+            assert_eq!(
+                c.status == ChainStatus::Conflicted,
+                c.heads.len() > 1,
+                "{steps:?}"
+            );
+            for h in &c.heads {
+                assert!(
+                    matches!(effect_of(h), Some(Effect::Normative | Effect::Conflicted)),
+                    "{steps:?}"
+                );
+            }
+        }
     }
 }
 

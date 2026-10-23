@@ -49,10 +49,13 @@ impl TypeUri {
         self.0.starts_with(CORE_ROOT)
     }
 
-    /// True when the URI lies under `namespace`, compared bytewise (P-70).
+    /// True when the URI lies under `namespace`, compared bytewise on a path boundary: the namespace ends with `/`, or the URI continues with `/` or ends there (P-70).
     #[must_use]
     pub fn is_under(&self, namespace: &Self) -> bool {
-        self.0.starts_with(namespace.as_str())
+        let ns = namespace.as_str();
+        self.0
+            .strip_prefix(ns)
+            .is_some_and(|rest| ns.ends_with('/') || rest.is_empty() || rest.starts_with('/'))
     }
 
     /// Canonical CBOR order of two URIs (P-72).
@@ -115,6 +118,20 @@ mod tests {
         assert!(core.is_some_and(|u| u.is_core()));
         let old = TypeUri::parse("https://suiss.org/work/claim/observation");
         assert!(old.is_some_and(|u| !u.is_core()));
+    }
+
+    // P-70 PR-5
+    #[test]
+    fn p_70_namespace_cover_stops_at_a_path_boundary() {
+        let ns = |s: &str| TypeUri::parse(s).unwrap();
+        let bare = ns("https://p.example/ns");
+        let slashed = ns("https://p.example/ns/");
+        assert!(ns("https://p.example/ns/declaration/x").is_under(&bare));
+        assert!(ns("https://p.example/ns/declaration/x").is_under(&slashed));
+        assert!(ns("https://p.example/ns").is_under(&bare));
+        assert!(!ns("https://p.example/nsevil/declaration/x").is_under(&bare));
+        assert!(!ns("https://p.example/nsevil/declaration/x").is_under(&slashed));
+        assert!(!ns("https://p.example/n").is_under(&bare));
     }
 
     // C-13
