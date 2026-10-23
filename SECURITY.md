@@ -19,6 +19,10 @@ Please include:
 - Fixes are always released in the open-source version; security fixes are never limited to a paid offering.
 - Advisories are published as GitHub Security Advisories, and reporters are credited unless they ask otherwise.
 
+## Supported versions
+
+Work is pre-alpha. 0.x releases are published as GitHub pre-releases for evaluation and testing; they are not intended for production use and receive no backported fixes. Report issues against `main` or the latest tag; fixes land on `main` and ship in the next release.
+
 ## Scope
 
-The project is at the specification stage; no released software exists yet. Reports about the specification's security design are welcome through the same private channel.
+Everything in this repository: the kernel and its bindings, the server binaries, release artifacts and their attestations, the CI and release workflows, and the local environment configuration. Reports about the security design are welcome through the same private channel.

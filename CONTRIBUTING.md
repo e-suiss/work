@@ -16,12 +16,13 @@ You need Rust (installed from `rust-toolchain.toml` on first use), [`just`](http
 git clone https://github.com/e-suiss/work.git
 cd work
 git config core.hooksPath .githooks
-just dev    # PostgreSQL 18, NATS JetStream, SoftHSM, OpenTelemetry Collector, Jaeger, Prometheus, Grafana
-just test   # the same tests CI runs on pull requests
-just check  # the same checks CI runs: format, clippy, repository rules, cargo-deny, compose
+just dev          # PostgreSQL 18, NATS JetStream, SoftHSM, OpenTelemetry Collector, Jaeger, Prometheus, Grafana, Access, Relay
+just test         # the same tests CI runs on pull requests
+just web-install  # npm dependencies for the TypeScript packages (lockfile only)
+just check        # the core CI gates: format, clippy, repository rules, record vectors, squawk, cargo-deny, cargo-vet, semgrep, web checks, CDDL, compose
 ```
 
-`just dev` prints the local addresses. Local Access and Relay run in the same environment; until their images are published, `compat.toml` marks them `unpublished` and their services stay off. Other commands: `just --list`.
+`just dev` prints the local addresses. Access and Relay run in the same environment from the images pinned in `compat.toml`; `just db-reset` recreates the databases and starts everything again. `just check` also needs Node.js (version in `.node-version`), Python 3, [uv](https://docs.astral.sh/uv/) (Semgrep runs through it when it is not installed) and `wasm-bindgen-cli` at the version in `Cargo.lock`; CDDL validation runs when the pinned gems in `.github/cddl/Gemfile` are installed (`BUNDLE_GEMFILE=.github/cddl/Gemfile bundle install`) and is skipped otherwise. The browser, Swift, `no_std` and benchmark jobs, CodeQL and secret scanning run in CI. Other commands: `just --list`.
 
 There is no "development mode": security checks are never disabled locally, and Access and Relay are never faked. Local equivalents replace production services: SoftHSM stands in for the HSM (keys are reached only through PKCS#11), and each product has its own database and role on the shared PostgreSQL server.
 

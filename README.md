@@ -4,10 +4,23 @@
 
 Work answers the questions every team and every agent fleet keeps asking: who has this, what was promised to whom, what are we waiting on, what is blocked, which decision is pending — and whose attention is needed right now. It records commitments, not just tasks, and keeps a signed history of who said what, when, and on whose behalf.
 
+[![CI](https://github.com/e-suiss/work/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/e-suiss/work/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 ![Status: pre-alpha](https://img.shields.io/badge/status-pre--alpha-orange.svg)
 
 ---
+
+## Status
+
+Work is pre-alpha and not ready for production use; 0.x releases are published as pre-releases. What exists today:
+
+- **Kernel** — `work-kernel`, a `no_std` Rust library that validates records and derives state from them, with no I/O, no `unsafe` and checked arithmetic
+- **Record format** — a CDDL schema with golden test vectors in JSON and CBOR that every implementation must reproduce byte for byte
+- **Bindings** — WebAssembly with a TypeScript wrapper, and uniffi for Swift and Kotlin; differential tests run the same vectors through Rust, Node.js, Swift, Chromium, Firefox and WebKit
+- **CI gates** — formatting, Clippy, repository rules, cargo-deny, cargo-vet, a 7-day dependency cooldown, CodeQL, Semgrep, secret scanning, instruction-count benchmarks, and signed releases with provenance and SBOM attestations
+- **Local environment** — PostgreSQL, NATS, SoftHSM, an observability stack and the real Access and Relay services, started with one command
+
+Everything under [What Work is designed to do](#what-work-is-designed-to-do) is the target design; it lands stage by stage.
 
 ## Why Work
 
@@ -17,7 +30,7 @@ AI agents make this harder. An agent can take work, run for hours on another mac
 
 Work is not designed around any profession or tool. Software teams, operations, support, finance and robot fleets use the same core; domain vocabulary is added as Practices on top.
 
-## Features
+## What Work is designed to do
 
 **Commitments, not just tasks**
 - Request → promise → deliver → accept, with counter-offers, conditional promises and four-eyes acceptance
@@ -80,15 +93,18 @@ Work records and derives; it does not execute. Identity, authority and the actua
 
 ## Getting started
 
-Work is pre-alpha: the repository foundation, CI gates and local environment are in place; the protocol and features land stage by stage. You need Rust (the toolchain in `rust-toolchain.toml` installs itself), [`just`](https://github.com/casey/just) and Docker.
+You need Rust (the toolchain in `rust-toolchain.toml` installs itself), [`just`](https://github.com/casey/just) and Docker. `just check` also uses Node.js (version in `.node-version`), Python 3, [uv](https://docs.astral.sh/uv/) for Semgrep, and `wasm-bindgen-cli` at the version in `Cargo.lock`; CDDL validation runs when Ruby and Bundler are available.
 
 ```sh
 git clone https://github.com/e-suiss/work.git
 cd work
-just dev     # PostgreSQL, NATS, SoftHSM and the observability stack; local Access and Relay join once their images are published
-just test    # the tests CI runs on every change
-just check   # the same gates as CI
+just dev           # PostgreSQL, NATS, SoftHSM, observability, Access and Relay
+just test          # the Rust test suite CI runs on every change
+just web-install   # npm dependencies for the TypeScript packages (lockfile only)
+just check         # the core CI gates: format, Clippy, repository rules, vectors, migrations, supply chain, Semgrep, web checks, CDDL, compose
 ```
+
+CI additionally runs the browser, Swift, `no_std` and benchmark jobs, CodeQL and secret scanning. `just --list` shows every command.
 
 ## Tech stack
 
