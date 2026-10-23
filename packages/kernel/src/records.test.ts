@@ -10,7 +10,7 @@ import type {
   RecordContext,
   Validation,
 } from "./index.js";
-import { KernelInputError, loadKernel } from "./index.js";
+import { KernelInputError, QUARANTINE_CODES, REASON_CODES, loadKernel } from "./index.js";
 import { deriveRecords, validateRecord } from "../wasm/work_kernel_wasm.js";
 
 interface RecordCase {
@@ -31,6 +31,14 @@ interface Envelope {
 
 const vectors = new URL("../../../conformance/vectors/records/", import.meta.url);
 const fixtures = new URL("../../../sdks/bindings/core/tests/fixtures/", import.meta.url);
+
+function sortedJson(value: unknown): string {
+  return JSON.stringify(value, (_key, v: unknown) =>
+    v !== null && typeof v === "object" && !Array.isArray(v)
+      ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)))
+      : v,
+  );
+}
 
 async function text(base: URL, name: string): Promise<string> {
   return readFile(new URL(name, base), "utf8");
@@ -75,10 +83,22 @@ describe("t_5_t_37_inv_7 WebAssembly kernel matches every record vector", () => 
     }
   });
 
+  it("names only kernel reason codes", () => {
+    const codes: readonly string[] = REASON_CODES;
+    const quarantines: readonly string[] = QUARANTINE_CODES;
+    for (const c of cases) {
+      if (c.expect.outcome === "reject") {
+        expect(codes, c.id).toContain(c.expect.reason);
+      } else if (c.expect.outcome === "quarantine") {
+        expect(quarantines, c.id).toContain(c.expect.reason);
+      }
+    }
+  });
+
   it.each(cases)("$id", (c) => {
     const decoded = JSON.stringify(c.decoded);
     const ctx = JSON.stringify(c.context);
-    expect(JSON.parse(validateRecord(decoded, ctx))).toStrictEqual(c.expect);
+    expect(validateRecord(decoded, ctx)).toBe(sortedJson(c.expect));
     expect(kernel.validateRecord(c.decoded, c.context)).toStrictEqual(c.expect);
   });
 });

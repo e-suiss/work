@@ -15,7 +15,11 @@ import type {
   VersionOrder,
 } from "../wasm/work_kernel_wasm.js";
 
+import type { QuarantineCode, ReasonCode, WithSubCode } from "./reasons.js";
+
 export type { ChangeOutcome, PolicyDirection, SwitchBasis, SwitchOutcome, VersionOrder };
+export type { QuarantineCode, ReasonCode, WithSubCode };
+export { QUARANTINE_CODES, REASON_CODES } from "./reasons.js";
 
 export type KernelSource = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
@@ -33,11 +37,98 @@ export interface PolicyDefault {
 export type JsonValue =
   null | boolean | number | string | readonly JsonValue[] | { readonly [key: string]: JsonValue };
 
-/** A record as the `decoded` JSON projection of its CBOR: byte strings as lowercase hex, integers beyond 2^53 as decimal strings. */
-export type DecodedRecord = Readonly<Record<string, JsonValue>>;
-
 /** A digest as `[-16, hex]` (P-5). */
 export type DigestJson = readonly [-16, string];
+
+/** An unsigned integer: a JSON number, or a decimal string beyond 2^53. */
+export type UintJson = number | string;
+
+/** Who may see a record (P-77, EV-21). */
+export interface VisibilityJson {
+  readonly see: "work" | "author" | readonly ["parties", readonly string[]];
+  readonly search?: false;
+  readonly agent_context?: false;
+}
+
+/** A typed relation endpoint (P-73). */
+export type EndpointJson =
+  readonly ["record" | "evidence", DigestJson] | readonly ["work" | "party" | "external", string];
+
+/** One of the eight canonical relations (C-25, P-73). */
+export interface RelationJson {
+  readonly rel:
+    | "engaged_in"
+    | "concerns"
+    | "part_of"
+    | "serves"
+    | "supersedes"
+    | "derived_from"
+    | "on_behalf_of"
+    | "references";
+  readonly source?: EndpointJson;
+  readonly target: EndpointJson;
+  readonly qualifier?: string;
+}
+
+/** A typed evidence reference (EV-3). */
+export interface EvidenceJson {
+  readonly subject: DigestJson | string;
+  readonly type: string;
+  readonly presenter: string;
+  readonly claimed_at?: UintJson;
+  readonly source?: string;
+  readonly observation?: DigestJson;
+  readonly visibility?: VisibilityJson;
+  readonly signature: DigestJson;
+}
+
+/** A normative parameter scalar (P-80). */
+export type ParamScalarJson = UintJson | boolean | DigestJson;
+
+/**
+ * A protocol 1.0 record as the `decoded` JSON projection of its CBOR: byte strings as lowercase hex, integers beyond 2^53 as decimal strings (P-10, P-87).
+ * A record of another protocol version is passed as its projection cast to this type; the kernel quarantines it before reading any other field.
+ */
+export interface DecodedRecord {
+  readonly kind: "act" | "declaration" | "claim";
+  readonly type: string;
+  readonly occurred_at?: UintJson;
+  readonly author: string;
+  readonly on_behalf_of?: readonly string[];
+  readonly capacity?: "own" | readonly ["for", string];
+  readonly basis?: readonly DigestJson[];
+  readonly visibility: VisibilityJson;
+  readonly ledger: DigestJson;
+  readonly concerns: readonly string[];
+  readonly relations?: readonly RelationJson[];
+  readonly authority?: {
+    readonly proof:
+      | "decision_receipt"
+      | "portable_authority_proof"
+      | "approval_act_statement"
+      | "eligibility_check";
+    readonly digest: DigestJson;
+  };
+  readonly producer?: {
+    readonly version: string;
+    readonly config: DigestJson;
+    readonly model?: string;
+    readonly toolset?: DigestJson;
+    readonly instructions?: DigestJson;
+    readonly attestation?: DigestJson;
+  };
+  readonly correlation?: readonly (readonly [string, string])[];
+  readonly evidence?: readonly EvidenceJson[];
+  readonly body?: readonly { readonly part: string; readonly commit: DigestJson }[];
+  readonly params?: Readonly<Record<string, ParamScalarJson | readonly ParamScalarJson[]>>;
+  readonly versions: {
+    readonly protocol: readonly [UintJson, UintJson];
+    readonly schema: DigestJson;
+    readonly practices?: Readonly<Record<string, DigestJson>>;
+  };
+  readonly ext?: Readonly<Record<string, JsonValue>>;
+  readonly critical?: readonly string[];
+}
 
 export type ActorType = "human" | "agent" | "system" | "machine" | "organization";
 export type ActorTypeSource = "access_binding" | "declared_unverified";
@@ -51,21 +142,22 @@ export interface RecordContext {
     readonly on_behalf_of?: readonly ActorTypeEntry[];
   };
   readonly understood_extensions: readonly string[];
-  readonly recorded_at?: number | string;
+  readonly recorded_at?: UintJson;
 }
 
 /** The kernel's decision about one record (P-11, P-19). */
 export type Validation =
   | { readonly outcome: "accept" }
-  | { readonly outcome: "reject" | "quarantine"; readonly reason: string };
+  | { readonly outcome: "reject"; readonly reason: ReasonCode }
+  | { readonly outcome: "quarantine"; readonly reason: QuarantineCode };
 
 /** One ledger record with the envelope facts derivation needs. */
 export interface DerivationEntry {
   readonly id: DigestJson;
   readonly record: DecodedRecord;
-  readonly position: number | string;
-  readonly recorded_at: number | string;
-  readonly ingest: "admitted" | readonly ["quarantined", string];
+  readonly position: UintJson;
+  readonly recorded_at: UintJson;
+  readonly ingest: "admitted" | readonly ["quarantined", WithSubCode<QuarantineCode>];
   readonly restriction: "no_objection" | "deny" | "require";
   readonly issuer: "local" | readonly ["federated", string];
 }
@@ -76,11 +168,12 @@ export interface DerivationInputs {
   readonly profile: number;
   readonly practices: Readonly<Record<string, DigestJson>>;
   readonly trusted_publishers: readonly string[];
-  readonly ledger_time: number | string;
+  readonly ledger_time: UintJson;
   readonly calendar: "continuous";
 }
 
-export type Admission = "admitted" | readonly ["quarantined" | "rejected", string];
+export type Admission =
+  "admitted" | readonly ["quarantined", QuarantineCode] | readonly ["rejected", ReasonCode];
 
 export type Effect = "normative" | "conflicted" | readonly ["none", string];
 
@@ -194,29 +287,25 @@ function evaluateSecuritySwitch(
   return outcome;
 }
 
-interface Answer {
-  readonly error?: Readonly<Record<string, JsonValue>>;
-  readonly derivation?: Derivation;
+interface InputError {
+  readonly error: Readonly<Record<string, JsonValue>>;
 }
 
-function answer(text: string): Answer {
-  const parsed = JSON.parse(text) as Answer;
-  if (parsed.error !== undefined) {
+function unwrap<T extends object>(parsed: T | InputError): T {
+  if ("error" in parsed) {
     throw new KernelInputError(parsed.error);
   }
   return parsed;
 }
 
 function validateRecord(decoded: DecodedRecord, context: RecordContext): Validation {
-  return answer(wasmValidateRecord(JSON.stringify(decoded), JSON.stringify(context))) as Validation;
+  const text = wasmValidateRecord(JSON.stringify(decoded), JSON.stringify(context));
+  return unwrap(JSON.parse(text) as Validation | InputError);
 }
 
 function deriveRecords(entries: readonly DerivationEntry[], inputs: DerivationInputs): Derivation {
-  const { derivation } = answer(wasmDeriveRecords(JSON.stringify(entries), JSON.stringify(inputs)));
-  if (derivation === undefined) {
-    throw new KernelInputError({ code: "no_derivation" });
-  }
-  return derivation;
+  const text = wasmDeriveRecords(JSON.stringify(entries), JSON.stringify(inputs));
+  return unwrap(JSON.parse(text) as { readonly derivation: Derivation } | InputError).derivation;
 }
 
 let loading: Promise<Kernel> | undefined;

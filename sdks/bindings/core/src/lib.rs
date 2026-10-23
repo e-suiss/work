@@ -8,7 +8,7 @@ mod derivation;
 use serde_json::{Map, Value, json};
 use work_kernel::id::Time;
 use work_kernel::limits::SemanticLimits;
-use work_kernel::reason::{Reason, Schema};
+use work_kernel::reason::{QuarantineReason, Reason, Schema};
 use work_kernel::uri::ExtKey;
 use work_kernel::validate::{
     ActorType, ActorTypeEntry, ActorTypeSource, ActorTypes, Origin, Outcome, ValidationContext,
@@ -87,9 +87,16 @@ pub fn validate_record(decoded: &str, context_json: &str) -> String {
     let Ok(ctx) = context(&context_value) else {
         return input_error("invalid_context");
     };
-    let outcome = match decode::record(&decoded) {
+    let outcome = match decode::structure(&decoded).and_then(|()| {
+        if decode::unknown_protocol(&decoded) {
+            Ok(None)
+        } else {
+            decode::record(&decoded).map(Some)
+        }
+    }) {
         Err(reason) => Outcome::Rejected(reason),
-        Ok(record) => validate(
+        Ok(None) => Outcome::Quarantined(QuarantineReason::ProtocolVersionUnknown),
+        Ok(Some(record)) => validate(
             &record,
             &ValidationContext {
                 origin: ctx.origin,

@@ -611,6 +611,317 @@
       "expect": {
         "outcome": "accept"
       }
+    },
+    {
+      "id": "record/declaration-open-condition-decision-gate",
+      "rules": [
+        "P-80",
+        "P-84",
+        "P-85",
+        "P-92",
+        "ST-10",
+        "ST-12",
+        "ST-27",
+        "P-92"
+      ],
+      "purpose": "A decision gate opened with the approval form, the addressed Party, a deadline and a criterion URI.",
+      "diag": "{\n  \"kind\": \"declaration\",\n  \"type\": \"https://suiss.app/ns/work/declaration/open_condition\",\n  \"basis\": [\n    [-16, h'79256c6126bb0a8f50a9037ce86d92cd2fed7632c159f8c656311ccbd61750cd']\n  ],\n  \"author\": \"party:acme:alice\",\n  \"ledger\": [-16, h'ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce2'],\n  \"params\": {\n    \"address\": \"party:acme:buyer-org\",\n    \"deadline\": 1792800000000,\n    \"criterion\": \"https://procurement.example/ns/criterion/budget_approved\",\n    \"gate_form\": \"approval\",\n    \"wait_reason\": \"internal\",\n    \"condition_type\": \"https://suiss.app/ns/work/condition/decision\"\n  },\n  \"capacity\": \"own\",\n  \"concerns\": [h'019a2f4c8e1b7c3da5e6f70812345678'],\n  \"versions\": {\n    \"schema\": [-16, h'0038deaaa556b892bedb09187b5df227e20b25cc180c7f162ce45f3814deea78'],\n    \"protocol\": [1, 0]\n  },\n  \"authority\": {\n    \"proof\": \"decision_receipt\",\n    \"digest\": [-16, h'6eb638ac1a0c4dadca311d59a69820d8efaacd1f343e4b3815a25eb084135c97']\n  },\n  \"visibility\": {\n    \"see\": \"work\"\n  }\n}",
+      "hex": "ab646b696e646b6465636c61726174696f6e6474797065783468747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f6f70656e5f636f6e646974696f6e65626173697381822f582079256c6126bb0a8f50a9037ce86d92cd2fed7632c159f8c656311ccbd61750cd66617574686f727070617274793a61636d653a616c696365666c6564676572822f5820ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce266706172616d73a667616464726573737470617274793a61636d653a62757965722d6f726768646561646c696e651b000001a16b35080069637269746572696f6e783868747470733a2f2f70726f637572656d656e742e6578616d706c652f6e732f637269746572696f6e2f6275646765745f617070726f76656469676174655f666f726d68617070726f76616c6b776169745f726561736f6e68696e7465726e616c6e636f6e646974696f6e5f74797065782c68747470733a2f2f73756973732e6170702f6e732f776f726b2f636f6e646974696f6e2f6465636973696f6e686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f58200038deaaa556b892bedb09187b5df227e20b25cc180c7f162ce45f3814deea786870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f58206eb638ac1a0c4dadca311d59a69820d8efaacd1f343e4b3815a25eb084135c976a7669736962696c697479a16373656564776f726b",
+      "decoded": {
+        "kind": "declaration",
+        "type": "https://suiss.app/ns/work/declaration/open_condition",
+        "basis": [
+          [
+            -16,
+            "79256c6126bb0a8f50a9037ce86d92cd2fed7632c159f8c656311ccbd61750cd"
+          ]
+        ],
+        "author": "party:acme:alice",
+        "ledger": [
+          -16,
+          "ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce2"
+        ],
+        "params": {
+          "address": "party:acme:buyer-org",
+          "deadline": 1792800000000,
+          "criterion": "https://procurement.example/ns/criterion/budget_approved",
+          "gate_form": "approval",
+          "wait_reason": "internal",
+          "condition_type": "https://suiss.app/ns/work/condition/decision"
+        },
+        "capacity": "own",
+        "concerns": [
+          "019a2f4c8e1b7c3da5e6f70812345678"
+        ],
+        "versions": {
+          "schema": [
+            -16,
+            "0038deaaa556b892bedb09187b5df227e20b25cc180c7f162ce45f3814deea78"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "authority": {
+          "proof": "decision_receipt",
+          "digest": [
+            -16,
+            "6eb638ac1a0c4dadca311d59a69820d8efaacd1f343e4b3815a25eb084135c97"
+          ]
+        },
+        "visibility": {
+          "see": "work"
+        }
+      },
+      "context": {
+        "origin": "direct",
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": []
+      },
+      "record_digest": "822f58201c27bc6a48ad53d2749458ce71d97b82d77a096f2e118fffa1b97b2d1c79ddbb",
+      "cddl": "pass",
+      "expect": {
+        "outcome": "accept"
+      }
+    },
+    {
+      "id": "record/declaration-open-condition-practice-type",
+      "rules": [
+        "P-80",
+        "P-71",
+        "P-92",
+        "ST-10",
+        "ST-11",
+        "ST-12",
+        "PR-3",
+        "P-92"
+      ],
+      "purpose": "A wait with a condition type from the pinned Practice, an external wait reason, a URI address, an explicit open-ended deadline and a criterion URI; a Practice condition type takes no gate form rule.",
+      "diag": "{\n  \"kind\": \"declaration\",\n  \"type\": \"https://suiss.app/ns/work/declaration/open_condition\",\n  \"basis\": [\n    [-16, h'c913b1f400bee6a835134b25d4fa2ce2265e887070fa69b7889fd778b1278405']\n  ],\n  \"author\": \"party:globex:supplier\",\n  \"ledger\": [-16, h'ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce2'],\n  \"params\": {\n    \"address\": \"https://customs.example/ns/office/ist\",\n    \"deadline\": \"none\",\n    \"criterion\": \"https://procurement.example/ns/criterion/customs_released\",\n    \"wait_reason\": \"external\",\n    \"condition_type\": \"https://procurement.example/ns/condition/customs_clearance\"\n  },\n  \"capacity\": \"own\",\n  \"concerns\": [h'019a2f4c8e1b7c3da5e6f70887654321'],\n  \"versions\": {\n    \"schema\": [-16, h'0038deaaa556b892bedb09187b5df227e20b25cc180c7f162ce45f3814deea78'],\n    \"protocol\": [1, 0],\n    \"practices\": {\n      \"https://procurement.example/ns/\": [-16, h'a44f23f8a3aae2c1d733a4008c1cf213f87d9af3baa57d378183828971574efe']\n    }\n  },\n  \"authority\": {\n    \"proof\": \"decision_receipt\",\n    \"digest\": [-16, h'e506973dd3bf287e1301bcf79b9fc9cb201fdaa19ac1f5ff085ae2cf924a81b3']\n  },\n  \"visibility\": {\n    \"see\": \"work\"\n  }\n}",
+      "hex": "ab646b696e646b6465636c61726174696f6e6474797065783468747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f6f70656e5f636f6e646974696f6e65626173697381822f5820c913b1f400bee6a835134b25d4fa2ce2265e887070fa69b7889fd778b127840566617574686f727570617274793a676c6f6265783a737570706c696572666c6564676572822f5820ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce266706172616d73a56761646472657373782568747470733a2f2f637573746f6d732e6578616d706c652f6e732f6f66666963652f69737468646561646c696e65646e6f6e6569637269746572696f6e783968747470733a2f2f70726f637572656d656e742e6578616d706c652f6e732f637269746572696f6e2f637573746f6d735f72656c65617365646b776169745f726561736f6e6865787465726e616c6e636f6e646974696f6e5f74797065783a68747470733a2f2f70726f637572656d656e742e6578616d706c652f6e732f636f6e646974696f6e2f637573746f6d735f636c656172616e6365686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708876543216876657273696f6e73a366736368656d61822f58200038deaaa556b892bedb09187b5df227e20b25cc180c7f162ce45f3814deea786870726f746f636f6c82010069707261637469636573a1781f68747470733a2f2f70726f637572656d656e742e6578616d706c652f6e732f822f5820a44f23f8a3aae2c1d733a4008c1cf213f87d9af3baa57d378183828971574efe69617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f5820e506973dd3bf287e1301bcf79b9fc9cb201fdaa19ac1f5ff085ae2cf924a81b36a7669736962696c697479a16373656564776f726b",
+      "decoded": {
+        "kind": "declaration",
+        "type": "https://suiss.app/ns/work/declaration/open_condition",
+        "basis": [
+          [
+            -16,
+            "c913b1f400bee6a835134b25d4fa2ce2265e887070fa69b7889fd778b1278405"
+          ]
+        ],
+        "author": "party:globex:supplier",
+        "ledger": [
+          -16,
+          "ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce2"
+        ],
+        "params": {
+          "address": "https://customs.example/ns/office/ist",
+          "deadline": "none",
+          "criterion": "https://procurement.example/ns/criterion/customs_released",
+          "wait_reason": "external",
+          "condition_type": "https://procurement.example/ns/condition/customs_clearance"
+        },
+        "capacity": "own",
+        "concerns": [
+          "019a2f4c8e1b7c3da5e6f70887654321"
+        ],
+        "versions": {
+          "schema": [
+            -16,
+            "0038deaaa556b892bedb09187b5df227e20b25cc180c7f162ce45f3814deea78"
+          ],
+          "protocol": [
+            1,
+            0
+          ],
+          "practices": {
+            "https://procurement.example/ns/": [
+              -16,
+              "a44f23f8a3aae2c1d733a4008c1cf213f87d9af3baa57d378183828971574efe"
+            ]
+          }
+        },
+        "authority": {
+          "proof": "decision_receipt",
+          "digest": [
+            -16,
+            "e506973dd3bf287e1301bcf79b9fc9cb201fdaa19ac1f5ff085ae2cf924a81b3"
+          ]
+        },
+        "visibility": {
+          "see": "work"
+        }
+      },
+      "context": {
+        "origin": "direct",
+        "actor_type": {
+          "author": [
+            "organization",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": []
+      },
+      "record_digest": "822f5820ebe2f8a7c597c9680371d2b9b77901422af26c94a32cf570204f40946fc79816",
+      "cddl": "pass",
+      "expect": {
+        "outcome": "accept"
+      }
+    },
+    {
+      "id": "record/declaration-cancel-reason-sub-code",
+      "rules": [
+        "P-71",
+        "P-85",
+        "P-93",
+        "CM-30",
+        "P-92"
+      ],
+      "purpose": "Cancel with a namespaced sub-code of the catalog reason other; the sub-code reads as its parent.",
+      "diag": "{\n  \"kind\": \"declaration\",\n  \"type\": \"https://suiss.app/ns/work/declaration/cancel\",\n  \"basis\": [\n    [-16, h'12cae033186309f659063dbd91e267983caec2f488f1c50f8794e8901e27741c']\n  ],\n  \"author\": \"party:acme:alice\",\n  \"ledger\": [-16, h'ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce2'],\n  \"params\": {\n    \"reason\": \"other:https://procurement.example/ns/reason/budget_frozen\"\n  },\n  \"capacity\": \"own\",\n  \"concerns\": [h'019a2f4c8e1b7c3da5e6f70812345678'],\n  \"versions\": {\n    \"schema\": [-16, h'3cc45505b948cf4458a37be66c0dc8a75e5c5589c1e792140898681a1a64cd1b'],\n    \"protocol\": [1, 0]\n  },\n  \"authority\": {\n    \"proof\": \"decision_receipt\",\n    \"digest\": [-16, h'85006766d2a386db1745999403348a71603736a1b9d8f43e79e34b1dc7f4cd48']\n  },\n  \"visibility\": {\n    \"see\": \"work\"\n  }\n}",
+      "hex": "ab646b696e646b6465636c61726174696f6e6474797065782c68747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f63616e63656c65626173697381822f582012cae033186309f659063dbd91e267983caec2f488f1c50f8794e8901e27741c66617574686f727070617274793a61636d653a616c696365666c6564676572822f5820ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce266706172616d73a166726561736f6e78396f746865723a68747470733a2f2f70726f637572656d656e742e6578616d706c652f6e732f726561736f6e2f6275646765745f66726f7a656e686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f58203cc45505b948cf4458a37be66c0dc8a75e5c5589c1e792140898681a1a64cd1b6870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f582085006766d2a386db1745999403348a71603736a1b9d8f43e79e34b1dc7f4cd486a7669736962696c697479a16373656564776f726b",
+      "decoded": {
+        "kind": "declaration",
+        "type": "https://suiss.app/ns/work/declaration/cancel",
+        "basis": [
+          [
+            -16,
+            "12cae033186309f659063dbd91e267983caec2f488f1c50f8794e8901e27741c"
+          ]
+        ],
+        "author": "party:acme:alice",
+        "ledger": [
+          -16,
+          "ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce2"
+        ],
+        "params": {
+          "reason": "other:https://procurement.example/ns/reason/budget_frozen"
+        },
+        "capacity": "own",
+        "concerns": [
+          "019a2f4c8e1b7c3da5e6f70812345678"
+        ],
+        "versions": {
+          "schema": [
+            -16,
+            "3cc45505b948cf4458a37be66c0dc8a75e5c5589c1e792140898681a1a64cd1b"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "authority": {
+          "proof": "decision_receipt",
+          "digest": [
+            -16,
+            "85006766d2a386db1745999403348a71603736a1b9d8f43e79e34b1dc7f4cd48"
+          ]
+        },
+        "visibility": {
+          "see": "work"
+        }
+      },
+      "context": {
+        "origin": "direct",
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": []
+      },
+      "record_digest": "822f5820bfd88213d331f80e1a4291256ceeafde226d8ac6390946097aaf3cab566cf04a",
+      "cddl": "pass",
+      "expect": {
+        "outcome": "accept"
+      }
+    },
+    {
+      "id": "record/claim-practice-params-digest-and-list",
+      "rules": [
+        "P-80",
+        "P-70",
+        "C-27",
+        "P-92"
+      ],
+      "purpose": "Practice Claim whose params carry a digest scalar written as [-16, bytes] and a list of text scalars, with a Practice qualifier on references under the pinned namespace.",
+      "diag": "{\n  \"kind\": \"claim\",\n  \"type\": \"https://procurement.example/ns/claim/inspection\",\n  \"author\": \"party:acme:alice\",\n  \"ledger\": [-16, h'ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce2'],\n  \"params\": {\n    \"sample_ids\": [\"lot-4471-a-01\", \"lot-4471-a-02\"],\n    \"inspected_lot\": [-16, h'f8bde7945a497693288991cd6b2f9d19995bf9f4602c2b3907528d20646457e5']\n  },\n  \"capacity\": \"own\",\n  \"concerns\": [h'019a2f4c8e1b7c3da5e6f70812345678'],\n  \"versions\": {\n    \"schema\": [-16, h'32ca4092b67152798d222c623b897e159b1ea60ebcfa3bc7447227ec8e814c8e'],\n    \"protocol\": [1, 0],\n    \"practices\": {\n      \"https://procurement.example/ns/\": [-16, h'a44f23f8a3aae2c1d733a4008c1cf213f87d9af3baa57d378183828971574efe']\n    }\n  },\n  \"relations\": [\n    {\n      \"rel\": \"references\",\n      \"target\": [\"external\", \"https://erp.example/orders/PO-4471\"],\n      \"qualifier\": \"https://procurement.example/ns/relation/inspected_order\"\n    }\n  ],\n  \"visibility\": {\n    \"see\": \"work\"\n  },\n  \"occurred_at\": 1792109070000\n}",
+      "hex": "ab646b696e6465636c61696d6474797065782f68747470733a2f2f70726f637572656d656e742e6578616d706c652f6e732f636c61696d2f696e7370656374696f6e66617574686f727070617274793a61636d653a616c696365666c6564676572822f5820ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce266706172616d73a26a73616d706c655f696473826d6c6f742d343437312d612d30316d6c6f742d343437312d612d30326d696e737065637465645f6c6f74822f5820f8bde7945a497693288991cd6b2f9d19995bf9f4602c2b3907528d20646457e5686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a366736368656d61822f582032ca4092b67152798d222c623b897e159b1ea60ebcfa3bc7447227ec8e814c8e6870726f746f636f6c82010069707261637469636573a1781f68747470733a2f2f70726f637572656d656e742e6578616d706c652f6e732f822f5820a44f23f8a3aae2c1d733a4008c1cf213f87d9af3baa57d378183828971574efe6972656c6174696f6e7381a36372656c6a7265666572656e63657366746172676574826865787465726e616c782268747470733a2f2f6572702e6578616d706c652f6f72646572732f504f2d34343731697175616c6966696572783768747470733a2f2f70726f637572656d656e742e6578616d706c652f6e732f72656c6174696f6e2f696e737065637465645f6f726465726a7669736962696c697479a16373656564776f726b6b6f636375727265645f61741b000001a1420646b0",
+      "decoded": {
+        "kind": "claim",
+        "type": "https://procurement.example/ns/claim/inspection",
+        "author": "party:acme:alice",
+        "ledger": [
+          -16,
+          "ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce2"
+        ],
+        "params": {
+          "sample_ids": [
+            "lot-4471-a-01",
+            "lot-4471-a-02"
+          ],
+          "inspected_lot": [
+            -16,
+            "f8bde7945a497693288991cd6b2f9d19995bf9f4602c2b3907528d20646457e5"
+          ]
+        },
+        "capacity": "own",
+        "concerns": [
+          "019a2f4c8e1b7c3da5e6f70812345678"
+        ],
+        "versions": {
+          "schema": [
+            -16,
+            "32ca4092b67152798d222c623b897e159b1ea60ebcfa3bc7447227ec8e814c8e"
+          ],
+          "protocol": [
+            1,
+            0
+          ],
+          "practices": {
+            "https://procurement.example/ns/": [
+              -16,
+              "a44f23f8a3aae2c1d733a4008c1cf213f87d9af3baa57d378183828971574efe"
+            ]
+          }
+        },
+        "relations": [
+          {
+            "rel": "references",
+            "target": [
+              "external",
+              "https://erp.example/orders/PO-4471"
+            ],
+            "qualifier": "https://procurement.example/ns/relation/inspected_order"
+          }
+        ],
+        "visibility": {
+          "see": "work"
+        },
+        "occurred_at": 1792109070000
+      },
+      "context": {
+        "origin": "direct",
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": []
+      },
+      "record_digest": "822f582024efa7df229e9eac7445799e8997a7fc4b6cf57d9a3b419127a86082e9d2d854",
+      "cddl": "pass",
+      "expect": {
+        "outcome": "accept"
+      }
     }
   ],
   "envelopes": [
@@ -942,6 +1253,198 @@
         ]
       },
       "leaf_hash": "04bbfef21fd4748bc5d2d164ed9a7c86564c328216dfaf8cde0d18e559cea099",
+      "cddl": "pass",
+      "expect": {
+        "outcome": "accept"
+      }
+    },
+    {
+      "id": "envelope/declaration-open-condition-decision-gate",
+      "rules": [
+        "P-11",
+        "P-12",
+        "P-21",
+        "P-67",
+        "P-75",
+        "P-76"
+      ],
+      "diag": "{\n  \"pos\": 48,\n  \"prev\": [-16, h'04bbfef21fd4748bc5d2d164ed9a7c86564c328216dfaf8cde0d18e559cea099'],\n  \"ingest\": \"admitted\",\n  \"ledger\": [-16, h'ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce2'],\n  \"record\": [-16, h'1c27bc6a48ad53d2749458ce71d97b82d77a096f2e118fffa1b97b2d1c79ddbb'],\n  \"actor_type\": {\n    \"author\": [\"human\", \"access_binding\"]\n  },\n  \"recorded_at\": 1792109107000,\n  \"auth_context\": {\n    \"ref\": [-16, h'0b82a4c5620d4a23928c3888a88c7d6c1a2378d4b5b7712e6b60a0f4c24abe1f'],\n    \"step_up\": false,\n    \"assurance\": \"aal2\"\n  }\n}",
+      "hex": "a863706f7318306470726576822f582004bbfef21fd4748bc5d2d164ed9a7c86564c328216dfaf8cde0d18e559cea09966696e676573746861646d6974746564666c6564676572822f5820ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce2667265636f7264822f58201c27bc6a48ad53d2749458ce71d97b82d77a096f2e118fffa1b97b2d1c79ddbb6a6163746f725f74797065a166617574686f72826568756d616e6e6163636573735f62696e64696e676b7265636f726465645f61741b000001a14206d7386c617574685f636f6e74657874a363726566822f58200b82a4c5620d4a23928c3888a88c7d6c1a2378d4b5b7712e6b60a0f4c24abe1f67737465705f7570f4696173737572616e63656461616c32",
+      "decoded": {
+        "pos": 48,
+        "prev": [
+          -16,
+          "04bbfef21fd4748bc5d2d164ed9a7c86564c328216dfaf8cde0d18e559cea099"
+        ],
+        "ingest": "admitted",
+        "ledger": [
+          -16,
+          "ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce2"
+        ],
+        "record": [
+          -16,
+          "1c27bc6a48ad53d2749458ce71d97b82d77a096f2e118fffa1b97b2d1c79ddbb"
+        ],
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        },
+        "recorded_at": 1792109107000,
+        "auth_context": {
+          "ref": [
+            -16,
+            "0b82a4c5620d4a23928c3888a88c7d6c1a2378d4b5b7712e6b60a0f4c24abe1f"
+          ],
+          "step_up": false,
+          "assurance": "aal2"
+        }
+      },
+      "leaf_hash": "2b8bbab1b64080c92d85f39b10b126d5b7e68088b924b69cb2f42b2152f1330f",
+      "cddl": "pass",
+      "expect": {
+        "outcome": "accept"
+      }
+    },
+    {
+      "id": "envelope/declaration-open-condition-practice-type",
+      "rules": [
+        "P-11",
+        "P-12",
+        "P-21",
+        "P-67",
+        "P-75",
+        "P-76"
+      ],
+      "diag": "{\n  \"pos\": 49,\n  \"prev\": [-16, h'2b8bbab1b64080c92d85f39b10b126d5b7e68088b924b69cb2f42b2152f1330f'],\n  \"ingest\": \"admitted\",\n  \"ledger\": [-16, h'ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce2'],\n  \"record\": [-16, h'ebe2f8a7c597c9680371d2b9b77901422af26c94a32cf570204f40946fc79816'],\n  \"actor_type\": {\n    \"author\": [\"organization\", \"access_binding\"]\n  },\n  \"recorded_at\": 1792109108000,\n  \"proof_commit\": [-16, h'0e94a9f2a6953316f8fcec34d53d91d30a2d9f709340bc64cacd73ad36de214b']\n}",
+      "hex": "a863706f7318316470726576822f58202b8bbab1b64080c92d85f39b10b126d5b7e68088b924b69cb2f42b2152f1330f66696e676573746861646d6974746564666c6564676572822f5820ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce2667265636f7264822f5820ebe2f8a7c597c9680371d2b9b77901422af26c94a32cf570204f40946fc798166a6163746f725f74797065a166617574686f72826c6f7267616e697a6174696f6e6e6163636573735f62696e64696e676b7265636f726465645f61741b000001a14206db206c70726f6f665f636f6d6d6974822f58200e94a9f2a6953316f8fcec34d53d91d30a2d9f709340bc64cacd73ad36de214b",
+      "decoded": {
+        "pos": 49,
+        "prev": [
+          -16,
+          "2b8bbab1b64080c92d85f39b10b126d5b7e68088b924b69cb2f42b2152f1330f"
+        ],
+        "ingest": "admitted",
+        "ledger": [
+          -16,
+          "ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce2"
+        ],
+        "record": [
+          -16,
+          "ebe2f8a7c597c9680371d2b9b77901422af26c94a32cf570204f40946fc79816"
+        ],
+        "actor_type": {
+          "author": [
+            "organization",
+            "access_binding"
+          ]
+        },
+        "recorded_at": 1792109108000,
+        "proof_commit": [
+          -16,
+          "0e94a9f2a6953316f8fcec34d53d91d30a2d9f709340bc64cacd73ad36de214b"
+        ]
+      },
+      "leaf_hash": "228189d1910f173d5006c4f2b93056e17e6b4b51b8fa15d18e08eb9839e6ecf0",
+      "cddl": "pass",
+      "expect": {
+        "outcome": "accept"
+      }
+    },
+    {
+      "id": "envelope/declaration-cancel-reason-sub-code",
+      "rules": [
+        "P-11",
+        "P-12",
+        "P-21",
+        "P-67",
+        "P-75",
+        "P-76"
+      ],
+      "diag": "{\n  \"pos\": 50,\n  \"prev\": [-16, h'228189d1910f173d5006c4f2b93056e17e6b4b51b8fa15d18e08eb9839e6ecf0'],\n  \"ingest\": \"admitted\",\n  \"ledger\": [-16, h'ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce2'],\n  \"record\": [-16, h'bfd88213d331f80e1a4291256ceeafde226d8ac6390946097aaf3cab566cf04a'],\n  \"actor_type\": {\n    \"author\": [\"human\", \"access_binding\"]\n  },\n  \"recorded_at\": 1792109109000,\n  \"auth_context\": {\n    \"ref\": [-16, h'0b82a4c5620d4a23928c3888a88c7d6c1a2378d4b5b7712e6b60a0f4c24abe1f'],\n    \"step_up\": false,\n    \"assurance\": \"aal2\"\n  }\n}",
+      "hex": "a863706f7318326470726576822f5820228189d1910f173d5006c4f2b93056e17e6b4b51b8fa15d18e08eb9839e6ecf066696e676573746861646d6974746564666c6564676572822f5820ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce2667265636f7264822f5820bfd88213d331f80e1a4291256ceeafde226d8ac6390946097aaf3cab566cf04a6a6163746f725f74797065a166617574686f72826568756d616e6e6163636573735f62696e64696e676b7265636f726465645f61741b000001a14206df086c617574685f636f6e74657874a363726566822f58200b82a4c5620d4a23928c3888a88c7d6c1a2378d4b5b7712e6b60a0f4c24abe1f67737465705f7570f4696173737572616e63656461616c32",
+      "decoded": {
+        "pos": 50,
+        "prev": [
+          -16,
+          "228189d1910f173d5006c4f2b93056e17e6b4b51b8fa15d18e08eb9839e6ecf0"
+        ],
+        "ingest": "admitted",
+        "ledger": [
+          -16,
+          "ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce2"
+        ],
+        "record": [
+          -16,
+          "bfd88213d331f80e1a4291256ceeafde226d8ac6390946097aaf3cab566cf04a"
+        ],
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        },
+        "recorded_at": 1792109109000,
+        "auth_context": {
+          "ref": [
+            -16,
+            "0b82a4c5620d4a23928c3888a88c7d6c1a2378d4b5b7712e6b60a0f4c24abe1f"
+          ],
+          "step_up": false,
+          "assurance": "aal2"
+        }
+      },
+      "leaf_hash": "29119652d7247c2ab30da6313010156c4a6622d1c23704f639c1914bb990d956",
+      "cddl": "pass",
+      "expect": {
+        "outcome": "accept"
+      }
+    },
+    {
+      "id": "envelope/claim-practice-params-digest-and-list",
+      "rules": [
+        "P-11",
+        "P-12",
+        "P-21",
+        "P-67",
+        "P-75",
+        "P-76"
+      ],
+      "diag": "{\n  \"pos\": 51,\n  \"prev\": [-16, h'29119652d7247c2ab30da6313010156c4a6622d1c23704f639c1914bb990d956'],\n  \"ingest\": \"admitted\",\n  \"ledger\": [-16, h'ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce2'],\n  \"record\": [-16, h'24efa7df229e9eac7445799e8997a7fc4b6cf57d9a3b419127a86082e9d2d854'],\n  \"actor_type\": {\n    \"author\": [\"human\", \"access_binding\"]\n  },\n  \"recorded_at\": 1792109110000,\n  \"auth_context\": {\n    \"ref\": [-16, h'0b82a4c5620d4a23928c3888a88c7d6c1a2378d4b5b7712e6b60a0f4c24abe1f'],\n    \"step_up\": false,\n    \"assurance\": \"aal2\"\n  }\n}",
+      "hex": "a863706f7318336470726576822f582029119652d7247c2ab30da6313010156c4a6622d1c23704f639c1914bb990d95666696e676573746861646d6974746564666c6564676572822f5820ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce2667265636f7264822f582024efa7df229e9eac7445799e8997a7fc4b6cf57d9a3b419127a86082e9d2d8546a6163746f725f74797065a166617574686f72826568756d616e6e6163636573735f62696e64696e676b7265636f726465645f61741b000001a14206e2f06c617574685f636f6e74657874a363726566822f58200b82a4c5620d4a23928c3888a88c7d6c1a2378d4b5b7712e6b60a0f4c24abe1f67737465705f7570f4696173737572616e63656461616c32",
+      "decoded": {
+        "pos": 51,
+        "prev": [
+          -16,
+          "29119652d7247c2ab30da6313010156c4a6622d1c23704f639c1914bb990d956"
+        ],
+        "ingest": "admitted",
+        "ledger": [
+          -16,
+          "ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce2"
+        ],
+        "record": [
+          -16,
+          "24efa7df229e9eac7445799e8997a7fc4b6cf57d9a3b419127a86082e9d2d854"
+        ],
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        },
+        "recorded_at": 1792109110000,
+        "auth_context": {
+          "ref": [
+            -16,
+            "0b82a4c5620d4a23928c3888a88c7d6c1a2378d4b5b7712e6b60a0f4c24abe1f"
+          ],
+          "step_up": false,
+          "assurance": "aal2"
+        }
+      },
+      "leaf_hash": "5f5fad3908af2bbfc5998c93dfa3f620dec4117d9538733da61200dd873f0830",
       "cddl": "pass",
       "expect": {
         "outcome": "accept"

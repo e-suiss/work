@@ -1,4 +1,4 @@
-//! The bindings' JSON front end natively against every record vector in `conformance/vectors/records` and the derivation fixture, which WebAssembly and Swift run through their bindings for the same bytes (T-5, T-37, INV-7, INV-8, X-24).
+//! The bindings' JSON front end natively against the record, rejection and quarantine vectors in `conformance/vectors/records` and the derivation fixture, which WebAssembly and Swift run through their bindings for the same bytes; the CBOR and digest vectors need the shared CBOR and crypto crates (P-8), so until then only their reason codes and digest encodings are checked here (T-5, T-37, INV-7, INV-8, X-24).
 
 #![allow(
     clippy::unwrap_used,
@@ -9,11 +9,15 @@
 
 use serde_json::{Value, json};
 use work_bindings_core::{derive_records, validate_record};
+use work_kernel::reason::Reason;
 
 const RECORDS: &str = include_str!("../../../../conformance/vectors/records/records.json");
 const REJECTS: &str = include_str!("../../../../conformance/vectors/records/records-reject.json");
 const QUARANTINE: &str =
     include_str!("../../../../conformance/vectors/records/records-quarantine.json");
+const CBOR: &str = include_str!("../../../../conformance/vectors/records/cbor-canonical.json");
+const DIGEST: &str = include_str!("../../../../conformance/vectors/records/digest.json");
+const DIGEST_PREFIX: &str = "822f5820";
 const DERIVE_INPUTS: &str = include_str!("fixtures/derive-inputs.json");
 const DERIVE_EXPECTED: &str = include_str!("fixtures/derive-expected.json");
 
@@ -118,4 +122,78 @@ fn t_5_t_37_kernel_derivation_errors_cross_the_binding() {
         derive_records(&Value::from(entries).to_string(), DERIVE_INPUTS),
         r#"{"error":{"code":"invalid_entry","index":1,"reason":"schema:kind"}}"#
     );
+}
+
+fn all_cases() -> Vec<Value> {
+    let mut all = cases();
+    for text in [CBOR, DIGEST] {
+        let file: Value = serde_json::from_str(text).unwrap();
+        all.extend(file["cases"].as_array().unwrap().iter().cloned());
+    }
+    all
+}
+
+// P-11 P-5 T-37
+#[test]
+fn p_11_every_vector_reason_is_a_kernel_code_and_every_id_is_unique() {
+    let cases = all_cases();
+    let mut ids: Vec<&str> = cases.iter().map(|c| c["id"].as_str().unwrap()).collect();
+    ids.sort_unstable();
+    assert!(ids.windows(2).all(|w| w[0] != w[1]));
+    for case in &cases {
+        if let Some(code) = case["expect"].get("reason") {
+            let code = code.as_str().unwrap();
+            assert!(
+                Reason::from_code(code).is_some_and(|r| r.to_string() == code),
+                "{}: {code}",
+                case["id"]
+            );
+        }
+    }
+}
+
+// P-5 P-67 P-79 Access CR-1
+#[test]
+fn p_67_digests_are_encoded_as_the_sha_256_label_and_32_bytes() {
+    let digest: Value = serde_json::from_str(DIGEST).unwrap();
+    let mut checked = 0;
+    for case in digest["cases"].as_array().unwrap() {
+        if let (Some(encoded), Some(value)) =
+            (case.get("encoded_digest_hex"), case.get("digest_hex"))
+        {
+            assert_eq!(
+                encoded.as_str().unwrap(),
+                format!("{DIGEST_PREFIX}{}", value.as_str().unwrap()),
+                "{}",
+                case["id"]
+            );
+            checked += 1;
+        }
+    }
+    let records: Value = serde_json::from_str(RECORDS).unwrap();
+    let quarantine: Value = serde_json::from_str(QUARANTINE).unwrap();
+    let with_digest = records["records"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .chain(quarantine["cases"].as_array().unwrap());
+    let envelopes = records["envelopes"].as_array().unwrap().iter().chain(
+        quarantine["cases"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|c| &c["envelope"]),
+    );
+    for (record, envelope) in with_digest.zip(envelopes) {
+        let id = &envelope["decoded"]["record"];
+        assert_eq!(id[0], json!(-16));
+        assert_eq!(
+            record["record_digest"].as_str().unwrap(),
+            format!("{DIGEST_PREFIX}{}", id[1].as_str().unwrap()),
+            "{}",
+            record["id"]
+        );
+        checked += 1;
+    }
+    assert!(checked > 2);
 }

@@ -87,13 +87,13 @@
           "P-75",
           "P-76"
         ],
-        "diag": "{\n  \"pos\": 48,\n  \"prev\": [-16, h'04bbfef21fd4748bc5d2d164ed9a7c86564c328216dfaf8cde0d18e559cea099'],\n  \"ingest\": [\"quarantined\", \"extension_critical_unknown\"],\n  \"ledger\": [-16, h'ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce2'],\n  \"record\": [-16, h'9603f118bf84ac8f995d6e5385f0c902f7b5a18ccbd191d436bad7654942eb81'],\n  \"actor_type\": {\n    \"author\": [\"human\", \"access_binding\"]\n  },\n  \"recorded_at\": 1792109107000,\n  \"auth_context\": {\n    \"ref\": [-16, h'0b82a4c5620d4a23928c3888a88c7d6c1a2378d4b5b7712e6b60a0f4c24abe1f'],\n    \"step_up\": false,\n    \"assurance\": \"aal2\"\n  }\n}",
-        "hex": "a863706f7318306470726576822f582004bbfef21fd4748bc5d2d164ed9a7c86564c328216dfaf8cde0d18e559cea09966696e67657374826b71756172616e74696e6564781a657874656e73696f6e5f637269746963616c5f756e6b6e6f776e666c6564676572822f5820ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce2667265636f7264822f58209603f118bf84ac8f995d6e5385f0c902f7b5a18ccbd191d436bad7654942eb816a6163746f725f74797065a166617574686f72826568756d616e6e6163636573735f62696e64696e676b7265636f726465645f61741b000001a14206d7386c617574685f636f6e74657874a363726566822f58200b82a4c5620d4a23928c3888a88c7d6c1a2378d4b5b7712e6b60a0f4c24abe1f67737465705f7570f4696173737572616e63656461616c32",
+        "diag": "{\n  \"pos\": 52,\n  \"prev\": [-16, h'5f5fad3908af2bbfc5998c93dfa3f620dec4117d9538733da61200dd873f0830'],\n  \"ingest\": [\"quarantined\", \"extension_critical_unknown\"],\n  \"ledger\": [-16, h'ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce2'],\n  \"record\": [-16, h'9603f118bf84ac8f995d6e5385f0c902f7b5a18ccbd191d436bad7654942eb81'],\n  \"actor_type\": {\n    \"author\": [\"human\", \"access_binding\"]\n  },\n  \"recorded_at\": 1792109111000,\n  \"auth_context\": {\n    \"ref\": [-16, h'0b82a4c5620d4a23928c3888a88c7d6c1a2378d4b5b7712e6b60a0f4c24abe1f'],\n    \"step_up\": false,\n    \"assurance\": \"aal2\"\n  }\n}",
+        "hex": "a863706f7318346470726576822f58205f5fad3908af2bbfc5998c93dfa3f620dec4117d9538733da61200dd873f083066696e67657374826b71756172616e74696e6564781a657874656e73696f6e5f637269746963616c5f756e6b6e6f776e666c6564676572822f5820ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce2667265636f7264822f58209603f118bf84ac8f995d6e5385f0c902f7b5a18ccbd191d436bad7654942eb816a6163746f725f74797065a166617574686f72826568756d616e6e6163636573735f62696e64696e676b7265636f726465645f61741b000001a14206e6d86c617574685f636f6e74657874a363726566822f58200b82a4c5620d4a23928c3888a88c7d6c1a2378d4b5b7712e6b60a0f4c24abe1f67737465705f7570f4696173737572616e63656461616c32",
         "decoded": {
-          "pos": 48,
+          "pos": 52,
           "prev": [
             -16,
-            "04bbfef21fd4748bc5d2d164ed9a7c86564c328216dfaf8cde0d18e559cea099"
+            "5f5fad3908af2bbfc5998c93dfa3f620dec4117d9538733da61200dd873f0830"
           ],
           "ingest": [
             "quarantined",
@@ -113,7 +113,7 @@
               "access_binding"
             ]
           },
-          "recorded_at": 1792109107000,
+          "recorded_at": 1792109111000,
           "auth_context": {
             "ref": [
               -16,
@@ -123,7 +123,7 @@
             "assurance": "aal2"
           }
         },
-        "leaf_hash": "bc44c4eaf3f803d5593b725133d5d91c65f05df6bfcc9ffac881b7adefa227dd",
+        "leaf_hash": "0c9b3362fe511bade40a84f6ad88387aaf5c372f69151bb9edc50c793a3083df",
         "cddl": "pass"
       },
       "expect": {
@@ -216,13 +216,13 @@
           "P-75",
           "P-76"
         ],
-        "diag": "{\n  \"pos\": 49,\n  \"prev\": [-16, h'bc44c4eaf3f803d5593b725133d5d91c65f05df6bfcc9ffac881b7adefa227dd'],\n  \"ingest\": [\"quarantined\", \"extension_critical_unknown\"],\n  \"ledger\": [-16, h'ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce2'],\n  \"record\": [-16, h'a321738b01ec069f58ea25bf4c342e725f2a9608fdb5bad899425ecfb7000d22'],\n  \"actor_type\": {\n    \"author\": [\"human\", \"access_binding\"]\n  },\n  \"recorded_at\": 1792109108000,\n  \"auth_context\": {\n    \"ref\": [-16, h'0b82a4c5620d4a23928c3888a88c7d6c1a2378d4b5b7712e6b60a0f4c24abe1f'],\n    \"step_up\": false,\n    \"assurance\": \"aal2\"\n  }\n}",
-        "hex": "a863706f7318316470726576822f5820bc44c4eaf3f803d5593b725133d5d91c65f05df6bfcc9ffac881b7adefa227dd66696e67657374826b71756172616e74696e6564781a657874656e73696f6e5f637269746963616c5f756e6b6e6f776e666c6564676572822f5820ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce2667265636f7264822f5820a321738b01ec069f58ea25bf4c342e725f2a9608fdb5bad899425ecfb7000d226a6163746f725f74797065a166617574686f72826568756d616e6e6163636573735f62696e64696e676b7265636f726465645f61741b000001a14206db206c617574685f636f6e74657874a363726566822f58200b82a4c5620d4a23928c3888a88c7d6c1a2378d4b5b7712e6b60a0f4c24abe1f67737465705f7570f4696173737572616e63656461616c32",
+        "diag": "{\n  \"pos\": 53,\n  \"prev\": [-16, h'0c9b3362fe511bade40a84f6ad88387aaf5c372f69151bb9edc50c793a3083df'],\n  \"ingest\": [\"quarantined\", \"extension_critical_unknown\"],\n  \"ledger\": [-16, h'ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce2'],\n  \"record\": [-16, h'a321738b01ec069f58ea25bf4c342e725f2a9608fdb5bad899425ecfb7000d22'],\n  \"actor_type\": {\n    \"author\": [\"human\", \"access_binding\"]\n  },\n  \"recorded_at\": 1792109112000,\n  \"auth_context\": {\n    \"ref\": [-16, h'0b82a4c5620d4a23928c3888a88c7d6c1a2378d4b5b7712e6b60a0f4c24abe1f'],\n    \"step_up\": false,\n    \"assurance\": \"aal2\"\n  }\n}",
+        "hex": "a863706f7318356470726576822f58200c9b3362fe511bade40a84f6ad88387aaf5c372f69151bb9edc50c793a3083df66696e67657374826b71756172616e74696e6564781a657874656e73696f6e5f637269746963616c5f756e6b6e6f776e666c6564676572822f5820ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce2667265636f7264822f5820a321738b01ec069f58ea25bf4c342e725f2a9608fdb5bad899425ecfb7000d226a6163746f725f74797065a166617574686f72826568756d616e6e6163636573735f62696e64696e676b7265636f726465645f61741b000001a14206eac06c617574685f636f6e74657874a363726566822f58200b82a4c5620d4a23928c3888a88c7d6c1a2378d4b5b7712e6b60a0f4c24abe1f67737465705f7570f4696173737572616e63656461616c32",
         "decoded": {
-          "pos": 49,
+          "pos": 53,
           "prev": [
             -16,
-            "bc44c4eaf3f803d5593b725133d5d91c65f05df6bfcc9ffac881b7adefa227dd"
+            "0c9b3362fe511bade40a84f6ad88387aaf5c372f69151bb9edc50c793a3083df"
           ],
           "ingest": [
             "quarantined",
@@ -242,7 +242,7 @@
               "access_binding"
             ]
           },
-          "recorded_at": 1792109108000,
+          "recorded_at": 1792109112000,
           "auth_context": {
             "ref": [
               -16,
@@ -252,7 +252,7 @@
             "assurance": "aal2"
           }
         },
-        "leaf_hash": "8d80afb07a67ab4944c97268783990ba0c43b2e01c1d75a7489776f74ca0d073",
+        "leaf_hash": "4bd1fa009d08a29dd476e1845cea2cfc25043acd0bf71147dedae7d8244063ed",
         "cddl": "pass"
       },
       "expect": {
@@ -348,7 +348,7 @@
         "understood_extensions": []
       },
       "record_digest": "822f58209f25116db90be1fa57881a3d6f1338f0c0b3ee56ae3e939212cbb94d30581758",
-      "cddl": "pass",
+      "cddl": "fail",
       "envelope": {
         "rules": [
           "P-11",
@@ -358,13 +358,13 @@
           "P-75",
           "P-76"
         ],
-        "diag": "{\n  \"pos\": 50,\n  \"prev\": [-16, h'8d80afb07a67ab4944c97268783990ba0c43b2e01c1d75a7489776f74ca0d073'],\n  \"ingest\": [\"quarantined\", \"protocol_version_unknown\"],\n  \"ledger\": [-16, h'ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce2'],\n  \"record\": [-16, h'9f25116db90be1fa57881a3d6f1338f0c0b3ee56ae3e939212cbb94d30581758'],\n  \"actor_type\": {\n    \"author\": [\"agent\", \"access_binding\"],\n    \"on_behalf_of\": [\n      [\"organization\", \"access_binding\"]\n    ]\n  },\n  \"recorded_at\": 1792109109000,\n  \"proof_commit\": [-16, h'435b4e463e9bf4e875c10056ef0fa323822e0d69c887eb584fca9c10e8815f7a']\n}",
-        "hex": "a863706f7318326470726576822f58208d80afb07a67ab4944c97268783990ba0c43b2e01c1d75a7489776f74ca0d07366696e67657374826b71756172616e74696e6564781870726f746f636f6c5f76657273696f6e5f756e6b6e6f776e666c6564676572822f5820ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce2667265636f7264822f58209f25116db90be1fa57881a3d6f1338f0c0b3ee56ae3e939212cbb94d305817586a6163746f725f74797065a266617574686f7282656167656e746e6163636573735f62696e64696e676c6f6e5f626568616c665f6f6681826c6f7267616e697a6174696f6e6e6163636573735f62696e64696e676b7265636f726465645f61741b000001a14206df086c70726f6f665f636f6d6d6974822f5820435b4e463e9bf4e875c10056ef0fa323822e0d69c887eb584fca9c10e8815f7a",
+        "diag": "{\n  \"pos\": 54,\n  \"prev\": [-16, h'4bd1fa009d08a29dd476e1845cea2cfc25043acd0bf71147dedae7d8244063ed'],\n  \"ingest\": [\"quarantined\", \"protocol_version_unknown\"],\n  \"ledger\": [-16, h'ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce2'],\n  \"record\": [-16, h'9f25116db90be1fa57881a3d6f1338f0c0b3ee56ae3e939212cbb94d30581758'],\n  \"actor_type\": {\n    \"author\": [\"agent\", \"access_binding\"],\n    \"on_behalf_of\": [\n      [\"organization\", \"access_binding\"]\n    ]\n  },\n  \"recorded_at\": 1792109113000,\n  \"proof_commit\": [-16, h'97dbecab704d761d0c3f751286da390b845fb8f2a31ae0651eabd2ebffaf57ff']\n}",
+        "hex": "a863706f7318366470726576822f58204bd1fa009d08a29dd476e1845cea2cfc25043acd0bf71147dedae7d8244063ed66696e67657374826b71756172616e74696e6564781870726f746f636f6c5f76657273696f6e5f756e6b6e6f776e666c6564676572822f5820ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce2667265636f7264822f58209f25116db90be1fa57881a3d6f1338f0c0b3ee56ae3e939212cbb94d305817586a6163746f725f74797065a266617574686f7282656167656e746e6163636573735f62696e64696e676c6f6e5f626568616c665f6f6681826c6f7267616e697a6174696f6e6e6163636573735f62696e64696e676b7265636f726465645f61741b000001a14206eea86c70726f6f665f636f6d6d6974822f582097dbecab704d761d0c3f751286da390b845fb8f2a31ae0651eabd2ebffaf57ff",
         "decoded": {
-          "pos": 50,
+          "pos": 54,
           "prev": [
             -16,
-            "8d80afb07a67ab4944c97268783990ba0c43b2e01c1d75a7489776f74ca0d073"
+            "4bd1fa009d08a29dd476e1845cea2cfc25043acd0bf71147dedae7d8244063ed"
           ],
           "ingest": [
             "quarantined",
@@ -390,13 +390,224 @@
               ]
             ]
           },
-          "recorded_at": 1792109109000,
+          "recorded_at": 1792109113000,
           "proof_commit": [
             -16,
-            "435b4e463e9bf4e875c10056ef0fa323822e0d69c887eb584fca9c10e8815f7a"
+            "97dbecab704d761d0c3f751286da390b845fb8f2a31ae0651eabd2ebffaf57ff"
           ]
         },
-        "leaf_hash": "f4026fde7626950b99005a41f7080b45a9ac194645fafae96e41aa001727107c",
+        "leaf_hash": "de439e1927d9463858ad318f9b0942fb3b9c70d0ee0bec3ddbbdfd10240c9b9c",
+        "cddl": "pass"
+      },
+      "expect": {
+        "outcome": "quarantine",
+        "reason": "protocol_version_unknown"
+      }
+    },
+    {
+      "id": "record-quarantine/protocol-version-unknown-new-field",
+      "rules": [
+        "T-4",
+        "P-18",
+        "P-87",
+        "P-94"
+      ],
+      "purpose": "A protocol 2.0 record with a top-level field protocol 1.0 does not define; the decoder reads versions.protocol first, so the field is not judged as unknown.",
+      "hex": "a9646b696e6465636c61696d6474797065782c68747470733a2f2f70726f637572656d656e742e6578616d706c652f6e732f636c61696d2f636f6d6d656e7466617574686f727070617274793a61636d653a616c696365666c6564676572822f5820ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce268636f6e6365726e7380687072696f72697479036876657273696f6e73a366736368656d61822f58209be79166b289f275ad1b9cca8dbd8400a7fafc117a419dca2e218f10445418396870726f746f636f6c82020069707261637469636573a1781f68747470733a2f2f70726f637572656d656e742e6578616d706c652f6e732f822f5820a44f23f8a3aae2c1d733a4008c1cf213f87d9af3baa57d378183828971574efe6a7669736962696c697479a16373656566617574686f726b6f636375727265645f61741b000001a14205f890",
+      "decoded": {
+        "kind": "claim",
+        "type": "https://procurement.example/ns/claim/comment",
+        "author": "party:acme:alice",
+        "ledger": [
+          -16,
+          "ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce2"
+        ],
+        "concerns": [],
+        "priority": 3,
+        "versions": {
+          "schema": [
+            -16,
+            "9be79166b289f275ad1b9cca8dbd8400a7fafc117a419dca2e218f1044541839"
+          ],
+          "protocol": [
+            2,
+            0
+          ],
+          "practices": {
+            "https://procurement.example/ns/": [
+              -16,
+              "a44f23f8a3aae2c1d733a4008c1cf213f87d9af3baa57d378183828971574efe"
+            ]
+          }
+        },
+        "visibility": {
+          "see": "author"
+        },
+        "occurred_at": 1792109050000
+      },
+      "context": {
+        "origin": "direct",
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": []
+      },
+      "record_digest": "822f582038486cbbaf55faf993a4ecd8ef51dc08a6cdcbcfa903693ac5d925a960648c4b",
+      "cddl": "fail",
+      "envelope": {
+        "rules": [
+          "P-11",
+          "P-12",
+          "P-21",
+          "P-67",
+          "P-75",
+          "P-76"
+        ],
+        "diag": "{\n  \"pos\": 55,\n  \"prev\": [-16, h'de439e1927d9463858ad318f9b0942fb3b9c70d0ee0bec3ddbbdfd10240c9b9c'],\n  \"ingest\": [\"quarantined\", \"protocol_version_unknown\"],\n  \"ledger\": [-16, h'ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce2'],\n  \"record\": [-16, h'38486cbbaf55faf993a4ecd8ef51dc08a6cdcbcfa903693ac5d925a960648c4b'],\n  \"actor_type\": {\n    \"author\": [\"human\", \"access_binding\"]\n  },\n  \"recorded_at\": 1792109114000,\n  \"auth_context\": {\n    \"ref\": [-16, h'0b82a4c5620d4a23928c3888a88c7d6c1a2378d4b5b7712e6b60a0f4c24abe1f'],\n    \"step_up\": false,\n    \"assurance\": \"aal2\"\n  }\n}",
+        "hex": "a863706f7318376470726576822f5820de439e1927d9463858ad318f9b0942fb3b9c70d0ee0bec3ddbbdfd10240c9b9c66696e67657374826b71756172616e74696e6564781870726f746f636f6c5f76657273696f6e5f756e6b6e6f776e666c6564676572822f5820ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce2667265636f7264822f582038486cbbaf55faf993a4ecd8ef51dc08a6cdcbcfa903693ac5d925a960648c4b6a6163746f725f74797065a166617574686f72826568756d616e6e6163636573735f62696e64696e676b7265636f726465645f61741b000001a14206f2906c617574685f636f6e74657874a363726566822f58200b82a4c5620d4a23928c3888a88c7d6c1a2378d4b5b7712e6b60a0f4c24abe1f67737465705f7570f4696173737572616e63656461616c32",
+        "decoded": {
+          "pos": 55,
+          "prev": [
+            -16,
+            "de439e1927d9463858ad318f9b0942fb3b9c70d0ee0bec3ddbbdfd10240c9b9c"
+          ],
+          "ingest": [
+            "quarantined",
+            "protocol_version_unknown"
+          ],
+          "ledger": [
+            -16,
+            "ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce2"
+          ],
+          "record": [
+            -16,
+            "38486cbbaf55faf993a4ecd8ef51dc08a6cdcbcfa903693ac5d925a960648c4b"
+          ],
+          "actor_type": {
+            "author": [
+              "human",
+              "access_binding"
+            ]
+          },
+          "recorded_at": 1792109114000,
+          "auth_context": {
+            "ref": [
+              -16,
+              "0b82a4c5620d4a23928c3888a88c7d6c1a2378d4b5b7712e6b60a0f4c24abe1f"
+            ],
+            "step_up": false,
+            "assurance": "aal2"
+          }
+        },
+        "leaf_hash": "104b4b84ccb33875215ebae5ceeac47fe483e57b059c64e384d74b382b5dfd1d",
+        "cddl": "pass"
+      },
+      "expect": {
+        "outcome": "quarantine",
+        "reason": "protocol_version_unknown"
+      }
+    },
+    {
+      "id": "record-quarantine/protocol-version-unknown-new-kind",
+      "rules": [
+        "T-4",
+        "P-9",
+        "P-87",
+        "P-94"
+      ],
+      "purpose": "A protocol 2.0 record of a kind protocol 1.0 does not define; it is quarantined, not rejected as schema:kind.",
+      "hex": "a8646b696e64656576656e746474797065782c68747470733a2f2f70726f637572656d656e742e6578616d706c652f6e732f636c61696d2f636f6d6d656e7466617574686f727070617274793a61636d653a616c696365666c6564676572822f5820ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce268636f6e6365726e73806876657273696f6e73a366736368656d61822f58209be79166b289f275ad1b9cca8dbd8400a7fafc117a419dca2e218f10445418396870726f746f636f6c82020069707261637469636573a1781f68747470733a2f2f70726f637572656d656e742e6578616d706c652f6e732f822f5820a44f23f8a3aae2c1d733a4008c1cf213f87d9af3baa57d378183828971574efe6a7669736962696c697479a16373656566617574686f726b6f636375727265645f61741b000001a14205f890",
+      "decoded": {
+        "kind": "event",
+        "type": "https://procurement.example/ns/claim/comment",
+        "author": "party:acme:alice",
+        "ledger": [
+          -16,
+          "ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce2"
+        ],
+        "concerns": [],
+        "versions": {
+          "schema": [
+            -16,
+            "9be79166b289f275ad1b9cca8dbd8400a7fafc117a419dca2e218f1044541839"
+          ],
+          "protocol": [
+            2,
+            0
+          ],
+          "practices": {
+            "https://procurement.example/ns/": [
+              -16,
+              "a44f23f8a3aae2c1d733a4008c1cf213f87d9af3baa57d378183828971574efe"
+            ]
+          }
+        },
+        "visibility": {
+          "see": "author"
+        },
+        "occurred_at": 1792109050000
+      },
+      "context": {
+        "origin": "direct",
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": []
+      },
+      "record_digest": "822f5820e748fefdb853292322e7319c62958d6633afd2a23d7a81b7f222fda1d1c36fa9",
+      "cddl": "fail",
+      "envelope": {
+        "rules": [
+          "P-11",
+          "P-12",
+          "P-21",
+          "P-67",
+          "P-75",
+          "P-76"
+        ],
+        "diag": "{\n  \"pos\": 56,\n  \"prev\": [-16, h'104b4b84ccb33875215ebae5ceeac47fe483e57b059c64e384d74b382b5dfd1d'],\n  \"ingest\": [\"quarantined\", \"protocol_version_unknown\"],\n  \"ledger\": [-16, h'ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce2'],\n  \"record\": [-16, h'e748fefdb853292322e7319c62958d6633afd2a23d7a81b7f222fda1d1c36fa9'],\n  \"actor_type\": {\n    \"author\": [\"human\", \"access_binding\"]\n  },\n  \"recorded_at\": 1792109115000,\n  \"auth_context\": {\n    \"ref\": [-16, h'0b82a4c5620d4a23928c3888a88c7d6c1a2378d4b5b7712e6b60a0f4c24abe1f'],\n    \"step_up\": false,\n    \"assurance\": \"aal2\"\n  }\n}",
+        "hex": "a863706f7318386470726576822f5820104b4b84ccb33875215ebae5ceeac47fe483e57b059c64e384d74b382b5dfd1d66696e67657374826b71756172616e74696e6564781870726f746f636f6c5f76657273696f6e5f756e6b6e6f776e666c6564676572822f5820ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce2667265636f7264822f5820e748fefdb853292322e7319c62958d6633afd2a23d7a81b7f222fda1d1c36fa96a6163746f725f74797065a166617574686f72826568756d616e6e6163636573735f62696e64696e676b7265636f726465645f61741b000001a14206f6786c617574685f636f6e74657874a363726566822f58200b82a4c5620d4a23928c3888a88c7d6c1a2378d4b5b7712e6b60a0f4c24abe1f67737465705f7570f4696173737572616e63656461616c32",
+        "decoded": {
+          "pos": 56,
+          "prev": [
+            -16,
+            "104b4b84ccb33875215ebae5ceeac47fe483e57b059c64e384d74b382b5dfd1d"
+          ],
+          "ingest": [
+            "quarantined",
+            "protocol_version_unknown"
+          ],
+          "ledger": [
+            -16,
+            "ceb47d13dfd730fb2882c9264e5fc7930604da6383ad61e972d296c88da5fce2"
+          ],
+          "record": [
+            -16,
+            "e748fefdb853292322e7319c62958d6633afd2a23d7a81b7f222fda1d1c36fa9"
+          ],
+          "actor_type": {
+            "author": [
+              "human",
+              "access_binding"
+            ]
+          },
+          "recorded_at": 1792109115000,
+          "auth_context": {
+            "ref": [
+              -16,
+              "0b82a4c5620d4a23928c3888a88c7d6c1a2378d4b5b7712e6b60a0f4c24abe1f"
+            ],
+            "step_up": false,
+            "assurance": "aal2"
+          }
+        },
+        "leaf_hash": "fbb87735a9f57f5571edf1e14c62b21144a7ac3ec7704afce3f7ff698a71b846",
         "cddl": "pass"
       },
       "expect": {

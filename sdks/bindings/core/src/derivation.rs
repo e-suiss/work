@@ -9,7 +9,7 @@ use work_kernel::derive::{
     TrustInputs, derive,
 };
 use work_kernel::id::{Digest, PartyRef, RecordId, Time};
-use work_kernel::reason::{Reason, Schema};
+use work_kernel::reason::{QuarantineReason, Reason, Schema};
 use work_kernel::record::{PracticePin, ProtocolVersion, Record};
 
 use crate::decode::{self, Mapped, digest, list, object, pair, party, required, text, uint};
@@ -70,7 +70,7 @@ fn ingest(v: &Value) -> Mapped<Ingest> {
     if tag != "quarantined" {
         return Err(MISSING);
     }
-    Reason::from_code(text(code)?)
+    QuarantineReason::from_code(text(code)?)
         .map(Ingest::Quarantined)
         .ok_or(MISSING)
 }
@@ -201,26 +201,18 @@ fn chain(c: &Chain) -> Value {
 
 fn derive_error(e: DeriveError) -> String {
     let mut extra = Map::new();
-    let code = match e {
-        DeriveError::PositionGap { position } => {
+    match e {
+        DeriveError::PositionGap { position }
+        | DeriveError::RecordedAtOutOfOrder { position }
+        | DeriveError::LedgerMismatch { position } => {
             extra.insert("position".to_owned(), Value::from(position));
-            "position_gap"
-        }
-        DeriveError::RecordedAtOutOfOrder { position } => {
-            extra.insert("position".to_owned(), Value::from(position));
-            "recorded_at_out_of_order"
         }
         DeriveError::DuplicateRecord(id) => {
             extra.insert("record".to_owned(), digest_json(&id.0));
-            "duplicate_record"
         }
-        DeriveError::LedgerMismatch { position } => {
-            extra.insert("position".to_owned(), Value::from(position));
-            "ledger_mismatch"
-        }
-        DeriveError::Overflow => "overflow",
-    };
-    error(code, extra)
+        _ => {}
+    }
+    error(e.code(), extra)
 }
 
 fn invalid_entry(index: usize, reason: Option<Reason>) -> String {
@@ -257,7 +249,9 @@ pub fn derive_records(entries: &str, inputs_json: &str) -> String {
         let Ok(p) = entry_parts(m) else {
             return invalid_entry(index, None);
         };
-        let record = match required(m, "record").and_then(decode::record) {
+        let record = match required(m, "record")
+            .and_then(|r| decode::structure(r).and_then(|()| decode::record(r)))
+        {
             Ok(r) => r,
             Err(reason) => return invalid_entry(index, Some(reason)),
         };

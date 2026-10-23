@@ -1,8 +1,8 @@
-//! Maps the `decoded` JSON projection of a record onto the kernel's typed record; a value the projection cannot carry is the `schema:*` reason the kernel would give for the same bytes.
+//! Maps the `decoded` JSON projection of a record onto the kernel's typed record: structural limits first, then the protocol version, then strict decoding against the protocol 1.0 schema, where a value the projection cannot carry is the `schema:*` or `limit_exceeded:*` reason the kernel would give for the same bytes (P-7, P-72, P-87).
 
 use serde_json::{Map, Value};
 use work_kernel::id::{Digest, LedgerId, PartyRef, RecordId, Time, WorkId, canonical_text_cmp};
-use work_kernel::reason::{Reason, Schema};
+use work_kernel::reason::{Limit, Reason, Schema};
 use work_kernel::record::{
     Act, Audience, AuthorityProofKind, AuthorityRef, BodyCommitment, Capacity, Claim, ClaimType,
     Correlation, Declaration, EvidenceRef, EvidenceSubject, EvidenceType, ExtValue, Extension,
@@ -10,6 +10,7 @@ use work_kernel::record::{
     Record, RecordCore, VersionVector, Visibility,
 };
 use work_kernel::relation::{Endpoint, Relation};
+use work_kernel::rules::RuleSet;
 use work_kernel::uri::{ExtKey, ExternalRef, TypeUri};
 
 const FIELDS: &[&str] = &[
@@ -35,6 +36,33 @@ const FIELDS: &[&str] = &[
     "critical",
 ];
 
+const VISIBILITY_FIELDS: &[&str] = &["see", "search", "agent_context"];
+const RELATION_FIELDS: &[&str] = &["rel", "source", "target", "qualifier"];
+const AUTHORITY_FIELDS: &[&str] = &["proof", "digest"];
+const PRODUCER_FIELDS: &[&str] = &[
+    "version",
+    "config",
+    "model",
+    "toolset",
+    "instructions",
+    "attestation",
+];
+const EVIDENCE_FIELDS: &[&str] = &[
+    "subject",
+    "type",
+    "presenter",
+    "claimed_at",
+    "source",
+    "observation",
+    "visibility",
+    "signature",
+];
+const BODY_FIELDS: &[&str] = &["part", "commit"];
+const VERSION_FIELDS: &[&str] = &["protocol", "schema", "practices"];
+
+const MAX_DEPTH: usize = 16;
+const MAX_ITEMS: usize = 256;
+
 pub(crate) type Mapped<T> = Result<T, Reason>;
 
 const fn schema(detail: Schema) -> Reason {
@@ -42,6 +70,8 @@ const fn schema(detail: Schema) -> Reason {
 }
 
 const MISSING: Reason = schema(Schema::RequiredField);
+const UNKNOWN_FIELD: Reason = schema(Schema::UnknownCoreField);
+const STRING_BOUND: Reason = Reason::LimitExceeded(Limit::String);
 
 pub(crate) fn text(v: &Value) -> Mapped<&str> {
     v.as_str().ok_or(MISSING)
@@ -97,8 +127,9 @@ pub(crate) fn digest(v: &Value) -> Mapped<Digest> {
     Ok(Digest::sha256(bytes))
 }
 
+/// A Party reference outside its 1 to 255 byte bound is `limit_exceeded:string` (P-67, P-72).
 pub(crate) fn party(v: &Value) -> Mapped<PartyRef> {
-    PartyRef::new(text(v)?).ok_or(MISSING)
+    PartyRef::new(text(v)?).ok_or(STRING_BOUND)
 }
 
 fn type_uri(v: &Value) -> Mapped<TypeUri> {
@@ -131,6 +162,25 @@ pub(crate) fn required<'a>(m: &'a Map<String, Value>, key: &str) -> Mapped<&'a V
 
 pub(crate) fn object(v: &Value) -> Mapped<&Map<String, Value>> {
     v.as_object().ok_or(MISSING)
+}
+
+/// A core map that allows only the keys of its CDDL rule (P-10, P-72).
+fn closed<'a>(v: &'a Value, allowed: &[&str]) -> Mapped<&'a Map<String, Value>> {
+    let m = object(v)?;
+    if m.keys().any(|k| !allowed.contains(&k.as_str())) {
+        Err(UNKNOWN_FIELD)
+    } else {
+        Ok(m)
+    }
+}
+
+/// `search` and `agent_context` are written only as `false` (P-77, EV-21).
+fn exclusion(m: &Map<String, Value>, key: &str) -> Mapped<bool> {
+    match m.get(key) {
+        None => Ok(false),
+        Some(Value::Bool(false)) => Ok(true),
+        Some(_) => Err(MISSING),
+    }
 }
 
 fn canonical_entries(m: &Map<String, Value>) -> Vec<(&String, &Value)> {
@@ -168,7 +218,7 @@ fn work_id(v: &Value) -> Mapped<WorkId> {
 }
 
 fn visibility(v: &Value) -> Mapped<Visibility> {
-    let m = object(v)?;
+    let m = closed(v, VISIBILITY_FIELDS)?;
     let see = match required(m, "see")? {
         Value::String(s) if s == "work" => Audience::Work,
         Value::String(s) if s == "author" => Audience::Author,
@@ -180,14 +230,14 @@ fn visibility(v: &Value) -> Mapped<Visibility> {
     };
     Ok(Visibility {
         see,
-        search_excluded: m.get("search") == Some(&Value::Bool(false)),
-        agent_context_excluded: m.get("agent_context") == Some(&Value::Bool(false)),
+        search_excluded: exclusion(m, "search")?,
+        agent_context_excluded: exclusion(m, "agent_context")?,
     })
 }
 
 fn endpoint(v: &Value) -> Mapped<Endpoint> {
     let mismatch = schema(Schema::Relation);
-    let Some([tag, value, ..]) = v.as_array().map(Vec::as_slice) else {
+    let Some([tag, value]) = v.as_array().map(Vec::as_slice) else {
         return Err(mismatch);
     };
     Ok(match tag.as_str() {
@@ -201,17 +251,22 @@ fn endpoint(v: &Value) -> Mapped<Endpoint> {
 }
 
 fn relation(v: &Value) -> Mapped<Relation> {
-    let m = object(v)?;
+    let m = closed(v, RELATION_FIELDS)?;
+    let qualifier = match m.get("qualifier") {
+        None => None,
+        Some(Value::String(q)) => Some(q.as_str()),
+        Some(_) => return Err(schema(Schema::Relation)),
+    };
     Relation::from_wire(
         text(required(m, "rel")?)?,
         optional(m, "source", endpoint)?,
         endpoint(required(m, "target")?)?,
-        m.get("qualifier").and_then(Value::as_str),
+        qualifier,
     )
 }
 
 fn evidence(v: &Value) -> Mapped<EvidenceRef> {
-    let m = object(v)?;
+    let m = closed(v, EVIDENCE_FIELDS)?;
     let subject = match required(m, "subject")? {
         Value::String(s) => EvidenceSubject::StableId(s.clone()),
         other => EvidenceSubject::Digest(digest(other)?),
@@ -228,19 +283,28 @@ fn evidence(v: &Value) -> Mapped<EvidenceRef> {
     })
 }
 
-fn versions(v: &Value) -> Mapped<VersionVector> {
-    let m = object(v)?;
-    let (major, minor) = pair(required(m, "protocol")?)?;
-    let protocol = ProtocolVersion {
+fn protocol(v: &Value) -> Mapped<ProtocolVersion> {
+    let (major, minor) = pair(v)?;
+    Ok(ProtocolVersion {
         major: uint(major)?,
         minor: uint(minor)?,
-    };
+    })
+}
+
+fn versions(v: &Value) -> Mapped<VersionVector> {
+    let m = closed(v, VERSION_FIELDS)?;
+    let protocol = protocol(required(m, "protocol")?)?;
     let practices = optional(m, "practices", practices)?;
     Ok(VersionVector {
         protocol,
         schema: digest(required(m, "schema")?)?,
         practices,
     })
+}
+
+/// A `[-16, hex]` value is a digest, never a list of two scalars (P-80).
+fn is_digest(v: &Value) -> bool {
+    matches!(v.as_array().map(Vec::as_slice), Some([alg, _]) if alg.as_i64() == Some(-16))
 }
 
 fn scalar(v: &Value) -> Mapped<ParamScalar> {
@@ -251,8 +315,17 @@ fn scalar(v: &Value) -> Mapped<ParamScalar> {
             .ok_or(schema(Schema::Params)),
         Value::Bool(b) => Ok(ParamScalar::Bool(*b)),
         Value::String(t) => Ok(ParamScalar::Text(t.clone())),
-        Value::Array(_) => digest(v).map(ParamScalar::Digest),
-        Value::Null | Value::Object(_) => Err(schema(Schema::Params)),
+        Value::Array(_) if is_digest(v) => digest(v).map(ParamScalar::Digest),
+        Value::Array(_) | Value::Null | Value::Object(_) => Err(schema(Schema::Params)),
+    }
+}
+
+fn param_value(v: &Value) -> Mapped<ParamValue> {
+    match v {
+        Value::Array(items) if !is_digest(v) => Ok(ParamValue::List(
+            items.iter().map(scalar).collect::<Mapped<Vec<_>>>()?,
+        )),
+        other => Ok(ParamValue::Scalar(scalar(other)?)),
     }
 }
 
@@ -262,12 +335,7 @@ fn params(v: &Value) -> Mapped<Vec<Param>> {
         .map(|(k, v)| {
             Ok(Param {
                 name: PartName::parse(k).ok_or(schema(Schema::Params))?,
-                value: match v {
-                    Value::Array(items) => {
-                        ParamValue::List(items.iter().map(scalar).collect::<Mapped<Vec<_>>>()?)
-                    }
-                    other => ParamValue::Scalar(scalar(other)?),
-                },
+                value: param_value(v)?,
             })
         })
         .collect()
@@ -298,7 +366,7 @@ fn capacity(v: &Value) -> Mapped<Capacity> {
 }
 
 fn authority(v: &Value) -> Mapped<AuthorityRef> {
-    let a = object(v)?;
+    let a = closed(v, AUTHORITY_FIELDS)?;
     Ok(AuthorityRef {
         proof: AuthorityProofKind::from_wire_name(text(required(a, "proof")?)?).ok_or(MISSING)?,
         digest: digest(required(a, "digest")?)?,
@@ -306,7 +374,7 @@ fn authority(v: &Value) -> Mapped<AuthorityRef> {
 }
 
 fn producer(v: &Value) -> Mapped<ProducerRef> {
-    let p = object(v)?;
+    let p = closed(v, PRODUCER_FIELDS)?;
     Ok(ProducerRef {
         version: text(required(p, "version")?)?.to_owned(),
         config: digest(required(p, "config")?)?,
@@ -326,19 +394,45 @@ fn correlation(v: &Value) -> Mapped<Correlation> {
 }
 
 fn body(v: &Value) -> Mapped<BodyCommitment> {
-    let b = object(v)?;
+    let b = closed(v, BODY_FIELDS)?;
     Ok(BodyCommitment {
         part: PartName::parse(text(required(b, "part")?)?).ok_or(MISSING)?,
         commit: digest(required(b, "commit")?)?,
     })
 }
 
+/// The structural limits a deterministic CBOR decoder applies before any schema rule: nesting depth and items per array or map (P-7, Access CR-10).
+pub(crate) fn structure(v: &Value) -> Mapped<()> {
+    fn walk(v: &Value, depth: usize) -> Mapped<()> {
+        if depth > MAX_DEPTH {
+            return Err(Reason::LimitExceeded(Limit::Depth));
+        }
+        let next = depth.saturating_add(1);
+        match v {
+            Value::Array(items) if items.len() > MAX_ITEMS => {
+                Err(Reason::LimitExceeded(Limit::Items))
+            }
+            Value::Object(m) if m.len() > MAX_ITEMS => Err(Reason::LimitExceeded(Limit::Items)),
+            Value::Array(items) => items.iter().try_for_each(|x| walk(x, next)),
+            Value::Object(m) => m.values().try_for_each(|x| walk(x, next)),
+            Value::Null | Value::Bool(_) | Value::Number(_) | Value::String(_) => Ok(()),
+        }
+    }
+    walk(v, 1)
+}
+
+/// True when the record names a protocol version this kernel has no rule set for; read before strict decoding, so a later version's new fields and kinds are quarantined, not rejected (P-87).
+pub(crate) fn unknown_protocol(v: &Value) -> bool {
+    let version = v
+        .get("versions")
+        .and_then(|versions| versions.get("protocol"))
+        .map(protocol);
+    matches!(version, Some(Ok(p)) if RuleSet::for_version(p).is_none())
+}
+
 /// Maps a decoded record; the first field that does not fit decides the reason, in the order the vectors expect.
 pub(crate) fn record(v: &Value) -> Mapped<Record> {
-    let m = object(v)?;
-    if m.keys().any(|k| !FIELDS.contains(&k.as_str())) {
-        return Err(schema(Schema::UnknownCoreField));
-    }
+    let m = closed(v, FIELDS)?;
     let kind = Kind::from_wire_name(text(required(m, "kind")?)?).ok_or(schema(Schema::Kind))?;
     let subtype = type_uri(required(m, "type")?)?;
     let ext = optional(m, "ext", extensions)?;

@@ -68,7 +68,9 @@ def check(data, allowed_tags=()):
             return ai
         size = {24: 1, 25: 2, 26: 4, 27: 8}.get(ai)
         if size is None:
-            raise Reject("non_canonical_cbor:indefinite_length" if ai == 31 else "malformed_cbor:reserved_ai")
+            if ai != 31:
+                raise ValueError("reserved additional information has no kernel reason code")
+            raise Reject("non_canonical_cbor:indefinite_length")
         if pos + size > len(data):
             raise Reject("malformed_cbor:truncated")
         n = int.from_bytes(data[pos:pos + size], "big")
@@ -130,11 +132,9 @@ def check(data, allowed_tags=()):
                 prev = kb
                 out[k if not isinstance(k, list) else tuple(k)] = item(depth + 1)
             return out
-        if major == 6:
-            if n not in allowed_tags:
-                raise Reject("non_canonical_cbor:tag_not_allowed")
-            return Tag(n, item(depth + 1))
-        raise Reject("malformed_cbor")
+        if n not in allowed_tags:
+            raise Reject("non_canonical_cbor:tag_not_allowed")
+        return Tag(n, item(depth + 1))
 
     v = item(1)
     if pos != len(data):
@@ -182,8 +182,19 @@ def project(v):
     raise TypeError(type(v))
 
 
-def decoded(b):
-    return project(check(b))
+def canonical(v):
+    if isinstance(v, dict):
+        return {k: canonical(v[k]) for k in sorted(v, key=enc)}
+    if isinstance(v, (list, tuple)):
+        return [canonical(x) for x in v]
+    return v
+
+
+def decoded(b, value=None):
+    try:
+        return project(check(b))
+    except Reject:
+        return project(canonical(value))
 
 
 def sha(b):
@@ -216,6 +227,7 @@ if CBOR_OUT is not None:
     os.makedirs(CBOR_OUT, exist_ok=True)
 
 ACCESS_CR_10 = "Access CR-10"
+D4, D5, D7 = ["P-91"], ["P-92"], ["P-94"]
 CORE = "https://suiss.app/ns/work/"
 DECLARATION = CORE + "declaration/"
 ACT = CORE + "act/"
@@ -255,8 +267,18 @@ PARAMS = {
     "stop_request": {"stop_type": {"immediate", "finish_then_stop", "pause"}},
     "stop_response": {"response": {"accept", "finish_then_stop", "refuse"}},
     "open_condition": {"condition_type": CONDITIONS, "wait_reason": {"internal", "external"},
-                       "gate_form": {"approval", "pre_action_review", "delivery_acceptance"}},
+                       "gate_form": {"approval", "pre_action_review", "delivery_acceptance"},
+                       "address": None, "deadline": None, "criterion": None},
 }
+PARAM_REQUIRED = {
+    "decline": ("reason",),
+    "cancel": ("reason",),
+    "notice": ("notice_type",),
+    "stop_request": ("stop_type",),
+    "stop_response": ("response",),
+    "open_condition": ("condition_type", "wait_reason", "address", "deadline", "criterion"),
+}
+REASON_KEYS = {"reason", "notice_type"}
 CORE_ROLES = {ROLE + n for n in ("source", "fulfills", "supports")}
 CORE_EVIDENCE = {EVIDENCE + n for n in ("artifact", "external_event", "measurement", "human_verification")}
 CONSENT = CLINIC + "ext/patient_consent"
@@ -350,13 +372,130 @@ def repeated(xs):
 
 
 KNOWN_PROTOCOLS = ([1, 0],)
+SEMANTIC_LIMITS = (("basis", 64), ("on_behalf_of", 8), ("relations", 256), ("concerns", 64))
+GATE_FORMS = {"approval", "pre_action_review", "delivery_acceptance"}
+GATE_RULES = {
+    CORE + "condition/acceptance": {"delivery_acceptance"},
+    CORE + "condition/decision": {"approval", "pre_action_review"},
+    CORE + "condition/resource": {"approval", "pre_action_review"},
+}
+
+
+def is_type_uri(v):
+    if not isinstance(v, str) or not v.startswith("https://"):
+        return False
+    rest = v[len("https://"):]
+    if "/" not in rest:
+        return False
+    authority, path = rest.split("/", 1)
+    host, _, port = authority.partition(":")
+    return (bool(host) and all(c in "abcdefghijklmnopqrstuvwxyz0123456789.-" for c in host)
+            and (":" not in authority or (port.isdigit()))
+            and all("!" <= c <= "~" for c in path))
+
+
+def under(uri, ns):
+    return uri.startswith(ns) and (ns.endswith("/") or uri[len(ns):] in ("",) or uri[len(ns):].startswith("/"))
+
+
+def pinned(uri, rec):
+    return (isinstance(uri, str) and is_type_uri(uri) and not uri.startswith(CORE)
+            and any(under(uri, ns) for ns in rec["versions"].get("practices", {})))
+
+
+def text_len_ok(v, limit):
+    return 0 < len(v.encode()) <= limit
+
+
+def reason_code(v, codes):
+    if not isinstance(v, str):
+        return False
+    parent, sep, sub = v.partition(":")
+    return parent in codes and (not sep or is_type_uri(sub))
+
+
+def catalog_code(k, v, codes):
+    return reason_code(v, codes) if k in REASON_KEYS else isinstance(v, str) and v in codes
+
+
+def condition_params_ok(params, rec):
+    condition = params.get("condition_type")
+    if not (condition in CONDITIONS or pinned(condition, rec)):
+        return False
+    gate = params.get("gate_form")
+    if condition in GATE_RULES:
+        if gate not in GATE_RULES[condition]:
+            return False
+    elif condition in CONDITIONS:
+        if gate is not None:
+            return False
+    elif gate is not None and gate not in GATE_FORMS:
+        return False
+    if "address" in params and not (isinstance(params["address"], str) and 0 < len(params["address"].encode()) <= 255
+                                    or is_type_uri(params["address"])):
+        return False
+    if "deadline" in params and not (params["deadline"] == "none" or
+                                     isinstance(params["deadline"], int) and not isinstance(params["deadline"], bool)):
+        return False
+    if "criterion" in params and not is_type_uri(params["criterion"]):
+        return False
+    return True
+
+
+def scalar_ok(v):
+    if isinstance(v, str):
+        return text_len_ok(v, 255) or is_type_uri(v)
+    return isinstance(v, (int, bytes)) or (isinstance(v, list) and v[:1] == [-16])
+
+
+def params_ok(rec):
+    params = rec.get("params")
+    if params is None and not rec["type"].startswith(DECLARATION):
+        return True
+    params = params or {}
+    for v in params.values():
+        if not all(scalar_ok(x) for x in (v if isinstance(v, list) and v[:1] != [-16] else [v])):
+            return False
+    if "effective_at" in params and (rec["kind"] != "declaration" or not isinstance(params["effective_at"], int)):
+        return False
+    core_subtype = rec["type"].startswith(CORE)
+    if not rec["type"].startswith(DECLARATION):
+        return not core_subtype or set(params) <= {"effective_at"}
+    name = rec["type"][len(DECLARATION):]
+    schema = PARAMS.get(name, {})
+    if not set(PARAM_REQUIRED.get(name, ())) <= set(params):
+        return False
+    for k, v in params.items():
+        if k == "effective_at":
+            continue
+        if k not in schema:
+            return False
+        if name != "open_condition" and not catalog_code(k, v, schema[k]):
+            return False
+    if name == "open_condition":
+        if not catalog_code("wait_reason", params["wait_reason"], schema["wait_reason"]):
+            return False
+        return condition_params_ok(params, rec)
+    return True
 
 
 def semantic(rec, ctx):
     if rec["versions"]["protocol"] not in KNOWN_PROTOCOLS:
         return ("quarantine", "protocol_version_unknown")
+    for field, limit in SEMANTIC_LIMITS:
+        if len(rec.get(field, [])) > limit:
+            return ("reject", "limit_exceeded:" + field)
     see = rec["visibility"]["see"]
     parties = see[1] if isinstance(see, list) else []
+    lists = [rec.get(f, []) for f in ("correlation", "evidence", "body", "params", "ext", "critical")]
+    lists += [rec["versions"].get("practices", {}), parties]
+    lists += [v for v in rec.get("params", {}).values() if isinstance(v, list) and v[:1] != [-16]]
+    if any(len(xs) > 256 for xs in lists):
+        return ("reject", "limit_exceeded:items")
+    if not (text_len_ok(rec.get("producer", {}).get("version", "x"), 255)
+            and all(text_len_ok(c[1], 1024) for c in rec.get("correlation", []))
+            and all(text_len_ok(e["subject"], 1024) for e in rec.get("evidence", []) if isinstance(e["subject"], str))):
+        return ("reject", "limit_exceeded:string")
     for field, xs in (("basis", rec.get("basis")), ("concerns", rec["concerns"]),
                       ("critical", rec.get("critical")), ("visibility", parties)):
         if xs is not None and not ordered(xs):
@@ -378,29 +517,32 @@ def semantic(rec, ctx):
         return ("reject", "capacity_mismatch")
     if obo is None and isinstance(cap, list):
         return ("reject", "capacity_mismatch")
+    if len(ctx["actor_type"].get("on_behalf_of", [])) != len(obo or []):
+        return ("reject", "envelope_mismatch:actor_type")
     if rec["kind"] == "declaration" and "authority" not in rec:
         return ("reject", "authority_missing")
+    if rec["kind"] == "declaration" and cap is None:
+        return ("reject", "capacity_missing")
+    if ctx["actor_type"]["author"][0] == "agent" and "producer" not in rec:
+        return ("reject", "producer_missing")
     if rec["type"].startswith(CORE):
         if rec["type"] not in CORE_TYPES:
             return ("reject", "unmapped_extension_value")
-    elif not rec["type"].startswith(tuple(rec["versions"].get("practices", {}))):
+    elif not pinned(rec["type"], rec):
         return ("reject", "unmapped_extension_value")
     for r in rec.get("relations", []):
-        q = r.get("qualifier", "")
-        if r["rel"] == "derived_from" and q.startswith(CORE) and q not in CORE_ROLES:
+        q = r.get("qualifier")
+        if r["rel"] == "derived_from":
+            if q not in CORE_ROLES and not pinned(q, rec):
+                return ("reject", "unmapped_extension_value")
+        elif q is not None and not pinned(q, rec):
             return ("reject", "unmapped_extension_value")
     for e in rec.get("evidence", []):
-        if e["type"].startswith(CORE) and e["type"] not in CORE_EVIDENCE:
+        if e["type"] not in CORE_EVIDENCE and not pinned(e["type"], rec):
             return ("reject", "unmapped_extension_value")
-    params = rec.get("params", {})
-    if "effective_at" in params and rec["kind"] != "declaration":
+    if not params_ok(rec):
         return ("reject", "schema:params")
-    if rec["type"].startswith(DECLARATION):
-        allowed = PARAMS.get(rec["type"][len(DECLARATION):], {})
-        for k, v in params.items():
-            if k != "effective_at" and (k not in allowed or v not in allowed[k]):
-                return ("reject", "schema:params")
-    if params.get("effective_at", ctx.get("recorded_at", 0)) < ctx.get("recorded_at", 0):
+    if rec.get("params", {}).get("effective_at", ctx.get("recorded_at", 0)) < ctx.get("recorded_at", 0):
         return ("reject", "retroactive_declaration")
     if ctx["origin"] == "automation" and (
             ctx["actor_type"]["author"] != ["system", "access_binding"] or not rec.get("basis")):
@@ -416,10 +558,11 @@ def vis(see="work", **kw):
     return v
 
 
-def ctx(rec, origin="direct", understood=(), actor=None, recorded_at=None):
+def ctx(rec, origin="direct", understood=(), actor=None, recorded_at=None, rings=None):
     actors = {"author": actor or [ACTOR[rec["author"]], "access_binding"]}
-    if rec.get("on_behalf_of"):
-        actors["on_behalf_of"] = [["organization", "access_binding"] for _ in rec["on_behalf_of"]]
+    rings = len(rec.get("on_behalf_of", [])) if rings is None else rings
+    if rings:
+        actors["on_behalf_of"] = [["organization", "access_binding"] for _ in range(rings)]
     c = {"origin": origin, "actor_type": actors, "understood_extensions": list(understood)}
     if recorded_at is not None:
         c["recorded_at"] = recorded_at
@@ -538,6 +681,68 @@ rec_decline = {
     "versions": {"protocol": [1, 0], "schema": label("schema:declaration.decline")},
 }
 
+rec_open_gate = {
+    "kind": "declaration",
+    "type": DECLARATION + "open_condition",
+    "author": ALICE,
+    "capacity": "own",
+    "basis": [label("record:commitment.promise:alice")],
+    "visibility": vis(),
+    "ledger": LEDGER,
+    "concerns": [W1],
+    "authority": {"proof": "decision_receipt", "digest": label("access:decision-receipt:4")},
+    "params": {"condition_type": CORE + "condition/decision", "wait_reason": "internal",
+               "gate_form": "approval", "address": BUYER, "deadline": 1792800000000,
+               "criterion": PROC + "criterion/budget_approved"},
+    "versions": {"protocol": [1, 0], "schema": label("schema:declaration.open_condition")},
+}
+
+CUSTOMS = PROC + "condition/customs_clearance"
+rec_wait_practice = {
+    "kind": "declaration",
+    "type": DECLARATION + "open_condition",
+    "author": SUPPLIER,
+    "capacity": "own",
+    "basis": [label("record:commitment.promise:supplier")],
+    "visibility": vis(),
+    "ledger": LEDGER,
+    "concerns": [W2],
+    "authority": {"proof": "decision_receipt", "digest": label("access:decision-receipt:5")},
+    "params": {"condition_type": CUSTOMS, "wait_reason": "external", "deadline": "none",
+               "address": "https://customs.example/ns/office/ist",
+               "criterion": PROC + "criterion/customs_released"},
+    "versions": {"protocol": [1, 0], "schema": label("schema:declaration.open_condition"), "practices": PROC_PIN},
+}
+
+rec_cancel_subcode = {
+    "kind": "declaration",
+    "type": DECLARATION + "cancel",
+    "author": ALICE,
+    "capacity": "own",
+    "basis": [label("record:commitment.request:alice")],
+    "visibility": vis(),
+    "ledger": LEDGER,
+    "concerns": [W1],
+    "authority": {"proof": "decision_receipt", "digest": label("access:decision-receipt:6")},
+    "params": {"reason": "other:" + PROC + "reason/budget_frozen"},
+    "versions": {"protocol": [1, 0], "schema": label("schema:declaration.cancel")},
+}
+
+rec_inspection = {
+    "kind": "claim",
+    "type": PROC + "claim/inspection",
+    "occurred_at": 1792109070000,
+    "author": ALICE,
+    "capacity": "own",
+    "visibility": vis(),
+    "ledger": LEDGER,
+    "concerns": [W1],
+    "relations": [{"rel": "references", "target": ["external", "https://erp.example/orders/PO-4471"],
+                   "qualifier": PROC + "relation/inspected_order"}],
+    "params": {"inspected_lot": label("lot:4471-a"), "sample_ids": ["lot-4471-a-01", "lot-4471-a-02"]},
+    "versions": {"protocol": [1, 0], "schema": label("schema:procurement.inspection"), "practices": PROC_PIN},
+}
+
 records = [
     ("declaration-promise-for-principal", rec_promise, {},
      ["P-9", "P-10", "P-13", "P-15", "P-16", "P-17", "P-68", "P-71", "P-83", "E-13", "C-32"],
@@ -560,6 +765,18 @@ records = [
     ("declaration-decline-parties", rec_decline, {},
      ["P-77", "P-80", "P-83", "P-85", "CM-20"],
      "Supplier declines a request with a catalog reason code, visible to the named buyer only."),
+    ("declaration-open-condition-decision-gate", rec_open_gate, {},
+     ["P-80", "P-84", "P-85", "P-92", "ST-10", "ST-12", "ST-27"] + D5,
+     "A decision gate opened with the approval form, the addressed Party, a deadline and a criterion URI."),
+    ("declaration-open-condition-practice-type", rec_wait_practice, {},
+     ["P-80", "P-71", "P-92", "ST-10", "ST-11", "ST-12", "PR-3"] + D5,
+     "A wait with a condition type from the pinned Practice, an external wait reason, a URI address, an explicit open-ended deadline and a criterion URI; a Practice condition type takes no gate form rule."),
+    ("declaration-cancel-reason-sub-code", rec_cancel_subcode, {},
+     ["P-71", "P-85", "P-93", "CM-30"] + D5,
+     "Cancel with a namespaced sub-code of the catalog reason other; the sub-code reads as its parent."),
+    ("claim-practice-params-digest-and-list", rec_inspection, {},
+     ["P-80", "P-70", "C-27"] + D5,
+     "Practice Claim whose params carry a digest scalar written as [-16, bytes] and a list of text scalars, with a Practice qualifier on references under the pinned namespace."),
 ]
 
 envelope_state = {"prev": [-16, b"\x00" * 32], "pos": 41, "recorded_at": 1792109100000}
@@ -685,6 +902,43 @@ def derived(qualifier=None, rel="derived_from"):
 
 def parties(*ps):
     return vis(["parties", list(ps)])
+
+
+def cond(condition="decision", **changes):
+    params = dict(rec_open_gate["params"], condition_type=CORE + "condition/" + condition)
+    for k, v in changes.items():
+        if v is None:
+            params.pop(k, None)
+        else:
+            params[k] = v
+    return params
+
+
+FAMILY_PARAMS = {
+    "decline": {"reason": "no_capacity"},
+    "cancel": {"reason": "failed"},
+    "notice": {"notice_type": "at_risk"},
+    "stop_request": {"stop_type": "pause"},
+    "stop_response": {"response": "accept"},
+    "open_condition": {"condition_type": CORE + "condition/information", "wait_reason": "internal",
+                       "address": BUYER, "deadline": "none", "criterion": PROC + "criterion/information_received"},
+}
+AUTHORITY_FAMILIES = (
+    ("request", "CM-17"), ("cancel", "CM-30"), ("notice", "CM-17"), ("assign", "RC-17"),
+    ("renew_lease", "RC-17"), ("gate_decision", "ST-25"), ("stop_request", "RC-36"),
+    ("stop_response", "RC-36"), ("open_condition", "ST-12"), ("withdraw_condition", "ST-25"),
+    ("resume_after_stop", "RC-40"), ("practice_adoption", "PR-13"), ("disclosure", "SEC-14"),
+    ("queue_definition", "RC-10"), ("control_lease", "RC-33"), ("handoff_note", "RC-34"),
+    ("conflict_resolution", "P-28"), ("admission", "FD-21"), ("autonomy_policy", "RC-27"),
+    ("implicit_acceptance_terms", "CM-41"), ("waiver", "RC-9"), ("attention_request", "RC-31"),
+    ("acknowledgement", "ST-48"),
+)
+
+
+def family_declaration(name):
+    return variant(rec_amend, type=DECLARATION + name, authority=None, relations=None, ext=None,
+                   params=FAMILY_PARAMS.get(name),
+                   versions={"protocol": [1, 0], "schema": label("schema:declaration." + name)})
 
 
 practice_declaration = variant(rec_amend, type=PROC + "declaration/approval_request", authority=None,
@@ -818,19 +1072,144 @@ rejects = [
      ["P-9", "C-31"], "schema:kind"),
     ("confidence-field", variant(rec_obs, confidence=93), AUTO,
      ["P-10", "C-16", "C-32"], "schema:unknown_core_field"),
+    ("declaration-capacity-missing", variant(rec_amend, capacity=None), {},
+     ["P-13", "P-83"] + D4, "capacity_missing"),
+    ("producer-missing", variant(rec_promise, producer=None), {},
+     ["P-15", "C-23"], "producer_missing"),
+    ("actor-type-rings-mismatch", rec_promise, {"rings": 0},
+     ["P-12", "INV-18"], "envelope_mismatch:actor_type"),
+    ("unpinned-practice-act-subtype", variant(rec_act, type=PROC + "act/delivery"), {},
+     ["P-71", "P-82", "C-5", "PR-3"], "unmapped_extension_value"),
+    ("unpinned-practice-derived-from-role", variant(rec_act, relations=derived(PROC + "role/backs")), {},
+     ["C-5", "C-27", "P-71"], "unmapped_extension_value"),
+    ("core-qualifier-on-references", variant(rec_obs, relations=[dict(rec_obs["relations"][0], qualifier=ROLE + "supports")]), AUTO,
+     ["C-27", "P-14", "P-73"], "schema:relation"),
+    ("unpinned-practice-qualifier-on-references", variant(rec_obs, relations=[dict(rec_obs["relations"][0], qualifier=PROC + "relation/source_document")]), AUTO,
+     ["C-5", "C-27", "P-71"], "unmapped_extension_value"),
+    ("params-on-core-act", variant(rec_act, params={"delivery_note": "dn-4471"}), {},
+     ["P-80", "P-82"], "schema:params"),
+    ("decline-reason-missing", variant(rec_decline, params=None), {},
+     ["P-80", "P-85", "CM-20"] + D5, "schema:params"),
+    ("cancel-reason-missing", variant(rec_cancel_subcode, params=None), {},
+     ["P-80", "CM-30"] + D5, "schema:params"),
+    ("notice-type-missing", variant(rec_decline, type=DECLARATION + "notice", params=None), {},
+     ["P-80", "CM-17"] + D5, "schema:params"),
+    ("stop-type-missing", variant(rec_decline, type=DECLARATION + "stop_request", params=None), {},
+     ["P-80", "P-85", "RC-36"] + D5, "schema:params"),
+    ("stop-response-missing", variant(rec_decline, type=DECLARATION + "stop_response", params=None), {},
+     ["P-80", "P-84", "P-85", "RC-36"] + D5, "schema:params"),
+    ("open-condition-wait-reason-missing", variant(rec_open_gate, params=cond(wait_reason=None)), {},
+     ["P-80", "P-85", "ST-11", "ST-12"] + D5, "schema:params"),
+    ("open-condition-type-missing", variant(rec_open_gate, params=cond(condition_type=None)), {},
+     ["P-80", "ST-10", "ST-12"] + D5, "schema:params"),
+    ("acceptance-gate-form-missing", variant(rec_open_gate, params=cond("acceptance", gate_form=None)), {},
+     ["P-85", "ST-27"] + D5, "schema:params"),
+    ("acceptance-gate-form-approval", variant(rec_open_gate, params=cond("acceptance")), {},
+     ["P-85", "ST-27"] + D5, "schema:params"),
+    ("decision-gate-form-delivery-acceptance", variant(rec_open_gate, params=cond(gate_form="delivery_acceptance")), {},
+     ["P-85", "ST-27"] + D5, "schema:params"),
+    ("resource-gate-form-missing", variant(rec_open_gate, params=cond("resource", gate_form=None)), {},
+     ["P-85", "ST-27"] + D5, "schema:params"),
+    ("authority-gate-form-forbidden", variant(rec_open_gate, params=cond("authority")), {},
+     ["P-85", "ST-27"] + D5, "schema:params"),
+    ("epistemic-gate-form-forbidden", variant(rec_open_gate, params=cond("information")), {},
+     ["P-85", "ST-10", "ST-27"] + D5, "schema:params"),
+    ("gate-form-outside-catalog", variant(rec_open_gate, params=cond(gate_form="sign_off")), {},
+     ["P-85", "ST-27"] + D5, "schema:params"),
+    ("open-condition-address-missing", variant(rec_open_gate, params=cond(address=None)), {},
+     ["P-92", "ST-12"] + D5, "schema:params"),
+    ("open-condition-deadline-missing", variant(rec_open_gate, params=cond(deadline=None)), {},
+     ["P-92", "ST-12"] + D5, "schema:params"),
+    ("open-condition-criterion-missing", variant(rec_open_gate, params=cond(criterion=None)), {},
+     ["P-92", "ST-12"] + D5, "schema:params"),
+    ("stop-type-sub-code", variant(rec_decline, type=DECLARATION + "stop_request", params={"stop_type": "pause:" + PROC + "stop/shift_end"}), {},
+     ["P-92", "P-93", "RC-36"] + D5, "schema:params"),
+    ("stop-response-sub-code", variant(rec_decline, type=DECLARATION + "stop_response", params={"response": "refuse:" + PROC + "stop/safety"}), {},
+     ["P-92", "P-93", "RC-36"] + D5, "schema:params"),
+    ("wait-reason-sub-code", variant(rec_open_gate, params=cond(wait_reason="internal:" + PROC + "wait/review")), {},
+     ["P-92", "P-93", "ST-11"] + D5, "schema:params"),
+    ("gate-form-sub-code", variant(rec_open_gate, params=cond(gate_form="approval:" + PROC + "gate/board")), {},
+     ["P-92", "P-93", "ST-27"] + D5, "schema:params"),
+    ("open-condition-address-not-text", variant(rec_open_gate, params=cond(address=42)), {},
+     ["P-80", "ST-12"] + D5, "schema:params"),
+    ("open-condition-deadline-word", variant(rec_open_gate, params=cond(deadline="never")), {},
+     ["P-80", "ST-12"] + D5, "schema:params"),
+    ("open-condition-criterion-http", variant(rec_open_gate, params=cond(criterion="http://procurement.example/ns/criterion/x")), {},
+     ["P-70", "P-80", "ST-12"] + D5, "schema:params"),
+    ("open-condition-unpinned-practice-type", variant(rec_wait_practice, versions={k: v for k, v in rec_wait_practice["versions"].items() if k != "practices"}), {},
+     ["P-71", "ST-10", "PR-3"] + D5, "schema:params"),
+    ("reason-sub-code-unknown-parent", variant(rec_cancel_subcode, params={"reason": "busy:" + PROC + "reason/busy"}), {},
+     ["P-71", "P-85"] + D5, "schema:params"),
+    ("reason-sub-code-not-uri", variant(rec_cancel_subcode, params={"reason": "other:busy"}), {},
+     ["P-70", "P-71"] + D5, "schema:params"),
+    ("practice-param-text-too-long", variant(rec_inspection, params={"note_code": "n" * 300}), {},
+     ["P-17", "P-80"] + D5, "schema:params"),
+    ("correlation-257-items", variant(rec_promise, correlation=[["https://a2a-protocol.org/context-id", "ctx-%d" % i] for i in range(257)]), {},
+     ["P-7", "P-16", "SEC-18"] + D4, "limit_exceeded:items"),
+    ("params-list-257-items", variant(rec_inspection, params={"sample_ids": ["lot-%d" % i for i in range(257)]}), {},
+     ["P-7", "P-80", "SEC-18"] + D4, "limit_exceeded:items"),
+    ("author-256-bytes", variant(rec_comment, author="party:acme:" + "a" * 245), {"actor": ["human", "access_binding"]},
+     ["P-67", "P-72"] + D4, "limit_exceeded:string"),
+    ("author-empty", variant(rec_comment, author=""), {"actor": ["human", "access_binding"]},
+     ["P-67", "P-72"] + D4, "limit_exceeded:string"),
+    ("producer-version-256-bytes", variant(rec_promise, producer=dict(rec_promise["producer"], version="v" * 256)), {},
+     ["P-15", "C-23"] + D4, "limit_exceeded:string"),
+    ("correlation-id-1025-bytes", variant(rec_promise, correlation=[["https://a2a-protocol.org/context-id", "c" * 1025]]), {},
+     ["P-16"] + D4, "limit_exceeded:string"),
+    ("visibility-search-true", variant(rec_consent, visibility=vis("work", search=True)), {"understood": [CONSENT]},
+     ["P-77", "EV-21"], "schema:required_field"),
+    ("visibility-agent-context-true", variant(rec_obs, visibility=vis("work", agent_context=True)), AUTO,
+     ["P-77", "EV-21"], "schema:required_field"),
+    ("audience-outside-vocabulary", variant(rec_obs, visibility=vis("everyone")), AUTO,
+     ["P-77", "EV-21", "EV-24"], "schema:required_field"),
+    ("visibility-unknown-key", variant(rec_obs, visibility=vis("work", index=False)), AUTO,
+     ["P-10", "P-77"], "schema:unknown_core_field"),
+    ("relation-unknown-key", variant(rec_obs, relations=[dict(rec_obs["relations"][0], weight=1)]), AUTO,
+     ["P-73", "C-25"], "schema:unknown_core_field"),
+    ("authority-unknown-key", variant(rec_promise, authority=dict(rec_promise["authority"], scope="all")), {},
+     ["P-10", "P-13"], "schema:unknown_core_field"),
+    ("producer-unknown-key", variant(rec_promise, producer=dict(rec_promise["producer"], temperature=0)), {},
+     ["P-10", "P-15"], "schema:unknown_core_field"),
+    ("evidence-unknown-key", variant(rec_act, evidence=[dict(rec_act["evidence"][0], confidence=93)]), {},
+     ["EV-3", "C-16"], "schema:unknown_core_field"),
+    ("body-unknown-key", variant(rec_amend, body=[dict(rec_amend["body"][0], media_type="text/plain"), rec_amend["body"][1]]), {},
+     ["P-17", "P-68"], "schema:unknown_core_field"),
+    ("versions-unknown-key", variant(rec_comment, versions=dict(rec_comment["versions"], kernel="0.3")), {},
+     ["P-18"], "schema:unknown_core_field"),
+] + [
+    ("endpoint-" + name, variant(rec_act, relations=[rel]), {}, ["P-73", "C-25"], "schema:relation")
+    for name, rel in (
+        ("engaged-in-source-work", {"rel": "engaged_in", "source": ["work", W1], "target": ["work", W1]}),
+        ("concerns-source-party", {"rel": "concerns", "source": ["party", BUYER], "target": ["work", W1]}),
+        ("part-of-target-record", {"rel": "part_of", "source": ["work", W1], "target": ["record", X]}),
+        ("serves-target-work", {"rel": "serves", "target": ["work", W1]}),
+        ("supersedes-with-source", {"rel": "supersedes", "source": ["record", X], "target": ["record", X]}),
+        ("derived-from-target-party", {"rel": "derived_from", "target": ["party", BUYER], "qualifier": ROLE + "fulfills"}),
+        ("on-behalf-of-target-work", {"rel": "on_behalf_of", "source": ["party", BUYER], "target": ["work", W1]}),
+        ("references-target-work", {"rel": "references", "target": ["work", W1]}),
+        ("three-elements", {"rel": "references", "target": ["record", X, "extra"]}),
+        ("qualifier-not-text", {"rel": "references", "target": ["record", X], "qualifier": 7}),
+    )
+] + [
+    ("declaration-without-authority-" + name, family_declaration(name), {}, ["P-13", "P-83", "C-32", rule], "authority_missing")
+    for name, rule in AUTHORITY_FAMILIES
 ]
 CDDL_FAIL = ("schema:empty", "schema:relation", "schema:required_field", "schema:unknown_core_field",
-             "schema:ext_key", "schema:type_uri", "schema:kind", "limit_exceeded:")
-CDDL_FAIL_CASES = {"params-map-value"}
+             "schema:ext_key", "schema:type_uri", "schema:kind", "limit_exceeded:", "capacity_missing")
+CDDL_FAIL_CASES = {"params-map-value", "practice-param-text-too-long"}
+CDDL_PASS_CASES = {"core-qualifier-on-references"}
+DECODER_REASONS = ("schema:empty", "schema:relation", "schema:required_field", "schema:unknown_core_field",
+                   "schema:ext_key", "schema:type_uri", "schema:kind", "limit_exceeded:items",
+                   "limit_exceeded:string", "limit_exceeded:depth")
 out_rej = []
 for name, rec, kw, rules, reason in rejects:
     b = enc(rec)
     c = ctx(rec, **kw)
-    cddl = "fail" if reason.startswith(CDDL_FAIL) or name in CDDL_FAIL_CASES else "pass"
-    if cddl == "pass":
+    cddl = "fail" if (reason.startswith(CDDL_FAIL) or name in CDDL_FAIL_CASES) and name not in CDDL_PASS_CASES else "pass"
+    if not reason.startswith(DECODER_REASONS):
         assert semantic(rec, c) == ("reject", reason), (name, semantic(rec, c))
     write_cbor("SignedRecord", "reject-" + name, b, cddl)
-    out_rej.append({"id": "record-reject/" + name, "rules": rules, "hex": b.hex(), "decoded": decoded(b),
+    out_rej.append({"id": "record-reject/" + name, "rules": rules, "hex": b.hex(), "decoded": decoded(b, rec),
                     "context": c, "cddl": cddl, "expect": {"outcome": "reject", "reason": reason}})
 
 write_json("records-reject.json", {
@@ -840,6 +1219,10 @@ write_json("records-reject.json", {
               "context holds verifier inputs that are not record bytes (origin, actor_type as the envelope ActorTypeAnnotation with one entry per on_behalf_of party, understood_extensions, recorded_at)"],
     "cases": out_rej})
 
+V2 = dict(rec_comment["versions"], protocol=[2, 0])
+v2_new_field = variant(rec_comment, versions=V2)
+v2_new_field["priority"] = 3
+v2_new_kind = variant(rec_comment, kind="event", versions=V2)
 quarantine = [
     ("critical-ext-not-understood", rec_consent, {},
      ["P-19", "P-69", "C-5"],
@@ -854,6 +1237,14 @@ quarantine = [
      ["T-4", "P-18", "P-19", "P-87"],
      "Protocol 2.0 has no rule set in this verifier; the record is quarantined before any other rule, so the missing authority is not judged.",
      "protocol_version_unknown"),
+    ("protocol-version-unknown-new-field", v2_new_field, {},
+     ["T-4", "P-18", "P-87"] + D7,
+     "A protocol 2.0 record with a top-level field protocol 1.0 does not define; the decoder reads versions.protocol first, so the field is not judged as unknown.",
+     "protocol_version_unknown"),
+    ("protocol-version-unknown-new-kind", v2_new_kind, {},
+     ["T-4", "P-9", "P-87"] + D7,
+     "A protocol 2.0 record of a kind protocol 1.0 does not define; it is quarantined, not rejected as schema:kind.",
+     "protocol_version_unknown"),
 ]
 out_q = []
 for name, rec, kw, rules, purpose, reason in quarantine:
@@ -861,12 +1252,13 @@ for name, rec, kw, rules, purpose, reason in quarantine:
     c = ctx(rec, **kw)
     assert semantic(rec, c) == ("quarantine", reason), name
     rid = [-16, sha(b)]
-    write_cbor("SignedRecord", "quarantine-" + name, b, "pass")
+    cddl = "pass" if rec["versions"]["protocol"] in KNOWN_PROTOCOLS else "fail"
+    write_cbor("SignedRecord", "quarantine-" + name, b, cddl)
     env, eb, leaf = envelope(rec, c, rid, ["quarantined", reason])
     write_cbor("LedgerEnvelope", "quarantine-envelope-" + name, eb, "pass")
     out_q.append({"id": "record-quarantine/" + name, "rules": rules, "purpose": purpose,
                   "hex": b.hex(), "decoded": decoded(b), "context": c, "record_digest": enc(rid).hex(),
-                  "cddl": "pass",
+                  "cddl": cddl,
                   "envelope": {"rules": ENVELOPE_RULES, "diag": diag(env), "hex": eb.hex(), "decoded": decoded(eb),
                                "leaf_hash": leaf.hex(), "cddl": "pass"},
                   "expect": {"outcome": "quarantine", "reason": reason}})

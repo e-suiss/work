@@ -169,11 +169,11 @@ func cases(_ file: [String: Any], _ key: String, _ name: String) throws -> [[Str
     return list
 }
 
-func outcomeText(_ value: Any?, _ id: String) throws -> String {
-    guard let fields = value as? [String: String], let outcome = fields["outcome"] else {
-        throw HarnessError.malformed(id)
-    }
-    return fields["reason"].map { "\(outcome) \($0)" } ?? outcome
+func sortedJson(_ value: Any, _ id: String) throws -> String {
+    let data = try JSONSerialization.data(
+        withJSONObject: value, options: [.sortedKeys, .withoutEscapingSlashes])
+    guard let text = String(data: data, encoding: .utf8) else { throw HarnessError.malformed(id) }
+    return text
 }
 
 // T-5 T-37 INV-7 INV-8 X-24
@@ -192,11 +192,12 @@ func t_5_t_37_inv_7_swift_record_vectors_match(_ dir: URL, _ tally: inout Tally)
         guard let id = c["id"] as? String, let decoded = c["decoded"], let context = c["context"] else {
             throw HarnessError.malformed("record case")
         }
-        let out = validateRecord(decoded: try json(decoded, id), context: try json(context, id))
-        let actual = try outcomeText(try JSONSerialization.jsonObject(with: Data(out.utf8)), id)
-        let expected = try outcomeText(c["expect"], id)
-        check(&tally, name, id, actual, expected)
-        seen.insert(String(expected.prefix { $0 != " " }))
+        guard let expect = c["expect"] as? [String: String], let outcome = expect["outcome"] else {
+            throw HarnessError.malformed(id)
+        }
+        let actual = validateRecord(decoded: try json(decoded, id), context: try json(context, id))
+        check(&tally, name, id, actual, try sortedJson(expect, id))
+        seen.insert(outcome)
     }
     guard seen == ["accept", "quarantine", "reject"] else { throw HarnessError.malformed(name) }
 }

@@ -17,8 +17,7 @@ ProtectedHeader = {
   4 => bstr .size 32,
 }
 
-; P-6 Access MD-3 Access CR-5 OQ-34
-; OPEN: IANA confirmation of the RFC 9864 code points -19 and -9
+; P-6 P-76 OQ-34 Access MD-3 Access CR-5
 SigAlg = AlgEd25519 / AlgESP256 / AlgES256 / AlgMLDSA65
 AlgEd25519 = -19
 AlgESP256 = -9
@@ -34,15 +33,18 @@ ActRecord = {
   type: ActType,
   occurred_at: Time,
   ? basis: OptionalBasis,
+  ? capacity: Capacity,                   ; P-10 P-13 E-13
+  ? params: Params,                       ; P-80
   RecordCore,
 }
 
 ; P-9 P-10 P-24 P-81 P-83 C-15
 DeclarationRecord = {
   kind: "declaration",
-  type: DeclarationType,
+  DeclarationTyped,
   ? occurred_at: Time,
   basis: Basis,
+  capacity: Capacity,                     ; P-10 P-13 E-13 P-91
   RecordCore,
 }
 
@@ -52,6 +54,8 @@ ClaimRecord = {
   type: ClaimType,
   occurred_at: Time,
   ? basis: OptionalBasis,
+  ? capacity: Capacity,                   ; P-10 P-13 E-13
+  ? params: Params,                       ; P-80
   RecordCore,
 }
 
@@ -59,7 +63,6 @@ ClaimRecord = {
 RecordCore = (
   author: PartyRef,                       ; P-10 INV-20
   ? on_behalf_of: OnBehalfOfChain,        ; P-10 P-13 C-17 E-13
-  ? capacity: Capacity,                   ; P-10 P-13 E-13
   visibility: VisibilityDecl,             ; P-10 P-77 EV-21
   ledger: LedgerID,                       ; P-10 C-34 C-35
   concerns: Concerns,                     ; P-10 C-34
@@ -69,7 +72,6 @@ RecordCore = (
   ? correlation: Correlations,            ; P-10 P-16
   ? evidence: EvidenceRefs,               ; P-10 EV-3
   ? body: BodyCommitments,                ; P-10 P-17 P-68
-  ? params: Params,                       ; P-80
   versions: VersionVector,                ; P-10 P-18
   ? ext: Extensions,                      ; P-19 P-69
   ? critical: CriticalExtensions,         ; P-19 P-69
@@ -144,6 +146,23 @@ CoreDeclarationType = "https://suiss.app/ns/work/declaration/request"
                     / "https://suiss.app/ns/work/declaration/attention_request"
                     / "https://suiss.app/ns/work/declaration/acknowledgement"
 
+; P-80 P-84 P-85 P-92
+DeclarationTyped = (
+  (type: DeclarationDecline, params: DeclineParams) //
+  (type: DeclarationCancel, params: CancelParams) //
+  (type: DeclarationNotice, params: NoticeParams) //
+  (type: DeclarationStopRequest, params: StopRequestParams) //
+  (type: DeclarationStopResponse, params: StopResponseParams) //
+  (type: DeclarationOpenCondition, params: OpenConditionParams) //
+  (type: DeclarationType, ? params: Params)
+)
+DeclarationDecline = "https://suiss.app/ns/work/declaration/decline"
+DeclarationCancel = "https://suiss.app/ns/work/declaration/cancel"
+DeclarationNotice = "https://suiss.app/ns/work/declaration/notice"
+DeclarationStopRequest = "https://suiss.app/ns/work/declaration/stop_request"
+DeclarationStopResponse = "https://suiss.app/ns/work/declaration/stop_response"
+DeclarationOpenCondition = "https://suiss.app/ns/work/declaration/open_condition"
+
 ; P-71 C-16
 ClaimType = CoreClaimType / TypeURI
 CoreClaimType = "https://suiss.app/ns/work/claim/observation"
@@ -156,7 +175,7 @@ LedgerEnvelope = {
   ledger: LedgerID,
   pos: uint,
   recorded_at: Time,
-  prev: Digest,                           ; OPEN: genesis value follows suiss-ledger (P-67 OQ-34)
+  prev: Digest,                           ; P-67 OQ-34
   actor_type: ActorTypeAnnotation,
   ? proof_commit: Digest,                 ; P-75 P-76 Access TI-11
   ? auth_context: AuthContextRef,         ; P-21
@@ -179,25 +198,24 @@ AuthContextRef = {
   step_up: bool,
 }
 
-; P-11 P-19 P-71 SEC-18
+; P-11 P-19 P-71 P-93 SEC-18
 Ingest = "admitted" / ["quarantined", ReasonCode] / ["rejected", ReasonCode]
-ReasonCode = tstr .regexp "[a-z][a-z0-9_]*(:[a-z][a-z0-9_]*)?"
+ReasonCode = tstr .regexp "[a-z][a-z0-9_]*(:[a-z][a-z0-9_]*)?(:https://[a-z0-9.-]+(:[0-9]+)?/[!-~]*)?"
 
-; P-5 P-67 Access CR-1 Access OP-76
+; P-5 P-67 OQ-34 Access CR-1 Access OP-76
 Digest = [alg: DigestAlg, value: bstr .size 32]
 DigestAlg = -16
 
-; P-27 P-67 Access OP-76
+; P-27 P-67 OQ-34 Access OP-76
 Time = uint
 
-; P-67 C-9 OQ-34
-; OPEN: byte form of the Access Party reference
+; P-67 OQ-34 C-9
 PartyRef = tstr .size (1..255)
 
-; P-67 C-8 C-35 P-54 Access OP-76
+; P-67 OQ-34 C-8 C-35 P-54 Access OP-76
 WorkID = bstr .size 16
 
-; P-67 C-35 Access OP-76
+; P-67 OQ-34 C-35 Access OP-76
 LedgerID = Digest
 
 ; P-9 P-70 C-5 PR-5 P-19
@@ -348,16 +366,16 @@ CoreEvidenceType = "https://suiss.app/ns/work/evidence/artifact"
                  / "https://suiss.app/ns/work/evidence/measurement"
                  / "https://suiss.app/ns/work/evidence/human_verification"
 
-; P-17 P-68 OP-15 Access T39
+; P-17 P-68 P-67 OQ-34 OP-15 Access T39
 BodyCommitment = {
   part: PartName,
   commit: Digest,
 }
 PartName = tstr .regexp "[a-z][a-z0-9_]{0,63}"
 
-; P-18 P-31 PR-14
+; P-18 P-31 P-94 PR-14
 VersionVector = {
-  protocol: [major: uint, minor: uint],
+  protocol: [major: 1, minor: 0],
   schema: Digest,
   ? practices: { 1*256 NamespaceURI => Digest },
 }
@@ -371,7 +389,44 @@ ExtKey = TypeURI
 Params = { 1*256 ParamName => ParamValue }
 ParamName = tstr .regexp "[a-z][a-z0-9_]{0,63}"
 ParamValue = ParamScalar / [1*256 ParamScalar]
-ParamScalar = uint / bool / Time / Digest / WorkID / CatalogCode / CatalogURI / TypeURI / PartyRef
+ParamScalar = uint / bool / Time / Digest / WorkID / CatalogCode / CatalogURI / TypeURI / PartyRef / NoDeadline
+
+; P-80 P-85 CM-20 P-92
+DeclineParams = { reason: DeclineReasonCode, ? effective_at: Time }
+
+; P-80 P-85 CM-30 P-92
+CancelParams = { reason: CancelReasonCode, ? effective_at: Time }
+
+; P-80 P-85 CM-17 P-92
+NoticeParams = { notice_type: NoticeTypeCode, ? effective_at: Time }
+
+; P-80 P-85 RC-36 P-92
+StopRequestParams = { stop_type: StopType, ? effective_at: Time }
+
+; P-80 P-84 P-85 RC-36 P-92
+StopResponseParams = { response: StopResponse, ? effective_at: Time }
+
+; P-80 P-84 P-85 ST-10 ST-11 ST-12 ST-27 P-92
+OpenConditionParams = {
+  ConditionForm,
+  wait_reason: WaitReason,
+  address: PartyRef / TypeURI,
+  deadline: Time / NoDeadline,
+  criterion: TypeURI,
+  ? effective_at: Time,
+}
+ConditionForm = (
+  (condition_type: ConditionAcceptance, gate_form: "delivery_acceptance") //
+  (condition_type: ConditionDecision / ConditionResource, gate_form: "approval" / "pre_action_review") //
+  (condition_type: ConditionAuthority / EpistemicConditionType) //
+  (condition_type: TypeURI, ? gate_form: GateForm)
+)
+NoDeadline = "none"
+
+; P-71 P-85 P-93
+DeclineReasonCode = DeclineReason / tstr .regexp "(no_capacity|no_authority|out_of_scope|missing_information|unacceptable_terms|other):https://[a-z0-9.-]+(:[0-9]+)?/[!-~]*"
+CancelReasonCode = CancelReason / tstr .regexp "(cannot_complete|failed|abandoned|other):https://[a-z0-9.-]+(:[0-9]+)?/[!-~]*"
+NoticeTypeCode = NoticeType / tstr .regexp "(at_risk|cannot_complete|obsolete_suggested):https://[a-z0-9.-]+(:[0-9]+)?/[!-~]*"
 
 ; P-85 P-71 CM-17 CM-20 CM-30 RC-36 ST-11 ST-27
 CatalogCode = DeclineReason / CancelReason / NoticeType / StopType / StopResponse / WaitReason / GateForm
@@ -386,15 +441,17 @@ GateForm = "approval" / "pre_action_review" / "delivery_acceptance"
 
 ; P-71 ST-10 ST-21
 CatalogURI = CoreConditionType / CoreDependencyType
-CoreConditionType = "https://suiss.app/ns/work/condition/information"
-                  / "https://suiss.app/ns/work/condition/commitment"
-                  / "https://suiss.app/ns/work/condition/external_event"
-                  / "https://suiss.app/ns/work/condition/time"
-                  / "https://suiss.app/ns/work/condition/third_party"
-                  / "https://suiss.app/ns/work/condition/authority"
-                  / "https://suiss.app/ns/work/condition/decision"
-                  / "https://suiss.app/ns/work/condition/acceptance"
-                  / "https://suiss.app/ns/work/condition/resource"
+CoreConditionType = EpistemicConditionType / GateConditionType
+EpistemicConditionType = "https://suiss.app/ns/work/condition/information"
+                       / "https://suiss.app/ns/work/condition/commitment"
+                       / "https://suiss.app/ns/work/condition/external_event"
+                       / "https://suiss.app/ns/work/condition/time"
+                       / "https://suiss.app/ns/work/condition/third_party"
+GateConditionType = ConditionAuthority / ConditionDecision / ConditionAcceptance / ConditionResource
+ConditionAuthority = "https://suiss.app/ns/work/condition/authority"
+ConditionDecision = "https://suiss.app/ns/work/condition/decision"
+ConditionAcceptance = "https://suiss.app/ns/work/condition/acceptance"
+ConditionResource = "https://suiss.app/ns/work/condition/resource"
 CoreDependencyType = "https://suiss.app/ns/work/dependency/flow"
                    / "https://suiss.app/ns/work/dependency/sharing"
                    / "https://suiss.app/ns/work/dependency/fit"
