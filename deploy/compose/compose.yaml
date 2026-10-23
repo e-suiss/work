@@ -250,10 +250,11 @@ services:
   valkey:
     <<: *hardening
     image: valkey/valkey@sha256:48332870af354a799964c0012ae1194a0bf2bf894eb508f945810596dc2d8d11 # 9.1.2-alpine
+    user: "999:1000"
     read_only: true
     command: ["valkey-server", "--maxmemory-policy", "noeviction", "--appendonly", "no"]
     tmpfs:
-      - /data
+      - /data:uid=999,gid=1000
     healthcheck:
       test: ["CMD", "valkey-cli", "ping"]
       interval: 2s
