@@ -368,6 +368,7 @@ tests = [
   "crates/kernel/src/policy_default.rs::f_26_security_switch_turns_off_only_with_a_recorded_declaration",
   "crates/kernel/src/policy_default.rs::f_26_security_values_only_tighten",
   "crates/kernel/tests/vectors.rs::t_5_t_37_native_policy_defaults_match_shared_vectors",
+  "sdks/bindings/uniffi/tests/swift/main.swift::t_5_t_37_swift_policy_defaults_match_shared_vectors",
   "sdks/bindings/uniffi/tests/vectors.rs::t_5_t_37_uniffi_policy_defaults_match_shared_vectors",
 ]
 
@@ -1166,6 +1167,7 @@ acceptance = "to-fill"
 title = ""
 tests = [
   "crates/kernel/tests/record_vectors.rs::p_72_rejected_record_vectors",
+  "crates/kernel/tests/records.rs::c_27_relation_qualifiers_must_be_pinned_practice_values",
   "crates/kernel/tests/records.rs::c_5_pinned_practice_values_are_accepted",
   "crates/kernel/tests/records.rs::c_5_unmapped_extension_values_are_rejected",
 ]
@@ -1245,6 +1247,7 @@ tests = [
   "crates/kernel/src/relation.rs::c_27_p_14_core_roles_belong_only_to_derived_from",
   "crates/kernel/src/relation.rs::c_27_p_81_derived_from_requires_a_full_uri_role_and_basis_is_not_one",
   "crates/kernel/tests/record_vectors.rs::p_72_rejected_record_vectors",
+  "crates/kernel/tests/records.rs::c_27_relation_qualifiers_must_be_pinned_practice_values",
 ]
 
 [[rule]]
@@ -1306,6 +1309,8 @@ tests = [
   "xtask/src/policy_terms.rs::c_42_api_schema_keys_are_checked",
   "xtask/src/policy_terms.rs::c_42_canonical_names_and_external_paths_pass",
   "xtask/src/policy_terms.rs::c_42_task_and_assignee_names_are_rejected",
+  "xtask/src/policy_terms.rs::c_42_variants_strings_serde_renames_and_other_languages_are_scanned",
+  "xtask/src/rules_files.rs::c_42_api_documents_are_found_by_their_top_level_key",
 ]
 
 [[rule]]
@@ -1645,7 +1650,10 @@ stage = 1
 acceptance = "to-fill"
 title = ""
 tests = [
+  "packages/kernel/e2e/kernel.spec.ts::t_5_t_37_inv_7 browser WebAssembly kernel matches every record vector",
+  "packages/kernel/src/records.test.ts::t_5_t_37_inv_7 WebAssembly kernel matches every record vector",
   "sdks/bindings/core/tests/vectors.rs::t_5_t_37_inv_7_native_record_vectors_through_bindings_core",
+  "sdks/bindings/uniffi/tests/swift/main.swift::t_5_t_37_inv_7_swift_record_vectors_match",
 ]
 
 [[rule]]
@@ -1757,7 +1765,9 @@ status = "frozen-protocol"
 stage = 5
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/records.rs::p_80_core_subtypes_require_their_reason_and_type_keys",
+]
 
 [[rule]]
 id = "CM-18"
@@ -1780,7 +1790,9 @@ id = "CM-20"
 family = "CM"
 status = "frozen-product"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/records.rs::p_80_core_subtypes_require_their_reason_and_type_keys",
+]
 
 [[rule]]
 id = "CM-21"
@@ -1843,7 +1855,9 @@ family = "CM"
 status = "frozen-protocol"
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/records.rs::p_80_core_subtypes_require_their_reason_and_type_keys",
+]
 
 [[rule]]
 id = "CM-31"
@@ -2203,7 +2217,9 @@ id = "RC-36"
 family = "RC"
 status = "frozen-product"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/records.rs::p_80_core_subtypes_require_their_reason_and_type_keys",
+]
 
 [[rule]]
 id = "RC-38"
@@ -2391,7 +2407,9 @@ family = "ST"
 status = "frozen-product"
 stage = 7
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/records.rs::p_80_open_condition_gate_form_follows_the_condition_type",
+]
 
 [[rule]]
 id = "ST-28"
@@ -2547,7 +2565,9 @@ status = "frozen-protocol"
 stage = 1
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/records.rs::p_7_cddl_string_bounds_are_enforced",
+]
 
 [[rule]]
 id = "EV-4"
@@ -2778,6 +2798,7 @@ status = "frozen-product"
 stage = 13
 title = ""
 tests = [
+  "xtask/src/catalog.rs::t_49_every_curated_threat_key_is_required",
   "xtask/src/catalog.rs::t_49_threat_cell_without_known_rule_is_reported",
 ]
 
@@ -2807,6 +2828,7 @@ title = "Claim language binds product text, API field names and documentation"
 tests = [
   "xtask/src/catalog_claims.rs::f_24_inv_34_sec_33_sec_34_every_forbidden_phrase_is_caught",
   "xtask/src/catalog_claims.rs::sec_34_api_field_names_and_rustdoc_are_scanned",
+  "xtask/src/catalog_claims.rs::sec_34_string_literals_doc_attributes_tsdoc_and_api_documents_are_scanned",
 ]
 
 [[rule]]
@@ -2858,6 +2880,9 @@ tests = [
   "crates/kernel/tests/records.rs::p_69_ext_keys_are_in_canonical_map_order",
   "crates/kernel/tests/records.rs::p_72_empty_optional_lists_are_rejected",
   "crates/kernel/tests/records.rs::p_72_set_lists_are_sorted_and_duplicate_free",
+  "crates/kernel/tests/records.rs::p_80_param_text_is_a_code_uri_or_party_reference",
+  "sdks/bindings/core/tests/vectors.rs::p_11_every_vector_reason_is_a_kernel_code_and_every_id_is_unique",
+  "sdks/bindings/core/tests/vectors.rs::p_67_digests_are_encoded_as_the_sha_256_label_and_32_bytes",
 ]
 
 [[rule]]
@@ -2881,6 +2906,8 @@ pd = "set"
 title = ""
 tests = [
   "crates/kernel/src/verify.rs::p_6_rejected_signature_carries_its_detail",
+  "crates/kernel/tests/records.rs::p_7_cddl_list_and_map_bounds_reject_one_more_than_256",
+  "crates/kernel/tests/records.rs::p_7_cddl_string_bounds_are_enforced",
   "xtask/src/supply_chain.rs::t_33_serde_json_with_unbounded_depth_is_rejected",
 ]
 
@@ -2902,7 +2929,7 @@ acceptance = "to-fill"
 title = ""
 tests = [
   "crates/kernel/tests/record_vectors.rs::p_11_accepted_record_vectors",
-  "crates/kernel/tests/records.rs::c_16_declaration_occurred_at_is_optional_and_claims_need_it",
+  "crates/kernel/tests/records.rs::p_10_declaration_occurred_at_is_optional",
   "crates/kernel/tests/records.rs::p_9_vector_examples_are_accepted",
 ]
 
@@ -2914,10 +2941,13 @@ stage = 1
 acceptance = "to-fill"
 title = ""
 tests = [
-  "crates/kernel/src/reason.rs::p_11_reason_codes_round_trip_through_their_wire_strings",
+  "crates/kernel/src/reason.rs::p_11_every_reason_round_trips_through_its_wire_string",
   "crates/kernel/tests/derivation.rs::p_11_ledger_order_violations_are_errors",
   "crates/kernel/tests/record_vectors.rs::p_11_accepted_record_vectors",
+  "sdks/bindings/core/tests/reason_codes.rs::t_69_typescript_reason_codes_are_the_kernel_codes",
+  "sdks/bindings/core/tests/vectors.rs::p_11_every_vector_reason_is_a_kernel_code_and_every_id_is_unique",
   "sdks/bindings/core/tests/vectors.rs::t_5_t_37_inv_7_native_record_vectors_through_bindings_core",
+  "xtask/src/policy_scan.rs::t_41_stale_missing_and_orphan_generated_files_are_reported",
 ]
 
 [[rule]]
@@ -2929,6 +2959,7 @@ acceptance = "to-fill"
 title = ""
 tests = [
   "crates/kernel/tests/records.rs::p_15_agent_records_carry_producer",
+  "crates/kernel/tests/records.rs::p_7_cddl_string_bounds_are_enforced",
   "crates/kernel/tests/records.rs::p_9_vector_examples_are_accepted",
 ]
 
@@ -2940,6 +2971,7 @@ stage = 7
 acceptance = "to-fill"
 title = ""
 tests = [
+  "crates/kernel/tests/records.rs::p_7_cddl_string_bounds_are_enforced",
   "crates/kernel/tests/records.rs::p_9_vector_examples_are_accepted",
 ]
 
@@ -2961,6 +2993,7 @@ stage = 1
 acceptance = "to-fill"
 title = ""
 tests = [
+  "crates/kernel/src/reason.rs::p_19_quarantine_reasons_are_exactly_the_two_that_never_reject",
   "crates/kernel/tests/derivation.rs::p_19_quarantined_record_has_no_effect",
   "crates/kernel/tests/derivation.rs::t_4_p_87_unknown_protocol_version_is_quarantined_in_derivation",
   "crates/kernel/tests/record_vectors.rs::p_11_accepted_record_vectors",
@@ -3271,7 +3304,10 @@ status = "frozen-protocol"
 stage = 1
 acceptance = "to-fill"
 title = ""
-tests = ["crates/kernel/src/id.rs::p_67_party_ref_is_one_to_255_bytes"]
+tests = [
+  "crates/kernel/src/id.rs::p_67_party_ref_is_one_to_255_bytes",
+  "sdks/bindings/core/tests/vectors.rs::p_67_digests_are_encoded_as_the_sha_256_label_and_32_bytes",
+]
 
 [[rule]]
 id = "P-68"
@@ -3289,7 +3325,7 @@ id = "P-69"
 family = "P"
 status = "frozen-protocol"
 stage = 1
-acceptance = "to-fill"
+acceptance = "filled"
 title = ""
 tests = [
   "crates/kernel/tests/record_vectors.rs::p_19_quarantine_record_vectors",
@@ -3305,10 +3341,11 @@ id = "P-70"
 family = "P"
 status = "frozen-protocol"
 stage = 1
-acceptance = "to-fill"
+acceptance = "filled"
 title = ""
 tests = [
   "crates/kernel/src/uri.rs::p_70_core_root_is_suiss_app_work",
+  "crates/kernel/src/uri.rs::p_70_namespace_cover_stops_at_a_path_boundary",
   "crates/kernel/src/uri.rs::p_70_only_absolute_https_uris_parse",
   "crates/kernel/tests/record_vectors.rs::p_72_rejected_record_vectors",
 ]
@@ -3318,11 +3355,13 @@ id = "P-71"
 family = "P"
 status = "frozen-protocol"
 stage = 1
-acceptance = "to-fill"
+acceptance = "filled"
 title = ""
 tests = [
   "crates/kernel/src/catalog.rs::p_71_core_declaration_catalog_is_closed",
+  "crates/kernel/src/reason.rs::p_71_unknown_namespaced_sub_code_reads_as_its_parent",
   "crates/kernel/tests/records.rs::c_5_unmapped_extension_values_are_rejected",
+  "crates/kernel/tests/records.rs::p_80_core_subtypes_require_their_reason_and_type_keys",
 ]
 
 [[rule]]
@@ -3330,16 +3369,19 @@ id = "P-72"
 family = "P"
 status = "frozen-protocol"
 stage = 1
-acceptance = "to-fill"
+acceptance = "filled"
 title = ""
 tests = [
+  "crates/kernel/src/id.rs::p_72_party_refs_order_canonically",
   "crates/kernel/src/id.rs::p_72_text_orders_by_encoded_length_first",
   "crates/kernel/tests/record_vectors.rs::p_72_rejected_record_vectors",
   "crates/kernel/tests/records.rs::p_72_author_ordered_lists_reject_repeated_entries",
   "crates/kernel/tests/records.rs::p_72_empty_optional_lists_are_rejected",
   "crates/kernel/tests/records.rs::p_72_p_69_empty_optional_maps_are_rejected",
   "crates/kernel/tests/records.rs::p_72_set_lists_are_sorted_and_duplicate_free",
+  "crates/kernel/tests/records.rs::p_7_cddl_list_and_map_bounds_reject_one_more_than_256",
   "sdks/bindings/core/tests/vectors.rs::t_5_t_37_inv_7_native_record_vectors_through_bindings_core",
+  "xtask/src/policy_scan.rs::t_41_stale_missing_and_orphan_generated_files_are_reported",
 ]
 
 [[rule]]
@@ -3347,7 +3389,7 @@ id = "P-73"
 family = "P"
 status = "frozen-protocol"
 stage = 1
-acceptance = "to-fill"
+acceptance = "filled"
 title = ""
 tests = [
   "crates/kernel/src/relation.rs::p_73_each_relation_allows_only_its_endpoint_types",
@@ -3359,11 +3401,13 @@ family = "P"
 status = "frozen-protocol"
 class = "BS"
 stage = 1
-acceptance = "to-fill"
+acceptance = "filled"
 title = ""
 tests = [
   "crates/kernel/tests/derivation.rs::p_28_p_74_concurrent_transitions_by_different_authors_conflict",
+  "crates/kernel/tests/derivation.rs::p_28_the_same_author_missing_its_own_head_is_stale",
   "crates/kernel/tests/derivation.rs::p_74_same_author_same_chain_same_version_is_rejected",
+  "crates/kernel/tests/derivation.rs::p_86_a_declaration_without_effect_consumes_no_version",
   "crates/kernel/tests/derivation.rs::p_86_a_target_in_another_chain_does_not_raise_the_version",
   "crates/kernel/tests/derivation.rs::p_86_version_is_one_more_than_the_highest_superseded_version_in_the_chain",
 ]
@@ -3391,9 +3435,10 @@ id = "P-77"
 family = "P"
 status = "frozen-protocol"
 stage = 1
-acceptance = "to-fill"
+acceptance = "filled"
 title = ""
 tests = [
+  "crates/kernel/src/id.rs::p_72_party_refs_order_canonically",
   "crates/kernel/tests/record_vectors.rs::p_11_accepted_record_vectors",
   "crates/kernel/tests/record_vectors.rs::p_72_rejected_record_vectors",
   "crates/kernel/tests/records.rs::p_77_party_audience_is_sorted_and_excludes_author_and_principals",
@@ -3405,7 +3450,7 @@ id = "P-78"
 family = "P"
 status = "frozen-protocol"
 stage = 1
-acceptance = "to-fill"
+acceptance = "filled"
 title = ""
 tests = [
   "crates/kernel/tests/record_vectors.rs::p_72_rejected_record_vectors",
@@ -3419,7 +3464,9 @@ status = "frozen-protocol"
 stage = 1
 acceptance = "filled"
 title = ""
-tests = []
+tests = [
+  "sdks/bindings/core/tests/vectors.rs::p_67_digests_are_encoded_as_the_sha_256_label_and_32_bytes",
+]
 
 [[rule]]
 id = "P-80"
@@ -3427,11 +3474,16 @@ family = "P"
 status = "frozen-protocol"
 class = "BS"
 stage = 1
-acceptance = "to-fill"
+acceptance = "filled"
 title = ""
 tests = [
   "crates/kernel/tests/record_vectors.rs::p_11_accepted_record_vectors",
   "crates/kernel/tests/record_vectors.rs::p_72_rejected_record_vectors",
+  "crates/kernel/tests/records.rs::inv_4_effect_starting_exactly_at_recorded_at_is_not_retroactive",
+  "crates/kernel/tests/records.rs::p_80_core_subtypes_require_their_reason_and_type_keys",
+  "crates/kernel/tests/records.rs::p_80_open_condition_address_deadline_and_criterion_are_typed",
+  "crates/kernel/tests/records.rs::p_80_open_condition_gate_form_follows_the_condition_type",
+  "crates/kernel/tests/records.rs::p_80_param_text_is_a_code_uri_or_party_reference",
   "crates/kernel/tests/records.rs::p_80_params_follow_the_core_subtype_schema",
 ]
 
@@ -3440,7 +3492,7 @@ id = "P-81"
 family = "P"
 status = "frozen-protocol"
 stage = 1
-acceptance = "to-fill"
+acceptance = "filled"
 title = ""
 tests = [
   "crates/kernel/src/catalog.rs::p_81_core_roles_are_full_uris_and_basis_is_not_one",
@@ -3454,7 +3506,7 @@ id = "P-82"
 family = "P"
 status = "frozen-protocol"
 stage = 1
-acceptance = "to-fill"
+acceptance = "filled"
 title = ""
 tests = [
   "crates/kernel/src/catalog.rs::p_82_the_only_core_act_subtype_is_action",
@@ -3466,12 +3518,13 @@ id = "P-83"
 family = "P"
 status = "frozen-protocol"
 stage = 1
-acceptance = "to-fill"
+acceptance = "filled"
 title = ""
 tests = [
   "crates/kernel/src/catalog.rs::p_71_core_declaration_catalog_is_closed",
   "crates/kernel/tests/record_vectors.rs::p_11_accepted_record_vectors",
   "crates/kernel/tests/record_vectors.rs::p_72_rejected_record_vectors",
+  "crates/kernel/tests/records.rs::p_13_p_83_every_declaration_names_its_capacity",
   "crates/kernel/tests/records.rs::p_83_acts_and_claims_need_no_authority",
   "crates/kernel/tests/records.rs::p_83_every_declaration_is_consequential_including_practice_subtypes",
 ]
@@ -3481,7 +3534,7 @@ id = "P-84"
 family = "P"
 status = "frozen-protocol"
 stage = 1
-acceptance = "to-fill"
+acceptance = "filled"
 title = ""
 tests = [
   "crates/kernel/tests/records.rs::p_83_acts_and_claims_need_no_authority",
@@ -3492,11 +3545,14 @@ id = "P-85"
 family = "P"
 status = "frozen-protocol"
 stage = 1
-acceptance = "to-fill"
+acceptance = "filled"
 title = ""
 tests = [
   "crates/kernel/src/catalog.rs::p_85_wire_names_have_no_hyphen",
+  "crates/kernel/tests/records.rs::p_80_core_subtypes_require_their_reason_and_type_keys",
+  "crates/kernel/tests/records.rs::p_80_open_condition_gate_form_follows_the_condition_type",
   "crates/kernel/tests/records.rs::p_80_params_follow_the_core_subtype_schema",
+  "xtask/src/rules_switches.rs::t_32_no_authority_wire_value_passes_in_every_file",
 ]
 
 [[rule]]
@@ -3507,8 +3563,15 @@ class = "BS"
 acceptance = "filled"
 title = ""
 tests = [
+  "crates/kernel/tests/derivation.rs::p_24_cross_kind_supersession_is_rejected",
+  "crates/kernel/tests/derivation.rs::p_24_terminal_outcome_never_changes_and_consumes_no_version",
+  "crates/kernel/tests/derivation.rs::p_28_target_order_does_not_change_what_a_record_saw",
+  "crates/kernel/tests/derivation.rs::p_86_a_declaration_without_effect_consumes_no_version",
+  "crates/kernel/tests/derivation.rs::p_86_a_root_without_effect_starts_no_chain",
   "crates/kernel/tests/derivation.rs::p_86_a_target_in_another_chain_does_not_raise_the_version",
   "crates/kernel/tests/derivation.rs::p_86_version_is_one_more_than_the_highest_superseded_version_in_the_chain",
+  "crates/kernel/tests/properties.rs::p_24_derived_view_invariants_hold",
+  "crates/kernel/tests/properties.rs::p_28_order_of_the_targets_after_the_first_never_changes_the_result",
 ]
 
 [[rule]]
@@ -3519,13 +3582,88 @@ class = "BS"
 acceptance = "filled"
 title = ""
 tests = [
+  "crates/kernel/src/reason.rs::p_19_quarantine_reasons_are_exactly_the_two_that_never_reject",
+  "crates/kernel/src/rules.rs::p_87_rule_set_is_decided_from_the_version_alone",
   "crates/kernel/src/rules.rs::t_4_rule_sets_are_ordered_and_unique_by_protocol_version",
   "crates/kernel/tests/derivation.rs::t_4_p_87_older_record_keeps_its_own_rules_under_a_newer_active_protocol",
   "crates/kernel/tests/derivation.rs::t_4_p_87_record_newer_than_the_active_protocol_has_no_effect",
   "crates/kernel/tests/derivation.rs::t_4_p_87_unknown_protocol_version_is_quarantined_in_derivation",
+  "crates/kernel/tests/record_vectors.rs::p_19_quarantine_record_vectors",
   "crates/kernel/tests/records.rs::t_4_p_87_unknown_protocol_version_is_quarantined_before_any_rule",
   "crates/kernel/tests/records.rs::t_4_rule_set_is_selected_from_the_record_version_only",
 ]
+
+[[rule]]
+id = "P-88"
+family = "P"
+status = "frozen-protocol"
+class = "BS"
+stage = 1
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "P-89"
+family = "P"
+status = "frozen-protocol"
+class = "BS"
+stage = 1
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "P-90"
+family = "P"
+status = "frozen-protocol"
+class = "BS"
+stage = 1
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "P-91"
+family = "P"
+status = "frozen-protocol"
+stage = 1
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "P-92"
+family = "P"
+status = "frozen-protocol"
+stage = 1
+acceptance = "to-fill"
+title = ""
+tests = [
+  "crates/kernel/tests/records.rs::p_80_open_condition_address_deadline_and_criterion_are_typed",
+  "crates/kernel/tests/records.rs::p_80_open_condition_gate_form_follows_the_condition_type",
+]
+
+[[rule]]
+id = "P-93"
+family = "P"
+status = "frozen-protocol"
+stage = 1
+acceptance = "to-fill"
+title = ""
+tests = [
+  "crates/kernel/tests/records.rs::p_80_open_condition_gate_form_follows_the_condition_type",
+]
+
+[[rule]]
+id = "P-94"
+family = "P"
+status = "frozen-protocol"
+class = "BS"
+stage = 1
+acceptance = "to-fill"
+title = ""
+tests = []
 
 [[rule]]
 id = "PR-2"
@@ -3550,6 +3688,8 @@ stage = 1
 acceptance = "to-fill"
 title = ""
 tests = [
+  "crates/kernel/src/uri.rs::p_70_namespace_cover_stops_at_a_path_boundary",
+  "crates/kernel/tests/records.rs::c_27_relation_qualifiers_must_be_pinned_practice_values",
   "crates/kernel/tests/records.rs::c_5_pinned_practice_values_are_accepted",
   "crates/kernel/tests/records.rs::c_5_unmapped_extension_values_are_rejected",
 ]
@@ -3770,6 +3910,8 @@ stage = 3
 acceptance = "to-fill"
 title = ""
 tests = [
+  "crates/kernel/tests/derivation.rs::p_86_a_declaration_without_effect_consumes_no_version",
+  "crates/kernel/tests/derivation.rs::p_86_a_root_without_effect_starts_no_chain",
   "crates/kernel/tests/derivation.rs::t_23_restriction_results_gate_normative_effect",
 ]
 
@@ -3825,6 +3967,7 @@ tests = [
   "xtask/src/rules_deps.rs::t_31_bins_may_depend_on_every_crate_and_xtask_on_none",
   "xtask/src/rules_deps.rs::t_31_component_crates_must_not_depend_on_each_other",
   "xtask/src/rules_deps.rs::t_31_crate_in_unknown_directory_fails_closed",
+  "xtask/src/rules_deps.rs::t_31_dev_dependencies_follow_the_table_with_reviewed_exceptions",
   "xtask/src/rules_deps.rs::t_31_http_uses_component_app_interfaces_and_clients_stay_thin",
   "xtask/src/rules_deps.rs::t_31_kernel_depends_only_on_suiss_crypto",
   "xtask/src/rules_deps.rs::t_31_testkit_is_a_dev_dependency_only",
@@ -3849,14 +3992,20 @@ tests = [
   "bins/work-server/src/config.rs::t_32_unknown_keys_such_as_a_dev_mode_are_rejected",
   "xtask/src/policy.rs::t_32_component_crate_without_layers_is_reported",
   "xtask/src/rules.rs::t_32_clippy_disallows_direct_clock_and_rng",
+  "xtask/src/rules_clippy.rs::t_32_disallowed_lint_suppressed_outside_adapters_is_rejected",
+  "xtask/src/rules_clippy.rs::t_32_lint_tables_and_rustflags_cannot_turn_the_lints_off",
   "xtask/src/rules_source.rs::t_32_async_and_tokio_in_domain_layer_are_rejected",
+  "xtask/src/rules_source.rs::t_32_grouped_std_imports_in_domain_layers_are_expanded",
+  "xtask/src/rules_source.rs::t_32_hash_maps_and_sets_in_domain_layers_are_rejected",
   "xtask/src/rules_source.rs::t_32_impure_words_in_comments_strings_and_tests_are_ignored",
   "xtask/src/rules_source.rs::t_32_kernel_and_domain_layers_are_pure_paths",
   "xtask/src/rules_switches.rs::t_32_config_key_naming_a_weakening_switch_is_rejected",
   "xtask/src/rules_switches.rs::t_32_dev_mode_and_security_skipping_switches_are_rejected",
   "xtask/src/rules_switches.rs::t_32_flags_in_code_are_rejected_but_comments_and_tests_are_not",
   "xtask/src/rules_switches.rs::t_32_identifiers_are_split_into_words",
+  "xtask/src/rules_switches.rs::t_32_no_authority_wire_value_passes_in_every_file",
   "xtask/src/rules_switches.rs::t_32_ordinary_words_are_accepted",
+  "xtask/src/rules_switches.rs::t_32_typescript_shell_justfile_and_dockerfile_switches_are_rejected",
 ]
 
 [[rule]]
@@ -3867,6 +4016,7 @@ stage = 0
 acceptance = "filled"
 title = "Strict lints, no request-path panics, checked arithmetic and redacting types"
 tests = [
+  "xtask/src/rules_profile.rs::t_33_env_profiles_and_rustflags_in_build_files_are_rejected",
   "xtask/src/rules_profile.rs::t_33_panic_abort_in_any_profile_is_rejected",
   "xtask/src/rules_profile.rs::t_33_panic_abort_rustflag_is_rejected",
   "xtask/src/rules_profile.rs::t_33_release_without_overflow_checks_is_rejected",
@@ -3874,7 +4024,7 @@ tests = [
   "xtask/src/rules_source.rs::t_33_forbid_unsafe_attribute_is_not_an_unsafe_use",
   "xtask/src/rules_source.rs::t_33_todo_without_issue_number_is_rejected",
   "xtask/src/rules_source.rs::t_33_unsafe_in_bindings_needs_a_safety_comment",
-  "xtask/src/rules_source.rs::t_33_unsafe_outside_bindings_is_rejected",
+  "xtask/src/rules_source.rs::t_33_unsafe_outside_generated_bindings_scaffolding_is_rejected",
   "xtask/src/supply_chain.rs::t_33_backtracking_regex_and_io_uring_in_lockfile_are_rejected",
   "xtask/src/supply_chain.rs::t_33_serde_json_with_unbounded_depth_is_rejected",
 ]
@@ -3887,7 +4037,10 @@ stage = 10
 acceptance = "to-fill"
 title = "Strict TypeScript clients on esuiss-ui with a generated API client"
 tests = [
+  "packages/kernel/src/index.test.ts::t_34 rejects names the kernel does not declare",
+  "packages/kernel/src/index.test.ts::t_34 rejects values outside the kernel integer ranges",
   "xtask/src/supply_chain.rs::t_34_npm_package_without_strict_compiler_options_is_rejected",
+  "xtask/src/supply_chain.rs::t_34_strict_family_overrides_and_weak_eslint_configs_are_rejected",
 ]
 
 [[rule]]
@@ -3908,7 +4061,9 @@ acceptance = "to-fill"
 title = "No ORM, SQL only in store, no physical delete, real PostgreSQL in tests"
 tests = [
   "xtask/src/rules_source.rs::t_36_allowlisted_job_queue_table_needs_a_reason",
+  "xtask/src/rules_source.rs::t_36_drop_schema_and_drop_column_are_rejected",
   "xtask/src/rules_source.rs::t_36_english_text_is_not_mistaken_for_sql",
+  "xtask/src/rules_source.rs::t_36_lower_case_escaped_and_concatenated_sql_outside_store_is_rejected",
   "xtask/src/rules_source.rs::t_36_physical_delete_statements_are_rejected",
   "xtask/src/rules_source.rs::t_36_sql_comments_do_not_count",
   "xtask/src/rules_source.rs::t_36_sqlx_macro_outside_store_is_rejected",
@@ -3923,19 +4078,37 @@ acceptance = "filled"
 title = "Every normative rule has a test; flaky tests are never retried until green"
 tests = [
   "crates/kernel/tests/properties.rs::inv_7_derivation_is_a_pure_function",
+  "crates/kernel/tests/properties.rs::p_24_derived_view_invariants_hold",
+  "crates/kernel/tests/properties.rs::p_28_order_of_the_targets_after_the_first_never_changes_the_result",
   "crates/kernel/tests/properties.rs::p_31_validation_is_a_pure_function",
   "crates/kernel/tests/properties.rs::t_4_position_overflow_is_typed",
   "crates/kernel/tests/vectors.rs::t_5_t_37_native_api_version_matches_shared_vectors",
   "crates/kernel/tests/vectors.rs::t_5_t_37_native_policy_defaults_match_shared_vectors",
+  "packages/kernel/e2e/kernel.spec.ts::t_5_t_37 browser WebAssembly kernel matches the shared kernel vectors",
+  "packages/kernel/e2e/kernel.spec.ts::t_5_t_37_inv_7 browser WebAssembly derivation matches the native bytes",
+  "packages/kernel/e2e/kernel.spec.ts::t_5_t_37_inv_7 browser WebAssembly kernel matches every record vector",
+  "packages/kernel/src/records.test.ts::t_5_t_37_inv_7 WebAssembly derivation matches the native bytes",
+  "packages/kernel/src/records.test.ts::t_5_t_37_inv_7 WebAssembly kernel matches every record vector",
+  "packages/kernel/src/vectors.test.ts::t_5_t_37 WebAssembly kernel matches the shared vectors",
+  "sdks/bindings/core/tests/vectors.rs::p_11_every_vector_reason_is_a_kernel_code_and_every_id_is_unique",
   "sdks/bindings/core/tests/vectors.rs::t_5_t_37_input_errors_are_not_decisions",
   "sdks/bindings/core/tests/vectors.rs::t_5_t_37_inv_7_native_derivation_through_bindings_core",
   "sdks/bindings/core/tests/vectors.rs::t_5_t_37_inv_7_native_record_vectors_through_bindings_core",
   "sdks/bindings/core/tests/vectors.rs::t_5_t_37_kernel_derivation_errors_cross_the_binding",
+  "sdks/bindings/uniffi/tests/swift/main.swift::t_5_t_37_inv_7_swift_derivation_matches_native_bytes",
+  "sdks/bindings/uniffi/tests/swift/main.swift::t_5_t_37_inv_7_swift_record_vectors_match",
+  "sdks/bindings/uniffi/tests/swift/main.swift::t_5_t_37_swift_api_version_matches_shared_vectors",
+  "sdks/bindings/uniffi/tests/swift/main.swift::t_5_t_37_swift_policy_defaults_match_shared_vectors",
   "sdks/bindings/uniffi/tests/vectors.rs::t_5_t_37_uniffi_api_version_matches_shared_vectors",
   "sdks/bindings/uniffi/tests/vectors.rs::t_5_t_37_uniffi_policy_defaults_match_shared_vectors",
   "xtask/src/catalog.rs::t_37_untested_boundary_fails_only_for_completed_stages_or_release",
+  "xtask/src/catalog_scan.rs::t_47_nextest_listing_drops_ignored_and_unlisted_rust_tests",
+  "xtask/src/catalog_scan.rs::t_47_orphan_files_outside_the_module_tree_are_not_scanned",
+  "xtask/src/catalog_scan.rs::t_47_typescript_and_swift_tests_cite_rules",
   "xtask/src/catalog_spec.rs::t_46_stages_come_from_boundary_bullets",
   "xtask/src/policy_scan.rs::t_37_nonzero_retries_are_rejected",
+  "xtask/src/policy_scan.rs::t_37_playwright_and_nextest_env_retries_are_rejected",
+  "xtask/src/rules_deps.rs::t_31_dev_dependencies_follow_the_table_with_reviewed_exceptions",
   "xtask/src/rules_files.rs::t_37_integration_tests_and_test_modules_count_as_test_files",
 ]
 
@@ -3953,8 +4126,11 @@ tests = [
   "xtask/src/supply_chain.rs::t_38_new_build_script_and_stale_entry_are_both_reported",
   "xtask/src/supply_chain.rs::t_58_npm_package_needs_its_own_lockfile_and_npmrc",
   "xtask/src/supply_cooldown.rs::t_31_git_sources_in_the_lockfile_are_rejected",
+  "xtask/src/supply_cooldown.rs::t_38_empty_lockfiles_and_version_ranges_are_rejected",
   "xtask/src/supply_cooldown.rs::t_60_crates_io_timestamps_parse_to_unix_seconds",
+  "xtask/src/supply_cooldown.rs::t_60_new_npm_versions_are_too_new",
   "xtask/src/supply_cooldown.rs::t_60_new_version_fails_unless_a_reasoned_exception_covers_it",
+  "xtask/src/supply_cooldown.rs::t_60_unjudged_versions_fail_in_ci_and_online",
   "xtask/src/supply_cooldown.rs::t_60_version_published_six_days_ago_is_too_new",
   "xtask/src/supply_pinning.rs::t_60_action_pinned_to_tag_is_rejected",
   "xtask/src/supply_pinning.rs::t_60_renovate_must_wait_seven_days",
@@ -3993,11 +4169,15 @@ acceptance = "filled"
 title = "The local environment always includes local Access and Relay"
 tests = [
   "bins/work-server/src/config.rs::t_32_unknown_keys_such_as_a_dev_mode_are_rejected",
+  "sdks/bindings/core/tests/reason_codes.rs::t_69_typescript_reason_codes_are_the_kernel_codes",
   "xtask/src/policy_scan.rs::t_41_generator_differences_are_reported",
+  "xtask/src/policy_scan.rs::t_41_stale_missing_and_orphan_generated_files_are_reported",
   "xtask/src/rules_comments.rs::t_53_justfile_recipe_docs_are_tool_docs",
   "xtask/src/rules_switches.rs::t_32_config_key_naming_a_weakening_switch_is_rejected",
   "xtask/src/rules_switches.rs::t_32_dev_mode_and_security_skipping_switches_are_rejected",
   "xtask/src/rules_switches.rs::t_32_flags_in_code_are_rejected_but_comments_and_tests_are_not",
+  "xtask/src/rules_switches.rs::t_32_no_authority_wire_value_passes_in_every_file",
+  "xtask/src/rules_switches.rs::t_32_typescript_shell_justfile_and_dockerfile_switches_are_rejected",
 ]
 
 [[rule]]
@@ -4018,6 +4198,7 @@ status = "frozen-technical"
 acceptance = "filled"
 title = "Contribution process as in Access with sensitive paths in CODEOWNERS"
 tests = [
+  "xtask/src/policy_scan.rs::t_43_last_matching_codeowners_line_decides_and_owners_are_handles",
   "xtask/src/policy_scan.rs::t_43_sensitive_path_without_owner_is_reported",
 ]
 
@@ -4029,7 +4210,9 @@ stage = 0
 acceptance = "filled"
 title = "Benchmarks and an instruction-count gate; nothing optimised without measurement"
 tests = [
+  "packages/kernel/e2e/kernel.spec.ts::t_44 browser WebAssembly start-up time",
   "xtask/src/policy_scan.rs::t_62_bench_job_with_pull_request_trigger_is_rejected",
+  "xtask/src/policy_scan.rs::t_62_bench_labels_matrix_runners_and_exact_main_guard",
 ]
 
 [[rule]]
@@ -4052,6 +4235,7 @@ tests = [
   "xtask/src/catalog.rs::t_46_catalog_format_rejects_duplicates_unknown_status_and_turkish_titles",
   "xtask/src/catalog.rs::t_46_family_stage_override_lowers_but_never_raises_stage",
   "xtask/src/catalog.rs::t_46_frozen_technical_rows_need_an_acceptance_state",
+  "xtask/src/catalog.rs::t_46_hand_edits_and_spec_drift_are_rejected",
   "xtask/src/catalog.rs::t_46_rendered_files_parse_back_identically",
   "xtask/src/catalog.rs::t_46_stage_rows_and_curated_rows_need_titles",
   "xtask/src/catalog_claims.rs::t_48_dictionary_entries_need_rules_replacements_and_reasons",
@@ -4069,11 +4253,15 @@ class = "UDC"
 acceptance = "filled"
 title = "Tests carry rule IDs in their name or a bare ID line"
 tests = [
+  "xtask/src/catalog.rs::t_47_rule_losing_all_tests_against_the_base_catalog_fails",
   "xtask/src/catalog.rs::t_47_unknown_ids_and_stale_links_fail",
   "xtask/src/catalog_ids.rs::t_47_foreign_ids_are_marked",
   "xtask/src/catalog_ids.rs::t_47_test_names_cite_their_leading_ids",
   "xtask/src/catalog_ids.rs::t_47_work_families_are_recognised",
+  "xtask/src/catalog_scan.rs::t_47_nextest_listing_drops_ignored_and_unlisted_rust_tests",
+  "xtask/src/catalog_scan.rs::t_47_orphan_files_outside_the_module_tree_are_not_scanned",
   "xtask/src/catalog_scan.rs::t_47_test_names_and_bare_id_lines_cite_rules",
+  "xtask/src/catalog_scan.rs::t_47_typescript_and_swift_tests_cite_rules",
   "xtask/src/catalog_scan.rs::t_47_unknown_rule_id_in_test_is_rejected",
 ]
 
@@ -4085,10 +4273,13 @@ class = "UDC"
 acceptance = "filled"
 title = "A forbidden-claims dictionary is scanned over documents, API files and messages"
 tests = [
+  "xtask/src/catalog_claims.rs::sec_34_string_literals_doc_attributes_tsdoc_and_api_documents_are_scanned",
+  "xtask/src/catalog_claims.rs::t_48_allowed_context_counts_only_in_the_same_sentence_as_whole_words",
   "xtask/src/catalog_claims.rs::t_48_claims_match_across_wrapped_lines_and_skip_negations",
   "xtask/src/catalog_claims.rs::t_48_dictionary_entries_need_rules_replacements_and_reasons",
   "xtask/src/catalog_claims.rs::t_48_globs_match_names_anywhere_and_paths_by_segment",
   "xtask/src/catalog_claims.rs::t_48_reasoned_exceptions_pass",
+  "xtask/src/rules_files.rs::c_42_api_documents_are_found_by_their_top_level_key",
 ]
 
 [[rule]]
@@ -4099,6 +4290,7 @@ acceptance = "filled"
 title = "Threat model as code; public comparison text only in COMPARISON.md"
 tests = [
   "xtask/src/catalog.rs::t_49_curated_threat_model_has_four_linked_cells_per_threat",
+  "xtask/src/catalog.rs::t_49_every_curated_threat_key_is_required",
   "xtask/src/catalog.rs::t_49_threat_cell_without_known_rule_is_reported",
   "xtask/src/catalog_claims.rs::mkt_1_comparison_claims_only_in_the_comparison_text",
   "xtask/src/catalog_spec.rs::sec_33_section_tables_are_counted",
@@ -4126,6 +4318,7 @@ acceptance = "filled"
 title = "compat.toml pins Access, Relay and shared crates for one local compose file"
 tests = [
   "xtask/src/policy_compat.rs::t_40_malformed_compat_rows_are_rejected",
+  "xtask/src/policy_compat.rs::t_51_every_service_running_a_product_image_matches_compat",
   "xtask/src/policy_compat.rs::t_51_main_builds_are_pinned_by_digest_with_a_commit_reference",
   "xtask/src/policy_compat.rs::t_51_published_access_image_must_match_the_compat_digest",
   "xtask/src/policy_compat.rs::t_51_shared_crate_versions_match_manifest_and_lockfile",
@@ -4141,6 +4334,8 @@ pd = "set"
 title = "Each rule check has exactly one tool"
 tests = [
   "xtask/src/rules.rs::t_32_clippy_disallows_direct_clock_and_rng",
+  "xtask/src/rules_clippy.rs::t_32_disallowed_lint_suppressed_outside_adapters_is_rejected",
+  "xtask/src/rules_clippy.rs::t_32_lint_tables_and_rustflags_cannot_turn_the_lints_off",
   "xtask/src/rules_lex.rs::t_52_cfg_test_module_is_a_test_region",
   "xtask/src/rules_lex.rs::t_52_comments_and_strings_are_blanked_in_code_view",
   "xtask/src/rules_lex.rs::t_52_nested_block_comments_end_at_the_outer_close",
@@ -4160,12 +4355,17 @@ title = "Code carries no explanatory comments"
 tests = [
   "xtask/src/catalog_ids.rs::t_53_bare_id_lines_are_recognised",
   "xtask/src/rules_comments.rs::t_53_comments_inside_strings_are_not_comments",
+  "xtask/src/rules_comments.rs::t_53_directives_are_allowed_only_for_their_file_type",
   "xtask/src/rules_comments.rs::t_53_explanatory_rust_comments_are_rejected",
+  "xtask/src/rules_comments.rs::t_53_git_hooks_conf_files_and_containerfiles_use_hash_comments",
   "xtask/src/rules_comments.rs::t_53_hash_comments_allow_ids_directives_and_version_notes",
+  "xtask/src/rules_comments.rs::t_53_image_version_notes_follow_digest_pins",
   "xtask/src/rules_comments.rs::t_53_justfile_recipe_docs_are_tool_docs",
   "xtask/src/rules_comments.rs::t_53_module_docs_with_two_paragraphs_are_rejected",
   "xtask/src/rules_comments.rs::t_53_shebang_and_dockerfile_directives_pass_but_prose_fails",
+  "xtask/src/rules_comments.rs::t_53_swift_kotlin_proto_sql_cddl_and_html_comments_are_scanned",
   "xtask/src/rules_comments.rs::t_53_toml_strings_attributes_and_tool_annotations_are_not_comments",
+  "xtask/src/rules_comments.rs::t_53_typescript_comments_allow_ids_directives_and_export_docs_only",
   "xtask/src/rules_comments.rs::t_53_version_note_needs_a_pinned_reference",
   "xtask/src/rules_source.rs::t_33_todo_without_issue_number_is_rejected",
   "xtask/src/rules_source.rs::t_33_unsafe_in_bindings_needs_a_safety_comment",
@@ -4178,6 +4378,7 @@ status = "policy-default"
 pd = "set"
 title = "Published package names carry the esuiss prefix"
 tests = [
+  "xtask/src/policy.rs::t_54_npm_packages_are_named_esuiss_work",
   "xtask/src/policy.rs::t_54_published_crates_carry_the_esuiss_work_prefix",
   "xtask/src/policy.rs::t_54_shared_crates_are_bound_by_package_with_the_library_name",
   "xtask/src/rules_kernel.rs::t_54_kernel_package_carries_the_published_name",
@@ -4220,6 +4421,8 @@ title = "Every JavaScript or TypeScript package is an independent npm project"
 tests = [
   "xtask/src/supply_chain.rs::t_34_npm_package_without_strict_compiler_options_is_rejected",
   "xtask/src/supply_chain.rs::t_58_npm_package_needs_its_own_lockfile_and_npmrc",
+  "xtask/src/supply_cooldown.rs::t_38_empty_lockfiles_and_version_ranges_are_rejected",
+  "xtask/src/supply_cooldown.rs::t_60_new_npm_versions_are_too_new",
 ]
 
 [[rule]]
@@ -4240,10 +4443,16 @@ pd = "set"
 title = "Five percent instruction threshold, seven-day cooldown and pinned references"
 tests = [
   "xtask/src/rules_comments.rs::t_53_hash_comments_allow_ids_directives_and_version_notes",
+  "xtask/src/rules_comments.rs::t_53_image_version_notes_follow_digest_pins",
   "xtask/src/supply_cooldown.rs::t_60_crates_io_timestamps_parse_to_unix_seconds",
+  "xtask/src/supply_cooldown.rs::t_60_new_npm_versions_are_too_new",
   "xtask/src/supply_cooldown.rs::t_60_new_version_fails_unless_a_reasoned_exception_covers_it",
+  "xtask/src/supply_cooldown.rs::t_60_unjudged_versions_fail_in_ci_and_online",
   "xtask/src/supply_cooldown.rs::t_60_version_published_six_days_ago_is_too_new",
   "xtask/src/supply_pinning.rs::t_60_action_pinned_to_tag_is_rejected",
+  "xtask/src/supply_pinning.rs::t_60_compose_variable_defaults_must_be_pinned",
+  "xtask/src/supply_pinning.rs::t_60_docker_run_and_pull_in_workflow_steps_need_a_digest",
+  "xtask/src/supply_pinning.rs::t_60_dockerfile_arg_defaults_resolve_and_must_be_pinned",
   "xtask/src/supply_pinning.rs::t_60_dockerfile_base_images_need_a_digest",
   "xtask/src/supply_pinning.rs::t_60_images_need_a_digest_except_unpublished_suiss_products",
   "xtask/src/supply_pinning.rs::t_60_renovate_must_wait_seven_days",
@@ -4265,6 +4474,7 @@ pd = "set"
 title = "Benchmarks run on a dedicated runner for scheduled and manual main jobs only"
 tests = [
   "xtask/src/policy_scan.rs::t_62_bench_job_with_pull_request_trigger_is_rejected",
+  "xtask/src/policy_scan.rs::t_62_bench_labels_matrix_runners_and_exact_main_guard",
 ]
 
 [[rule]]
@@ -4288,7 +4498,7 @@ id = "T-65"
 family = "T"
 status = "frozen-technical"
 stage = 1
-acceptance = "to-fill"
+acceptance = "filled"
 title = ""
 tests = [
   "crates/kernel/src/limits.rs::t_65_defaults_match_the_p_33_table",
@@ -4304,7 +4514,7 @@ id = "T-66"
 family = "T"
 status = "frozen-technical"
 stage = 1
-acceptance = "to-fill"
+acceptance = "filled"
 title = ""
 tests = [
   "crates/kernel/tests/records.rs::inv_20_t_66_automation_needs_a_bound_system_author_and_basis",
@@ -4323,7 +4533,7 @@ id = "T-68"
 family = "T"
 status = "frozen-technical"
 stage = 1
-acceptance = "to-fill"
+acceptance = "filled"
 title = ""
 tests = []
 
@@ -4334,6 +4544,7 @@ status = "frozen-technical"
 acceptance = "filled"
 title = ""
 tests = [
+  "sdks/bindings/core/tests/reason_codes.rs::t_69_typescript_reason_codes_are_the_kernel_codes",
   "sdks/bindings/core/tests/vectors.rs::t_5_t_37_input_errors_are_not_decisions",
   "sdks/bindings/core/tests/vectors.rs::t_5_t_37_inv_7_native_derivation_through_bindings_core",
   "sdks/bindings/core/tests/vectors.rs::t_5_t_37_inv_7_native_record_vectors_through_bindings_core",
@@ -4348,7 +4559,17 @@ acceptance = "filled"
 title = ""
 tests = [
   "xtask/src/rules_deps.rs::t_31_bindings_share_crates_inside_sdks_bindings_only",
+  "xtask/src/rules_deps.rs::t_31_dev_dependencies_follow_the_table_with_reviewed_exceptions",
 ]
+
+[[rule]]
+id = "T-71"
+family = "T"
+status = "frozen-technical"
+stage = 1
+acceptance = "to-fill"
+title = ""
+tests = []
 
 [[rule]]
 id = "OP-2"

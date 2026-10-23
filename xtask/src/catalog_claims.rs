@@ -1,7 +1,9 @@
 //! `forbidden-claims` (T-48, F-24, INV-34, SEC-33, SEC-34, MKT-1, T-42): tracked
-//! documents, rustdoc, API description files and message catalogs never use a
-//! forbidden claim outside its reasoned exceptions; Markdown never links to the
-//! local-only `docs/`; a `COMPARISON.md` carries its set, date and counterexample.
+//! documents, Rust and TypeScript docs and string literals, `OpenAPI` and
+//! `AsyncAPI` documents and message catalogs never use a forbidden claim outside
+//! its reasoned exceptions, whose context must sit in the same sentence; Markdown
+//! never links to the local-only spec, relatively or through a GitHub URL; a
+//! `COMPARISON.md` carries its set, date and counterexample.
 
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
@@ -11,8 +13,9 @@ use serde::Deserialize;
 use crate::Violation;
 use crate::catalog::DIR;
 use crate::catalog::ids::family;
-use crate::rules::files::{extension, repo_files};
-use crate::rules::lex::lex;
+use crate::rules::files::{extension, is_api_document, is_test_file, repo_files};
+use crate::rules::lex::{Lexed, TS, decoded, in_regions, lex, lex_with, test_regions};
+use crate::rules::switches::is_script_test;
 
 const FILE: &str = "forbidden-claims.toml";
 
@@ -121,15 +124,22 @@ pub(crate) fn glob(pattern: &str, path: &str) -> bool {
     parts(&p, &s)
 }
 
-/// Files to scan.
-pub(crate) fn targets(files: &[String], scan: &Scan) -> Vec<String> {
-    files
+/// Files to scan by the configured globs, and the candidates for `OpenAPI` and
+/// `AsyncAPI` documents found by content: every other JSON and YAML file.
+pub(crate) fn targets(files: &[String], scan: &Scan) -> (Vec<String>, Vec<String>) {
+    let kept = files
         .iter()
-        .filter(|f| !scan.exclude.iter().any(|g| glob(g, f)))
-        .filter(|f| scan.extensions.iter().any(|e| *e == extension(f)))
-        .filter(|f| scan.include.iter().any(|g| glob(g, f)))
+        .filter(|f| !scan.exclude.iter().any(|g| glob(g, f)));
+    let (listed, rest): (Vec<&String>, Vec<&String>) = kept.partition(|f| {
+        scan.extensions.iter().any(|e| *e == extension(f))
+            && scan.include.iter().any(|g| glob(g, f))
+    });
+    let api = rest
+        .into_iter()
+        .filter(|f| matches!(extension(f).as_str(), "json" | "yaml" | "yml"))
         .cloned()
-        .collect()
+        .collect();
+    (listed.into_iter().cloned().collect(), api)
 }
 
 fn split_camel(s: &str) -> String {
@@ -244,27 +254,49 @@ fn normalize_lines(para: &str) -> (String, Vec<usize>) {
     (norm, starts)
 }
 
-/// Claims found in one text: (line, claim id, phrase).
-pub(crate) fn find_claims(
+/// The sentence of normalized `text` around byte offset `at`.
+fn sentence(text: &str, at: usize) -> &str {
+    let ends = |i: usize| {
+        text.get(i..i.saturating_add(1))
+            .is_some_and(|c| matches!(c, "." | "!" | "?" | ";"))
+            && text
+                .get(i.saturating_add(1)..)
+                .is_none_or(|r| r.is_empty() || r.starts_with(' '))
+    };
+    let start = (0..at)
+        .rev()
+        .find(|&i| ends(i))
+        .map_or(0, |i| i.saturating_add(1));
+    let end = (at..text.len()).find(|&i| ends(i)).unwrap_or(text.len());
+    text.get(start..end).unwrap_or(text)
+}
+
+/// True when an allowed context stands, as whole words, in the sentence of the
+/// match at `at`.
+pub(crate) fn context_allows(claim: &Claim, norm: &str, at: usize) -> bool {
+    let s = sentence(norm, at);
+    claim
+        .allow
+        .iter()
+        .any(|a| !find_all(s, normalize(&a.context).trim()).is_empty())
+}
+
+/// Claims found in text fragments `(first line, text)`: (line, claim id, phrase).
+pub(crate) fn claims_in(
     path: &str,
-    text: &str,
+    fragments: &[(usize, String)],
     claims: &[Claim],
 ) -> Vec<(usize, String, String)> {
     let mut out = Vec::new();
-    for (start, para) in paragraphs(text) {
-        let (norm, starts) = normalize_lines(&para);
+    for (start, para) in fragments {
+        let (norm, starts) = normalize_lines(para);
         for claim in claims {
-            if claim.exception.iter().any(|e| glob(&e.path, path))
-                || claim
-                    .allow
-                    .iter()
-                    .any(|a| norm.contains(&normalize(&a.context)))
-            {
+            if claim.exception.iter().any(|e| glob(&e.path, path)) {
                 continue;
             }
             for phrase in &claim.phrases {
                 for at in find_all(&norm, &normalize(phrase)) {
-                    if claim.negation && negated(&norm, at) {
+                    if (claim.negation && negated(&norm, at)) || context_allows(claim, &norm, at) {
                         continue;
                     }
                     let offset = starts
@@ -283,44 +315,173 @@ pub(crate) fn find_claims(
     out
 }
 
-/// The text a file contributes: rustdoc for Rust, camelCase split for API and
-/// message files, the file itself otherwise.
-pub(crate) fn scanned_text(path: &str, text: &str) -> String {
+/// Claims found in plain text, paragraph by paragraph.
+#[cfg(test)]
+pub(crate) fn find_claims(
+    path: &str,
+    text: &str,
+    claims: &[Claim],
+) -> Vec<(usize, String, String)> {
+    claims_in(path, &paragraphs(text), claims)
+}
+
+/// Doc comment runs (`///`, `//!`, `/** */`, `/*! */`) of a lexed Rust file.
+fn rust_docs(lexed: &Lexed) -> Vec<(usize, String)> {
+    let mut out: Vec<(usize, String)> = Vec::new();
+    let mut last_line = 0_usize;
+    for c in &lexed.comments {
+        let line_doc = c
+            .text
+            .strip_prefix("///")
+            .or_else(|| c.text.strip_prefix("//!"));
+        let block_doc = c
+            .text
+            .strip_prefix("/**")
+            .or_else(|| c.text.strip_prefix("/*!"))
+            .map(|b| b.trim_end_matches("*/"));
+        if let Some(body) = line_doc {
+            let continues = c.line == last_line.saturating_add(1) && !body.trim().is_empty();
+            match out.last_mut() {
+                Some((_, text)) if continues => {
+                    text.push('\n');
+                    text.push_str(body);
+                }
+                _ if body.trim().is_empty() => {}
+                _ => out.push((c.line, body.to_owned())),
+            }
+            last_line = c.line;
+        } else if let Some(body) = block_doc {
+            out.push((c.line, block_text(body)));
+        }
+    }
+    out
+}
+
+fn block_text(body: &str) -> String {
+    body.lines()
+        .map(|l| l.trim_start().trim_start_matches('*'))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// The text fragments a file contributes: Rust docs and non-test string literals
+/// (`#[doc = "…"]` included), TypeScript `/** */` docs and string literals,
+/// camelCase-split API and message files, and paragraphs of everything else.
+pub(crate) fn fragments(path: &str, text: &str) -> Vec<(usize, String)> {
     match extension(path).as_str() {
         "rs" => {
             let lexed = lex(text);
-            let mut lines = vec![String::new(); text.lines().count()];
-            for c in &lexed.comments {
-                let doc = c
-                    .text
-                    .strip_prefix("///")
-                    .or_else(|| c.text.strip_prefix("//!"));
-                if let (Some(body), Some(slot)) = (doc, lines.get_mut(c.line.saturating_sub(1))) {
-                    body.clone_into(slot);
-                }
+            let tests = test_regions(&lexed.code);
+            let mut out = rust_docs(&lexed);
+            if !is_test_file(path) {
+                out.extend(
+                    lexed
+                        .strings
+                        .iter()
+                        .filter(|l| !in_regions(&tests, l.line))
+                        .map(|l| (l.line, decoded(l))),
+                );
             }
-            lines.join("\n")
+            out
         }
-        "json" | "yml" | "yaml" => split_camel(text),
-        _ => text.to_owned(),
+        "ts" | "tsx" | "mts" | "cts" | "js" | "jsx" | "mjs" | "cjs" => {
+            let lexed = lex_with(text, &TS);
+            let mut out: Vec<(usize, String)> = lexed
+                .comments
+                .iter()
+                .filter_map(|c| {
+                    c.text
+                        .strip_prefix("/**")
+                        .map(|b| (c.line, block_text(b.trim_end_matches("*/"))))
+                })
+                .collect();
+            if !is_script_test(path) {
+                out.extend(lexed.strings.iter().map(|l| (l.line, l.text.clone())));
+            }
+            out
+        }
+        "json" | "yml" | "yaml" => paragraphs(&split_camel(text)),
+        _ => paragraphs(text),
     }
 }
 
-/// Markdown links into the local-only `docs/` (T-42).
-pub(crate) fn docs_links(text: &str) -> Vec<usize> {
+/// Link targets in a Markdown line: `](target)`, `]: target` and `href="target"`.
+fn link_targets(line: &str) -> Vec<&str> {
+    let mut out = Vec::new();
+    for (open, close) in [("](", ")"), ("href=\"", "\""), ("href='", "'")] {
+        let mut rest = line;
+        while let Some(at) = rest.find(open) {
+            let after = rest
+                .get(at.saturating_add(open.len())..)
+                .unwrap_or_default();
+            let end = after.find(close).unwrap_or(after.len());
+            out.push(after.get(..end).unwrap_or_default().trim());
+            rest = after.get(end..).unwrap_or_default();
+        }
+    }
+    let t = line.trim_start();
+    if t.starts_with('[')
+        && let Some(at) = t.find("]: ")
+    {
+        out.push(t.get(at.saturating_add(3)..).unwrap_or_default().trim());
+    }
+    out
+}
+
+const GITHUB_HOSTS: &[(&str, usize)] = &[
+    ("https://github.com/", 4),
+    ("http://github.com/", 4),
+    ("https://raw.githubusercontent.com/", 3),
+];
+
+/// The repository path a link target points to from `file`: a local path, or the
+/// path inside a GitHub `blob`/`tree`/`raw` URL.
+fn link_path(file: &str, target: &str) -> Option<String> {
+    let target = target
+        .split(['#', '?', ' '])
+        .next()
+        .unwrap_or_default()
+        .trim_matches(['<', '>']);
+    for (host, skip) in GITHUB_HOSTS {
+        if let Some(rest) = target.strip_prefix(host) {
+            let parts: Vec<&str> = rest.split('/').collect();
+            let raw = *skip == 3;
+            let blob = raw || matches!(parts.get(2), Some(&("blob" | "tree" | "raw")));
+            return blob.then(|| parts.get(*skip..).unwrap_or_default().join("/"));
+        }
+    }
+    if target.contains("://") || target.starts_with("mailto:") || target.is_empty() {
+        return None;
+    }
+    let rooted = target.starts_with('/');
+    let mut parts: Vec<&str> = if rooted {
+        Vec::new()
+    } else {
+        let mut dir: Vec<&str> = file.split('/').collect();
+        dir.pop();
+        dir
+    };
+    for seg in target.trim_start_matches('/').split('/') {
+        match seg {
+            "" | "." => {}
+            ".." => {
+                parts.pop()?;
+            }
+            s => parts.push(s),
+        }
+    }
+    Some(parts.join("/"))
+}
+
+/// Lines of Markdown links into the local-only `docs/` (T-42): relative links,
+/// root links and GitHub URLs.
+pub(crate) fn docs_links(file: &str, text: &str) -> Vec<usize> {
     text.lines()
         .enumerate()
         .filter(|(_, l)| {
-            [
-                "](docs/",
-                "](./docs/",
-                "]: docs/",
-                "]: ./docs/",
-                "href=\"docs/",
-                "href=\"./docs/",
-            ]
-            .iter()
-            .any(|p| l.contains(p))
+            link_targets(l)
+                .into_iter()
+                .any(|t| link_path(file, t).is_some_and(|p| p == "docs" || p.starts_with("docs/")))
         })
         .map(|(n, _)| n.saturating_add(1))
         .collect()
@@ -395,7 +556,7 @@ pub(crate) fn validate(file: &ClaimsFile, catalog_ids: &BTreeSet<String>) -> Vec
 pub(crate) fn findings(file: &ClaimsFile, files: &[(String, String)]) -> Vec<Violation> {
     let mut out = Vec::new();
     for (path, text) in files {
-        for (line, id, phrase) in find_claims(path, &scanned_text(path, text), &file.claim) {
+        for (line, id, phrase) in claims_in(path, &fragments(path, text), &file.claim) {
             let replacement = file
                 .claim
                 .iter()
@@ -407,8 +568,8 @@ pub(crate) fn findings(file: &ClaimsFile, files: &[(String, String)]) -> Vec<Vio
                 format!("forbidden claim `{id}` (\"{phrase}\"); say instead: {replacement} (T-48)"),
             ));
         }
-        if extension(path) == "md" {
-            for line in docs_links(text) {
+        if matches!(extension(path).as_str(), "md" | "mdx") {
+            for line in docs_links(path, text) {
                 out.push(violation(
                     "forbidden-claims",
                     format!("{path}:{line}"),
@@ -435,8 +596,16 @@ pub(crate) fn check(root: &Path) -> Result<Vec<Violation>, String> {
     let mut out = validate(&file, &catalog.ids());
     let all = repo_files(root)?;
     let mut texts = Vec::new();
-    for path in targets(&all, &file.scan) {
+    let (listed, api) = targets(&all, &file.scan);
+    for path in listed {
         if let Ok(text) = std::fs::read_to_string(root.join(&path)) {
+            texts.push((path, text));
+        }
+    }
+    for path in api {
+        if let Ok(text) = std::fs::read_to_string(root.join(&path))
+            && is_api_document(&path, &text)
+        {
             texts.push((path, text));
         }
     }
@@ -473,10 +642,10 @@ mod tests {
             for phrase in &c.phrases {
                 let text = format!("Work output is {phrase} today.");
                 let found = find_claims("README.md", &text, std::slice::from_ref(c));
-                let allowed_by_context = c
-                    .allow
-                    .iter()
-                    .any(|a| normalize(&text).contains(&normalize(&a.context)));
+                let norm = normalize(&text);
+                let allowed_by_context = find_all(&norm, &normalize(phrase))
+                    .first()
+                    .is_some_and(|at| context_allows(c, &norm, *at));
                 if !allowed_by_context {
                     assert_eq!(found.len(), 1, "{} / {phrase}", c.id);
                 }
@@ -539,20 +708,102 @@ mod tests {
         let api =
             "properties:\n  permanently_deleted:\n    type: boolean\n  wasPermanentlyDeleted: {}\n";
         assert_eq!(
-            find_claims(
+            claims_in(
                 "sdks/openapi/work.yaml",
-                &scanned_text("sdks/openapi/work.yaml", api),
+                &fragments("sdks/openapi/work.yaml", api),
                 &claims
             )
             .len(),
             2
         );
-        let rs =
-            "/// The body is permanently deleted.\nfn f() { let s = \"permanently deleted\"; }\n";
+        let rs = "/// The body is permanently deleted.\nfn f() { let s = \"permanently deleted\"; }\n#[cfg(test)]\nmod tests { const S: &str = \"permanently deleted\"; }\n";
+        assert_eq!(
+            claims_in(
+                "crates/a/src/lib.rs",
+                &fragments("crates/a/src/lib.rs", rs),
+                &claims
+            )
+            .len(),
+            2
+        );
+    }
+
+    // SEC-34 T-48
+    #[test]
+    fn sec_34_string_literals_doc_attributes_tsdoc_and_api_documents_are_scanned() {
+        let claims = [claim("exactly-once", &["exactly once"], true)];
+        let rs = "#[doc = \"Delivery is exactly once.\"]\npub struct D;\n/** Delivered\n * exactly once. */\npub struct E;\nconst M: &str = \"sent exactly once\";\n";
+        let found = claims_in(
+            "crates/a/src/lib.rs",
+            &fragments("crates/a/src/lib.rs", rs),
+            &claims,
+        );
+        let lines: Vec<usize> = found.iter().map(|(l, _, _)| *l).collect();
+        assert_eq!(lines, [4, 1, 6], "{found:?}");
+        let ts = "/** Delivery is exactly once. */\nexport const m = \"exactly once\";\n// exactly once in a comment\n";
+        assert_eq!(
+            claims_in(
+                "packages/a/src/i.ts",
+                &fragments("packages/a/src/i.ts", ts),
+                &claims
+            )
+            .len(),
+            2
+        );
+        let test = "it(\"is exactly once\", () => {});\n";
+        assert!(
+            claims_in(
+                "packages/a/src/i.test.ts",
+                &fragments("packages/a/src/i.test.ts", test),
+                &claims
+            )
+            .is_empty()
+        );
+        let scan = Scan {
+            include: vec!["*.md".to_owned()],
+            exclude: vec!["docs/**".to_owned()],
+            extensions: vec!["md".to_owned()],
+        };
+        let files = vec![
+            "README.md".to_owned(),
+            "deploy/api/work.yaml".to_owned(),
+            "docs/api.yaml".to_owned(),
+        ];
+        let (listed, api) = targets(&files, &scan);
+        assert_eq!(listed, ["README.md"]);
+        assert_eq!(api, ["deploy/api/work.yaml"]);
+    }
+
+    // T-48
+    #[test]
+    fn t_48_allowed_context_counts_only_in_the_same_sentence_as_whole_words() {
+        let mut c = claim("exactly-once", &["exactly once"], true);
+        c.allow = vec![Allow {
+            context: "idempotency key".to_owned(),
+            reason: "x".to_owned(),
+        }];
+        let claims = [c];
+        assert!(
+            find_claims(
+                "a.md",
+                "Delivered exactly once with an idempotency key.",
+                &claims
+            )
+            .is_empty()
+        );
         assert_eq!(
             find_claims(
-                "crates/a/src/lib.rs",
-                &scanned_text("crates/a/src/lib.rs", rs),
+                "a.md",
+                "Delivered exactly once. Retries carry an idempotency key.",
+                &claims
+            )
+            .len(),
+            1
+        );
+        assert_eq!(
+            find_claims(
+                "a.md",
+                "Delivered exactly once with idempotency keystore.",
                 &claims
             )
             .len(),
@@ -564,9 +815,15 @@ mod tests {
     #[test]
     fn t_42_mkt_1_docs_links_and_incomplete_comparison_are_rejected() {
         assert_eq!(
-            docs_links("See [spec](docs/spec/README.md).\n[ok](CONTRIBUTING.md)\n"),
+            docs_links(
+                "README.md",
+                "See [spec](docs/spec/README.md).\n[ok](CONTRIBUTING.md)\n"
+            ),
             [1]
         );
+        let nested = "[a](../../docs/spec/x.md)\n[b](../docs/x.md)\n[c](https://github.com/e-suiss/work/blob/main/docs/spec/README.md)\n[d]: /docs/decision-log.md\n<a href=\"./docs/x\">e</a>\n[f](https://github.com/e-suiss/work/issues/1)\n[g](https://example.com/docs/x)\n";
+        assert_eq!(docs_links("crates/kernel/README.md", nested), [1, 3, 4]);
+        assert_eq!(docs_links("README.md", "<a href=\"./docs/x\">e</a>\n"), [1]);
         let sections = vec![
             "set".to_owned(),
             "date".to_owned(),

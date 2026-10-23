@@ -89,7 +89,8 @@ status = "canonical-invariant"
 stage = 4
 title = ""
 tests = [
-  "crates/kernel/tests/derivation.rs::inv_9_claims_and_acts_never_change_normative_state",
+  "crates/kernel/tests/derivation.rs::inv_9_claims_and_acts_superseding_their_own_kind_form_lineage_only",
+  "crates/kernel/tests/derivation.rs::p_24_cross_kind_supersession_is_rejected",
 ]
 
 [[rule]]
@@ -99,7 +100,7 @@ status = "canonical-invariant"
 stage = 1
 title = ""
 tests = [
-  "crates/kernel/tests/derivation.rs::inv_9_claims_and_acts_never_change_normative_state",
+  "crates/kernel/tests/records.rs::p_10_declaration_occurred_at_is_optional",
 ]
 
 [[rule]]
@@ -110,10 +111,10 @@ stage = 1
 title = ""
 tests = [
   "crates/kernel/src/catalog.rs::c_16_closed_core_lists_have_their_sizes",
-  "crates/kernel/tests/derivation.rs::inv_9_claims_and_acts_never_change_normative_state",
+  "crates/kernel/tests/derivation.rs::inv_9_claims_and_acts_superseding_their_own_kind_form_lineage_only",
+  "crates/kernel/tests/derivation.rs::p_24_cross_kind_supersession_is_rejected",
   "crates/kernel/tests/record_vectors.rs::p_11_accepted_record_vectors",
   "crates/kernel/tests/records.rs::c_16_core_claim_subtypes_are_typed",
-  "crates/kernel/tests/records.rs::c_16_declaration_occurred_at_is_optional_and_claims_need_it",
 ]
 
 [[rule]]
@@ -194,6 +195,8 @@ status = "canonical-invariant"
 stage = 1
 title = ""
 tests = [
+  "crates/kernel/tests/derivation.rs::p_24_rejected_records_are_never_marked_superseded",
+  "crates/kernel/tests/derivation.rs::p_24_superseded_by_lists_each_superseding_record_once",
   "crates/kernel/tests/derivation.rs::p_24_superseded_record_is_marked_never_removed",
 ]
 
@@ -264,6 +267,7 @@ title = ""
 tests = [
   "crates/kernel/tests/derivation.rs::inv_4_retroactive_declaration_is_rejected",
   "crates/kernel/tests/record_vectors.rs::p_72_rejected_record_vectors",
+  "crates/kernel/tests/records.rs::inv_4_effect_starting_exactly_at_recorded_at_is_not_retroactive",
 ]
 
 [[rule]]
@@ -291,8 +295,14 @@ title = ""
 tests = [
   "crates/kernel/tests/derivation.rs::inv_7_same_inputs_give_the_same_result",
   "crates/kernel/tests/properties.rs::inv_7_derivation_is_a_pure_function",
+  "packages/kernel/e2e/kernel.spec.ts::t_5_t_37_inv_7 browser WebAssembly derivation matches the native bytes",
+  "packages/kernel/e2e/kernel.spec.ts::t_5_t_37_inv_7 browser WebAssembly kernel matches every record vector",
+  "packages/kernel/src/records.test.ts::t_5_t_37_inv_7 WebAssembly derivation matches the native bytes",
+  "packages/kernel/src/records.test.ts::t_5_t_37_inv_7 WebAssembly kernel matches every record vector",
   "sdks/bindings/core/tests/vectors.rs::t_5_t_37_inv_7_native_derivation_through_bindings_core",
   "sdks/bindings/core/tests/vectors.rs::t_5_t_37_inv_7_native_record_vectors_through_bindings_core",
+  "sdks/bindings/uniffi/tests/swift/main.swift::t_5_t_37_inv_7_swift_derivation_matches_native_bytes",
+  "sdks/bindings/uniffi/tests/swift/main.swift::t_5_t_37_inv_7_swift_record_vectors_match",
 ]
 
 [[rule]]
@@ -302,7 +312,10 @@ status = "canonical-invariant"
 stage = 1
 title = ""
 tests = [
+  "packages/kernel/e2e/kernel.spec.ts::t_5_t_37_inv_7 browser WebAssembly kernel matches every record vector",
+  "packages/kernel/src/records.test.ts::t_5_t_37_inv_7 WebAssembly kernel matches every record vector",
   "sdks/bindings/core/tests/vectors.rs::t_5_t_37_inv_7_native_record_vectors_through_bindings_core",
+  "sdks/bindings/uniffi/tests/swift/main.swift::t_5_t_37_inv_7_swift_record_vectors_match",
 ]
 
 [[rule]]
@@ -312,7 +325,8 @@ status = "canonical-invariant"
 stage = 1
 title = ""
 tests = [
-  "crates/kernel/tests/derivation.rs::inv_9_claims_and_acts_never_change_normative_state",
+  "crates/kernel/tests/derivation.rs::inv_9_claims_and_acts_superseding_their_own_kind_form_lineage_only",
+  "crates/kernel/tests/derivation.rs::p_24_cross_kind_supersession_is_rejected",
 ]
 
 [[rule]]
@@ -796,7 +810,7 @@ status = "canonical-invariant"
 stage = 5
 title = ""
 tests = [
-  "crates/kernel/tests/derivation.rs::p_24_terminal_outcome_never_changes",
+  "crates/kernel/tests/derivation.rs::p_24_terminal_outcome_never_changes_and_consumes_no_version",
 ]
 
 [[rule]]
@@ -991,6 +1005,7 @@ stage = 7
 title = ""
 tests = [
   "crates/kernel/src/catalog.rs::c_16_closed_core_lists_have_their_sizes",
+  "crates/kernel/tests/records.rs::p_80_open_condition_gate_form_follows_the_condition_type",
 ]
 
 [[rule]]
@@ -999,7 +1014,10 @@ family = "ST"
 status = "canonical-invariant"
 stage = 7
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/records.rs::p_80_open_condition_address_deadline_and_criterion_are_typed",
+  "crates/kernel/tests/records.rs::p_80_open_condition_gate_form_follows_the_condition_type",
+]
 
 [[rule]]
 id = "ST-13"
@@ -1483,8 +1501,10 @@ status = "canonical-invariant"
 stage = 1
 title = ""
 tests = [
-  "crates/kernel/src/reason.rs::p_11_reason_codes_round_trip_through_their_wire_strings",
+  "crates/kernel/src/reason.rs::p_11_every_reason_round_trips_through_its_wire_string",
   "crates/kernel/tests/records.rs::p_33_sec_18_semantic_limits_accept_the_bound_and_reject_one_more",
+  "crates/kernel/tests/records.rs::p_7_cddl_list_and_map_bounds_reject_one_more_than_256",
+  "crates/kernel/tests/records.rs::p_7_cddl_string_bounds_are_enforced",
 ]
 
 [[rule]]
@@ -1574,7 +1594,7 @@ status = "canonical-invariant"
 stage = 1
 title = ""
 tests = [
-  "crates/kernel/tests/derivation.rs::inv_9_claims_and_acts_never_change_normative_state",
+  "crates/kernel/tests/derivation.rs::inv_9_claims_and_acts_superseding_their_own_kind_form_lineage_only",
 ]
 
 [[rule]]
@@ -1624,6 +1644,7 @@ tests = [
   "crates/kernel/tests/records.rs::p_13_c_32_consequential_record_without_authority_is_rejected",
   "crates/kernel/tests/records.rs::p_13_e_13_capacity_must_match_on_behalf_of",
   "crates/kernel/tests/records.rs::p_13_inv_23_human_authors_need_authority_too",
+  "crates/kernel/tests/records.rs::p_13_p_83_every_declaration_names_its_capacity",
   "crates/kernel/tests/records.rs::p_83_acts_and_claims_need_no_authority",
   "crates/kernel/tests/records.rs::p_83_every_declaration_is_consequential_including_practice_subtypes",
   "crates/kernel/tests/records.rs::p_9_vector_examples_are_accepted",
@@ -1685,11 +1706,17 @@ stage = 1
 title = ""
 tests = [
   "crates/kernel/tests/derivation.rs::inv_4_retroactive_declaration_is_rejected",
+  "crates/kernel/tests/derivation.rs::inv_9_claims_and_acts_superseding_their_own_kind_form_lineage_only",
+  "crates/kernel/tests/derivation.rs::p_24_cross_kind_supersession_is_rejected",
+  "crates/kernel/tests/derivation.rs::p_24_rejected_records_are_never_marked_superseded",
+  "crates/kernel/tests/derivation.rs::p_24_superseded_by_lists_each_superseding_record_once",
   "crates/kernel/tests/derivation.rs::p_24_superseded_record_is_marked_never_removed",
   "crates/kernel/tests/derivation.rs::p_24_superseding_an_unknown_record_has_no_effect",
-  "crates/kernel/tests/derivation.rs::p_24_terminal_outcome_never_changes",
+  "crates/kernel/tests/derivation.rs::p_24_terminal_outcome_never_changes_and_consumes_no_version",
   "crates/kernel/tests/derivation.rs::p_74_same_author_same_chain_same_version_is_rejected",
   "crates/kernel/tests/derivation.rs::p_86_version_is_one_more_than_the_highest_superseded_version_in_the_chain",
+  "crates/kernel/tests/properties.rs::p_24_derived_view_invariants_hold",
+  "crates/kernel/tests/records.rs::inv_4_effect_starting_exactly_at_recorded_at_is_not_retroactive",
 ]
 
 [[rule]]
@@ -1719,8 +1746,14 @@ stage = 1
 title = ""
 tests = [
   "crates/kernel/tests/derivation.rs::p_28_a_transition_that_saw_the_head_does_not_conflict",
+  "crates/kernel/tests/derivation.rs::p_28_only_a_conflict_resolution_seeing_every_head_reopens_the_chain",
   "crates/kernel/tests/derivation.rs::p_28_p_74_concurrent_transitions_by_different_authors_conflict",
   "crates/kernel/tests/derivation.rs::p_28_resolution_citing_both_heads_closes_the_conflict",
+  "crates/kernel/tests/derivation.rs::p_28_superseding_the_head_counts_as_seeing_it",
+  "crates/kernel/tests/derivation.rs::p_28_target_order_does_not_change_what_a_record_saw",
+  "crates/kernel/tests/derivation.rs::p_28_the_same_author_missing_its_own_head_is_stale",
+  "crates/kernel/tests/properties.rs::p_24_derived_view_invariants_hold",
+  "crates/kernel/tests/properties.rs::p_28_order_of_the_targets_after_the_first_never_changes_the_result",
 ]
 
 [[rule]]
@@ -1734,8 +1767,11 @@ tests = [
   "crates/kernel/tests/derivation.rs::t_6_different_trust_inputs_diverge_explicitly",
   "crates/kernel/tests/properties.rs::inv_7_derivation_is_a_pure_function",
   "crates/kernel/tests/properties.rs::p_31_validation_is_a_pure_function",
+  "packages/kernel/e2e/kernel.spec.ts::t_5_t_37_inv_7 browser WebAssembly derivation matches the native bytes",
+  "packages/kernel/src/records.test.ts::t_5_t_37_inv_7 WebAssembly derivation matches the native bytes",
   "sdks/bindings/core/tests/vectors.rs::t_5_t_37_inv_7_native_derivation_through_bindings_core",
   "sdks/bindings/core/tests/vectors.rs::t_5_t_37_kernel_derivation_errors_cross_the_binding",
+  "sdks/bindings/uniffi/tests/swift/main.swift::t_5_t_37_inv_7_swift_derivation_matches_native_bytes",
 ]
 
 [[rule]]
@@ -1862,6 +1898,8 @@ tests = [
   "xtask/src/rules_deps.rs::t_31_kernel_depends_only_on_suiss_crypto",
   "xtask/src/rules_kernel.rs::t_31_kernel_binds_suiss_crypto_without_default_features",
   "xtask/src/rules_kernel.rs::t_31_std_pulling_crate_in_kernel_tree_is_rejected",
+  "xtask/src/rules_source.rs::t_32_grouped_std_imports_in_domain_layers_are_expanded",
+  "xtask/src/rules_source.rs::t_32_hash_maps_and_sets_in_domain_layers_are_rejected",
   "xtask/src/rules_source.rs::t_32_kernel_and_domain_layers_are_pure_paths",
   "xtask/src/rules_source.rs::t_4_clock_in_kernel_is_rejected",
   "xtask/src/rules_source.rs::t_4_kernel_root_without_no_std_is_rejected",
@@ -1877,10 +1915,21 @@ title = ""
 tests = [
   "crates/kernel/tests/vectors.rs::t_5_t_37_native_api_version_matches_shared_vectors",
   "crates/kernel/tests/vectors.rs::t_5_t_37_native_policy_defaults_match_shared_vectors",
+  "packages/kernel/e2e/kernel.spec.ts::t_5_t_37 browser WebAssembly kernel matches the shared kernel vectors",
+  "packages/kernel/e2e/kernel.spec.ts::t_5_t_37_inv_7 browser WebAssembly derivation matches the native bytes",
+  "packages/kernel/e2e/kernel.spec.ts::t_5_t_37_inv_7 browser WebAssembly kernel matches every record vector",
+  "packages/kernel/src/index.test.ts::t_5 loads the module only once",
+  "packages/kernel/src/records.test.ts::t_5_t_37_inv_7 WebAssembly derivation matches the native bytes",
+  "packages/kernel/src/records.test.ts::t_5_t_37_inv_7 WebAssembly kernel matches every record vector",
+  "packages/kernel/src/vectors.test.ts::t_5_t_37 WebAssembly kernel matches the shared vectors",
   "sdks/bindings/core/tests/vectors.rs::t_5_t_37_input_errors_are_not_decisions",
   "sdks/bindings/core/tests/vectors.rs::t_5_t_37_inv_7_native_derivation_through_bindings_core",
   "sdks/bindings/core/tests/vectors.rs::t_5_t_37_inv_7_native_record_vectors_through_bindings_core",
   "sdks/bindings/core/tests/vectors.rs::t_5_t_37_kernel_derivation_errors_cross_the_binding",
+  "sdks/bindings/uniffi/tests/swift/main.swift::t_5_t_37_inv_7_swift_derivation_matches_native_bytes",
+  "sdks/bindings/uniffi/tests/swift/main.swift::t_5_t_37_inv_7_swift_record_vectors_match",
+  "sdks/bindings/uniffi/tests/swift/main.swift::t_5_t_37_swift_api_version_matches_shared_vectors",
+  "sdks/bindings/uniffi/tests/swift/main.swift::t_5_t_37_swift_policy_defaults_match_shared_vectors",
   "sdks/bindings/uniffi/tests/vectors.rs::t_5_t_37_uniffi_api_version_matches_shared_vectors",
   "sdks/bindings/uniffi/tests/vectors.rs::t_5_t_37_uniffi_policy_defaults_match_shared_vectors",
   "xtask/src/rules_deps.rs::t_31_bindings_share_crates_inside_sdks_bindings_only",
@@ -1895,6 +1944,7 @@ title = ""
 tests = [
   "crates/kernel/tests/derivation.rs::inv_7_same_inputs_give_the_same_result",
   "crates/kernel/tests/derivation.rs::p_27_ledger_time_input_decides_pending_effect",
+  "crates/kernel/tests/derivation.rs::t_6_compare_matches_records_by_identifier",
   "crates/kernel/tests/derivation.rs::t_6_different_trust_inputs_diverge_explicitly",
   "crates/kernel/tests/properties.rs::inv_7_derivation_is_a_pure_function",
 ]
@@ -2023,6 +2073,7 @@ stage = 0
 title = "Records are never physically deleted; personal data is crypto-shredded"
 tests = [
   "xtask/src/rules_source.rs::t_36_allowlisted_job_queue_table_needs_a_reason",
+  "xtask/src/rules_source.rs::t_36_drop_schema_and_drop_column_are_rejected",
   "xtask/src/rules_source.rs::t_36_physical_delete_statements_are_rejected",
   "xtask/src/rules_source.rs::t_36_sql_comments_do_not_count",
 ]

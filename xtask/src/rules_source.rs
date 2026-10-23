@@ -7,9 +7,11 @@ use std::path::{Path, PathBuf};
 use serde::Deserialize;
 
 use crate::Violation;
-use crate::rules::comments::hash_comment;
+use crate::rules::comments::{comments_of, scanned_files};
 use crate::rules::files::{is_test_file, read, read_optional, rel, walk};
-use crate::rules::lex::{Lexed, find_token, in_regions, lex, line_at, test_regions};
+use crate::rules::lex::{
+    decoded, find_token, in_regions, lex, line_at, macro_literals, test_regions,
+};
 use crate::supply_chain::metadata::{DepKind, Metadata};
 
 fn violation(rule: &'static str, path: &str, line: usize, message: String) -> Violation {
@@ -33,6 +35,7 @@ const RULE_DEFINITION_FILES: &[&str] = &[
     "xtask/src/rules_source.rs",
     "xtask/src/rules_switches.rs",
     "xtask/src/rules_comments.rs",
+    "xtask/src/policy_terms.rs",
 ];
 
 /// True for rule definitions: the files above and Semgrep rule test fixtures.
@@ -106,6 +109,61 @@ fn glob_prefix(pattern: &str, path: &str) -> bool {
     pat.iter().zip(&segs).all(|(p, s)| *p == "*" || p == s)
 }
 
+/// Types whose iteration order depends on a random seed (T-4, T-6).
+const UNORDERED: &[&str] = &["HashMap", "HashSet", "RandomState", "hashbrown"];
+
+fn split_top(inner: &str) -> Vec<&str> {
+    let mut parts = Vec::new();
+    let mut depth = 0_usize;
+    let mut start = 0;
+    for (i, c) in inner.char_indices() {
+        match c {
+            '{' => depth = depth.saturating_add(1),
+            '}' => depth = depth.saturating_sub(1),
+            ',' if depth == 0 => {
+                parts.push(inner.get(start..i).unwrap_or_default());
+                start = i.saturating_add(1);
+            }
+            _ => {}
+        }
+    }
+    parts.push(inner.get(start..).unwrap_or_default());
+    parts.into_iter().filter(|p| !p.trim().is_empty()).collect()
+}
+
+/// Every path a `use` tree names: `std::{fs, io::{Read}}` → `std::fs`, `std::io::Read`.
+pub(crate) fn expand_use(tree: &str) -> Vec<String> {
+    let t: String = tree.split_whitespace().collect::<Vec<_>>().join(" ");
+    let t = t.trim().trim_start_matches("::").trim();
+    let Some(open) = t.find('{') else {
+        return vec![t.to_owned()];
+    };
+    let prefix = t.get(..open).unwrap_or_default().trim();
+    let inner = t
+        .get(open.saturating_add(1)..)
+        .unwrap_or_default()
+        .trim_end()
+        .strip_suffix('}')
+        .unwrap_or_default();
+    split_top(inner)
+        .into_iter()
+        .flat_map(expand_use)
+        .map(|rest| format!("{prefix}{rest}"))
+        .collect()
+}
+
+/// The `use` declarations of a code view: (byte offset, expanded paths).
+fn use_paths(code: &str) -> Vec<(usize, Vec<String>)> {
+    find_token(code, "use")
+        .into_iter()
+        .filter_map(|at| {
+            let rest = code.get(at.saturating_add(3)..)?;
+            let end = rest.find(';')?;
+            Some((at, expand_use(rest.get(..end)?)))
+        })
+        .collect()
+}
+
 /// Purity violations in one file's non-test code.
 pub(crate) fn purity_violations(rel_path: &str, src: &str) -> Vec<Violation> {
     let lexed = lex(src);
@@ -120,20 +178,50 @@ pub(crate) fn purity_violations(rel_path: &str, src: &str) -> Vec<Violation> {
         })
         .collect();
     let mut out = Vec::new();
-    let mut push = |at: usize, what: &str| {
+    let mut seen: Vec<(usize, String)> = Vec::new();
+    let mut push = |at: usize, what: &str, why: &str| {
         let line = line_at(&lexed.code, at);
-        if !in_regions(&tests, line) {
+        let key = (line, what.to_owned());
+        if !in_regions(&tests, line) && !seen.contains(&key) {
+            seen.push(key);
             out.push(violation(
                 PURITY,
                 rel_path,
                 line,
-                format!("`{what}` in pure code; clock, RNG, I/O and FFI are ports (T-4, T-32)"),
+                format!("`{what}` in pure code; {why} (T-4, T-32)"),
             ));
         }
     };
+    let ports = "clock, RNG, I/O and FFI are ports";
     for pattern in IMPURE_PATTERNS {
         for at in find_token(&lexed.code, pattern) {
-            push(at, pattern);
+            push(at, pattern, ports);
+        }
+    }
+    for (at, paths) in use_paths(&lexed.code) {
+        for path in paths {
+            let impure = IMPURE_PATTERNS.iter().find(|p| {
+                p.starts_with("std::") && (path == **p || path.starts_with(&format!("{p}::")))
+            });
+            if let Some(p) = impure {
+                push(at, p, ports);
+            }
+            if path == "std" || path.starts_with("std as ") {
+                push(
+                    at,
+                    "use std",
+                    "std is not renamed or imported whole in pure code",
+                );
+            }
+        }
+    }
+    for pattern in UNORDERED {
+        for at in find_token(&lexed.code, pattern) {
+            push(
+                at,
+                pattern,
+                "iteration order must not depend on a random seed; use BTreeMap or BTreeSet",
+            );
         }
     }
     if kernel {
@@ -147,11 +235,11 @@ pub(crate) fn purity_violations(rel_path: &str, src: &str) -> Vec<Violation> {
                 {
                     continue;
                 }
-                push(at, pattern);
+                push(at, pattern, ports);
             }
         }
         for at in raw_externs {
-            push(at, "extern");
+            push(at, "extern", ports);
         }
     }
     out
@@ -242,14 +330,17 @@ const SQL_CRATES: &[&str] = &[
     "sea-orm",
 ];
 
-/// True if a string literal looks like an upper-case SQL statement.
-pub(crate) fn looks_like_sql(s: &str) -> bool {
-    let words: Vec<&str> = s
-        .split(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))
-        .filter(|w| !w.is_empty())
-        .collect();
-    let has = |w: &str| words.contains(&w);
-    let pair = |a: &str, b: &str| words.windows(2).any(|p| p == [a, b]);
+const SQL_STARTS: &[&str] = &[
+    "SELECT", "INSERT", "UPDATE", "DELETE", "CREATE", "ALTER", "DROP", "TRUNCATE", "WITH", "MERGE",
+];
+
+fn sql_shape(words: &[String]) -> bool {
+    let has = |w: &str| words.iter().any(|x| x == w);
+    let pair = |a: &str, b: &str| {
+        words
+            .windows(2)
+            .any(|p| matches!(p, [x, y] if x == a && y == b))
+    };
     (has("SELECT") && has("FROM"))
         || pair("INSERT", "INTO")
         || (has("UPDATE") && has("SET"))
@@ -257,7 +348,49 @@ pub(crate) fn looks_like_sql(s: &str) -> bool {
         || pair("CREATE", "TABLE")
         || pair("ALTER", "TABLE")
         || pair("DROP", "TABLE")
+        || pair("DROP", "SCHEMA")
         || has("TRUNCATE")
+}
+
+/// True if a string looks like a SQL statement: upper-case keywords anywhere, or
+/// a statement of any case that starts with a SQL keyword.
+pub(crate) fn looks_like_sql(s: &str) -> bool {
+    let raw: Vec<&str> = s
+        .split(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))
+        .filter(|w| !w.is_empty())
+        .collect();
+    let exact: Vec<String> = raw.iter().map(|w| (*w).to_owned()).collect();
+    if sql_shape(&exact) {
+        return true;
+    }
+    let upper: Vec<String> = raw.iter().map(|w| w.to_ascii_uppercase()).collect();
+    let prose = upper.windows(2).any(|p| {
+        matches!(p, [x, y] if matches!(x.as_str(), "FROM" | "INTO" | "TABLE" | "UPDATE")
+            && DETERMINERS.contains(&y.as_str()))
+    });
+    !prose
+        && upper
+            .first()
+            .is_some_and(|first| SQL_STARTS.contains(&first.as_str()))
+        && sql_shape(&upper)
+}
+
+/// English words that follow `from` or `into` in prose, never a table name.
+const DETERMINERS: &[&str] = &[
+    "THE", "A", "AN", "THIS", "THAT", "THESE", "THOSE", "YOUR", "OUR", "MY", "ITS", "THEIR",
+    "EACH", "EVERY", "ALL", "SOME", "ANY",
+];
+
+/// Macros whose string arguments are joined before the SQL and delete checks.
+const JOINING_MACROS: &[&str] = &["concat!", "format!", "format_args!", "write!", "writeln!"];
+
+/// Decoded string literals of a lexed file and the joined arguments of string
+/// building macros, as (line, text).
+fn literal_texts(lexed: &crate::rules::lex::Lexed) -> Vec<(usize, String)> {
+    let mut out: Vec<(usize, String)> =
+        lexed.strings.iter().map(|l| (l.line, decoded(l))).collect();
+    out.extend(macro_literals(lexed, JOINING_MACROS));
+    out
 }
 
 /// SQL violations in one Rust file outside `store`.
@@ -274,13 +407,17 @@ pub(crate) fn sql_violations(rel_path: &str, src: &str) -> Vec<Violation> {
             ));
         }
     }
-    for lit in lexed.strings.iter().filter(|l| looks_like_sql(&l.text)) {
-        out.push(violation(
-            SQL,
-            rel_path,
-            lit.line,
-            "SQL statement outside crates/store (T-36 rule 2)".to_owned(),
-        ));
+    let mut lines = Vec::new();
+    for (line, text) in literal_texts(&lexed) {
+        if looks_like_sql(&text) && !lines.contains(&line) {
+            lines.push(line);
+            out.push(violation(
+                SQL,
+                rel_path,
+                line,
+                "SQL statement outside crates/store (T-36 rule 2)".to_owned(),
+            ));
+        }
     }
     out
 }
@@ -368,35 +505,46 @@ pub(crate) fn parse_allowlist(text: &str) -> Result<(Vec<String>, Vec<String>), 
     Ok((names, problems))
 }
 
+/// `ALTER TABLE … DROP x` forms that do not remove a column.
+const ALTER_DROP_KEEPS_DATA: &[&str] = &["CONSTRAINT", "DEFAULT", "NOT", "IDENTITY", "EXPRESSION"];
+
 /// Physical-delete statements in SQL text, as (byte offset, message).
 pub(crate) fn delete_findings(sql: &str, allow: &[String]) -> Vec<(usize, String)> {
     let upper = sql.to_ascii_uppercase();
-    let mut words: Vec<(usize, &str)> = Vec::new();
+    let mut words: Vec<(usize, &str, usize)> = Vec::new();
     let mut start = None;
+    let mut statement = 0_usize;
     for (i, c) in upper.char_indices() {
         let word_char = c.is_ascii_alphanumeric() || c == '_' || c == '.' || c == '"';
         match (word_char, start) {
             (true, None) => start = Some(i),
             (false, Some(s)) => {
-                words.push((s, upper.get(s..i).unwrap_or_default()));
+                words.push((s, upper.get(s..i).unwrap_or_default(), statement));
                 start = None;
             }
             _ => {}
         }
+        if c == ';' {
+            statement = statement.saturating_add(1);
+        }
     }
     if let Some(s) = start {
-        words.push((s, upper.get(s..).unwrap_or_default()));
+        words.push((s, upper.get(s..).unwrap_or_default(), statement));
     }
     let mut out = Vec::new();
-    for (k, &(at, w)) in words.iter().enumerate() {
-        let next = words.get(k.saturating_add(1)).map(|&(_, n)| n);
+    let mut alter_statement: Option<usize> = None;
+    for (k, &(at, w, stmt)) in words.iter().enumerate() {
+        let next = words.get(k.saturating_add(1)).map(|&(_, n, _)| n);
+        if (w, next) == ("ALTER", Some("TABLE")) {
+            alter_statement = Some(stmt);
+        }
         match (w, next) {
             ("DELETE", Some("FROM")) => {
                 let mut t = k.saturating_add(2);
-                if words.get(t).is_some_and(|&(_, x)| x == "ONLY") {
+                if words.get(t).is_some_and(|&(_, x, _)| x == "ONLY") {
                     t = t.saturating_add(1);
                 }
-                let table = words.get(t).map_or("", |&(_, x)| x);
+                let table = words.get(t).map_or("", |&(_, x, _)| x);
                 let bare = table.rsplit('.').next().unwrap_or(table).trim_matches('"');
                 if !allow.iter().any(|a| a.eq_ignore_ascii_case(bare)) {
                     out.push((
@@ -411,10 +559,19 @@ pub(crate) fn delete_findings(sql: &str, allow: &[String]) -> Vec<(usize, String
                 at,
                 "`TRUNCATE` is forbidden (T-36 rule 4, OP-12)".to_owned(),
             )),
-            ("DROP", Some("TABLE")) => out.push((
+            ("DROP", Some(object @ ("TABLE" | "SCHEMA" | "DATABASE"))) => out.push((
                 at,
-                "`DROP TABLE` is forbidden; archive instead (T-36 rule 4, OP-12)".to_owned(),
+                format!("`DROP {object}` is forbidden; archive instead (T-36 rule 4, OP-12)"),
             )),
+            ("DROP", Some(object))
+                if alter_statement == Some(stmt) && !ALTER_DROP_KEEPS_DATA.contains(&object) =>
+            {
+                out.push((
+                    at,
+                    "`ALTER TABLE … DROP COLUMN` is forbidden; columns are deprecated, not dropped (T-36 rule 4, OP-12)"
+                        .to_owned(),
+                ));
+            }
             _ => {}
         }
     }
@@ -473,9 +630,16 @@ pub(crate) fn check_delete(root: &Path) -> Result<Vec<Violation>, String> {
             Some("rs") if !is_test_file(&rel_path) && !is_rule_definition(&rel_path) => {
                 let lexed = lex(&read(&path)?);
                 let tests = test_regions(&lexed.code);
-                for lit in lexed.strings.iter().filter(|l| !in_regions(&tests, l.line)) {
-                    for (_, msg) in delete_findings(&lit.text, &allow) {
-                        out.push(violation(DELETE, &rel_path, lit.line, msg));
+                let mut seen: Vec<(usize, String)> = Vec::new();
+                for (line, text) in literal_texts(&lexed) {
+                    if in_regions(&tests, line) {
+                        continue;
+                    }
+                    for (_, msg) in delete_findings(&text, &allow) {
+                        if !seen.contains(&(line, msg.clone())) {
+                            seen.push((line, msg.clone()));
+                            out.push(violation(DELETE, &rel_path, line, msg));
+                        }
                     }
                 }
             }
@@ -487,10 +651,10 @@ pub(crate) fn check_delete(root: &Path) -> Result<Vec<Violation>, String> {
 
 const TODO: &str = "todo-has-issue";
 
-/// True if a comment's to-do has the `TODO(#n): text` form.
+/// True if a comment's to-do names an issue number above zero and a short text.
 pub(crate) fn todo_is_tracked(comment: &str) -> bool {
     let body = comment
-        .trim_start_matches(['/', '!', '*', '#'])
+        .trim_start_matches(['/', '!', '*', '#', '-', ';', '<'])
         .trim_start();
     let Some(rest) = body.strip_prefix("TODO(#") else {
         return false;
@@ -498,6 +662,7 @@ pub(crate) fn todo_is_tracked(comment: &str) -> bool {
     let digits: String = rest.chars().take_while(char::is_ascii_digit).collect();
     let after = rest.get(digits.len()..).unwrap_or_default();
     !digits.is_empty()
+        && !digits.starts_with('0')
         && after
             .strip_prefix("): ")
             .is_some_and(|text| !text.trim().is_empty())
@@ -512,38 +677,12 @@ pub(crate) fn untracked_todos(comments: &[(usize, String)]) -> Vec<usize> {
         .collect()
 }
 
-fn hash_comments(text: &str) -> Vec<(usize, String)> {
-    text.lines()
-        .enumerate()
-        .filter_map(|(i, l)| hash_comment(l).map(|(_, c)| (i.saturating_add(1), c.to_owned())))
-        .collect()
-}
-
 pub(crate) fn check_todo(root: &Path) -> Result<Vec<Violation>, String> {
     let mut out = Vec::new();
-    for path in walk(root)? {
-        let rel_path = rel(root, &path);
-        if is_rule_definition(&rel_path) {
+    for rel_path in scanned_files(root)? {
+        let text = read(&root.join(&rel_path))?;
+        let Some(comments) = comments_of(&rel_path, &text) else {
             continue;
-        }
-        let name = path
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or_default();
-        let ext = path
-            .extension()
-            .and_then(|e| e.to_str())
-            .unwrap_or_default();
-        let comments: Vec<(usize, String)> = match ext {
-            "rs" => {
-                let Lexed { comments, .. } = lex(&read(&path)?);
-                comments.into_iter().map(|c| (c.line, c.text)).collect()
-            }
-            "toml" | "yml" | "yaml" | "sh" | "py" => hash_comments(&read(&path)?),
-            _ if name == "justfile" || name.starts_with("Dockerfile") => {
-                hash_comments(&read(&path)?)
-            }
-            _ => continue,
         };
         for line in untracked_todos(&comments) {
             out.push(violation(
@@ -562,6 +701,19 @@ const UNSAFE: &str = "unsafe-allowlist";
 /// The only place `unsafe` may appear: generated FFI scaffolding (T-33 rule 3).
 pub(crate) const UNSAFE_ALLOWED: &[&str] = &["sdks/bindings"];
 
+/// Header lines that mark a file as generated FFI scaffolding.
+const GENERATED_MARKERS: &[&str] = &[
+    "@generated",
+    "This file was autogenerated by some hot garbage in the `uniffi` crate.",
+];
+
+/// True when one of the first lines of `src` carries a generator marker.
+pub(crate) fn is_generated(src: &str) -> bool {
+    src.lines()
+        .take(5)
+        .any(|l| GENERATED_MARKERS.iter().any(|m| l.contains(m)))
+}
+
 /// An `unsafe` use: its line and whether a `// SAFETY:` comment justifies it.
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) struct UnsafeUse {
@@ -569,32 +721,38 @@ pub(crate) struct UnsafeUse {
     pub(crate) justified: bool,
 }
 
-/// Every `unsafe` keyword in a file and whether `// SAFETY:` (or a `# Safety` doc
-/// section) is on its line or in the comment and attribute lines directly above.
+/// Every `unsafe` keyword in a file and whether a `// SAFETY:` comment (or a
+/// `# Safety` doc section) is on its line or in the comment and attribute lines
+/// directly above; text in string literals does not count.
 pub(crate) fn unsafe_uses(src: &str) -> Vec<UnsafeUse> {
     let lexed = lex(src);
     let src_lines: Vec<&str> = src.lines().collect();
+    let code_lines: Vec<&str> = lexed.code.lines().collect();
+    let safety_lines: Vec<usize> = lexed
+        .comments
+        .iter()
+        .filter(|c| c.text.contains("SAFETY:") || c.text.contains("# Safety"))
+        .flat_map(|c| {
+            let n = c.text.matches('\n').count();
+            c.line..=c.line.saturating_add(n)
+        })
+        .collect();
     let mut out = Vec::new();
     for at in find_token(&lexed.code, "unsafe") {
         let line = line_at(&lexed.code, at);
-        let justified_line = |n: usize| {
-            src_lines
-                .get(n.saturating_sub(1))
-                .is_some_and(|l| l.contains("SAFETY:") || l.contains("# Safety"))
-        };
-        let mut justified = justified_line(line);
+        let mut justified = safety_lines.contains(&line);
         let mut n = line.saturating_sub(1);
         while !justified && n >= 1 {
             let trimmed = src_lines
                 .get(n.saturating_sub(1))
                 .map_or("", |l| l.trim_start());
-            let continues = ["//", "#[", "#!", "*", "/*"]
-                .iter()
-                .any(|p| trimmed.starts_with(p));
+            let code = code_lines.get(n.saturating_sub(1)).map_or("", |l| l.trim());
+            let continues = code.is_empty() && !trimmed.is_empty()
+                || ["#[", "#!"].iter().any(|p| code.starts_with(p));
             if !continues {
                 break;
             }
-            justified = justified_line(n);
+            justified = safety_lines.contains(&n);
             n = n.saturating_sub(1);
         }
         out.push(UnsafeUse { line, justified });
@@ -635,7 +793,7 @@ fn in_allowlist(rel_path: &str) -> bool {
 
 /// `unsafe` findings in one Rust file.
 pub(crate) fn unsafe_file_violations(rel_path: &str, src: &str) -> Vec<Violation> {
-    let allowed = in_allowlist(rel_path);
+    let allowed = in_allowlist(rel_path) && is_generated(src);
     let mut out = Vec::new();
     for u in unsafe_uses(src) {
         if !allowed {
@@ -643,7 +801,8 @@ pub(crate) fn unsafe_file_violations(rel_path: &str, src: &str) -> Vec<Violation
                 UNSAFE,
                 rel_path,
                 u.line,
-                "`unsafe` outside sdks/bindings (T-33 rule 3)".to_owned(),
+                "`unsafe` outside generated FFI scaffolding in sdks/bindings (T-33 rule 3)"
+                    .to_owned(),
             ));
         } else if !u.justified {
             out.push(violation(
@@ -747,6 +906,44 @@ mod tests {
         assert_eq!(v.len(), 3);
     }
 
+    // T-32 T-4
+    #[test]
+    fn t_32_grouped_std_imports_in_domain_layers_are_expanded() {
+        assert_eq!(
+            expand_use(" std::{fs, io::{Read, Write}, collections::BTreeMap} "),
+            [
+                "std::fs",
+                "std::io::Read",
+                "std::io::Write",
+                "std::collections::BTreeMap"
+            ]
+        );
+        let v = purity_violations(
+            "crates/views/src/domain/a.rs",
+            "use std::{\n    collections::BTreeMap,\n    fs,\n    time::{Duration},\n};\nuse ::std::net::TcpStream;\nuse std as s;\n",
+        );
+        let what: Vec<String> = v.iter().map(|x| x.message.clone()).collect();
+        assert_eq!(v.len(), 4, "{what:?}");
+        let ok = purity_violations(
+            "crates/views/src/domain/a.rs",
+            "use std::{collections::BTreeMap, fmt};\n",
+        );
+        assert!(ok.is_empty(), "{ok:?}");
+    }
+
+    // T-32 T-4
+    #[test]
+    fn t_32_hash_maps_and_sets_in_domain_layers_are_rejected() {
+        let v = purity_violations(
+            "crates/views/src/domain.rs",
+            "use std::collections::{HashMap, HashSet};\nstruct S { m: HashMap<u8, u8>, b: std::collections::BTreeMap<u8, u8> }\n",
+        );
+        assert_eq!(v.len(), 3, "{v:?}");
+        assert!(
+            purity_violations("crates/views/src/domain.rs", "struct FxHashMapLike;\n").is_empty()
+        );
+    }
+
     // T-32
     #[test]
     fn t_32_impure_words_in_comments_strings_and_tests_are_ignored() {
@@ -772,6 +969,36 @@ mod tests {
             "fn f() { sqlx::query!(\"SELECT 1 FROM t\"); }",
         );
         assert_eq!(v.len(), 3);
+    }
+
+    // T-36
+    #[test]
+    fn t_36_lower_case_escaped_and_concatenated_sql_outside_store_is_rejected() {
+        let src = "fn f() {\n    let a = \"select id from commitments\";\n    let b = \"\\x53ELECT id FROM t\";\n    let c = concat!(\"SELE\", \"CT id \", \"FROM t\");\n    let d = format!(\"{}{}\", \"insert \", \"into t values (1)\");\n    let e = \"Select a value from the list\";\n}\n";
+        let mut lines: Vec<String> = sql_violations("crates/views/src/a.rs", src)
+            .iter()
+            .map(|v| v.path.display().to_string())
+            .collect();
+        lines.sort();
+        assert_eq!(
+            lines,
+            [
+                "crates/views/src/a.rs:2",
+                "crates/views/src/a.rs:3",
+                "crates/views/src/a.rs:4",
+                "crates/views/src/a.rs:5"
+            ]
+        );
+    }
+
+    // T-36 OP-12
+    #[test]
+    fn t_36_drop_schema_and_drop_column_are_rejected() {
+        let f = delete_findings(
+            "DROP SCHEMA work CASCADE; ALTER TABLE records DROP COLUMN body; ALTER TABLE x DROP IF EXISTS y; ALTER TABLE t ALTER COLUMN c DROP DEFAULT; ALTER TABLE t DROP CONSTRAINT k; DROP INDEX i;",
+            &[],
+        );
+        assert_eq!(f.len(), 3, "{f:?}");
     }
 
     // T-36
@@ -829,29 +1056,38 @@ mod tests {
             (4, "# TODO(#7): pin the image".to_owned()),
             (5, "// TODO(#7)".to_owned()),
             (6, "// TODOS are not TODO-tagged words".to_owned()),
+            (7, "// TODO(#0): no issue zero".to_owned()),
+            (8, "-- TODO(#9): tracked SQL to-do".to_owned()),
+            (9, "<!-- TODO: untracked HTML to-do -->".to_owned()),
+            (10, "; TODO(#07): leading zero".to_owned()),
         ];
-        assert_eq!(untracked_todos(&comments), vec![1, 3, 5, 6]);
+        assert_eq!(untracked_todos(&comments), vec![1, 3, 5, 6, 7, 9, 10]);
     }
 
     // T-33
     #[test]
-    fn t_33_unsafe_outside_bindings_is_rejected() {
+    fn t_33_unsafe_outside_generated_bindings_scaffolding_is_rejected() {
         let src = "fn f() {\n    // SAFETY: g has no preconditions.\n    unsafe { g() };\n}\n";
+        let generated = format!("// @generated\n{src}");
         assert_eq!(
-            unsafe_file_violations("crates/store/src/a.rs", src).len(),
+            unsafe_file_violations("crates/store/src/a.rs", &generated).len(),
             1
         );
-        assert!(unsafe_file_violations("sdks/bindings/uniffi/src/a.rs", src).is_empty());
+        assert_eq!(
+            unsafe_file_violations("sdks/bindings/uniffi/src/a.rs", src).len(),
+            1
+        );
+        assert!(unsafe_file_violations("sdks/bindings/uniffi/src/a.rs", &generated).is_empty());
     }
 
     // T-33 T-53
     #[test]
     fn t_33_unsafe_in_bindings_needs_a_safety_comment() {
-        let src = "fn f() {\n    let x = unsafe { g() };\n}\n";
+        let src = "// @generated\nfn f() {\n    let x = unsafe { g() };\n}\n";
         assert_eq!(
             unsafe_uses(src),
             vec![UnsafeUse {
-                line: 2,
+                line: 3,
                 justified: false
             }]
         );
@@ -859,6 +1095,14 @@ mod tests {
             unsafe_file_violations("sdks/bindings/wasm/src/a.rs", src).len(),
             1
         );
+        let in_string =
+            "// @generated\nfn f() {\n    let s = \"SAFETY: not a comment\"; unsafe { g() };\n}\n";
+        assert_eq!(
+            unsafe_file_violations("sdks/bindings/wasm/src/a.rs", in_string).len(),
+            1
+        );
+        let attr = "// @generated\n// SAFETY: exported symbol.\n#[unsafe(no_mangle)]\nfn f() {}\n";
+        assert!(unsafe_file_violations("sdks/bindings/wasm/src/a.rs", attr).is_empty());
     }
 
     // T-33

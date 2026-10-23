@@ -232,7 +232,61 @@ fn service_image(service: &Node) -> String {
         .to_owned()
 }
 
-/// Compose problems against `compat.toml`.
+/// The repository of an image reference, without tag or digest.
+fn repository(image: &str) -> &str {
+    let without_digest = image.split('@').next().unwrap_or(image);
+    let last_slash = without_digest.rfind('/').map_or(0, |i| i.saturating_add(1));
+    match without_digest
+        .get(last_slash..)
+        .and_then(|name| name.find(':'))
+    {
+        Some(colon) => without_digest
+            .get(..last_slash.saturating_add(colon))
+            .unwrap_or(without_digest),
+        None => without_digest,
+    }
+}
+
+/// Problems of one service that runs a Suiss product image.
+fn product_service(name: &str, service: &Node, product: &str, p: &Product) -> Vec<Violation> {
+    let mut out = Vec::new();
+    let image = service_image(service);
+    let profiles = service
+        .get("profiles")
+        .map(Node::scalars)
+        .unwrap_or_default();
+    if p.status == "published" || p.status == "build" {
+        let want = format!("{}@{}", p.image, p.digest);
+        if image != want {
+            out.push(v(
+                COMPOSE_FILE,
+                format!(
+                    "service `{name}` image `{image}` must be `{want}` from compat.toml [{product}] (T-51)"
+                ),
+            ));
+        }
+        if !profiles.is_empty() {
+            out.push(v(COMPOSE_FILE, format!("service `{name}` runs a published {product} image; it runs by default, without a profile (T-41 rule 1)")));
+        }
+    } else {
+        let want = format!("{}:unpublished", p.image);
+        if image != want {
+            out.push(v(
+                COMPOSE_FILE,
+                format!(
+                    "service `{name}` image `{image}` must be `{want}` while {product} is unpublished (T-51)"
+                ),
+            ));
+        }
+        if profiles.is_empty() {
+            out.push(v(COMPOSE_FILE, format!("service `{name}` runs unpublished {product}; it stays in a profile that is off by default (T-51)")));
+        }
+    }
+    out
+}
+
+/// Compose problems against `compat.toml`: the `access` and `relay` services and
+/// every other service whose image is the Access or Relay repository.
 pub(crate) fn compose_violations(c: &Compat, compose: &str) -> Vec<Violation> {
     let doc = yaml::parse(compose);
     let services = doc
@@ -240,44 +294,17 @@ pub(crate) fn compose_violations(c: &Compat, compose: &str) -> Vec<Violation> {
         .cloned()
         .unwrap_or(Node::Map(Vec::new()));
     let mut out = Vec::new();
-    for (name, p) in [("access", &c.access), ("relay", &c.relay)] {
-        let Some(service) = services.get(name) else {
+    for (product, p) in [("access", &c.access), ("relay", &c.relay)] {
+        if services.get(product).is_none() {
             out.push(v(
                 COMPOSE_FILE,
-                format!("service `{name}` is missing (T-41 rule 1, T-51)"),
+                format!("service `{product}` is missing (T-41 rule 1, T-51)"),
             ));
-            continue;
-        };
-        let image = service_image(service);
-        let profiles = service
-            .get("profiles")
-            .map(Node::scalars)
-            .unwrap_or_default();
-        if p.status == "published" || p.status == "build" {
-            let want = format!("{}@{}", p.image, p.digest);
-            if image != want {
-                out.push(v(
-                    COMPOSE_FILE,
-                    format!(
-                        "service `{name}` image `{image}` must be `{want}` from compat.toml (T-51)"
-                    ),
-                ));
-            }
-            if !profiles.is_empty() {
-                out.push(v(COMPOSE_FILE, format!("service `{name}` is published; it runs by default, without a profile (T-41 rule 1)")));
-            }
-        } else {
-            let want = format!("{}:unpublished", p.image);
-            if image != want {
-                out.push(v(
-                    COMPOSE_FILE,
-                    format!(
-                        "service `{name}` image `{image}` must be `{want}` while unpublished (T-51)"
-                    ),
-                ));
-            }
-            if profiles.is_empty() {
-                out.push(v(COMPOSE_FILE, format!("unpublished service `{name}` stays in a profile that is off by default (T-51)")));
+        }
+        for (name, service) in services.entries() {
+            let image = service_image(service);
+            if name == product || (!p.image.is_empty() && repository(&image) == p.image) {
+                out.extend(product_service(name, service, product, p));
             }
         }
     }
@@ -406,6 +433,36 @@ mod tests {
         assert!(compose_violations(&c, &pinned).is_empty());
         let tagged = compose("  access:\n    image: ghcr.io/e-suiss/access:1.2.0\n", "");
         assert_eq!(compose_violations(&c, &tagged).len(), 1);
+    }
+
+    // T-51
+    #[test]
+    fn t_51_every_service_running_a_product_image_matches_compat() {
+        let text = UNPUBLISHED
+            .replacen(
+                "status = \"unpublished\"\nversion = \"\"",
+                "status = \"published\"\nversion = \"1.2.0\"",
+                1,
+            )
+            .replacen("digest = \"\"", &format!("digest = \"{DIGEST}\""), 1);
+        let c = compat(&text);
+        let access = format!("  access:\n    image: ghcr.io/e-suiss/access@{DIGEST}\n");
+        let stale = compose(
+            &access,
+            "  access-migrate:\n    image: ghcr.io/e-suiss/access@sha256:0000000000000000000000000000000000000000000000000000000000000000\n  relay-migrate:\n    image: ghcr.io/e-suiss/relay:1.0.0\n    profiles: [relay]\n",
+        );
+        let found = compose_violations(&c, &stale);
+        assert_eq!(found.len(), 2, "{found:?}");
+        assert!(found.iter().any(|v| v.message.contains("access-migrate")));
+        assert!(found.iter().any(|v| v.message.contains("relay-migrate")));
+        assert_eq!(
+            repository("ghcr.io/e-suiss/relay:1.0.0"),
+            "ghcr.io/e-suiss/relay"
+        );
+        assert_eq!(
+            repository("localhost:5000/relay@sha256:aa"),
+            "localhost:5000/relay"
+        );
     }
 
     // T-51

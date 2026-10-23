@@ -285,9 +285,32 @@ pub(crate) fn package_name_violations(root: &Path, md: &Metadata) -> Vec<Violati
     out
 }
 
+/// npm package names: every package is published under `@esuiss/work-*` (T-54).
+pub(crate) fn npm_name_violations(manifests: &[(String, serde_json::Value)]) -> Vec<Violation> {
+    manifests
+        .iter()
+        .filter_map(|(path, json)| {
+            let name = json
+                .get("name")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or_default();
+            let ok = name
+                .strip_prefix("@esuiss/work-")
+                .is_some_and(|rest| !rest.is_empty());
+            (!ok).then(|| Violation {
+                rule: "package-names",
+                path: PathBuf::from(path),
+                message: format!("npm package `{name}` must be named `@esuiss/work-*` (T-54)"),
+            })
+        })
+        .collect()
+}
+
 fn package_names(root: &Path) -> Result<Vec<Violation>, String> {
     let md = metadata::load(root)?;
-    Ok(package_name_violations(root, &md))
+    let mut out = package_name_violations(root, &md);
+    out.extend(npm_name_violations(&npm_manifests(root)?));
+    Ok(out)
 }
 
 fn no_adr_folder(root: &Path) -> Result<Vec<Violation>, String> {
@@ -302,12 +325,28 @@ fn no_adr_folder(root: &Path) -> Result<Vec<Violation>, String> {
         .collect())
 }
 
+const ADR_DIRS: &[&str] = &[
+    "adr",
+    "adrs",
+    "decision-records",
+    "decision_records",
+    "rfc",
+    "rfcs",
+];
+
+/// Paths inside a decision-record folder; a `decisions` folder inside source
+/// code (after a `src` segment) is a domain module, not a record.
 pub(crate) fn adr_paths<'a>(files: impl Iterator<Item = &'a str>) -> Vec<PathBuf> {
     files
         .filter(|file| {
-            Path::new(file).components().any(|c| {
-                let part = c.as_os_str().to_string_lossy().to_ascii_lowercase();
-                part == "adr" || part == "adrs" || part == "decisions"
+            let parts: Vec<String> = file.split('/').map(str::to_ascii_lowercase).collect();
+            let dirs = parts
+                .get(..parts.len().saturating_sub(1))
+                .unwrap_or_default();
+            dirs.iter().enumerate().any(|(k, part)| {
+                ADR_DIRS.contains(&part.as_str())
+                    || (part == "decisions"
+                        && !dirs.get(..k).unwrap_or_default().iter().any(|p| p == "src"))
             })
         })
         .map(PathBuf::from)
@@ -441,6 +480,11 @@ mod tests {
                 "docs/adr/0001-x.md",
                 "crates/kernel/src/lib.rs",
                 "Decisions/x.md",
+                "design/decision-records/0001.md",
+                "rfcs/0001-federation.md",
+                "crates/reconciler/src/decisions/mod.rs",
+                "crates/reconciler/decisions/x.md",
+                "rfc.md",
             ]
             .into_iter(),
         );
@@ -448,7 +492,42 @@ mod tests {
             found,
             vec![
                 PathBuf::from("docs/adr/0001-x.md"),
-                PathBuf::from("Decisions/x.md")
+                PathBuf::from("Decisions/x.md"),
+                PathBuf::from("design/decision-records/0001.md"),
+                PathBuf::from("rfcs/0001-federation.md"),
+                PathBuf::from("crates/reconciler/decisions/x.md"),
+            ]
+        );
+    }
+
+    // T-54
+    #[test]
+    fn t_54_npm_packages_are_named_esuiss_work() {
+        let manifests = vec![
+            (
+                "packages/kernel/package.json".to_owned(),
+                serde_json::json!({"name": "@esuiss/work-kernel"}),
+            ),
+            (
+                "packages/ui/package.json".to_owned(),
+                serde_json::json!({"name": "@esuiss/ui"}),
+            ),
+            (
+                "packages/x/package.json".to_owned(),
+                serde_json::json!({"name": "work-x"}),
+            ),
+            ("packages/y/package.json".to_owned(), serde_json::json!({})),
+        ];
+        let found: Vec<String> = npm_name_violations(&manifests)
+            .iter()
+            .map(|v| v.path.display().to_string())
+            .collect();
+        assert_eq!(
+            found,
+            [
+                "packages/ui/package.json",
+                "packages/x/package.json",
+                "packages/y/package.json"
             ]
         );
     }

@@ -1,6 +1,8 @@
 //! Architecture and code rules (T-4, T-22, T-31, T-32, T-33, T-36, T-53); each
 //! check lives in a `rules_*` module.
 
+#[path = "rules_clippy.rs"]
+mod clippy;
 #[path = "rules_comments.rs"]
 pub(crate) mod comments;
 #[path = "rules_deps.rs"]
@@ -16,7 +18,7 @@ mod profile;
 #[path = "rules_source.rs"]
 pub(crate) mod source;
 #[path = "rules_switches.rs"]
-mod switches;
+pub(crate) mod switches;
 
 use crate::Check;
 
@@ -61,6 +63,10 @@ pub(crate) fn checks() -> Vec<Check> {
         Check {
             name: "comments",
             run: comments::check,
+        },
+        Check {
+            name: "disallowed-suppression",
+            run: clippy::check,
         },
     ]
 }

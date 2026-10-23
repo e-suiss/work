@@ -2,7 +2,7 @@
 
 [[term]]
 canonical = "work"
-not = ["task", "tasks", "ticket", "tickets", "card", "cards"]
+not = ["task", "tasks", "subtask", "subtasks", "ticket", "tickets", "card", "cards"]
 
 [[term]]
 canonical = "party"
@@ -10,8 +10,12 @@ not = ["user_id", "user_account", "user_accounts"]
 
 [[term]]
 canonical = "commitment"
-not = ["assignee", "assignees"]
+not = ["assignee", "assignees", "assignment", "assignments"]
 
 [[term]]
 canonical = "gate"
 not = ["approval_ui", "approval_screen"]
+
+[[term]]
+canonical = "condition"
+not = ["depends_on"]

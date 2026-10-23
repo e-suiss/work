@@ -1,5 +1,7 @@
 # T-46 T-47 T-37
 
+catalog_digest = "a8e4c5a5ae49ab6d1dfef186892788aa6187cdf58096f6c2158bb9f92efdb54f"
+
 current_stage = 0
 
 enforced_families = [
@@ -7,7 +9,7 @@ enforced_families = [
   "T", "OP",
 ]
 
-test_roots = ["crates", "bins", "sdks", "xtask"]
+test_roots = ["crates", "bins", "sdks", "packages", "xtask"]
 
 [[value_stages]]
 id = "OP-26"

@@ -10,10 +10,11 @@ use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
 
+use crate::SPEC_DIR;
 use crate::sha256::hex_digest;
 
-const WORK_FILE: &str = "docs/spec/07-ecosystem-boundaries.md";
-const RECORD_FILE: &str = "docs/spec/.counterparts.toml";
+const WORK_FILE: &str = "07-ecosystem-boundaries.md";
+const RECORD_FILE: &str = ".counterparts.toml";
 const SECTION: &str = "7.10";
 
 /// A counterpart clause: product and reference (`E7`, `MD-2`, `§7.9.5.3`).
@@ -290,13 +291,13 @@ fn print_list(title: &str, items: &[Clause]) {
 
 /// Runs the comparison from the workspace root; `update` rewrites the record.
 pub(crate) fn run(root: &Path, update: bool) -> Result<(), String> {
-    let work = root.join(WORK_FILE);
+    let work = root.join(SPEC_DIR).join(WORK_FILE);
     let parent = root
         .parent()
         .map_or_else(|| PathBuf::from(".."), Path::to_path_buf);
     let dirs = [
-        ("Access", parent.join("access/docs/spec")),
-        ("Relay", parent.join("relay/docs/spec")),
+        ("Access", parent.join("access").join(SPEC_DIR)),
+        ("Relay", parent.join("relay").join(SPEC_DIR)),
     ];
     if !work.is_file() || dirs.iter().any(|(_, d)| !d.is_dir()) {
         return Err(format!(
@@ -306,13 +307,14 @@ pub(crate) fn run(root: &Path, update: bool) -> Result<(), String> {
             dirs[1].1.display()
         ));
     }
-    let clauses =
-        e40_clauses(&std::fs::read_to_string(&work).map_err(|e| format!("{WORK_FILE}: {e}"))?);
+    let clauses = e40_clauses(
+        &std::fs::read_to_string(&work).map_err(|e| format!("{SPEC_DIR}/{WORK_FILE}: {e}"))?,
+    );
     let mut specs = BTreeMap::new();
     for (product, dir) in &dirs {
         specs.insert((*product).to_owned(), spec_files(dir)?);
     }
-    let record_path = root.join(RECORD_FILE);
+    let record_path = root.join(SPEC_DIR).join(RECORD_FILE);
     let recorded = load_record(&record_path)?;
     let report = compare(&clauses, &specs, &recorded);
     println!("spec-counterparts: {} clauses in E-40", clauses.len());
@@ -328,7 +330,7 @@ pub(crate) fn run(root: &Path, update: bool) -> Result<(), String> {
         std::fs::write(&record_path, render_record(&report.digests))
             .map_err(|e| format!("{}: {e}", record_path.display()))?;
         println!(
-            "spec-counterparts: recorded {} digests in {RECORD_FILE}",
+            "spec-counterparts: recorded {} digests in {SPEC_DIR}/{RECORD_FILE}",
             report.digests.len()
         );
         return Ok(());

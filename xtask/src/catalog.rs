@@ -1,5 +1,6 @@
 //! Tracked rule catalog (T-46, T-47, T-49): generated from the local spec,
-//! committed under `conformance/catalog/`, and checked by CI for format, rule
+//! committed under `conformance/catalog/` with a digest of its rendered files,
+//! and checked by CI for hand edits, drift from the local spec, format, rule
 //! coverage, the threat model, forbidden claims and the maintainer watchlist.
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -68,6 +69,20 @@ pub(crate) struct Config {
     pub(crate) stage_overrides: Vec<StageOverride>,
     #[serde(default)]
     pub(crate) value_stages: Vec<ValueStage>,
+    /// Rules whose last test was removed on purpose, with the reason (T-47).
+    #[serde(default)]
+    pub(crate) test_removals: Vec<TestRemoval>,
+    /// SHA-256 of the rendered catalog files; `cargo xtask catalog` writes it.
+    #[serde(default)]
+    pub(crate) catalog_digest: String,
+}
+
+/// A rule that lost all its tests on purpose (T-47).
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct TestRemoval {
+    pub(crate) id: String,
+    pub(crate) reason: String,
 }
 
 /// The stage whose feature first depends on a PD/EA value, when it differs from
@@ -389,25 +404,85 @@ fn write(path: &Path, text: &str) -> Result<(), String> {
     std::fs::write(path, text).map_err(|e| format!("{}: {e}", path.display()))
 }
 
-fn write_catalog(root: &Path, catalog: &Catalog) -> Result<(), String> {
-    let dir = root.join(DIR);
-    std::fs::create_dir_all(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+/// The generated catalog files and their text, in a fixed order.
+pub(crate) fn render_all(catalog: &Catalog) -> Vec<(&'static str, String)> {
     let mut rules = catalog.rules.clone();
     rules.sort_by_key(sort_key);
     let (inv, dec): (Vec<Rule>, Vec<Rule>) = rules
         .into_iter()
         .partition(|r| r.status == "canonical-invariant");
-    write(&dir.join(INVARIANTS_FILE), &render_rules(&inv))?;
-    write(&dir.join(DECISIONS_FILE), &render_rules(&dec))?;
-    write(
-        &dir.join(MUST_NEVER_FILE),
-        &render_must_never(&catalog.must_never),
-    )?;
-    write(
-        &dir.join(GUARANTEES_FILE),
-        &render_guarantees(&catalog.guarantees),
-    )?;
-    write(&dir.join(THREAT_FILE), &render_threats(&catalog.threats))
+    vec![
+        (INVARIANTS_FILE, render_rules(&inv)),
+        (DECISIONS_FILE, render_rules(&dec)),
+        (MUST_NEVER_FILE, render_must_never(&catalog.must_never)),
+        (GUARANTEES_FILE, render_guarantees(&catalog.guarantees)),
+        (THREAT_FILE, render_threats(&catalog.threats)),
+    ]
+}
+
+/// SHA-256 over the generated files, each as its name, a newline and its text.
+pub(crate) fn digest_of(files: &[(&str, String)]) -> String {
+    let mut all = String::new();
+    for (name, text) in files {
+        all.push_str(name);
+        all.push('\n');
+        all.push_str(text);
+    }
+    crate::sha256::hex_digest(all.as_bytes())
+}
+
+const DIGEST_KEY: &str = "catalog_digest";
+
+/// `catalog.toml` with its digest line set to `digest`.
+pub(crate) fn with_digest(config: &str, digest: &str) -> String {
+    let line = format!("{DIGEST_KEY} = \"{digest}\"");
+    let mut out: Vec<String> = Vec::new();
+    let mut placed = false;
+    for l in config.lines() {
+        if l.trim_start().starts_with(DIGEST_KEY) {
+            if !placed {
+                out.push(line.clone());
+                placed = true;
+            }
+        } else {
+            if !placed && l.trim_start().starts_with("current_stage") {
+                out.push(line.clone());
+                out.push(String::new());
+                placed = true;
+            }
+            out.push(l.to_owned());
+        }
+    }
+    if !placed {
+        out.push(line);
+    }
+    let mut text = out.join("\n");
+    text.push('\n');
+    text
+}
+
+fn write_catalog(root: &Path, catalog: &Catalog) -> Result<(), String> {
+    let dir = root.join(DIR);
+    std::fs::create_dir_all(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+    let files = render_all(catalog);
+    for (name, text) in &files {
+        write(&dir.join(name), text)?;
+    }
+    let config_path = dir.join(CONFIG_FILE);
+    let config = std::fs::read_to_string(&config_path)
+        .map_err(|e| format!("{}: {e}", config_path.display()))?;
+    write(&config_path, &with_digest(&config, &digest_of(&files)))
+}
+
+/// Builds the catalog the local spec and the test scan produce.
+fn from_spec(root: &Path, spec_dir: &Path, config: &Config) -> Result<Catalog, String> {
+    let spec = spec::parse(spec_dir)?;
+    let known: BTreeSet<String> = spec.rules.iter().map(|r| r.id.clone()).collect();
+    let found = scan::scan(root, &config.test_roots, &known)?.found;
+    for id in &spec.unknown_stage_ids {
+        println!("catalog: stage boundary {id} has no register row");
+    }
+    build(&spec, &found, config)
 }
 
 /// Builds the catalog from the parsed spec, the curated text and the test scan.
@@ -522,26 +597,20 @@ pub(crate) fn generate(root: &Path, links_only: bool) -> Result<(), String> {
     let config = load_config(root)?;
     let catalog = if links_only {
         let mut catalog = load(root)?;
-        let found = scan::scan(root, &config.test_roots, &catalog.ids()).found;
+        let found = scan::scan(root, &config.test_roots, &catalog.ids())?.found;
         for r in &mut catalog.rules {
             r.tests = tests_of(&found, &r.id);
         }
         catalog
     } else {
-        let spec_dir = root.join("docs/spec");
+        let spec_dir = root.join(crate::SPEC_DIR);
         if !spec_dir.is_dir() {
             return Err(format!(
                 "{} not found; the catalog is generated from the local spec (T-46). CI checks the committed catalog; `--links-only` refreshes test links without the spec.",
                 spec_dir.display()
             ));
         }
-        let spec = spec::parse(&spec_dir)?;
-        let known: BTreeSet<String> = spec.rules.iter().map(|r| r.id.clone()).collect();
-        let found = scan::scan(root, &config.test_roots, &known).found;
-        for id in &spec.unknown_stage_ids {
-            println!("catalog: stage boundary {id} has no register row");
-        }
-        build(&spec, &found, &config)?
+        from_spec(root, &spec_dir, &config)?
     };
     write_catalog(root, &catalog)?;
     let mut counts: BTreeMap<&str, usize> = BTreeMap::new();
@@ -804,6 +873,74 @@ fn stale_links(root: &Path, catalog: &Catalog) -> Vec<Violation> {
     out
 }
 
+/// Hand edits: committed files that are not in rendered form, and a digest that
+/// does not match the committed files (T-46).
+pub(crate) fn hand_edit_violations(
+    committed: &[(&str, String)],
+    rendered: &[(&str, String)],
+    digest: &str,
+) -> Vec<Violation> {
+    let mut out = Vec::new();
+    for ((name, have), (_, want)) in committed.iter().zip(rendered) {
+        if have != want {
+            out.push(violation(
+                "catalog-format",
+                name,
+                "not in generated form; the catalog is written by `cargo xtask catalog` only (T-46)"
+                    .to_owned(),
+            ));
+        }
+    }
+    if digest_of(committed) != digest {
+        out.push(violation(
+            "catalog-format",
+            CONFIG_FILE,
+            "catalog_digest does not match the catalog files; they were edited by hand. Regenerate with `cargo xtask catalog` (T-46)"
+                .to_owned(),
+        ));
+    }
+    out
+}
+
+/// Generated files whose committed text differs from a fresh generation (T-46).
+pub(crate) fn drift_violations(
+    committed: &[(&str, String)],
+    fresh: &[(&str, String)],
+) -> Vec<Violation> {
+    committed
+        .iter()
+        .zip(fresh)
+        .filter(|((_, have), (_, want))| have != want)
+        .map(|((name, _), _)| {
+            violation(
+                "catalog-format",
+                name,
+                "differs from the catalog the local spec generates; run `cargo xtask catalog` (T-46)"
+                    .to_owned(),
+            )
+        })
+        .collect()
+}
+
+fn committed_files(root: &Path) -> Result<Vec<(&'static str, String)>, String> {
+    let dir = root.join(DIR);
+    [
+        INVARIANTS_FILE,
+        DECISIONS_FILE,
+        MUST_NEVER_FILE,
+        GUARANTEES_FILE,
+        THREAT_FILE,
+    ]
+    .into_iter()
+    .map(|name| {
+        let path = dir.join(name);
+        std::fs::read_to_string(&path)
+            .map(|text| (name, text))
+            .map_err(|e| format!("{}: {e}", path.display()))
+    })
+    .collect()
+}
+
 fn check_format(root: &Path) -> Result<Vec<Violation>, String> {
     let config = load_config(root)?;
     let catalog = load(root)?;
@@ -816,6 +953,17 @@ fn check_format(root: &Path) -> Result<Vec<Violation>, String> {
     }
     let mut out = format_violations(&catalog, &config);
     out.extend(stale_links(root, &catalog));
+    let committed = committed_files(root)?;
+    out.extend(hand_edit_violations(
+        &committed,
+        &render_all(&catalog),
+        &config.catalog_digest,
+    ));
+    let spec_dir = root.join(crate::SPEC_DIR);
+    if spec_dir.is_dir() {
+        let fresh = from_spec(root, &spec_dir, &config)?;
+        out.extend(drift_violations(&committed, &render_all(&fresh)));
+    }
     Ok(out)
 }
 
@@ -899,11 +1047,73 @@ pub(crate) fn coverage(
     cov
 }
 
+/// Rules that had tests in the base catalog and have none in the scan, unless a
+/// reasoned `test_removals` entry names them (T-47).
+pub(crate) fn lost_tests(base: &[Rule], found: &scan::Scan, config: &Config) -> Vec<String> {
+    let mut out = Vec::new();
+    for r in base.iter().filter(|r| !r.tests.is_empty()) {
+        if found.found.get(&r.id).is_some_and(|t| !t.is_empty()) {
+            continue;
+        }
+        let removed = config
+            .test_removals
+            .iter()
+            .any(|t| t.id == r.id && !t.reason.trim().is_empty());
+        if !removed {
+            out.push(format!(
+                "{} lost all its tests (it had {}); restore a test or add a reasoned `test_removals` entry (T-47)",
+                r.id,
+                r.tests.len()
+            ));
+        }
+    }
+    for t in config
+        .test_removals
+        .iter()
+        .filter(|t| t.reason.trim().is_empty())
+    {
+        out.push(format!("test removal for {} needs a reason (T-47)", t.id));
+    }
+    out
+}
+
+/// The rules of the catalog committed at `XTASK_CATALOG_BASE` (default `HEAD`);
+/// none when git has no such commit and no base was requested.
+fn base_rules(root: &Path) -> Result<Vec<Rule>, String> {
+    let requested = std::env::var("XTASK_CATALOG_BASE")
+        .ok()
+        .filter(|b| !b.is_empty());
+    let base = requested.clone().unwrap_or_else(|| "HEAD".to_owned());
+    let mut rules = Vec::new();
+    for file in [INVARIANTS_FILE, DECISIONS_FILE] {
+        let output = std::process::Command::new("git")
+            .args(["show", &format!("{base}:{DIR}/{file}")])
+            .current_dir(root)
+            .output()
+            .map_err(|e| format!("git show: {e}"))?;
+        if !output.status.success() {
+            if requested.is_some() {
+                return Err(format!(
+                    "XTASK_CATALOG_BASE={base}: {}",
+                    String::from_utf8_lossy(&output.stderr).trim()
+                ));
+            }
+            return Ok(Vec::new());
+        }
+        let parsed: RuleFile = toml::from_str(&String::from_utf8_lossy(&output.stdout))
+            .map_err(|e| format!("{base}:{DIR}/{file}: {e}"))?;
+        rules.extend(parsed.rule);
+    }
+    Ok(rules)
+}
+
 fn check_coverage(root: &Path) -> Result<Vec<Violation>, String> {
     let config = load_config(root)?;
     let catalog = load(root)?;
-    let found = scan::scan(root, &config.test_roots, &catalog.ids());
-    let cov = coverage(&catalog, &config, &found, release());
+    let found = scan::scan(root, &config.test_roots, &catalog.ids())?;
+    let mut cov = coverage(&catalog, &config, &found, release());
+    cov.violations
+        .extend(lost_tests(&base_rules(root)?, &found, &config));
     let staged = catalog
         .rules
         .iter()
@@ -955,6 +1165,15 @@ pub(crate) fn threat_violations(catalog: &Catalog) -> Vec<Violation> {
             "no threats".to_owned(),
         ));
     }
+    for want in titles::THREATS {
+        if !catalog.threats.iter().any(|t| t.key == want.key) {
+            out.push(violation(
+                "threat-model",
+                THREAT_FILE,
+                format!("{}: the SEC-21 threat is missing (T-49)", want.key),
+            ));
+        }
+    }
     for t in &catalog.threats {
         let mut bad = |m: String| {
             out.push(violation(
@@ -963,6 +1182,9 @@ pub(crate) fn threat_violations(catalog: &Catalog) -> Vec<Violation> {
                 format!("{}: {m}", t.key),
             ));
         };
+        if !titles::THREATS.iter().any(|w| w.key == t.key) {
+            bad("not a SEC-21 threat (T-49)".to_owned());
+        }
         if !keys.insert(t.key.clone()) {
             bad("duplicate key".to_owned());
         }
@@ -1036,6 +1258,8 @@ mod tests {
             test_roots: vec![],
             stage_overrides: vec![],
             value_stages: vec![],
+            test_removals: vec![],
+            catalog_digest: String::new(),
         }
     }
 
@@ -1212,9 +1436,22 @@ mod tests {
             detect: cell(&["SEC-99"]),
             recover: cell(&["SEC-24"]),
         };
+        let mut threats: Vec<Threat> = titles::THREATS
+            .iter()
+            .filter(|w| w.key != "secret-leakage")
+            .map(|w| Threat {
+                key: w.key.to_owned(),
+                title: w.title.to_owned(),
+                prevent: cell(&["SEC-24"]),
+                limit: cell(&["SEC-24"]),
+                detect: cell(&["SEC-24"]),
+                recover: cell(&["SEC-24"]),
+            })
+            .collect();
+        threats.push(t);
         let catalog = Catalog {
             rules: vec![rule("SEC-24", "canonical-invariant", "x")],
-            threats: vec![t],
+            threats,
             ..Catalog::default()
         };
         let msgs: Vec<String> = threat_violations(&catalog)
@@ -1307,5 +1544,101 @@ mod tests {
         };
         let parsed: ThreatFile = toml::from_str(&render_threats(std::slice::from_ref(&t))).unwrap();
         assert_eq!(parsed.threat, [t]);
+    }
+
+    // T-49 SEC-21
+    #[test]
+    fn t_49_every_curated_threat_key_is_required() {
+        let cell = Cell {
+            rules: vec!["SEC-24".into()],
+            tests: vec![],
+        };
+        let threat = |key: &str| Threat {
+            key: key.to_owned(),
+            title: "Some threat".into(),
+            prevent: cell.clone(),
+            limit: cell.clone(),
+            detect: cell.clone(),
+            recover: cell.clone(),
+        };
+        let mut threats: Vec<Threat> = titles::THREATS
+            .iter()
+            .skip(1)
+            .map(|w| threat(w.key))
+            .collect();
+        threats.push(threat("invented-threat"));
+        let catalog = Catalog {
+            rules: vec![rule("SEC-24", "canonical-invariant", "x")],
+            threats,
+            ..Catalog::default()
+        };
+        let msgs: Vec<String> = threat_violations(&catalog)
+            .into_iter()
+            .map(|v| v.message)
+            .collect();
+        assert_eq!(msgs.len(), 2, "{msgs:?}");
+        assert!(msgs.iter().any(|m| m.contains("missing")));
+        assert!(msgs.iter().any(|m| m.contains("invented-threat")));
+    }
+
+    // T-47
+    #[test]
+    fn t_47_rule_losing_all_tests_against_the_base_catalog_fails() {
+        let mut had = rule("T-31", "frozen-technical", "x");
+        had.tests = vec!["a.rs::t_31_a".into()];
+        let mut kept = rule("T-36", "frozen-technical", "x");
+        kept.tests = vec!["a.rs::t_36_a".into()];
+        let never = rule("T-37", "frozen-technical", "x");
+        let base = [had, kept, never];
+        let scan = found(&[("T-36", "b.rs::t_36_b")]);
+        let lost = lost_tests(&base, &scan, &config(0));
+        assert_eq!(lost.len(), 1, "{lost:?}");
+        assert!(lost[0].starts_with("T-31"));
+        let mut acknowledged = config(0);
+        acknowledged.test_removals.push(TestRemoval {
+            id: "T-31".into(),
+            reason: "the rule moved to Semgrep".into(),
+        });
+        assert!(lost_tests(&base, &scan, &acknowledged).is_empty());
+        acknowledged.test_removals[0].reason = String::new();
+        assert_eq!(lost_tests(&base, &scan, &acknowledged).len(), 2);
+    }
+
+    // T-46
+    #[test]
+    fn t_46_hand_edits_and_spec_drift_are_rejected() {
+        let mut r = rule("T-46", "frozen-technical", "Tracked rule catalog");
+        r.stage = Some(0);
+        let catalog = Catalog {
+            rules: vec![r],
+            ..Catalog::default()
+        };
+        let rendered = render_all(&catalog);
+        let digest = digest_of(&rendered);
+        assert!(hand_edit_violations(&rendered, &rendered, &digest).is_empty());
+        let mut edited = rendered.clone();
+        if let Some((_, text)) = edited.get_mut(1) {
+            text.push_str("# note\n");
+        }
+        assert_eq!(hand_edit_violations(&edited, &rendered, &digest).len(), 2);
+        let mut retitled = catalog.rules.clone();
+        retitled[0].title = "Rule catalog".into();
+        let reparsed = render_all(&Catalog {
+            rules: retitled,
+            ..Catalog::default()
+        });
+        assert_eq!(hand_edit_violations(&reparsed, &reparsed, &digest).len(), 1);
+        assert_eq!(drift_violations(&rendered, &reparsed).len(), 1);
+        let config = "# T-46\n\ncurrent_stage = 0\n";
+        let once = with_digest(config, "abc");
+        assert_eq!(
+            once,
+            "# T-46\n\ncatalog_digest = \"abc\"\n\ncurrent_stage = 0\n"
+        );
+        assert_eq!(
+            with_digest(&once, "def").matches("catalog_digest").count(),
+            1
+        );
+        assert!(with_digest(&once, "def").contains("\"def\""));
     }
 }

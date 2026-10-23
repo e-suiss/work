@@ -3,14 +3,17 @@
 
 [scan]
 include = [
-  "*.md", "*.mdx", "*.rs", ".github/**", "sdks/openapi/**", "sdks/asyncapi/**",
-  "packages/i18n/**", "**/locales/**", "**/i18n/**",
+  "*.md", "*.mdx", "*.rs", "*.ts", "*.tsx", "*.mts", "*.js", "*.mjs", ".github/**",
+  "sdks/openapi/**", "sdks/asyncapi/**", "packages/i18n/**", "**/locales/**", "**/i18n/**",
 ]
 exclude = [
   "docs/**", "target/**", "**/node_modules/**", "conformance/catalog/**", "xtask/**",
   "CLAUDE.md", "work.md",
 ]
-extensions = ["md", "mdx", "txt", "html", "rs", "json", "yml", "yaml", "ftl", "po"]
+extensions = [
+  "md", "mdx", "txt", "html", "rs", "ts", "tsx", "mts", "js", "mjs", "json", "yml", "yaml", "ftl",
+  "po",
+]
 
 [comparison]
 file = "COMPARISON.md"
@@ -27,7 +30,11 @@ replacement = "The doer declared it done; acceptance is pending"
 negation = true
 
 [[claim.allow]]
-context = "accept"
+context = "accepted"
+reason = "Done and completed describe only a state derived from a recorded acceptance"
+
+[[claim.allow]]
+context = "acceptance"
 reason = "Done and completed describe only a state derived from a recorded acceptance"
 
 [[claim]]

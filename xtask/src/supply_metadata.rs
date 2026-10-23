@@ -44,6 +44,8 @@ pub(crate) struct Package {
     pub(crate) feature_names: Vec<String>,
     /// Source files of the lib and bin targets.
     pub(crate) crate_roots: Vec<PathBuf>,
+    /// Source files of every target: lib, bins, tests, benches, examples, build script.
+    pub(crate) target_roots: Vec<PathBuf>,
 }
 
 impl Package {
@@ -155,6 +157,10 @@ fn parse_package(p: &Value) -> Package {
         })
         .map(|t| PathBuf::from(str_field(t, "src_path")))
         .collect();
+    let target_roots = targets
+        .iter()
+        .map(|t| PathBuf::from(str_field(t, "src_path")))
+        .collect();
     let publishable = !p
         .get("publish")
         .and_then(Value::as_array)
@@ -175,6 +181,7 @@ fn parse_package(p: &Value) -> Package {
             .map(|f| f.keys().cloned().collect())
             .unwrap_or_default(),
         crate_roots,
+        target_roots,
     }
 }
 

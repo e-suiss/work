@@ -1,19 +1,20 @@
 //! `no-dev-mode` (T-32 rule 9, T-41 rule 3, T-45): no development or test mode
 //! and no switch that skips signing, verification, Access, Relay or the key store.
-//! Identifiers and string literals in non-test Rust code, and keys and values in
-//! configuration files, must not name one.
+//! Identifiers and string literals in non-test Rust, TypeScript and JavaScript,
+//! and words in configuration files, shell scripts, the justfile and Dockerfiles,
+//! must not name one.
 
 use std::path::{Path, PathBuf};
 
 use crate::Violation;
-use crate::rules::files::{is_test_file, read, rel, walk};
-use crate::rules::lex::{in_regions, lex, test_regions};
+use crate::rules::comments::is_dockerfile;
+use crate::rules::files::{extension, file_name, is_test_file, read, rel, walk};
+use crate::rules::lex::{TS, in_regions, lex, lex_with, test_regions};
 
 const RULE: &str = "no-dev-mode";
 
-/// Reviewed exceptions: (relative path, matched phrase, reason).
-const ALLOWLIST: &[(&str, &str, &str)] = &[(
-    "crates/kernel/src/catalog.rs",
+/// Spec wire values that read like a switch but are not: (phrase, reason).
+const WIRE_VALUES: &[(&str, &str)] = &[(
     "no_authority",
     "P-85: the CM-20 decline reason wire value, not a switch",
 )];
@@ -22,7 +23,11 @@ const SELF_PATH: &str = "xtask/src/rules_switches.rs";
 
 const CONFIG_EXTENSIONS: &[&str] = &["toml", "yml", "yaml", "json", "env", "ini", "conf", "cfg"];
 
-const CONFIG_SKIP_PREFIXES: &[&str] = &["supply-chain/", "conformance/catalog/"];
+const CONFIG_SKIP_PREFIXES: &[&str] = &[
+    "supply-chain/",
+    "conformance/catalog/",
+    "conformance/vectors/",
+];
 
 const GUARDED: &[&str] = &[
     "signature",
@@ -38,11 +43,20 @@ const GUARDED: &[&str] = &[
     "pkcs11",
     "auth",
     "authz",
+    "authn",
+    "authority",
+    "authorize",
     "authorization",
+    "authenticate",
     "authentication",
     "tls",
     "checks",
     "check",
+    "signed",
+    "certificate",
+    "certificates",
+    "cert",
+    "certs",
 ];
 
 /// Splits an identifier or literal into lower-case words.
@@ -75,8 +89,20 @@ pub(crate) fn words(atom: &str) -> Vec<String> {
 }
 
 fn guarded(word: &str) -> bool {
-    GUARDED.contains(&word) || word.starts_with("verif") || word.starts_with("auth")
+    GUARDED.contains(&word) || word.starts_with("verif")
 }
+
+const FUSED: &[&str] = &[
+    "skipverif",
+    "skipsignature",
+    "noverify",
+    "disableauth",
+    "disableauthz",
+    "disableauthn",
+    "trustall",
+    "allowunsigned",
+    "signatureoptional",
+];
 
 /// The forbidden phrase in an atom, if any.
 pub(crate) fn forbidden_phrase(atom: &str) -> Option<String> {
@@ -96,16 +122,28 @@ pub(crate) fn forbidden_phrase(atom: &str) -> Option<String> {
             {
                 Some(format!("{word}_{next}"))
             }
-            "allow" | "accept" if next.starts_with("insecure") || next == "invalid" => {
+            "allow" | "accept"
+                if next.starts_with("insecure")
+                    || next == "invalid"
+                    || next == "unsigned"
+                    || next == "unverified" =>
+            {
                 Some(format!("{word}_{next}"))
             }
+            "trust" if next == "all" || next == "any" => Some(format!("{word}_{next}")),
+            "signature" | "signatures" | "verification" if next == "optional" => {
+                Some(format!("{word}_{next}"))
+            }
+            "optional" if next.starts_with("signature") || next.starts_with("verif") => {
+                Some(format!("{word}_{next}"))
+            }
+            "unchecked" if w.len() == 1 || guarded(next) || guarded(prev) => Some(word.clone()),
             w if w.starts_with("insecure")
                 || w.starts_with("bypass")
                 || w.starts_with("danger")
-                || w.starts_with("skipverif")
-                || w.starts_with("skipsignature")
-                || w.starts_with("noverify")
-                || w.starts_with("disableauth") =>
+                || FUSED
+                    .iter()
+                    .any(|f| w == *f || (w.starts_with(f) && f.starts_with("skip"))) =>
             {
                 Some(w.to_owned())
             }
@@ -119,10 +157,8 @@ pub(crate) fn forbidden_phrase(atom: &str) -> Option<String> {
     None
 }
 
-fn allowlisted(rel_path: &str, phrase: &str) -> bool {
-    ALLOWLIST
-        .iter()
-        .any(|(p, w, _)| *p == rel_path && *w == phrase)
+fn allowlisted(phrase: &str) -> bool {
+    WIRE_VALUES.iter().any(|(w, _)| *w == phrase)
 }
 
 fn message(phrase: &str) -> String {
@@ -135,6 +171,19 @@ fn message(phrase: &str) -> String {
 pub(crate) fn rust_violations(rel_path: &str, src: &str) -> Vec<Violation> {
     let lexed = lex(src);
     let tests = test_regions(&lexed.code);
+    code_violations(rel_path, &lexed, &tests)
+}
+
+/// Violations in a TypeScript or JavaScript file's identifiers and string literals.
+pub(crate) fn script_violations(rel_path: &str, src: &str) -> Vec<Violation> {
+    code_violations(rel_path, &lex_with(src, &TS), &[])
+}
+
+fn code_violations(
+    rel_path: &str,
+    lexed: &crate::rules::lex::Lexed,
+    tests: &[(usize, usize)],
+) -> Vec<Violation> {
     let mut atoms: Vec<(usize, String)> = Vec::new();
     for (i, line) in lexed.code.lines().enumerate() {
         let n = i.saturating_add(1);
@@ -147,9 +196,9 @@ pub(crate) fn rust_violations(rel_path: &str, src: &str) -> Vec<Violation> {
     atoms.extend(lexed.strings.iter().map(|l| (l.line, l.text.clone())));
     atoms
         .into_iter()
-        .filter(|(line, _)| !in_regions(&tests, *line))
+        .filter(|(line, _)| !in_regions(tests, *line))
         .filter_map(|(line, atom)| forbidden_phrase(&atom).map(|p| (line, p)))
-        .filter(|(_, p)| !allowlisted(rel_path, p))
+        .filter(|(_, p)| !allowlisted(p))
         .map(|(line, p)| Violation {
             rule: RULE,
             path: PathBuf::from(format!("{rel_path}:{line}")),
@@ -165,7 +214,7 @@ pub(crate) fn config_violations(rel_path: &str, text: &str) -> Vec<Violation> {
         let content = crate::rules::comments::hash_comment(line)
             .map_or(line, |(at, _)| line.get(..at).unwrap_or(line));
         for atom in content.split(|c: char| c.is_whitespace() || "\"'=:,[]{}()".contains(c)) {
-            if let Some(p) = forbidden_phrase(atom).filter(|p| !allowlisted(rel_path, p)) {
+            if let Some(p) = forbidden_phrase(atom).filter(|p| !allowlisted(p)) {
                 out.push(Violation {
                     rule: RULE,
                     path: PathBuf::from(format!("{rel_path}:{}", i.saturating_add(1))),
@@ -177,6 +226,16 @@ pub(crate) fn config_violations(rel_path: &str, text: &str) -> Vec<Violation> {
     out
 }
 
+const SCRIPT_EXTENSIONS: &[&str] = &["ts", "tsx", "mts", "cts", "js", "jsx", "mjs", "cjs"];
+
+const SHELL_EXTENSIONS: &[&str] = &["sh", "bash"];
+
+/// True for TypeScript and JavaScript test files and Playwright specs.
+pub(crate) fn is_script_test(rel_path: &str) -> bool {
+    let name = file_name(rel_path);
+    name.contains(".test.") || name.contains(".spec.")
+}
+
 pub(crate) fn check(root: &Path) -> Result<Vec<Violation>, String> {
     let mut out = Vec::new();
     for path in walk(root)? {
@@ -184,20 +243,22 @@ pub(crate) fn check(root: &Path) -> Result<Vec<Violation>, String> {
         if rel_path == SELF_PATH || crate::rules::source::is_rule_definition(&rel_path) {
             continue;
         }
-        let name = path
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or_default();
-        let ext = path
-            .extension()
-            .and_then(|e| e.to_str())
-            .unwrap_or_default();
+        let name = file_name(&rel_path);
+        let ext = extension(&rel_path);
         if ext == "rs" {
             if !is_test_file(&rel_path) {
                 out.extend(rust_violations(&rel_path, &read(&path)?));
             }
-        } else if (CONFIG_EXTENSIONS.contains(&ext) || name.starts_with(".env"))
+        } else if SCRIPT_EXTENSIONS.contains(&ext.as_str()) {
+            if !is_script_test(&rel_path) {
+                out.extend(script_violations(&rel_path, &read(&path)?));
+            }
+        } else if ((CONFIG_EXTENSIONS.contains(&ext.as_str()) || name.starts_with(".env"))
             && !CONFIG_SKIP_PREFIXES.iter().any(|p| rel_path.starts_with(p))
+            && !is_test_file(&rel_path))
+            || SHELL_EXTENSIONS.contains(&ext.as_str())
+            || name == "justfile"
+            || is_dockerfile(&rel_path)
         {
             out.extend(config_violations(&rel_path, &read(&path)?));
         }
@@ -239,6 +300,18 @@ mod tests {
             "mock_relay",
             "danger_accept_invalid_certs",
             "skip_hsm",
+            "unchecked",
+            "unchecked_signature",
+            "verify_unchecked",
+            "trust_all",
+            "TRUST_ALL_CERTS",
+            "allow_unsigned",
+            "allowUnsigned",
+            "signature_optional",
+            "optional_signature",
+            "skip_authz",
+            "disable_authn",
+            "without_authority",
         ] {
             assert!(forbidden_phrase(atom).is_some(), "{atom}");
         }
@@ -259,6 +332,12 @@ mod tests {
             "authentication",
             "no-new-privileges",
             "signature_bytes",
+            "no_author",
+            "without_author",
+            "skip_authors",
+            "author_check_order",
+            "new_unchecked_count",
+            "trusted_all_parties",
         ] {
             assert!(forbidden_phrase(atom).is_none(), "{atom}");
         }
@@ -277,6 +356,38 @@ mod tests {
         );
         let src = "// a bypass is rejected\n#[cfg(test)]\nmod tests { fn insecure_url_is_rejected() {} }\n";
         assert!(rust_violations("a.rs", src).is_empty());
+    }
+
+    // T-32 T-41 P-85
+    #[test]
+    fn t_32_no_authority_wire_value_passes_in_every_file() {
+        assert!(
+            rust_violations(
+                "crates/kernel/src/reason.rs",
+                "const R: &str = \"no_authority\";"
+            )
+            .is_empty()
+        );
+        assert!(
+            config_violations(
+                "conformance/vectors/x.json",
+                "{\"reason\": \"no_authority\"}"
+            )
+            .is_empty()
+        );
+    }
+
+    // T-32 T-41
+    #[test]
+    fn t_32_typescript_shell_justfile_and_dockerfile_switches_are_rejected() {
+        let ts = "export const skipSignature = true;\nconst mode = \"dev_mode\";\n// a bypass_access comment\n";
+        assert_eq!(script_violations("packages/kernel/src/a.ts", ts).len(), 2);
+        let sh = "#!/bin/sh\n# WORK_WITHOUT_ACCESS is never set\nexport WORK_WITHOUT_ACCESS=1\n";
+        assert_eq!(config_violations("deploy/a.sh", sh).len(), 1);
+        let docker = "FROM x@sha256:aa\nENV WORK_DEV_MODE=1\n";
+        assert_eq!(config_violations("deploy/Dockerfile", docker).len(), 1);
+        assert!(is_script_test("packages/kernel/src/a.test.ts"));
+        assert!(is_script_test("packages/kernel/e2e/kernel.spec.ts"));
     }
 
     // T-32 T-41

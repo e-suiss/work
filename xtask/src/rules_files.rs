@@ -109,6 +109,30 @@ pub(crate) fn file_name(rel_path: &str) -> &str {
     rel_path.rsplit('/').next().unwrap_or(rel_path)
 }
 
+/// True for an `OpenAPI` or `AsyncAPI` document: a JSON object or a YAML file
+/// with a top-level `openapi` or `asyncapi` key, wherever it lives.
+pub(crate) fn is_api_document(rel_path: &str, text: &str) -> bool {
+    const KEYS: &[&str] = &["openapi", "asyncapi"];
+    match extension(rel_path).as_str() {
+        "json" => serde_json::from_str::<serde_json::Value>(text)
+            .ok()
+            .and_then(|v| {
+                v.as_object()
+                    .map(|o| KEYS.iter().any(|k| o.contains_key(*k)))
+            })
+            .unwrap_or(false),
+        "yaml" | "yml" => text.lines().any(|line| {
+            let key = line.trim_start_matches(['"', '\'']);
+            line == line.trim_start()
+                && KEYS.iter().any(|k| {
+                    key.strip_prefix(k)
+                        .is_some_and(|rest| rest.trim_start_matches(['"', '\'']).starts_with(':'))
+                })
+        }),
+        _ => false,
+    }
+}
+
 /// A scratch directory for tests, removed on drop.
 #[cfg(test)]
 pub(crate) struct TempDir(pub(crate) PathBuf);
@@ -151,6 +175,20 @@ mod tests {
         assert!(is_test_file("crates/http/tests/router.rs"));
         assert!(is_test_file("crates/kernel/src/tests.rs"));
         assert!(!is_test_file("crates/kernel/src/testkit.rs"));
+    }
+
+    // C-42 T-48
+    #[test]
+    fn c_42_api_documents_are_found_by_their_top_level_key() {
+        assert!(is_api_document(
+            "api/work.yaml",
+            "openapi: 3.1.0\ninfo: {}\n"
+        ));
+        assert!(is_api_document("x/events.yml", "\"asyncapi\": 3.0.0\n"));
+        assert!(is_api_document("x/work.json", "{\"openapi\": \"3.1.0\"}"));
+        assert!(!is_api_document("x/a.yaml", "info:\n  openapi: 3\n"));
+        assert!(!is_api_document("x/a.json", "[\"openapi\"]"));
+        assert!(!is_api_document("x/a.md", "openapi: 3\n"));
     }
 
     // T-31

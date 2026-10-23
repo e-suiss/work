@@ -319,7 +319,30 @@ pub(crate) const TS_STRICT_OPTIONS: &[&str] = &[
     "exactOptionalPropertyTypes",
 ];
 
-/// Every npm package has a `tsconfig.json` that turns on the shared strict options (T-34, T-58).
+/// Options the `strict` family turns on; none may be set back to `false` (T-34).
+pub(crate) const TS_STRICT_FAMILY: &[&str] = &[
+    "noImplicitAny",
+    "noImplicitThis",
+    "strictNullChecks",
+    "strictFunctionTypes",
+    "strictBindCallApply",
+    "strictPropertyInitialization",
+    "strictBuiltinIteratorReturn",
+    "alwaysStrict",
+    "useUnknownInCatchVariables",
+];
+
+const ESLINT_CONFIGS: &[&str] = &[
+    "eslint.config.js",
+    "eslint.config.mjs",
+    "eslint.config.cjs",
+    "eslint.config.ts",
+    "eslint.config.mts",
+];
+
+/// Every npm package has a `tsconfig.json` that turns on the shared strict options
+/// and leaves the strict family on, and an `ESLint` flat config that uses
+/// typescript-eslint `strictTypeChecked` (T-34, T-58).
 pub(crate) fn ts_compiler_option_violations(
     files: &[String],
     read_file: &dyn Fn(&str) -> String,
@@ -353,6 +376,44 @@ pub(crate) fn ts_compiler_option_violations(
                     &tsconfig,
                     format!("`compilerOptions.{option}` must be `true` (T-34, T-58)"),
                 ));
+            }
+        }
+        for option in TS_STRICT_FAMILY {
+            let off = options
+                .as_ref()
+                .and_then(|o| o.get(*option))
+                .and_then(serde_json::Value::as_bool)
+                == Some(false);
+            if off {
+                out.push(v(
+                    "ts-compiler-options",
+                    &tsconfig,
+                    format!("`compilerOptions.{option}` turns part of `strict` off (T-34, T-58)"),
+                ));
+            }
+        }
+        let dir = parent_dir(pkg);
+        let eslint = ESLINT_CONFIGS
+            .iter()
+            .map(|name| sibling(dir, name))
+            .find(|f| files.contains(f));
+        match eslint {
+            None => out.push(v(
+                "ts-compiler-options",
+                pkg,
+                "package.json without its own eslint.config.* (T-34, T-58)".to_owned(),
+            )),
+            Some(config) => {
+                let code =
+                    crate::rules::lex::lex_with(&read_file(&config), &crate::rules::lex::TS).code;
+                if crate::rules::lex::find_token(&code, "strictTypeChecked").is_empty() {
+                    out.push(v(
+                        "ts-compiler-options",
+                        &config,
+                        "the ESLint config must extend typescript-eslint `strictTypeChecked` (T-34)"
+                            .to_owned(),
+                    ));
+                }
             }
         }
     }
@@ -448,6 +509,19 @@ mod tests {
         assert_eq!(lockfile_violations(&[], &good).len(), 1);
     }
 
+    const STRICT_TSCONFIG: &str = r#"{"compilerOptions":{"strict":true,"noUncheckedIndexedAccess":true,"exactOptionalPropertyTypes":true}}"#;
+    const ESLINT: &str = "export default tseslint.config(...tseslint.configs.strictTypeChecked);\n";
+
+    fn package_file(tsconfig: &'static str, eslint: &'static str) -> impl Fn(&str) -> String {
+        move |f: &str| {
+            if f.ends_with("tsconfig.json") {
+                tsconfig.to_owned()
+            } else {
+                eslint.to_owned()
+            }
+        }
+    }
+
     // T-34 T-58
     #[test]
     fn t_34_npm_package_without_strict_compiler_options_is_rejected() {
@@ -458,17 +532,43 @@ mod tests {
         );
         let mut with_config = files;
         with_config.push("packages/kernel/tsconfig.json".to_owned());
-        let strict = |_: &str| {
-            r#"{"compilerOptions":{"strict":true,"noUncheckedIndexedAccess":true,"exactOptionalPropertyTypes":true}}"#.to_owned()
-        };
+        with_config.push("packages/kernel/eslint.config.js".to_owned());
+        let strict = package_file(STRICT_TSCONFIG, ESLINT);
         assert!(ts_compiler_option_violations(&with_config, &strict).is_empty());
-        let loose = |_: &str| {
-            r#"{"compilerOptions":{"strict":false,"noUncheckedIndexedAccess":true}}"#.to_owned()
-        };
+        let loose = package_file(
+            r#"{"compilerOptions":{"strict":false,"noUncheckedIndexedAccess":true}}"#,
+            ESLINT,
+        );
         assert_eq!(ts_compiler_option_violations(&with_config, &loose).len(), 2);
+        let broken = package_file("not json", ESLINT);
         assert_eq!(
-            ts_compiler_option_violations(&with_config, &|_| "not json".to_owned()).len(),
+            ts_compiler_option_violations(&with_config, &broken).len(),
             3
+        );
+    }
+
+    // T-34
+    #[test]
+    fn t_34_strict_family_overrides_and_weak_eslint_configs_are_rejected() {
+        let files = vec![
+            "packages/kernel/package.json".to_owned(),
+            "packages/kernel/tsconfig.json".to_owned(),
+            "packages/kernel/eslint.config.js".to_owned(),
+        ];
+        let overrides = package_file(
+            r#"{"compilerOptions":{"strict":true,"noUncheckedIndexedAccess":true,"exactOptionalPropertyTypes":true,"noImplicitAny":false,"strictNullChecks":false,"alwaysStrict":true}}"#,
+            ESLINT,
+        );
+        assert_eq!(ts_compiler_option_violations(&files, &overrides).len(), 2);
+        let weak = package_file(
+            STRICT_TSCONFIG,
+            "// strictTypeChecked\nexport default tseslint.config(...tseslint.configs.recommended);\n",
+        );
+        assert_eq!(ts_compiler_option_violations(&files, &weak).len(), 1);
+        let no_eslint = &files[..2];
+        assert_eq!(
+            ts_compiler_option_violations(no_eslint, &package_file(STRICT_TSCONFIG, ESLINT)).len(),
+            1
         );
     }
 }

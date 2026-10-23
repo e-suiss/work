@@ -25,6 +25,9 @@ mod yaml;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
+/// The local, untracked spec directory of a Suiss repository, relative to its root.
+pub(crate) const SPEC_DIR: &str = "docs/spec";
+
 /// One rule violation, reported as `path: [rule] message`.
 #[derive(Debug)]
 pub(crate) struct Violation {

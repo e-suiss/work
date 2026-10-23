@@ -1,10 +1,14 @@
-//! A small Rust lexer for the source rules.
+//! Small lexers for the source rules: Rust, and the comment and string syntax of
+//! the other languages the repository holds.
 
-/// A string literal and the line it starts on (1-based).
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// A string literal or comment: the line it starts on (1-based), its text, its
+/// byte offset in the code view and whether it is a raw string.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(crate) struct Lit {
     pub(crate) line: usize,
     pub(crate) text: String,
+    pub(crate) at: usize,
+    pub(crate) raw: bool,
 }
 
 /// The views of one Rust source file.
@@ -17,6 +21,15 @@ pub(crate) struct Lexed {
     pub(crate) strings: Vec<Lit>,
     /// Comment texts, including doc comments.
     pub(crate) comments: Vec<Lit>,
+}
+
+fn lit(line: usize, at: usize, text: String, raw: bool) -> Lit {
+    Lit {
+        line,
+        text,
+        at,
+        raw,
+    }
 }
 
 fn is_ident(c: char) -> bool {
@@ -60,16 +73,17 @@ impl Lexer {
     }
 
     fn line_comment(&mut self) {
-        let line = self.line;
+        let (line, at) = (self.line, self.out.code.len());
         let mut text = String::new();
         while self.at(0).is_some_and(|c| c != '\n') {
             self.take_blank(Some(&mut text));
         }
-        self.out.comments.push(Lit { line, text });
+        let lit = lit(line, at, text, false);
+        self.out.comments.push(lit);
     }
 
     fn block_comment(&mut self) {
-        let line = self.line;
+        let (line, at) = (self.line, self.out.code.len());
         let mut text = String::new();
         let mut depth = 0_usize;
         while self.at(0).is_some() {
@@ -86,7 +100,8 @@ impl Lexer {
             }
             self.take_blank(Some(&mut text));
         }
-        self.out.comments.push(Lit { line, text });
+        let lit = lit(line, at, text, false);
+        self.out.comments.push(lit);
     }
 
     /// At an `r`: if it starts a raw string (`r"`, `r#"`, `br"`, `cr#"`), the
@@ -108,7 +123,7 @@ impl Lexer {
     }
 
     fn raw_string(&mut self, hashes: usize) {
-        let line = self.line;
+        let (line, at) = (self.line, self.out.code.len());
         for _ in 0..hashes.saturating_add(2) {
             self.take_blank(None);
         }
@@ -122,11 +137,12 @@ impl Lexer {
             }
             self.take_blank(Some(&mut text));
         }
-        self.out.strings.push(Lit { line, text });
+        let lit = lit(line, at, text, true);
+        self.out.strings.push(lit);
     }
 
     fn string(&mut self) {
-        let line = self.line;
+        let (line, at) = (self.line, self.out.code.len());
         self.take_blank(None);
         let mut text = String::new();
         while let Some(c) = self.at(0) {
@@ -139,7 +155,8 @@ impl Lexer {
             }
             self.take_blank(Some(&mut text));
         }
-        self.out.strings.push(Lit { line, text });
+        let lit = lit(line, at, text, false);
+        self.out.strings.push(lit);
     }
 
     /// At a `'`: the length of a char literal ('x' or '\..'), or `None` for a
@@ -193,6 +210,327 @@ pub(crate) fn lex(src: &str) -> Lexed {
         out: Lexed::default(),
     }
     .run()
+}
+
+/// Comment and string syntax of a non-Rust language.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct Syntax {
+    pub(crate) name: &'static str,
+    pub(crate) line: &'static [&'static str],
+    pub(crate) block: Option<(&'static str, &'static str)>,
+    pub(crate) nested: bool,
+    pub(crate) quotes: &'static str,
+    pub(crate) multiline: &'static str,
+    pub(crate) triple: bool,
+    pub(crate) escapes: bool,
+}
+
+/// TypeScript and JavaScript.
+pub(crate) const TS: Syntax = Syntax {
+    name: "ts",
+    line: &["//"],
+    block: Some(("/*", "*/")),
+    nested: false,
+    quotes: "\"'`",
+    multiline: "`",
+    triple: false,
+    escapes: true,
+};
+
+/// Swift.
+pub(crate) const SWIFT: Syntax = Syntax {
+    name: "swift",
+    line: &["//"],
+    block: Some(("/*", "*/")),
+    nested: true,
+    quotes: "\"",
+    multiline: "",
+    triple: true,
+    escapes: true,
+};
+
+/// Kotlin.
+pub(crate) const KOTLIN: Syntax = Syntax {
+    name: "kotlin",
+    nested: false,
+    ..SWIFT
+};
+
+/// Protocol Buffers.
+pub(crate) const PROTO: Syntax = Syntax {
+    name: "proto",
+    line: &["//"],
+    block: Some(("/*", "*/")),
+    nested: false,
+    quotes: "\"'",
+    multiline: "",
+    triple: false,
+    escapes: true,
+};
+
+/// SQL: `--` and `/* */` comments, `'` strings; quoted identifiers stay code.
+pub(crate) const SQL: Syntax = Syntax {
+    name: "sql",
+    line: &["--"],
+    block: Some(("/*", "*/")),
+    nested: true,
+    quotes: "'",
+    multiline: "'",
+    triple: false,
+    escapes: false,
+};
+
+/// CDDL: `;` comments, `"` text strings.
+pub(crate) const CDDL: Syntax = Syntax {
+    name: "cddl",
+    line: &[";"],
+    block: None,
+    nested: false,
+    quotes: "\"",
+    multiline: "",
+    triple: false,
+    escapes: true,
+};
+
+/// HTML: `<!-- -->` comments only.
+pub(crate) const HTML: Syntax = Syntax {
+    name: "html",
+    line: &[],
+    block: Some(("<!--", "-->")),
+    nested: false,
+    quotes: "",
+    multiline: "",
+    triple: false,
+    escapes: false,
+};
+
+struct Generic<'a> {
+    lexer: Lexer,
+    syn: &'a Syntax,
+}
+
+impl Generic<'_> {
+    fn starts(&self, pat: &str) -> bool {
+        pat.chars()
+            .enumerate()
+            .all(|(k, c)| self.lexer.at(k) == Some(c))
+    }
+
+    fn take(&mut self, n: usize, text: &mut String) {
+        for _ in 0..n {
+            self.lexer.take_blank(Some(text));
+        }
+    }
+
+    fn line_comment(&mut self) {
+        let (line, at) = (self.lexer.line, self.lexer.out.code.len());
+        let mut text = String::new();
+        while self.lexer.at(0).is_some_and(|c| c != '\n') {
+            self.lexer.take_blank(Some(&mut text));
+        }
+        self.lexer.out.comments.push(lit(line, at, text, false));
+    }
+
+    fn block_comment(&mut self, open: &str, close: &str) {
+        let (line, at) = (self.lexer.line, self.lexer.out.code.len());
+        let mut text = String::new();
+        let mut depth = 0_usize;
+        while self.lexer.at(0).is_some() {
+            if self.starts(open) && (depth == 0 || self.syn.nested) {
+                depth = depth.saturating_add(1);
+                self.take(open.chars().count(), &mut text);
+                continue;
+            }
+            if self.starts(close) {
+                depth = depth.saturating_sub(1);
+                self.take(close.chars().count(), &mut text);
+                if depth == 0 {
+                    break;
+                }
+                continue;
+            }
+            self.lexer.take_blank(Some(&mut text));
+        }
+        self.lexer.out.comments.push(lit(line, at, text, false));
+    }
+
+    fn string(&mut self, quote: char) {
+        let (line, at) = (self.lexer.line, self.lexer.out.code.len());
+        let mut sink = String::new();
+        let triple =
+            self.syn.triple && self.lexer.at(1) == Some(quote) && self.lexer.at(2) == Some(quote);
+        let delim: String = std::iter::repeat_n(quote, if triple { 3 } else { 1 }).collect();
+        self.take(delim.chars().count(), &mut sink);
+        let multiline = triple || self.syn.multiline.contains(quote);
+        let mut text = String::new();
+        while let Some(c) = self.lexer.at(0) {
+            if c == '\n' && !multiline {
+                break;
+            }
+            if self.starts(&delim) {
+                if !self.syn.escapes && !triple && self.lexer.at(1) == Some(quote) {
+                    self.lexer.take_blank(Some(&mut text));
+                    self.lexer.take_blank(None);
+                    continue;
+                }
+                self.take(delim.chars().count(), &mut sink);
+                break;
+            }
+            if c == '\\' && self.syn.escapes {
+                self.lexer.take_blank(Some(&mut text));
+            }
+            self.lexer.take_blank(Some(&mut text));
+        }
+        self.lexer.out.strings.push(lit(line, at, text, false));
+    }
+
+    fn run(mut self) -> Lexed {
+        while let Some(c) = self.lexer.at(0) {
+            if self.syn.line.iter().any(|p| self.starts(p)) {
+                self.line_comment();
+            } else if let Some((open, close)) = self.syn.block.filter(|(o, _)| self.starts(o)) {
+                self.block_comment(open, close);
+            } else if self.syn.quotes.contains(c) {
+                self.string(c);
+            } else {
+                if c == '\n' {
+                    self.lexer.line = self.lexer.line.saturating_add(1);
+                }
+                self.lexer.out.code.push(c);
+                self.lexer.i = self.lexer.i.saturating_add(1);
+            }
+        }
+        self.lexer.out
+    }
+}
+
+/// Splits non-Rust source into code, string literal and comment views.
+pub(crate) fn lex_with(src: &str, syn: &Syntax) -> Lexed {
+    Generic {
+        lexer: Lexer {
+            chars: src.chars().collect(),
+            i: 0,
+            line: 1,
+            out: Lexed::default(),
+        },
+        syn,
+    }
+    .run()
+}
+
+/// The comment and string syntax of a file, by extension; `None` for Rust and
+/// files without a C-family, SQL, CDDL or HTML syntax.
+pub(crate) fn syntax_of(rel_path: &str) -> Option<&'static Syntax> {
+    let ext = rel_path
+        .rsplit('/')
+        .next()
+        .and_then(|n| n.rsplit_once('.'))
+        .map(|(_, e)| e.to_ascii_lowercase())
+        .unwrap_or_default();
+    match ext.as_str() {
+        "ts" | "tsx" | "mts" | "cts" | "js" | "jsx" | "mjs" | "cjs" => Some(&TS),
+        "swift" => Some(&SWIFT),
+        "kt" | "kts" => Some(&KOTLIN),
+        "proto" => Some(&PROTO),
+        "sql" => Some(&SQL),
+        "cddl" => Some(&CDDL),
+        "html" | "htm" => Some(&HTML),
+        _ => None,
+    }
+}
+
+/// A Rust string literal with its escapes decoded; raw strings stay as written.
+pub(crate) fn decoded(lit: &Lit) -> String {
+    if lit.raw {
+        return lit.text.clone();
+    }
+    let mut out = String::with_capacity(lit.text.len());
+    let mut chars = lit.text.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c != '\\' {
+            out.push(c);
+            continue;
+        }
+        match chars.next() {
+            Some('n') => out.push('\n'),
+            Some('t') => out.push('\t'),
+            Some('r') => out.push('\r'),
+            Some('0') => out.push('\0'),
+            Some('x') => {
+                let hex: String = chars.by_ref().take(2).collect();
+                if let Some(ch) = u32::from_str_radix(&hex, 16).ok().and_then(char::from_u32) {
+                    out.push(ch);
+                }
+            }
+            Some('u') => {
+                let mut hex = String::new();
+                for d in chars.by_ref() {
+                    match d {
+                        '{' => {}
+                        '}' => break,
+                        d => hex.push(d),
+                    }
+                }
+                if let Some(ch) = u32::from_str_radix(&hex, 16).ok().and_then(char::from_u32) {
+                    out.push(ch);
+                }
+            }
+            Some('\n') => {
+                while chars.peek().is_some_and(|d| d.is_whitespace()) {
+                    chars.next();
+                }
+            }
+            Some(other) => out.push(other),
+            None => {}
+        }
+    }
+    out
+}
+
+/// The decoded string literals inside each call of the named macros (`concat!`,
+/// `format!`), joined: (line of the macro, joined text).
+pub(crate) fn macro_literals(lexed: &Lexed, macros: &[&str]) -> Vec<(usize, String)> {
+    let mut out = Vec::new();
+    let code = lexed.code.as_bytes();
+    for name in macros {
+        for at in find_token(&lexed.code, name) {
+            let mut i = at.saturating_add(name.len());
+            while code.get(i).is_some_and(u8::is_ascii_whitespace) {
+                i = i.saturating_add(1);
+            }
+            let (open, close) = match code.get(i) {
+                Some(b'(') => (b'(', b')'),
+                Some(b'[') => (b'[', b']'),
+                Some(b'{') => (b'{', b'}'),
+                _ => continue,
+            };
+            let start = i;
+            let mut depth = 0_usize;
+            let mut end = code.len();
+            while let Some(&b) = code.get(i) {
+                if b == open {
+                    depth = depth.saturating_add(1);
+                } else if b == close {
+                    depth = depth.saturating_sub(1);
+                    if depth == 0 {
+                        end = i;
+                        break;
+                    }
+                }
+                i = i.saturating_add(1);
+            }
+            let joined: String = lexed
+                .strings
+                .iter()
+                .filter(|l| l.at > start && l.at < end)
+                .map(decoded)
+                .collect();
+            if !joined.is_empty() {
+                out.push((line_at(&lexed.code, at), joined));
+            }
+        }
+    }
+    out
 }
 
 /// Returns the 1-based line ranges (inclusive) of test-only code in the code view:
@@ -306,7 +644,9 @@ mod tests {
             l.strings,
             vec![Lit {
                 line: 1,
-                text: "std::fs".into()
+                text: "std::fs".into(),
+                at: 8,
+                raw: false,
             }]
         );
         assert_eq!(l.comments.len(), 1);

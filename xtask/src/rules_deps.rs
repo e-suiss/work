@@ -143,6 +143,22 @@ pub(crate) fn allowed(from: Class, to: Class) -> bool {
     allowed_targets(from).is_none_or(|targets| targets.contains(&to))
 }
 
+// T-70
+/// Reviewed dev-dependency exceptions to the table: (dependency package,
+/// reason). Dev-dependencies never reach a shipped tree.
+pub(crate) const DEV_EXCEPTIONS: &[(&str, &str)] = &[(
+    "work-bindings-core",
+    "T-70: tests outside sdks/bindings decode the shared vectors through the one bindings JSON front end",
+)];
+
+/// May a crate of class `from` dev-depend on `dep` of class `to`?
+pub(crate) fn dev_allowed(from: Class, to: Class, dep: &str) -> bool {
+    to != Class::Forbidden
+        && (to == Class::Testkit
+            || allowed(from, to)
+            || DEV_EXCEPTIONS.iter().any(|(name, _)| *name == dep))
+}
+
 /// Client crates of optional accelerators, search engines and second queues (T-22).
 pub(crate) const ACCELERATORS: &[&str] = &[
     "redis",
@@ -190,7 +206,7 @@ pub(crate) fn check_metadata(root: &Path, md: &Metadata) -> Vec<Violation> {
             });
             continue;
         };
-        for dep in pkg.deps.iter().filter(|d| d.kind != DepKind::Dev) {
+        for dep in &pkg.deps {
             let to = if let Some(dep_path) = &dep.path {
                 let dep_dir = rel(root, dep_path);
                 let Some(class) = classify_dir(&dep_dir) else {
@@ -211,7 +227,12 @@ pub(crate) fn check_metadata(root: &Path, md: &Metadata) -> Vec<Violation> {
                 };
                 class
             };
-            if !allowed(from, to) {
+            let ok = if dep.kind == DepKind::Dev {
+                dev_allowed(from, to, &dep.name)
+            } else {
+                allowed(from, to)
+            };
+            if !ok {
                 let why = if to == Class::Forbidden {
                     "Access internal crates and Relay code are forbidden; use the public API (T-8)"
                 } else if to == Class::Testkit {
@@ -219,11 +240,16 @@ pub(crate) fn check_metadata(root: &Path, md: &Metadata) -> Vec<Violation> {
                 } else {
                     "not allowed by the T-31 rule 4 table"
                 };
+                let kind = if dep.kind == DepKind::Dev {
+                    "dev-depend"
+                } else {
+                    "depend"
+                };
                 out.push(Violation {
                     rule: RULE,
                     path: path.clone(),
                     message: format!(
-                        "`{}` ({from:?}) must not depend on `{}` ({to:?}): {why}",
+                        "`{}` ({from:?}) must not {kind} on `{}` ({to:?}): {why}",
                         pkg.name, dep.name
                     ),
                 });
@@ -384,6 +410,41 @@ mod tests {
             member("crates/views", &[("crates/testkit", Some("dev"))]),
         ]);
         assert!(dev.is_empty(), "{dev:?}");
+    }
+
+    // T-31 T-70 T-37
+    #[test]
+    fn t_31_dev_dependencies_follow_the_table_with_reviewed_exceptions() {
+        let peer = run(&[
+            member("crates/timers", &[]),
+            member("crates/reconciler", &[("crates/timers", Some("dev"))]),
+        ]);
+        assert_eq!(peer.len(), 1, "{peer:?}");
+        assert!(peer[0].message.contains("dev-depend"));
+        let core = member("sdks/bindings/core", &[("crates/kernel", None)]);
+        let wasm = member("sdks/bindings/wasm", &[]);
+        let mut kernel = member("crates/kernel", &[("sdks/bindings/core", Some("dev"))]);
+        kernel["dependencies"][0]["name"] = "work-bindings-core".into();
+        let excepted = run(&[core.clone(), wasm.clone(), kernel]);
+        assert!(excepted.is_empty(), "{excepted:?}");
+        let other = run(&[
+            core,
+            wasm,
+            member("crates/kernel", &[("sdks/bindings/wasm", Some("dev"))]),
+        ]);
+        assert_eq!(other.len(), 1, "{other:?}");
+        let normal = run(&[
+            member("sdks/bindings/core", &[]),
+            member("crates/kernel", &[("sdks/bindings/core", None)]),
+        ]);
+        assert_eq!(normal.len(), 1, "{normal:?}");
+        let forbidden = run(&[with_registry_dep(
+            member("crates/views", &[]),
+            "relay-core",
+            None,
+            true,
+        )]);
+        assert_eq!(forbidden.len(), 1);
     }
 
     // T-31
