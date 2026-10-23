@@ -34,6 +34,10 @@ tracing = { version = "0.1.44", default-features = false }
 tracing-subscriber = { version = "0.3.23", default-features = false }
 tokio = { version = "1.53.1", default-features = false }
 axum = { version = "0.8.9", default-features = false }
+# T-36, T-37
+testcontainers = { version = "=0.28.0", default-features = false }
+async-nats = { version = "=0.50.0", default-features = false }
+futures-util = { version = "=0.3.34", default-features = false }
 figment = { version = "0.10.19", default-features = false }
 # T-44
 divan = { version = "0.1.21", default-features = false }

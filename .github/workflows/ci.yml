@@ -81,6 +81,10 @@ jobs:
         env:
           NEXTEST_PROFILE: ci
         run: just test
+      - name: Tests against real PostgreSQL 18 and NATS JetStream (T-36, T-37)
+        env:
+          NEXTEST_PROFILE: ci
+        run: just test-containers
       - name: Every rule cites a passing test (T-46, T-47)
         env:
           XTASK_NEXTEST: "1"

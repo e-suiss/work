@@ -1,12 +1,23 @@
 [package]
 name = "work-testkit"
-description = "Shared test helpers: virtual clock, seeded generators, record builders."
+description = "Shared test helpers: real PostgreSQL and NATS, virtual clock, seeded generators, record builders."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 publish = false
+
+# T-36, T-37
+[dependencies]
+async-nats = { workspace = true, features = ["jetstream"] }
+testcontainers = { workspace = true }
+thiserror = { workspace = true, features = ["std"] }
+tokio = { workspace = true, features = ["sync"] }
+
+[dev-dependencies]
+futures-util = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 
 [lints]
 workspace = true

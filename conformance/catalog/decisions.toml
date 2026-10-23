@@ -4060,6 +4060,9 @@ stage = 0
 acceptance = "to-fill"
 title = "No ORM, SQL only in store, no physical delete, real PostgreSQL in tests"
 tests = [
+  "crates/testkit/src/images.rs::t_36_an_image_line_belongs_to_its_own_service",
+  "crates/testkit/src/images.rs::t_36_postgres_and_nats_images_come_from_the_compose_pins",
+  "crates/testkit/src/images.rs::t_36_unpinned_or_missing_images_are_rejected",
   "xtask/src/rules_source.rs::t_36_allowlisted_job_queue_table_needs_a_reason",
   "xtask/src/rules_source.rs::t_36_drop_schema_and_drop_column_are_rejected",
   "xtask/src/rules_source.rs::t_36_english_text_is_not_mistaken_for_sql",

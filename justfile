@@ -23,6 +23,10 @@ test-full:
     cargo nextest run --workspace --locked --no-tests=pass --run-ignored all
     cargo test --workspace --locked --doc
 
+# T-36, T-37
+test-containers:
+    cargo nextest run --workspace --locked --no-tests=fail --run-ignored only -E 'binary(=containers)'
+
 fmt:
     cargo fmt --all
 

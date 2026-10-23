@@ -1,0 +1,7 @@
+# T-60, T-38
+
+[[exception]]
+crate = "rustls-webpki"
+version = "0.103.16"
+advisory = "RUSTSEC-2026-0382"
+reason = "0.103.15 and earlier accept paths through the distrusted emSign intermediates; 0.103.16 is the only fixed 0.103 release and cargo deny rejects the older ones"
