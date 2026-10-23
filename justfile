@@ -12,7 +12,7 @@ default:
     @just --list
 
 # T-41
-check: fmt-check lint rules deny compose-check
+check: fmt-check lint rules vectors squawk deny vet semgrep web-check cddl compose-check
 
 # T-37
 test:
@@ -48,15 +48,22 @@ vet:
 audit:
     cargo audit
 
-# T-52
+semgrep_version := "1.179.0"
+
+# T-52, T-60
 semgrep:
-    semgrep --test --config .semgrep/rules.yml .semgrep/rules.rs
-    semgrep scan --config .semgrep/ --error --metrics=off
+    if command -v semgrep > /dev/null; then sg=(semgrep); else sg=(uvx --from "semgrep=={{semgrep_version}}" semgrep); fi; \
+    "${sg[@]}" --test --config .semgrep/rules.yml .semgrep/rules.rs; \
+    "${sg[@]}" scan --config .semgrep/ --error --metrics=off
 
 # T-36, T-52
 squawk:
-    if squawk crates/store/fixtures/squawk-unsafe.sql > /dev/null; then echo "squawk accepted the unsafe fixture" >&2; exit 1; fi
     files="$(find crates -path '*/migrations/*.sql' 2>/dev/null)"; \
+    if ! command -v squawk > /dev/null; then \
+      if [ -z "$files" ]; then echo "squawk not installed and no migrations yet; skipping"; exit 0; fi; \
+      echo "squawk 2.68.0 required: https://github.com/sbdchd/squawk/releases/tag/v2.68.0" >&2; exit 1; \
+    fi; \
+    if squawk crates/store/fixtures/squawk-unsafe.sql > /dev/null; then echo "squawk accepted the unsafe fixture" >&2; exit 1; fi; \
     if [ -z "$files" ]; then echo "no migrations yet"; else squawk $files; fi
 
 # T-31
@@ -98,6 +105,10 @@ npm_packages := "packages/kernel"
 # T-58, T-60
 web-install:
     for p in {{npm_packages}}; do (cd "$p" && npm ci); done
+
+# T-38, T-58
+web-audit:
+    for p in {{npm_packages}}; do (cd "$p" && npm audit --audit-level=high); done
 
 # T-34, T-58
 web-check: wasm
@@ -146,9 +157,9 @@ dev-hsm *args:
 
 # T-41
 db-reset:
-    {{compose}} rm --stop --force postgres
+    {{compose}} rm --stop --force relay relay-migrate access postgres
     docker volume rm --force work-dev_pgdata
-    {{compose}} up --detach --wait postgres
+    just dev
     just db-seed
 
 db-seed:
@@ -198,9 +209,11 @@ mutants *args:
 load script="smoke" *args:
     docker run --rm --network host -v "{{justfile_directory()}}/load:/load:ro" grafana/k6@sha256:3ddc8b1a33a2c3d8edc6e99b6a762ae36cba08788463458f5e6a7703e14eb77d run {{args}} /load/{{script}}.js
 
+fuzz_toolchain := "nightly-2026-10-01"
+
 # T-37
 fuzz target="smoke" *args:
-    cargo +nightly fuzz run --fuzz-dir fuzz {{target}} {{args}}
+    cargo +{{fuzz_toolchain}} fuzz run --fuzz-dir fuzz {{target}} -- {{args}}
 
 # T-59, T-38
 release-build target:
@@ -210,12 +223,20 @@ release-build target:
     RUSTFLAGS="--remap-path-prefix={{justfile_directory()}}=/work --remap-path-prefix=${CARGO_HOME:-$HOME/.cargo}=/cargo" \
       cargo auditable build --locked --offline --config "{{justfile_directory()}}/target/vendor-config.toml" --release -p work-server -p work-signer -p work-cli --target {{target}}
 
+release_bins := "work-server work-signer work-cli"
+
+# T-5, T-38
+release-ffi target:
+    RUSTFLAGS="--remap-path-prefix={{justfile_directory()}}=/work --remap-path-prefix=${CARGO_HOME:-$HOME/.cargo}=/cargo" \
+      cargo auditable build --locked --release -p work-kernel-ffi --target {{target}}
+
 # T-38
-sbom target binary out:
+sbom target out:
     mkdir -p {{out}}
-    cargo cyclonedx --manifest-path bins/work-server/Cargo.toml --format json --spec-version 1.5 --target {{target}}
-    find bins crates xtask -name '*.cdx.json' -not -path '*/target/*' -exec mv {} {{out}}/ \;
-    syft scan "file:{{binary}}" -o "spdx-json={{out}}/work-server.spdx.json"
+    cargo cyclonedx --format json --spec-version 1.5 --target {{target}}
+    for b in {{release_bins}}; do mv "bins/$b/$b.cdx.json" "{{out}}/$b.cdx.json"; done
+    find bins crates xtask -name '*.cdx.json' -not -path '*/target/*' -delete
+    for b in {{release_bins}}; do syft scan "file:target/{{target}}/release/$b" -o "spdx-json={{out}}/$b.spdx.json"; done
 
 # T-40
 changelog:
@@ -240,8 +261,16 @@ vectors-write:
 cddl:
     #!/usr/bin/env bash
     set -euo pipefail
-    bin="${CDDL:-cddl}"
-    if ! command -v "$bin" > /dev/null; then echo "cddl gem 0.12.14 not found (gem install cddl -v 0.12.14, or set CDDL); skipping CDDL validation"; exit 0; fi
+    gemfile=.github/cddl/Gemfile
+    if [ -n "${CDDL:-}" ]; then cddl=("$CDDL")
+    elif BUNDLE_GEMFILE="$gemfile" bundle check > /dev/null 2>&1; then cddl=(env BUNDLE_GEMFILE="$gemfile" bundle exec cddl)
+    elif command -v cddl > /dev/null && cddl 2>&1 | grep -q 'version 0.12.14$'; then cddl=(cddl)
+    else
+      echo "cddl gem 0.12.14 not found; skipping CDDL validation. Install the pinned gems with:"
+      echo "  BUNDLE_GEMFILE=$gemfile bundle install"
+      echo "or: gem install cddl -v 0.12.14 && gem install pstore -v 0.2.1 && gem install base64 -v 0.3.0 && gem install bigdecimal -v 4.1.3 (Ruby 4 no longer bundles pstore, base64, bigdecimal)"
+      exit 0
+    fi
     dir=target/vectors/cddl
     rm -rf "$dir"
     python3 {{record_vectors}}/gen/gen.py "$dir/json" "$dir/cbor"
@@ -249,7 +278,7 @@ cddl:
     while read -r root name want; do
       schema="$dir/$root.cddl"
       [ -e "$schema" ] || { printf 'root = %s\n' "$root"; cat conformance/cddl/work-record.cddl; } > "$schema"
-      if out="$("$bin" "$schema" validate "$dir/cbor/$name.cbor" 2>&1)"; then got=pass; else got=fail; fi
+      if out="$("${cddl[@]}" "$schema" validate "$dir/cbor/$name.cbor" < /dev/null 2>&1)"; then got=pass; else got=fail; fi
       if [ "$got" != "$want" ]; then echo "$name: CDDL $got, expected $want"; grep -v 'Unused rule' <<< "$out" | head -20; bad=1; fi
     done < "$dir/cbor/manifest"
     [ "$bad" = 0 ] && echo "CDDL: $(wc -l < "$dir/cbor/manifest" | tr -d ' ') vectors match their cddl expectation"

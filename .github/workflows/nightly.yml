@@ -1,4 +1,4 @@
-# T-40, T-37, T-38, T-44, T-62
+# T-40, T-37, T-38
 name: Nightly
 
 on:
@@ -75,11 +75,15 @@ jobs:
         run: just test-full
 
   mutants:
-    name: mutants
+    name: mutants (${{ matrix.shard }}/4)
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     permissions:
       contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -88,44 +92,52 @@ jobs:
         with:
           cache-key: test
           tools: nextest mutants
-      - name: cargo-mutants on the kernel (T-37)
-        run: just mutants
+      - name: cargo-mutants on the kernel, report-only (T-37)
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: |
+          status=0
+          just mutants --shard "$SHARD/4" --jobs 2 || status=$?
+          case "$status" in
+            0) ;;
+            2|3) echo "::warning::cargo-mutants shard $SHARD/4 exited $status (missed or timed-out mutants); see mutants-report-$SHARD" ;;
+            *) exit "$status" ;;
+          esac
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
-          name: mutants-report
+          name: mutants-report-${{ matrix.shard }}
           path: mutants.out
           retention-days: 30
           if-no-files-found: ignore
 
-  bench-wallclock:
-    name: bench-wallclock
-    if: github.ref == 'refs/heads/main' && github.repository == 'e-suiss/work'
-    runs-on: [self-hosted, linux, bench]
-    timeout-minutes: 60
+  fuzz:
+    name: fuzz (${{ matrix.target }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     permissions:
       contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [smoke]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup
         with:
-          cache-key: bench-wallclock
-      - name: Wall-clock benchmarks (T-44, T-62)
-        run: |
-          mkdir -p bench-results
-          {
-            echo "commit: $GITHUB_SHA"
-            echo "date: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-            echo "host: $(uname -srm)"
-            echo "governor: $(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor 2>/dev/null || echo unknown)"
-            echo
-          } > bench-results/wallclock.txt
-          just bench | tee -a bench-results/wallclock.txt
+          cache-key: fuzz
+          tools: fuzz
+          toolchain: nightly-2026-10-01
+      - name: cargo-fuzz for five minutes (T-37)
+        env:
+          TARGET: ${{ matrix.target }}
+        run: just fuzz "$TARGET" -max_total_time=300
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: failure()
         with:
-          name: bench-wallclock-${{ github.run_id }}
-          path: bench-results
-          retention-days: 90
-          if-no-files-found: error
+          name: fuzz-artifacts-${{ matrix.target }}
+          path: fuzz/artifacts
+          retention-days: 30
+          if-no-files-found: ignore

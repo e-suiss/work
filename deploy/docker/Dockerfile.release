@@ -1,0 +1,18 @@
+# T-40, T-59, T-38
+
+ARG RUNTIME_IMAGE=gcr.io/distroless/cc-debian13@sha256:e792ab3d241a468a4fd7519ddbbebe66b49b5f365771716ea688ad40b6c6f1c2
+
+FROM ${RUNTIME_IMAGE}
+ARG TARGETARCH
+ARG VERSION
+LABEL org.opencontainers.image.title="work" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.source="https://github.com/e-suiss/work" \
+      org.opencontainers.image.licenses="Apache-2.0"
+COPY --chmod=0755 work-server-linux-${TARGETARCH} /usr/local/bin/work-server
+COPY --chmod=0755 work-signer-linux-${TARGETARCH} /usr/local/bin/work-signer
+COPY --chmod=0755 work-cli-linux-${TARGETARCH} /usr/local/bin/work-cli
+ENV WORK_LISTEN=0.0.0.0:8090
+USER 65532:65532
+EXPOSE 8090
+ENTRYPOINT ["/usr/local/bin/work-server"]

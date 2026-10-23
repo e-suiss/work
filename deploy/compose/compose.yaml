@@ -158,6 +158,7 @@ services:
   access:
     <<: *hardening
     image: ghcr.io/e-suiss/access@sha256:d92918789fcb59d03a5496a9f1b8b5e2953cfa5979a7f6e206e6b067729bd0a9
+    platform: linux/amd64
     read_only: true
     environment:
       ACCESS_LISTEN: 0.0.0.0:8080
@@ -169,7 +170,7 @@ services:
       nats:
         condition: service_healthy
       mailpit:
-        condition: service_started
+        condition: service_healthy
 
   mailpit:
     <<: *hardening
@@ -181,12 +182,18 @@ services:
     ports:
       - "127.0.0.1:${WORK_DEV_SMTP_PORT:-1035}:1025"
       - "127.0.0.1:${WORK_DEV_MAIL_UI_PORT:-8035}:8025"
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
 
   # T-51, T-16, MD-3
   relay-migrate:
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
     image: ghcr.io/e-suiss/relay@sha256:6706e46030ed51e55ee208c8ab8d59f1c58dd17a04c4ba054f74f43210d6c3a1
+    platform: linux/amd64
     read_only: true
     tmpfs:
       - /tmp:uid=10001,gid=10001
@@ -212,6 +219,7 @@ services:
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
     image: ghcr.io/e-suiss/relay@sha256:6706e46030ed51e55ee208c8ab8d59f1c58dd17a04c4ba054f74f43210d6c3a1
+    platform: linux/amd64
     read_only: true
     tmpfs:
       - /tmp:uid=10001,gid=10001
@@ -237,7 +245,7 @@ services:
       nats:
         condition: service_healthy
       valkey:
-        condition: service_started
+        condition: service_healthy
 
   valkey:
     <<: *hardening
@@ -246,6 +254,11 @@ services:
     command: ["valkey-server", "--maxmemory-policy", "noeviction", "--appendonly", "no"]
     tmpfs:
       - /data
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
 
 volumes:
   pgdata:

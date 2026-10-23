@@ -7,7 +7,7 @@ inputs:
     description: >-
       Space-separated CI tools to install (just is always installed). Known names:
       nextest deny audit auditable cyclonedx mutants git-cliff wasmtime gungraun
-      syft cosign wasm-bindgen vet.
+      syft cosign wasm-bindgen vet fuzz.
     required: false
     default: ""
   cache-key:
@@ -29,6 +29,12 @@ inputs:
     description: Extra rustup components for the override toolchain.
     required: false
     default: ""
+  targets:
+    description: >-
+      "all" installs every target in rust-toolchain.toml; "host" installs the pinned
+      toolchain with the host target only.
+    required: false
+    default: all
 
 runs:
   using: composite
@@ -38,11 +44,15 @@ runs:
       env:
         TOOLCHAIN: ${{ inputs.toolchain }}
         COMPONENTS: ${{ inputs.components }}
+        TARGETS: ${{ inputs.targets }}
       run: |
         if [[ -n "$TOOLCHAIN" ]]; then
           args=(--profile minimal)
           [[ -n "$COMPONENTS" ]] && args+=(--component "$COMPONENTS")
           rustup toolchain install "$TOOLCHAIN" "${args[@]}"
+        elif [[ "$TARGETS" == host ]]; then
+          channel="$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)"
+          rustup toolchain install "$channel" --profile minimal --component rustfmt,clippy
         elif ! rustup toolchain install 2>/dev/null; then
           rustup show active-toolchain
         fi
@@ -72,14 +82,17 @@ runs:
         }
         list="just@1.58.0"
         vet=false
+        fuzz=false
         for name in $WANTED; do
           if [[ "$name" == vet ]]; then vet=true; continue; fi
+          if [[ "$name" == fuzz ]]; then fuzz=true; continue; fi
           spec="$(pinned "$name")"
           if [[ -z "$spec" ]]; then echo "::error::unknown tool '$name'"; exit 1; fi
           list="$list,$spec"
         done
         echo "list=$list" >> "$GITHUB_OUTPUT"
         echo "vet=$vet" >> "$GITHUB_OUTPUT"
+        echo "fuzz=$fuzz" >> "$GITHUB_OUTPUT"
 
     - name: Restore Cargo cache
       if: inputs.cache == 'true'
@@ -100,4 +113,12 @@ runs:
       run: |
         if [[ "$(cargo vet --version 2>/dev/null || true)" != "cargo-vet 0.10.2" ]]; then
           cargo install --locked cargo-vet --version 0.10.2
+        fi
+
+    - name: Install cargo-fuzz
+      if: steps.tools.outputs.fuzz == 'true'
+      shell: bash
+      run: |
+        if [[ "$(cargo fuzz --version 2>/dev/null || true)" != "cargo-fuzz 0.13.2" ]]; then
+          cargo install --locked cargo-fuzz --version 0.13.2
         fi

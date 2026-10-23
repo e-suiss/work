@@ -352,6 +352,7 @@ dependencies = [
  "gungraun",
  "serde",
  "serde_json",
+ "work-bindings-core",
 ]
 
 [[package]]

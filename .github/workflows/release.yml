@@ -1,4 +1,4 @@
-# T-40, T-38, T-59, T-54
+# T-40, T-38, T-59, T-54, T-5
 name: Release
 
 on:
@@ -17,8 +17,73 @@ env:
   IMAGE: ghcr.io/e-suiss/work
 
 jobs:
+  # T-40, T-41
+  gate:
+    name: gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      checks: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Tag, workspace version and compat.toml agree (T-40, T-51)
+        id: version
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          tag="${TAG#v}"
+          workspace="$(python3 -I -c 'import tomllib; print(tomllib.load(open("Cargo.toml", "rb"))["workspace"]["package"]["version"])')"
+          compat="$(python3 -I -c 'import tomllib; print(tomllib.load(open("compat.toml", "rb"))["work"]["version"])')"
+          echo "tag $tag, workspace $workspace, compat.toml $compat"
+          if [[ "$tag" != "$workspace" ]] || [[ "$tag" != "$compat" ]]; then
+            echo "::error::tag, workspace version and compat.toml [work].version differ"
+            exit 1
+          fi
+          echo "version=$tag" >> "$GITHUB_OUTPUT"
+          if [[ "$tag" == 0.* || "$tag" == *-* ]]; then echo "prerelease=true"; else echo "prerelease=false"; fi >> "$GITHUB_OUTPUT"
+      - name: Tagged commit is on main
+        run: git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+      - name: Required checks on the tagged commit are green (T-41)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          required="$(gh api "repos/$REPO/rules/branches/main" \
+            --jq '[.[] | select(.type == "required_status_checks") | .parameters.required_status_checks[].context] | unique | .[]')"
+          if [[ -z "$required" ]]; then echo "::error::no required checks found for main"; exit 1; fi
+          deadline=$((SECONDS + 3000))
+          while :; do
+            runs="$(gh api --paginate "repos/$REPO/commits/$GITHUB_SHA/check-runs?per_page=100" \
+              --jq '.check_runs[] | [.id, .name, .status, (.conclusion // "")] | @tsv')"
+            pending=()
+            failed=()
+            while read -r name; do
+              line="$(awk -F'\t' -v n="$name" '$2 == n' <<< "$runs" | sort -n | tail -n 1)"
+              if [[ -z "$line" ]]; then pending+=("$name: not started"); continue; fi
+              IFS=$'\t' read -r _ _ status conclusion <<< "$line"
+              if [[ "$status" != completed ]]; then
+                pending+=("$name: $status")
+              elif [[ "$conclusion" != success ]]; then
+                failed+=("$name: $conclusion")
+              fi
+            done <<< "$required"
+            if (( ${#failed[@]} )); then printf '::error::%s\n' "${failed[@]}"; exit 1; fi
+            if (( ! ${#pending[@]} )); then echo "all $(wc -l <<< "$required" | tr -d ' ') required checks passed"; break; fi
+            if (( SECONDS > deadline )); then printf '::error::%s\n' "${pending[@]}"; exit 1; fi
+            printf 'waiting: %s\n' "${pending[@]}"
+            sleep 30
+          done
+
   build:
     name: build (${{ matrix.arch }})
+    needs: gate
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
     permissions:
@@ -37,6 +102,7 @@ jobs:
         with:
           cache: "false"
           tools: auditable cyclonedx syft
+          targets: host
       - name: Build (cargo auditable, --locked, remapped paths)
         env:
           TARGET: ${{ matrix.target }}
@@ -48,17 +114,121 @@ jobs:
         run: |
           mkdir -p dist
           for b in work-server work-signer work-cli; do cp "target/$TARGET/release/$b" "dist/$b-linux-$ARCH"; done
-          bin="dist/work-server-linux-$ARCH"
-          just sbom "$TARGET" "$bin" "$RUNNER_TEMP/sbom"
+          just sbom "$TARGET" "$RUNNER_TEMP/sbom"
           for f in "$RUNNER_TEMP"/sbom/*.json; do
             base="$(basename "$f")"
             mv "$f" "dist/${base%%.*}-linux-$ARCH.${base#*.}"
           done
-          (cd dist && sha256sum -- * > "SHA256SUMS-linux-$ARCH")
-          cat "dist/SHA256SUMS-linux-$ARCH"
+          ls -l dist
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: dist-${{ matrix.arch }}
+          path: dist
+          if-no-files-found: error
+
+  # T-38
+  attest-sbom:
+    name: attest-sbom (${{ matrix.bin }}, ${{ matrix.arch }})
+    needs: [build, test]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    strategy:
+      fail-fast: true
+      matrix:
+        arch: [amd64, arm64]
+        bin: [work-server, work-signer, work-cli]
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: dist-${{ matrix.arch }}
+          path: dist
+      - uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4.1.0
+        with:
+          subject-path: dist/${{ matrix.bin }}-linux-${{ matrix.arch }}
+          sbom-path: dist/${{ matrix.bin }}-linux-${{ matrix.arch }}.cdx.json
+
+  # T-5, T-38
+  wasm:
+    name: wasm
+    needs: gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          cache: "false"
+          tools: wasm-bindgen
+      - name: Build the WebAssembly package
+        run: just wasm
+      - name: Package
+        run: |
+          mkdir -p dist
+          epoch="$(git log -1 --format=%ct)"
+          tar --sort=name --mtime="@$epoch" --owner=0 --group=0 --numeric-owner -C packages/kernel/wasm -cf - . \
+            | gzip -9n > dist/work-kernel-wasm.tar.gz
+          tar -tzvf dist/work-kernel-wasm.tar.gz
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: wasm
+          path: dist
+          if-no-files-found: error
+
+  # T-5, T-38
+  ffi:
+    name: ffi (${{ matrix.platform }})
+    needs: gate
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - { platform: linux-amd64, runner: ubuntu-24.04, target: x86_64-unknown-linux-gnu, lib: libwork_kernel_ffi.so, sources: true }
+          - { platform: linux-arm64, runner: ubuntu-24.04-arm, target: aarch64-unknown-linux-gnu, lib: libwork_kernel_ffi.so, sources: false }
+          - { platform: macos-arm64, runner: macos-15, target: aarch64-apple-darwin, lib: libwork_kernel_ffi.dylib, sources: false }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          cache: "false"
+          tools: auditable
+          targets: host
+      - name: Build the host library
+        env:
+          TARGET: ${{ matrix.target }}
+          PLATFORM: ${{ matrix.platform }}
+          LIB: ${{ matrix.lib }}
+        run: |
+          just release-ffi "$TARGET"
+          mkdir -p dist
+          cp "target/$TARGET/release/$LIB" "dist/${LIB%.*}-$PLATFORM.${LIB##*.}"
+      - name: Generate the Swift and Kotlin sources
+        if: matrix.sources
+        run: |
+          just bindings-swift
+          just bindings-kotlin
+          epoch="$(git log -1 --format=%ct)"
+          for language in swift kotlin; do
+            tar --sort=name --mtime="@$epoch" --owner=0 --group=0 --numeric-owner -C "target/uniffi/$language" -cf - . \
+              | gzip -9n > "dist/work-kernel-ffi-$language.tar.gz"
+            tar -tzvf "dist/work-kernel-ffi-$language.tar.gz"
+          done
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ffi-${{ matrix.platform }}
           path: dist
           if-no-files-found: error
 
@@ -85,6 +255,7 @@ jobs:
         with:
           cache: "false"
           tools: auditable
+          targets: host
       - name: Second build
         env:
           TARGET: ${{ matrix.target }}
@@ -114,6 +285,7 @@ jobs:
   # T-38
   test:
     name: test
+    needs: gate
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
@@ -150,7 +322,7 @@ jobs:
 
   publish:
     name: publish
-    needs: [build, test]
+    needs: [gate, build, test, attest-sbom, wasm, ffi]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
@@ -171,22 +343,29 @@ jobs:
           pattern: dist-*
           path: dist
           merge-multiple: true
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: ffi-*
+          path: dist
+          merge-multiple: true
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: wasm
+          path: dist
+      - name: Compatibility manifest and checksums (T-40, T-51)
+        run: |
+          cp compat.toml dist/compat.toml
+          (cd dist && sha256sum -- * > SHA256SUMS)
+          cat dist/SHA256SUMS
       - name: Build provenance (T-38)
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: |
             dist/work-*-linux-amd64
             dist/work-*-linux-arm64
-      - name: SBOM attestation, amd64 (T-38)
-        uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4.1.0
-        with:
-          subject-path: dist/work-server-linux-amd64
-          sbom-path: dist/work-server-linux-amd64.cdx.json
-      - name: SBOM attestation, arm64 (T-38)
-        uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4.1.0
-        with:
-          subject-path: dist/work-server-linux-arm64
-          sbom-path: dist/work-server-linux-arm64.cdx.json
+            dist/work-kernel-wasm.tar.gz
+            dist/libwork_kernel_ffi-*
+            dist/work-kernel-ffi-*.tar.gz
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: test-result
@@ -197,25 +376,30 @@ jobs:
           subject-path: |
             dist/work-*-linux-amd64
             dist/work-*-linux-arm64
+            dist/work-kernel-wasm.tar.gz
+            dist/libwork_kernel_ffi-*
+            dist/work-kernel-ffi-*.tar.gz
           predicate-type: https://in-toto.io/attestation/test-result/v0.1
           predicate-path: ${{ runner.temp }}/predicates/test-result.json
       # T-38
       - name: VEX document
         env:
           TAG: ${{ github.ref_name }}
+          VERSION: ${{ needs.gate.outputs.version }}
           SERVER_URL: ${{ github.server_url }}
           REPOSITORY: ${{ github.repository }}
         run: |
-          version="${TAG#v}"
           products=()
-          for arch in amd64 arm64; do
-            sum="$(sha256sum "dist/work-server-linux-$arch" | cut -d' ' -f1)"
-            products+=("pkg:generic/work-server@$version?arch=$arch&checksum=sha256:$sum")
+          for b in work-server work-signer work-cli; do
+            for arch in amd64 arm64; do
+              sum="$(sha256sum "dist/$b-linux-$arch" | cut -d' ' -f1)"
+              products+=("pkg:generic/$b@$VERSION?arch=$arch&checksum=sha256:$sum")
+            done
           done
           python3 -I .github/scripts/openvex.py supply-chain/vex/statements.json \
             "$SERVER_URL/$REPOSITORY/releases/tag/$TAG#vex" "Suiss" "$(git log -1 --format=%cI)" \
-            "${products[@]}" > dist/work-server.openvex.json
-          cat dist/work-server.openvex.json
+            "${products[@]}" > dist/work.openvex.json
+          cat dist/work.openvex.json
       - name: VEX attestation (T-38)
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
@@ -223,7 +407,7 @@ jobs:
             dist/work-*-linux-amd64
             dist/work-*-linux-arm64
           predicate-type: https://openvex.dev/ns/v0.2.0
-          predicate-path: dist/work-server.openvex.json
+          predicate-path: dist/work.openvex.json
       # T-38
       - name: Sigstore keyless signatures (T-38)
         run: |
@@ -232,64 +416,35 @@ jobs:
           done
       # T-40
       - name: Release notes
-        run: git cliff --latest --strip all > "$RUNNER_TEMP/notes.md"
+        run: |
+          {
+            git cliff --latest --strip all
+            echo
+            echo "## Compatibility"
+            echo
+            echo "Deploy this release together with the Access and Relay builds below (\`compat.toml\`, attached)."
+            echo
+            echo '```toml'
+            cat compat.toml
+            echo '```'
+          } > "$RUNNER_TEMP/notes.md"
+          cat "$RUNNER_TEMP/notes.md"
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
-        run: gh release create "$TAG" dist/* --verify-tag --title "$TAG" --notes-file "$RUNNER_TEMP/notes.md"
-
-  image:
-    name: image (${{ matrix.arch }})
-    runs-on: ${{ matrix.runner }}
-    timeout-minutes: 60
-    permissions:
-      contents: read
-      packages: write
-    strategy:
-      fail-fast: true
-      matrix:
-        include:
-          - { arch: amd64, runner: ubuntu-24.04 }
-          - { arch: arm64, runner: ubuntu-24.04-arm }
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
-      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ github.token }}
-      - name: Build and push by digest
-        id: build
-        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
-        with:
-          context: .
-          file: deploy/docker/Dockerfile
-          platforms: linux/${{ matrix.arch }}
-          outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
-          provenance: false
-          sbom: false
-      - name: Export digest
-        env:
-          DIGEST: ${{ steps.build.outputs.digest }}
+          PRERELEASE: ${{ needs.gate.outputs.prerelease }}
         run: |
-          mkdir -p "$RUNNER_TEMP/digests"
-          touch "$RUNNER_TEMP/digests/${DIGEST#sha256:}"
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: digest-${{ matrix.arch }}
-          path: ${{ runner.temp }}/digests/*
-          if-no-files-found: error
-          retention-days: 1
+          flags=(--verify-tag --title "$TAG" --notes-file "$RUNNER_TEMP/notes.md")
+          if [[ "$PRERELEASE" == true ]]; then flags+=(--prerelease --latest=false); fi
+          gh release create "$TAG" dist/* "${flags[@]}"
 
+  # T-38, T-59
   image-publish:
     name: image-publish
-    needs: [image, test]
+    needs: [gate, publish]
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 20
     permissions:
       contents: read
       packages: write
@@ -303,42 +458,53 @@ jobs:
         with:
           cache: "false"
           tools: cosign syft
+          targets: host
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          pattern: digest-*
-          path: ${{ runner.temp }}/digests
+          pattern: dist-*
+          path: ${{ runner.temp }}/image-context
           merge-multiple: true
+      - name: Release binaries match the release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        working-directory: ${{ runner.temp }}/image-context
+        run: |
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern SHA256SUMS
+          grep -E ' work-(server|signer|cli)-linux-(amd64|arm64)$' SHA256SUMS | sha256sum --check --strict
+          rm SHA256SUMS
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ github.token }}
-      - name: Create the multi-arch manifest
-        id: manifest
-        env:
-          TAG: ${{ github.ref_name }}
-        run: |
-          version="${TAG#v}"
-          sources=()
-          for d in "$RUNNER_TEMP"/digests/*; do sources+=("$IMAGE@sha256:$(basename "$d")"); done
-          docker buildx imagetools create -t "$IMAGE:$version" "${sources[@]}"
-          digest="$(docker buildx imagetools inspect "$IMAGE:$version" --format '{{json .Manifest}}' | jq -r .digest)"
-          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+      - name: Build and push the image from the release binaries
+        id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: ${{ runner.temp }}/image-context
+          file: deploy/docker/Dockerfile.release
+          platforms: linux/amd64,linux/arm64
+          build-args: VERSION=${{ needs.gate.outputs.version }}
+          tags: ${{ env.IMAGE }}:${{ needs.gate.outputs.version }}
+          push: true
+          provenance: false
+          sbom: false
       - name: Sign the image (T-38)
         env:
-          DIGEST: ${{ steps.manifest.outputs.digest }}
+          DIGEST: ${{ steps.build.outputs.digest }}
         run: cosign sign --yes "$IMAGE@$DIGEST"
       - name: Image provenance (T-38)
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-name: ${{ env.IMAGE }}
-          subject-digest: ${{ steps.manifest.outputs.digest }}
+          subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
       # T-38
       - name: Image SBOM and VEX
         env:
-          DIGEST: ${{ steps.manifest.outputs.digest }}
+          DIGEST: ${{ steps.build.outputs.digest }}
           TAG: ${{ github.ref_name }}
           SERVER_URL: ${{ github.server_url }}
           REPOSITORY: ${{ github.repository }}
@@ -352,14 +518,14 @@ jobs:
         uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4.1.0
         with:
           subject-name: ${{ env.IMAGE }}
-          subject-digest: ${{ steps.manifest.outputs.digest }}
+          subject-digest: ${{ steps.build.outputs.digest }}
           sbom-path: ${{ runner.temp }}/image/sbom.cdx.json
           push-to-registry: true
       - name: Image VEX attestation (T-38)
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-name: ${{ env.IMAGE }}
-          subject-digest: ${{ steps.manifest.outputs.digest }}
+          subject-digest: ${{ steps.build.outputs.digest }}
           predicate-type: https://openvex.dev/ns/v0.2.0
           predicate-path: ${{ runner.temp }}/image/openvex.json
           push-to-registry: true
@@ -371,7 +537,7 @@ jobs:
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-name: ${{ env.IMAGE }}
-          subject-digest: ${{ steps.manifest.outputs.digest }}
+          subject-digest: ${{ steps.build.outputs.digest }}
           predicate-type: https://in-toto.io/attestation/test-result/v0.1
           predicate-path: ${{ runner.temp }}/predicates/test-result.json
           push-to-registry: true
