@@ -85,6 +85,8 @@ jobs:
         env:
           NEXTEST_PROFILE: ci
         run: just test-containers
+      - name: Fetch every locked crate for the offline metadata
+        run: cargo fetch --locked
       - name: Every rule cites a passing test (T-46, T-47)
         env:
           XTASK_NEXTEST: "1"
