@@ -2832,6 +2832,16 @@ tests = [
 ]
 
 [[rule]]
+id = "SEC-35"
+family = "SEC"
+status = "frozen-technical"
+stage = 2
+acceptance = "to-fill"
+pd = "set"
+title = ""
+tests = []
+
+[[rule]]
 id = "P-1"
 family = "P"
 status = "frozen-protocol"
@@ -3661,6 +3671,15 @@ family = "P"
 status = "frozen-protocol"
 class = "BS"
 stage = 1
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "P-95"
+family = "P"
+status = "frozen-protocol"
+stage = 2
 acceptance = "to-fill"
 title = ""
 tests = []
@@ -4575,6 +4594,59 @@ title = ""
 tests = []
 
 [[rule]]
+id = "T-72"
+family = "T"
+status = "frozen-technical"
+stage = 2
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "T-73"
+family = "T"
+status = "frozen-technical"
+stage = 2
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "T-74"
+family = "T"
+status = "frozen-technical"
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "T-75"
+family = "T"
+status = "frozen-technical"
+stage = 2
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "T-76"
+family = "T"
+status = "frozen-technical"
+stage = 2
+acceptance = "to-fill"
+pd = "set"
+title = ""
+tests = []
+
+[[rule]]
+id = "T-77"
+family = "T"
+status = "frozen-technical"
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
 id = "OP-2"
 family = "OP"
 status = "frozen-technical"
@@ -4710,5 +4782,50 @@ tests = [
 id = "OP-29"
 family = "OP"
 status = "out-of-scope"
+title = ""
+tests = []
+
+[[rule]]
+id = "OP-30"
+family = "OP"
+status = "frozen-technical"
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "OP-31"
+family = "OP"
+status = "frozen-technical"
+acceptance = "to-fill"
+pd = "unset"
+title = ""
+tests = []
+
+[[rule]]
+id = "OP-32"
+family = "OP"
+status = "frozen-technical"
+acceptance = "to-fill"
+pd = "set"
+title = ""
+tests = []
+
+[[rule]]
+id = "OP-33"
+family = "OP"
+status = "frozen-technical"
+acceptance = "to-fill"
+pd = "set"
+title = ""
+tests = []
+
+[[rule]]
+id = "OP-34"
+family = "OP"
+status = "frozen-technical"
+stage = 2
+acceptance = "to-fill"
+pd = "set"
 title = ""
 tests = []
