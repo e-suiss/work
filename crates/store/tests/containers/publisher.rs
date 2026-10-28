@@ -110,16 +110,13 @@ async fn t_80_outside_the_function_the_outbox_stays_ledger_scoped() {
         assert_eq!(scalar(&pool, &l, count, false).await, 2, "{role}");
         assert_eq!(scalar(&pool, &m, count, false).await, 1, "{role}");
     }
-    assert_eq!(
-        scalar(
-            &env.canonical("work_owner"),
-            "",
-            "SELECT count(*) FROM ledger.outbox_ledgers(10)",
-            false
-        )
-        .await,
-        0
-    );
+    fails(
+        &env.canonical("work_owner"),
+        "",
+        &["SELECT count(*) FROM ledger.outbox_ledgers(10)"],
+        Some("42501"),
+    )
+    .await;
     let mut tx = env.canonical("work_publisher").begin().await.unwrap();
     sqlx::query("SELECT set_config('app.outbox_scan', 'on', true)")
         .execute(&mut *tx)

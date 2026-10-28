@@ -21,4 +21,5 @@ AS $$
     SELECT DISTINCT o.ledger_id FROM ledger.outbox o ORDER BY o.ledger_id LIMIT max_ledgers
 $$;
 REVOKE ALL ON FUNCTION ledger.outbox_ledgers(bigint) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ledger.outbox_ledgers(bigint) FROM work_owner;
 GRANT EXECUTE ON FUNCTION ledger.outbox_ledgers(bigint) TO work_publisher;
