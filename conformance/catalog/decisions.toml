@@ -3316,6 +3316,7 @@ acceptance = "to-fill"
 title = ""
 tests = [
   "crates/kernel/src/id.rs::p_67_party_ref_is_one_to_255_bytes",
+  "crates/store/src/id.rs::t_13_ledger_scope_is_the_lower_case_hex_of_the_digest",
   "sdks/bindings/core/tests/vectors.rs::p_67_digests_are_encoded_as_the_sha_256_label_and_32_bytes",
 ]
 
@@ -3685,6 +3686,14 @@ title = ""
 tests = []
 
 [[rule]]
+id = "P-96"
+family = "P"
+status = "frozen-protocol"
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
 id = "PR-2"
 family = "PR"
 status = "frozen-product"
@@ -3847,7 +3856,9 @@ family = "T"
 status = "frozen-technical"
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "xtask/src/rules_derived.rs::t_75_tables_without_a_valid_label_are_rejected",
+]
 
 [[rule]]
 id = "T-12"
@@ -4079,16 +4090,20 @@ stage = 0
 acceptance = "to-fill"
 title = "No ORM, SQL only in store, no physical delete, real PostgreSQL in tests"
 tests = [
+  "crates/store/src/migrate.rs::t_36_every_migration_runs_as_the_owner_with_timeouts_in_one_transaction",
+  "crates/store/src/migrate.rs::t_36_foundation_runs_first_and_versions_are_unique",
   "crates/testkit/src/images.rs::t_36_an_image_line_belongs_to_its_own_service",
   "crates/testkit/src/images.rs::t_36_postgres_and_nats_images_come_from_the_compose_pins",
   "crates/testkit/src/images.rs::t_36_unpinned_or_missing_images_are_rejected",
   "xtask/src/rules_source.rs::t_36_allowlisted_job_queue_table_needs_a_reason",
   "xtask/src/rules_source.rs::t_36_drop_schema_and_drop_column_are_rejected",
+  "xtask/src/rules_source.rs::t_36_drop_table_is_allowed_only_in_a_reviewed_function_body",
   "xtask/src/rules_source.rs::t_36_english_text_is_not_mistaken_for_sql",
   "xtask/src/rules_source.rs::t_36_lower_case_escaped_and_concatenated_sql_outside_store_is_rejected",
   "xtask/src/rules_source.rs::t_36_physical_delete_statements_are_rejected",
   "xtask/src/rules_source.rs::t_36_sql_comments_do_not_count",
   "xtask/src/rules_source.rs::t_36_sqlx_macro_outside_store_is_rejected",
+  "xtask/src/rules_source.rs::t_36_truncate_trigger_events_and_privileges_are_not_statements",
 ]
 
 [[rule]]
@@ -4233,6 +4248,7 @@ acceptance = "filled"
 title = "Benchmarks and an instruction-count gate; nothing optimised without measurement"
 tests = [
   "packages/kernel/e2e/kernel.spec.ts::t_44 browser WebAssembly start-up time",
+  "xtask/src/bench_accepted.rs::t_77_valid_trailer_accepts_the_regression_and_is_reported",
   "xtask/src/policy_scan.rs::t_62_bench_job_with_pull_request_trigger_is_rejected",
   "xtask/src/policy_scan.rs::t_62_bench_labels_matrix_runners_and_exact_main_guard",
 ]
@@ -4609,7 +4625,11 @@ status = "frozen-technical"
 stage = 2
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "xtask/src/rules_derived.rs::t_75_migration_directory_must_match_the_table_database",
+  "xtask/src/rules_derived.rs::t_75_projection_tables_live_only_in_the_derived_database_with_a_version",
+  "xtask/src/rules_derived.rs::t_75_renamed_tables_are_judged_by_their_final_name",
+]
 
 [[rule]]
 id = "T-74"
@@ -4626,7 +4646,18 @@ status = "frozen-technical"
 stage = 2
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "xtask/src/rules_derived.rs::t_75_derived_concept_columns_in_canonical_tables_are_rejected",
+  "xtask/src/rules_derived.rs::t_75_exceptions_need_a_catalog_id_a_reason_and_a_live_column",
+  "xtask/src/rules_derived.rs::t_75_forbidden_names_match_whole_words_and_plurals_only",
+  "xtask/src/rules_derived.rs::t_75_labelled_canonical_and_derived_migrations_pass",
+  "xtask/src/rules_derived.rs::t_75_listed_exception_allows_one_canonical_column",
+  "xtask/src/rules_derived.rs::t_75_migration_directory_must_match_the_table_database",
+  "xtask/src/rules_derived.rs::t_75_no_migrations_and_the_committed_exception_file_pass",
+  "xtask/src/rules_derived.rs::t_75_projection_tables_live_only_in_the_derived_database_with_a_version",
+  "xtask/src/rules_derived.rs::t_75_renamed_tables_are_judged_by_their_final_name",
+  "xtask/src/rules_derived.rs::t_75_tables_without_a_valid_label_are_rejected",
+]
 
 [[rule]]
 id = "T-76"
@@ -4644,6 +4675,28 @@ family = "T"
 status = "frozen-technical"
 acceptance = "to-fill"
 title = ""
+tests = [
+  "xtask/src/bench_accepted.rs::t_77_commits_without_trailers_accept_nothing",
+  "xtask/src/bench_accepted.rs::t_77_git_log_records_split_into_commits",
+  "xtask/src/bench_accepted.rs::t_77_trailer_outside_the_trailer_block_fails",
+  "xtask/src/bench_accepted.rs::t_77_trailer_without_spec_id_or_reason_fails",
+  "xtask/src/bench_accepted.rs::t_77_valid_trailer_accepts_the_regression_and_is_reported",
+]
+
+[[rule]]
+id = "T-78"
+family = "T"
+status = "frozen-technical"
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "T-79"
+family = "T"
+status = "frozen-technical"
+acceptance = "to-fill"
+title = ""
 tests = []
 
 [[rule]]
@@ -4652,7 +4705,9 @@ family = "OP"
 status = "frozen-technical"
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/store/src/migrate.rs::op_2_tables_live_in_exactly_one_cluster",
+]
 
 [[rule]]
 id = "OP-4"
@@ -4776,6 +4831,7 @@ acceptance = "to-fill"
 title = ""
 tests = [
   "crates/kernel/tests/derivation.rs::t_4_p_87_record_newer_than_the_active_protocol_has_no_effect",
+  "crates/store/src/migrate.rs::t_36_foundation_runs_first_and_versions_are_unique",
 ]
 
 [[rule]]
@@ -4825,6 +4881,32 @@ id = "OP-34"
 family = "OP"
 status = "frozen-technical"
 stage = 2
+acceptance = "to-fill"
+pd = "set"
+title = ""
+tests = []
+
+[[rule]]
+id = "OP-35"
+family = "OP"
+status = "frozen-technical"
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "OP-36"
+family = "OP"
+status = "frozen-technical"
+acceptance = "to-fill"
+pd = "set"
+title = ""
+tests = []
+
+[[rule]]
+id = "OP-37"
+family = "OP"
+status = "frozen-technical"
 acceptance = "to-fill"
 pd = "set"
 title = ""

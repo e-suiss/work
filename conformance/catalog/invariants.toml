@@ -30,7 +30,9 @@ family = "C"
 status = "canonical-invariant"
 stage = 1
 title = ""
-tests = []
+tests = [
+  "xtask/src/rules_derived.rs::t_75_derived_concept_columns_in_canonical_tables_are_rejected",
+]
 
 [[rule]]
 id = "C-8"
@@ -222,7 +224,12 @@ family = "C"
 status = "canonical-invariant"
 stage = 2
 title = ""
-tests = []
+tests = [
+  "xtask/src/rules_derived.rs::t_75_derived_concept_columns_in_canonical_tables_are_rejected",
+  "xtask/src/rules_derived.rs::t_75_forbidden_names_match_whole_words_and_plurals_only",
+  "xtask/src/rules_derived.rs::t_75_labelled_canonical_and_derived_migrations_pass",
+  "xtask/src/rules_derived.rs::t_75_listed_exception_allows_one_canonical_column",
+]
 
 [[rule]]
 id = "C-41"
@@ -1966,7 +1973,9 @@ family = "T"
 status = "canonical-invariant"
 stage = 2
 title = ""
-tests = []
+tests = [
+  "crates/store/src/migrate.rs::op_2_tables_live_in_exactly_one_cluster",
+]
 
 [[rule]]
 id = "T-13"
@@ -1974,7 +1983,9 @@ family = "T"
 status = "canonical-invariant"
 stage = 2
 title = ""
-tests = []
+tests = [
+  "crates/store/src/id.rs::t_13_ledger_scope_is_the_lower_case_hex_of_the_digest",
+]
 
 [[rule]]
 id = "T-18"
@@ -2063,7 +2074,9 @@ family = "OP"
 status = "canonical-invariant"
 stage = 8
 title = ""
-tests = []
+tests = [
+  "xtask/src/rules_derived.rs::t_75_projection_tables_live_only_in_the_derived_database_with_a_version",
+]
 
 [[rule]]
 id = "OP-12"
@@ -2072,10 +2085,13 @@ status = "canonical-invariant"
 stage = 0
 title = "Records are never physically deleted; personal data is crypto-shredded"
 tests = [
+  "crates/store/src/migrate.rs::t_36_every_migration_runs_as_the_owner_with_timeouts_in_one_transaction",
   "xtask/src/rules_source.rs::t_36_allowlisted_job_queue_table_needs_a_reason",
   "xtask/src/rules_source.rs::t_36_drop_schema_and_drop_column_are_rejected",
+  "xtask/src/rules_source.rs::t_36_drop_table_is_allowed_only_in_a_reviewed_function_body",
   "xtask/src/rules_source.rs::t_36_physical_delete_statements_are_rejected",
   "xtask/src/rules_source.rs::t_36_sql_comments_do_not_count",
+  "xtask/src/rules_source.rs::t_36_truncate_trigger_events_and_privileges_are_not_statements",
 ]
 
 [[rule]]
@@ -2108,7 +2124,9 @@ family = "OP"
 status = "canonical-invariant"
 stage = 2
 title = ""
-tests = []
+tests = [
+  "xtask/src/rules_source.rs::t_36_truncate_trigger_events_and_privileges_are_not_statements",
+]
 
 [[rule]]
 id = "OP-19"
