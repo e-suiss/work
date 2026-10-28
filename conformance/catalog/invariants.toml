@@ -1467,7 +1467,9 @@ family = "SEC"
 status = "canonical-invariant"
 stage = 2
 title = ""
-tests = []
+tests = [
+  "crates/parse/src/secret/tests.rs::sec_13_scanned_content_is_redacted_in_debug_output",
+]
 
 [[rule]]
 id = "SEC-14"
@@ -1552,7 +1554,15 @@ family = "SEC"
 status = "canonical-invariant"
 stage = 2
 title = ""
-tests = []
+tests = [
+  "crates/telemetry/src/guard.rs::p_43_content_secret_and_genai_names_are_forbidden",
+  "crates/telemetry/tests/content_guard.rs::p_43_content_and_secret_fields_are_never_recorded",
+  "crates/telemetry/tests/content_guard.rs::sec_24_the_log_format_redacts_without_the_guard",
+  "xtask/src/rules_migrations.rs::sec_24_credential_and_payment_columns_are_rejected",
+  "xtask/src/rules_migrations.rs::sec_24_kind_assurance_and_opaque_reference_columns_pass",
+  "xtask/src/rules_migrations.rs::sec_24_terms_match_the_schema_security_test",
+  "xtask/src/rules_migrations.rs::sec_24_the_committed_migrations_carry_no_credential_column",
+]
 
 [[rule]]
 id = "SEC-25"
@@ -1677,6 +1687,10 @@ stage = 2
 title = ""
 tests = [
   "crates/kernel/tests/records.rs::p_9_vector_examples_are_accepted",
+  "crates/telemetry/tests/content_guard.rs::op_19_record_body_bytes_never_reach_the_output",
+  "crates/telemetry/tests/content_guard.rs::sec_24_the_log_format_redacts_without_the_guard",
+  "xtask/src/rules_migrations.rs::sec_24_credential_and_payment_columns_are_rejected",
+  "xtask/src/rules_migrations.rs::sec_24_kind_assurance_and_opaque_reference_columns_pass",
 ]
 
 [[rule]]
@@ -1795,7 +1809,15 @@ family = "P"
 status = "canonical-invariant"
 stage = 2
 title = ""
-tests = []
+tests = [
+  "crates/telemetry/src/guard.rs::p_43_content_secret_and_genai_names_are_forbidden",
+  "crates/telemetry/src/guard.rs::p_43_identifier_fields_are_allowed",
+  "crates/telemetry/tests/content_guard.rs::op_19_record_body_bytes_never_reach_the_output",
+  "crates/telemetry/tests/content_guard.rs::op_19_records_are_linked_by_identifier_only",
+  "crates/telemetry/tests/content_guard.rs::op_19_the_guard_decides_from_declared_field_names",
+  "crates/telemetry/tests/content_guard.rs::p_43_content_and_secret_fields_are_never_recorded",
+  "crates/telemetry/tests/content_guard.rs::p_43_unstable_genai_attributes_are_not_emitted",
+]
 
 [[rule]]
 id = "P-44"
@@ -2004,6 +2026,7 @@ title = ""
 tests = [
   "crates/dispatch/src/app.rs::t_21_bus_outage_keeps_every_pointer",
   "crates/dispatch/src/app.rs::t_21_run_polls_until_shutdown",
+  "crates/dispatch/src/app.rs::t_21_run_waits_the_poll_interval_when_nothing_is_pending",
   "crates/dispatch/src/domain.rs::t_21_backoff_doubles_up_to_the_maximum_and_resets",
 ]
 
@@ -2138,7 +2161,11 @@ family = "OP"
 status = "canonical-invariant"
 stage = 2
 title = ""
-tests = []
+tests = [
+  "crates/telemetry/tests/content_guard.rs::op_19_record_body_bytes_never_reach_the_output",
+  "crates/telemetry/tests/content_guard.rs::op_19_records_are_linked_by_identifier_only",
+  "crates/telemetry/tests/content_guard.rs::op_19_the_guard_decides_from_declared_field_names",
+]
 
 [[rule]]
 id = "OP-24"

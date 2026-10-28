@@ -230,6 +230,7 @@ stage = 0
 title = "The must-never list is binding"
 tests = [
   "xtask/src/policy.rs::md_15_f_9_p_2_paid_or_cloud_only_names_are_rejected",
+  "xtask/src/rules_migrations.rs::sec_24_credential_and_payment_columns_are_rejected",
 ]
 
 [[rule]]
@@ -2839,7 +2840,23 @@ stage = 2
 acceptance = "to-fill"
 pd = "set"
 title = ""
-tests = []
+tests = [
+  "crates/parse/src/secret/tests.rs::sec_35_a_large_part_scans_within_the_default_limit",
+  "crates/parse/src/secret/tests.rs::sec_35_a_rule_change_changes_the_digest",
+  "crates/parse/src/secret/tests.rs::sec_35_account_numbers_need_a_brand_and_the_luhn_check",
+  "crates/parse/src/secret/tests.rs::sec_35_binary_and_non_utf8_parts_are_scanned",
+  "crates/parse/src/secret/tests.rs::sec_35_clean_text_and_known_examples_pass",
+  "crates/parse/src/secret/tests.rs::sec_35_detects_a_sample_of_rule_families",
+  "crates/parse/src/secret/tests.rs::sec_35_entropy_matches_gitleaks",
+  "crates/parse/src/secret/tests.rs::sec_35_gitleaks_allow_marker_is_not_honoured",
+  "crates/parse/src/secret/tests.rs::sec_35_go_regex_syntax_is_converted",
+  "crates/parse/src/secret/tests.rs::sec_35_parts_over_the_limits_are_refused_before_scanning",
+  "crates/parse/src/secret/tests.rs::sec_35_reports_the_first_matching_part",
+  "crates/parse/src/secret/tests.rs::sec_35_rule_counts_are_pinned",
+  "crates/parse/src/secret/tests.rs::sec_35_rule_set_digest_is_stable",
+  "crates/parse/src/secret/tests.rs::sec_35_vendored_rule_file_is_checked_against_its_recorded_digest",
+  "crates/parse/src/secret/tests.rs::sec_35_work_rule_ids_may_not_shadow_gitleaks_rules",
+]
 
 [[rule]]
 id = "P-1"
@@ -3691,7 +3708,10 @@ status = "frozen-protocol"
 stage = 2
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/parse/src/secret/tests.rs::p_95_detection_rejects_on_the_api_path_and_quarantines_otherwise",
+  "crates/parse/src/secret/tests.rs::p_95_the_outcome_carries_only_the_rule_id_and_the_part_name",
+]
 
 [[rule]]
 id = "P-96"
@@ -3716,6 +3736,26 @@ tests = [
   "crates/store/src/idempotency.rs::p_97_a_uuidv7_key_parses_round_trips_and_carries_its_time",
   "crates/store/src/idempotency.rs::p_97_key_rejections_carry_their_reason_codes",
 ]
+
+[[rule]]
+id = "P-98"
+family = "P"
+status = "frozen-protocol"
+stage = 2
+acceptance = "to-fill"
+title = ""
+tests = [
+  "crates/dispatch/src/domain.rs::p_98_pos_above_i32_is_a_decimal_string_and_hex_is_lower_case",
+]
+
+[[rule]]
+id = "P-99"
+family = "P"
+status = "frozen-protocol"
+stage = 2
+acceptance = "to-fill"
+title = ""
+tests = []
 
 [[rule]]
 id = "PR-2"
@@ -4124,6 +4164,9 @@ tests = [
   "crates/testkit/src/images.rs::t_36_an_image_line_belongs_to_its_own_service",
   "crates/testkit/src/images.rs::t_36_postgres_and_nats_images_come_from_the_compose_pins",
   "crates/testkit/src/images.rs::t_36_unpinned_or_missing_images_are_rejected",
+  "xtask/src/rules_migrations.rs::op_28_index_on_an_existing_table_must_be_concurrent",
+  "xtask/src/rules_migrations.rs::op_28_only_work_cli_runs_the_migrator",
+  "xtask/src/rules_migrations.rs::sec_24_terms_match_the_schema_security_test",
   "xtask/src/rules_source.rs::t_36_allowlisted_job_queue_table_needs_a_reason",
   "xtask/src/rules_source.rs::t_36_drop_schema_and_drop_column_are_rejected",
   "xtask/src/rules_source.rs::t_36_drop_table_is_allowed_only_in_a_reviewed_function_body",
@@ -4210,6 +4253,10 @@ stage = 0
 acceptance = "to-fill"
 title = "OpenTelemetry signals with trace context, no identity labels and no secrets"
 tests = [
+  "crates/telemetry/src/guard.rs::p_43_content_secret_and_genai_names_are_forbidden",
+  "crates/telemetry/src/guard.rs::p_43_identifier_fields_are_allowed",
+  "crates/telemetry/tests/content_guard.rs::op_19_record_body_bytes_never_reach_the_output",
+  "crates/telemetry/tests/content_guard.rs::op_19_records_are_linked_by_identifier_only",
   "crates/telemetry/tests/redaction_canary.rs::t_39_json_logs_never_contain_secrets",
 ]
 
@@ -4699,6 +4746,7 @@ title = ""
 tests = [
   "crates/dispatch/src/app.rs::t_76_a_duplicate_ack_still_removes_the_pointer",
   "crates/dispatch/src/domain.rs::t_76_defaults_are_the_policy_defaults",
+  "crates/dispatch/src/domain.rs::t_76_multi_node_profile_keeps_three_replicas",
   "crates/dispatch/src/domain.rs::t_76_partition_is_a_stable_hash_of_the_ledger_mod_p",
   "crates/dispatch/src/domain.rs::t_76_subject_carries_only_partition_ledger_and_type",
 ]
@@ -4732,6 +4780,17 @@ status = "frozen-technical"
 acceptance = "to-fill"
 title = ""
 tests = []
+
+[[rule]]
+id = "T-80"
+family = "T"
+status = "frozen-technical"
+stage = 2
+acceptance = "to-fill"
+title = ""
+tests = [
+  "crates/dispatch/src/app.rs::t_80_run_discovers_every_ledger_with_pending_pointers",
+]
 
 [[rule]]
 id = "OP-2"
@@ -4795,6 +4854,8 @@ acceptance = "to-fill"
 pd = "set"
 title = "Telemetry is minimised, pseudonymous and never a decision input"
 tests = [
+  "crates/telemetry/tests/content_guard.rs::p_43_content_and_secret_fields_are_never_recorded",
+  "crates/telemetry/tests/content_guard.rs::sec_24_the_log_format_redacts_without_the_guard",
   "crates/telemetry/tests/redaction_canary.rs::t_39_json_logs_never_contain_secrets",
 ]
 
@@ -4872,6 +4933,12 @@ title = ""
 tests = [
   "crates/kernel/tests/derivation.rs::t_4_p_87_record_newer_than_the_active_protocol_has_no_effect",
   "crates/store/src/migrate.rs::t_36_foundation_runs_first_and_versions_are_unique",
+  "xtask/src/rules_migrations.rs::op_28_concurrent_index_needs_a_no_transaction_migration",
+  "xtask/src/rules_migrations.rs::op_28_index_on_a_table_created_in_the_same_migration_may_block",
+  "xtask/src/rules_migrations.rs::op_28_index_on_an_existing_table_must_be_concurrent",
+  "xtask/src/rules_migrations.rs::op_28_only_work_cli_runs_the_migrator",
+  "xtask/src/rules_migrations.rs::op_28_the_committed_migrations_build_indexes_safely",
+  "xtask/src/rules_migrations.rs::op_28_work_server_never_migrates_at_start_up",
 ]
 
 [[rule]]
