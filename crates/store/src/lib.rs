@@ -2,9 +2,10 @@
 //! and the derived `work_derived` databases (OP-2, T-11), the separate migration step (OP-28),
 //! and ledger scope in the type system, so no statement runs outside one ledger's row-level
 //! security scope (T-13). Work owns all of this DDL, including the `ledger` schema (log, head,
-//! outbox, checkpoint); the shared `suiss-ledger` crate contributes only a pure engine. All SQL
+//! outbox, checkpoint) and the consumer cursors of the derived database (OP-39); the shared `suiss-ledger` crate contributes only a pure engine. All SQL
 //! of the workspace lives in this crate.
 
+mod cursor;
 mod erasure;
 mod error;
 mod id;
@@ -17,14 +18,17 @@ mod server;
 
 pub use erasure::{ERASURE_SCOPE, ErasureScope};
 pub use error::StoreError;
-pub use id::LedgerId;
+pub use id::{ItemRef, LedgerId};
 pub use idempotency::{
     Admission, CLOCK_UNCERTAINTY_MS, CallerRef, HOT_WINDOW_MS, IdempotencyDecision, IdempotencyKey,
     StoredKey, StoredOutcome,
 };
 pub use migrate::{Cluster, migrate, migrate_from_env};
 pub use outbox::{CommittedRecord, PendingEvent, PointerKey};
-pub use publisher::{PUBLISHER_ROLE, PublisherPool};
+pub use publisher::{
+    DERIVER_ROLE, DeriverPool, DeriverRole, DiscoveryPool, DiscoveryRole, PUBLISHER_ROLE,
+    PublisherPool, PublisherRole,
+};
 pub use scope::{Head, LedgerTx};
 pub use server::{connect, server_version_num};
 

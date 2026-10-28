@@ -60,7 +60,8 @@ funcs AS (
 ),
 definer_allowed (fq, rolname) AS (
     VALUES ('work.drop_archived_partition', 'work_archive'),
-           ('ledger.outbox_ledgers', 'work_publisher')
+           ('ledger.outbox_ledgers', 'work_publisher'),
+           ('ledger.outbox_ledgers', 'work_deriver')
 ),
 scope_exception_allowed (fq) AS (
     VALUES ('ledger.outbox')
@@ -173,7 +174,8 @@ violations (check_id, object) AS (
     UNION ALL
     SELECT 'job_queue_identity_only', fq || '.' || attname FROM cols
      WHERE descr LIKE '%guard=job_queue;%'
-       AND (typname IN ('party_ref', 'text', 'bytea', 'jsonb', 'json') AND attname NOT IN ('key_kind', 'cause'))
+       AND (typname IN ('party_ref', 'text', 'bytea', 'jsonb', 'json')
+            AND attname NOT IN ('key_kind', 'cause', 'item_kind', 'item_id'))
     UNION ALL
     SELECT 'erasure_scope_listed', fq || '.' || attname FROM cols
      WHERE (typnsp = 'work' AND typname = 'party_ref' OR attname IN ('ciphertext', 'source_text', 'target_text'))
@@ -287,7 +289,7 @@ async fn violations(c: &mut PgConnection) -> Vec<(String, String)> {
         .collect()
 }
 
-// T-36 OP-12 OP-14 T-17 C-8 C-40 P-17 SEC-13
+// T-36 OP-12 OP-14 T-17 T-81 T-82 OP-39 C-8 C-40 P-17 SEC-13
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "needs Docker"]
 async fn t_36_both_schemas_pass_the_security_checks() {
@@ -315,7 +317,7 @@ async fn t_36_the_security_checks_catch_injected_violations() {
          CREATE TABLE work.stray (id uuid PRIMARY KEY);
          ALTER FUNCTION work.partition_slice(regclass) SECURITY DEFINER;
          GRANT EXECUTE ON FUNCTION work.drop_archived_partition(regclass, ledger.digest32) TO work_app;
-         GRANT EXECUTE ON FUNCTION ledger.outbox_ledgers(bigint) TO work_sequencer;
+         GRANT EXECUTE ON FUNCTION ledger.outbox_ledgers(ledger.digest32, bigint) TO work_sequencer;
          ALTER POLICY ledger_scope ON ledger.log
              USING (ledger_id = ledger.current_ledger_id()
                     OR (CURRENT_USER = 'work_owner' AND current_setting('app.outbox_scan', true) = 'on'));",

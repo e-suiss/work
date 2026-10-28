@@ -40,9 +40,9 @@ VALUES (decode('{L}', 'hex'), 'party:alice', 'req-1', decode(repeat('77', 32), '
         decode(repeat('01', 32), 'hex'));
 INSERT INTO work.inbound_seen (ledger_id, source, source_id, content_digest, result_pos)
 VALUES (decode('{L}', 'hex'), 'https://peer.example/ledgers/x', 'evt-9', decode(repeat('79', 32), 'hex'), 0);
-INSERT INTO ledger.outbox (ledger_id, pos, event_id, event_type, traceparent)
-VALUES (decode('{L}', 'hex'), 0, 'evt-0', 'commitment.requested', '{T}'),
-       (decode('{L}', 'hex'), 0, 'evt-1', 'work.opened', '{T}');
+INSERT INTO ledger.outbox (ledger_id, pos, event_id, event_type, traceparent, item_kind, item_id, version)
+VALUES (decode('{L}', 'hex'), 0, 'evt-0', 'commitment.requested', '{T}', 'commitment', decode(repeat('01', 32), 'hex'), 1),
+       (decode('{L}', 'hex'), 0, 'evt-1', 'work.opened', '{T}', 'work', decode('01890a5dac96774bbcceb302099a8057', 'hex'), 1);
 UPDATE ledger.head
    SET pos = 0, head_leaf = decode(repeat('11', 32), 'hex'), head_recorded_at = '2026-10-23T10:00:00.123Z'
  WHERE ledger_id = decode('{L}', 'hex') AND pos = -1 AND epoch = 0;
@@ -72,7 +72,7 @@ pub(crate) async fn seeded() -> (Env, String) {
 #[ignore = "needs Docker"]
 async fn t_36_migrations_rerun_as_a_no_op() {
     let env = Env::start().await;
-    for (cluster, applied) in [(Cluster::Canonical, 10), (Cluster::Derived, 6)] {
+    for (cluster, applied) in [(Cluster::Canonical, 12), (Cluster::Derived, 7)] {
         work_store::migrate(&env.pool(cluster, "work_owner"), cluster)
             .await
             .unwrap();
@@ -350,12 +350,14 @@ async fn op_8_idempotency_keys_are_unique_within_a_month_and_partitions_fail_clo
 async fn p_42_outbox_pointers_are_checked_and_only_the_publisher_acknowledges() {
     let (env, l) = seeded().await;
     let seq = env.canonical("work_sequencer");
-    let pointer = |pos: u8, id: &str, ty: &str, trace: &str| {
+    let item = |pos: u8, id: &str, ty: &str, trace: &str, item: &str| {
         sql(&format!(
-            "INSERT INTO ledger.outbox (ledger_id, pos, event_id, event_type, traceparent) \
-             VALUES (decode('{{L}}', 'hex'), {pos}, '{id}', '{ty}', '{trace}')"
+            "INSERT INTO ledger.outbox (ledger_id, pos, event_id, event_type, traceparent, item_kind, item_id, version) \
+             VALUES (decode('{{L}}', 'hex'), {pos}, '{id}', '{ty}', '{trace}', {item})"
         ))
     };
+    let commitment = "'commitment', decode(repeat('01', 32), 'hex'), 1";
+    let pointer = |pos: u8, id: &str, ty: &str, trace: &str| item(pos, id, ty, trace, commitment);
     let zero_trace = "00-00000000000000000000000000000000-00f067aa0ba902b7-01";
     fails(
         &seq,
@@ -413,6 +415,68 @@ async fn p_42_outbox_pointers_are_checked_and_only_the_publisher_acknowledges() 
     );
     assert_eq!(scalar(&publisher, &l, &ack("'evt-0'"), true).await, 0);
     assert_eq!(scalar(&publisher, &l, pending, false).await, 0);
+}
+
+// T-81 P-29 T-17 OP-34
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs Docker"]
+async fn t_81_outbox_rows_name_one_checked_item_and_its_version() {
+    let (env, l) = seeded().await;
+    let seq = env.canonical("work_sequencer");
+    let item = |pos: u8, id: &str, ty: &str, trace: &str, item: &str| {
+        sql(&format!(
+            "INSERT INTO ledger.outbox (ledger_id, pos, event_id, event_type, traceparent, item_kind, item_id, version) \
+             VALUES (decode('{{L}}', 'hex'), {pos}, '{id}', '{ty}', '{trace}', {item})"
+        ))
+    };
+    for bad in [
+        "'gate', decode(repeat('01', 32), 'hex'), 1",
+        "'work', decode(repeat('01', 32), 'hex'), 1",
+        "'commitment', decode(repeat('01', 16), 'hex'), 1",
+        "'commitment', decode(repeat('01', 32), 'hex'), 0",
+    ] {
+        fails(
+            &seq,
+            &l,
+            &[&item(0, "evt-5", "commitment.requested", TRACE, bad)],
+            Some("23514"),
+        )
+        .await;
+    }
+    fails(
+        &seq,
+        &l,
+        &[&sql(
+            "INSERT INTO ledger.outbox (ledger_id, pos, event_id, event_type, traceparent) \
+             VALUES (decode('{L}', 'hex'), 0, 'evt-6', 'commitment.requested', '{T}')",
+        )],
+        Some("23502"),
+    )
+    .await;
+    run(
+        &seq,
+        &l,
+        &[
+            &item(
+                0,
+                "evt-7",
+                "commitment.requested",
+                TRACE,
+                "'condition', decode(repeat('03', 32), 'hex'), 1",
+            ),
+            &item(
+                0,
+                "evt-8",
+                "commitment.requested",
+                TRACE,
+                "'commitment', decode(repeat('02', 32), 'hex'), 4",
+            ),
+        ],
+    )
+    .await;
+    let publisher = env.canonical("work_publisher");
+    let rows = "SELECT count(*) FROM ledger.outbox WHERE ledger_id = ledger.current_ledger_id() AND pos = 0";
+    assert_eq!(scalar(&publisher, &l, rows, false).await, 4);
 }
 
 // OP-12 OP-14 OP-15 Access OP-74 Access OP-78

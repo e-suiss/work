@@ -36,6 +36,60 @@ impl std::fmt::Debug for LedgerId {
     }
 }
 
+/// A work item (§15 P-29): the item an outbox pointer names and whose version its event carries
+/// as `seq` (T-81).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum ItemRef {
+    /// A Work, by its 16-byte UUID.
+    Work([u8; 16]),
+    /// A Commitment, by its 32-byte digest.
+    Commitment([u8; 32]),
+    /// A Condition, by its 32-byte digest.
+    Condition([u8; 32]),
+}
+
+impl ItemRef {
+    /// The stored `item_kind`.
+    #[must_use]
+    pub const fn kind(&self) -> &'static str {
+        match self {
+            Self::Work(_) => "work",
+            Self::Commitment(_) => "commitment",
+            Self::Condition(_) => "condition",
+        }
+    }
+
+    /// The stored `item_id` bytes.
+    #[must_use]
+    pub const fn id(&self) -> &[u8] {
+        match self {
+            Self::Work(id) => id,
+            Self::Commitment(id) | Self::Condition(id) => id,
+        }
+    }
+
+    /// From a stored `(item_kind, item_id)` pair; `None` for an unknown kind or a wrong length.
+    #[must_use]
+    pub fn from_parts(kind: &str, id: &[u8]) -> Option<Self> {
+        match kind {
+            "work" => <[u8; 16]>::try_from(id).ok().map(Self::Work),
+            "commitment" => <[u8; 32]>::try_from(id).ok().map(Self::Commitment),
+            "condition" => <[u8; 32]>::try_from(id).ok().map(Self::Condition),
+            _ => None,
+        }
+    }
+}
+
+impl std::fmt::Debug for ItemRef {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "ItemRef({}:", self.kind())?;
+        for b in self.id() {
+            write!(f, "{b:02x}")?;
+        }
+        f.write_str(")")
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -52,5 +106,25 @@ mod tests {
         assert!(hex.starts_with("0fab"));
         assert!(hex.ends_with("aba0"));
         assert_eq!(id.as_bytes(), &bytes);
+    }
+
+    // T-81 P-29
+    #[test]
+    fn t_81_item_kind_and_id_round_trip_with_the_stored_lengths() {
+        let items = [
+            ItemRef::Work([0x01; 16]),
+            ItemRef::Commitment([0x02; 32]),
+            ItemRef::Condition([0x03; 32]),
+        ];
+        for item in items {
+            assert_eq!(ItemRef::from_parts(item.kind(), item.id()), Some(item));
+        }
+        assert_eq!(ItemRef::from_parts("work", &[0x01; 32]), None);
+        assert_eq!(ItemRef::from_parts("commitment", &[0x02; 16]), None);
+        assert_eq!(ItemRef::from_parts("gate", &[0x02; 32]), None);
+        assert_eq!(
+            format!("{:?}", ItemRef::Work([0xab; 16])),
+            format!("ItemRef(work:{})", "ab".repeat(16))
+        );
     }
 }

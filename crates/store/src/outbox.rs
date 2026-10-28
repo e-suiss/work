@@ -1,11 +1,11 @@
 //! Outbox pointers (T-17, §18 OP-34): a row names an event of a committed log position and
-//! carries only its identity; the publisher reads the pending rows of one ledger in `(pos,
+//! carries only its identity, the affected work item and the item's version (T-81); the publisher reads the pending rows of one ledger in `(pos,
 //! event_id)` order, builds the event from the committed record, and after the JetStream ack
 //! removes the row as `work_publisher`, the only role with `DELETE` on `ledger.outbox` (OP-12
 //! rule 6). While NATS is unreachable a consumer scans the pending rows and the log from a
 //! `(ledger, pos)` cursor instead (T-21). Every statement runs in a [`LedgerTx`].
 
-use crate::{LedgerTx, StoreError};
+use crate::{ItemRef, LedgerTx, StoreError};
 
 /// The key of an outbox row inside its ledger.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -29,6 +29,10 @@ pub struct PendingEvent {
     pub record_id: [u8; 32],
     /// Ledger time of the record, Unix milliseconds (§15 P-35 rule 2).
     pub recorded_at_ms: i64,
+    /// The work item the event is about (T-81).
+    pub item: ItemRef,
+    /// The item's version after the record, the event's `seq` (§15 P-29, T-81).
+    pub version: u64,
 }
 
 /// A committed log row (§18 OP-2): what an event body is derived from.
@@ -56,7 +60,17 @@ impl std::fmt::Debug for CommittedRecord {
     }
 }
 
-type PendingRow = (i64, String, String, String, Vec<u8>, i64);
+type PendingRow = (
+    i64,
+    String,
+    String,
+    String,
+    Vec<u8>,
+    i64,
+    String,
+    Vec<u8>,
+    i64,
+);
 type RecordRow = (i64, Vec<u8>, i64, Vec<u8>, Vec<u8>);
 
 fn pos_of(raw: i64) -> Result<u64, StoreError> {
@@ -100,7 +114,8 @@ impl LedgerTx<'_> {
         };
         let rows: Vec<PendingRow> = sqlx::query_as(
             "SELECT o.pos, o.event_id::text, o.event_type::text, o.traceparent::text, \
-             l.record_id::bytea, (extract(epoch FROM l.recorded_at) * 1000)::bigint \
+             l.record_id::bytea, (extract(epoch FROM l.recorded_at) * 1000)::bigint, \
+             o.item_kind, o.item_id, o.version \
              FROM ledger.outbox o \
              JOIN ledger.log l ON l.ledger_id = o.ledger_id AND l.pos = o.pos \
              WHERE o.ledger_id = $1 AND (o.pos, o.event_id) > ($2::bigint, $3::text) \
@@ -115,7 +130,17 @@ impl LedgerTx<'_> {
         .await?;
         rows.into_iter()
             .map(
-                |(pos, event_id, event_type, traceparent, record_id, recorded_at_ms)| {
+                |(
+                    pos,
+                    event_id,
+                    event_type,
+                    traceparent,
+                    record_id,
+                    recorded_at_ms,
+                    item_kind,
+                    item_id,
+                    version,
+                )| {
                     Ok(PendingEvent {
                         key: PointerKey {
                             pos: pos_of(pos)?,
@@ -125,6 +150,9 @@ impl LedgerTx<'_> {
                         traceparent,
                         record_id: digest_of(&record_id)?,
                         recorded_at_ms,
+                        item: ItemRef::from_parts(&item_kind, &item_id)
+                            .ok_or(StoreError::Corrupt)?,
+                        version: pos_of(version)?,
                     })
                 },
             )
