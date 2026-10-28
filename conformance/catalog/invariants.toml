@@ -1812,11 +1812,15 @@ title = ""
 tests = [
   "crates/telemetry/src/guard.rs::p_43_content_secret_and_genai_names_are_forbidden",
   "crates/telemetry/src/guard.rs::p_43_identifier_fields_are_allowed",
+  "crates/telemetry/tests/collector_redaction.rs::op_19_collector_key_patterns_agree_with_the_content_guard",
   "crates/telemetry/tests/content_guard.rs::op_19_record_body_bytes_never_reach_the_output",
   "crates/telemetry/tests/content_guard.rs::op_19_records_are_linked_by_identifier_only",
   "crates/telemetry/tests/content_guard.rs::op_19_the_guard_decides_from_declared_field_names",
   "crates/telemetry/tests/content_guard.rs::p_43_content_and_secret_fields_are_never_recorded",
   "crates/telemetry/tests/content_guard.rs::p_43_unstable_genai_attributes_are_not_emitted",
+  "crates/telemetry/tests/trace_export.rs::op_18_root_traces_are_sampled_at_the_configured_ratio",
+  "crates/telemetry/tests/trace_export.rs::op_19_forbidden_fields_are_dropped_before_the_exporter",
+  "crates/telemetry/tests/trace_export.rs::p_42_unsampled_and_unexported_spans_still_give_records_a_traceparent",
 ]
 
 [[rule]]
@@ -1927,6 +1931,7 @@ tests = [
   "xtask/src/rules_deps.rs::t_31_kernel_depends_only_on_suiss_crypto",
   "xtask/src/rules_kernel.rs::t_31_kernel_binds_suiss_crypto_without_default_features",
   "xtask/src/rules_kernel.rs::t_31_std_pulling_crate_in_kernel_tree_is_rejected",
+  "xtask/src/rules_kernel.rs::t_32_nats_client_in_kernel_tree_is_rejected",
   "xtask/src/rules_source.rs::t_32_grouped_std_imports_in_domain_layers_are_expanded",
   "xtask/src/rules_source.rs::t_32_hash_maps_and_sets_in_domain_layers_are_rejected",
   "xtask/src/rules_source.rs::t_32_kernel_and_domain_layers_are_pure_paths",
@@ -2015,7 +2020,13 @@ family = "T"
 status = "canonical-invariant"
 stage = 2
 title = ""
-tests = []
+tests = [
+  "crates/dispatch/src/app.rs::t_18_a_handler_failure_is_redelivered_and_not_remembered",
+  "crates/dispatch/src/app.rs::t_18_repeats_drop_by_event_id_and_order_is_not_assumed",
+  "crates/dispatch/src/app.rs::t_18_the_fallback_event_equals_the_published_one",
+  "crates/dispatch/src/domain.rs::t_18_a_published_event_parses_back_to_its_facts",
+  "crates/dispatch/src/domain.rs::t_18_seen_drops_repeats_in_any_order_and_stays_bounded",
+]
 
 [[rule]]
 id = "T-21"
@@ -2024,9 +2035,14 @@ status = "canonical-invariant"
 stage = 2
 title = ""
 tests = [
+  "crates/dispatch/src/app.rs::t_21_a_partition_not_owned_is_refused",
   "crates/dispatch/src/app.rs::t_21_bus_outage_keeps_every_pointer",
+  "crates/dispatch/src/app.rs::t_21_events_from_both_paths_are_taken_once",
+  "crates/dispatch/src/app.rs::t_21_fallback_reads_committed_state_of_the_partition_from_a_cursor",
+  "crates/dispatch/src/app.rs::t_21_run_falls_back_while_nats_is_down_and_returns_to_it",
   "crates/dispatch/src/app.rs::t_21_run_polls_until_shutdown",
   "crates/dispatch/src/app.rs::t_21_run_waits_the_poll_interval_when_nothing_is_pending",
+  "crates/dispatch/src/app.rs::t_21_unreachable_nats_reports_degraded",
   "crates/dispatch/src/domain.rs::t_21_backoff_doubles_up_to_the_maximum_and_resets",
 ]
 
@@ -2162,9 +2178,12 @@ status = "canonical-invariant"
 stage = 2
 title = ""
 tests = [
+  "crates/telemetry/tests/collector_redaction.rs::op_19_collector_key_patterns_agree_with_the_content_guard",
+  "crates/telemetry/tests/collector_redaction.rs::sec_35_collector_redacts_with_the_scanner_pattern_set",
   "crates/telemetry/tests/content_guard.rs::op_19_record_body_bytes_never_reach_the_output",
   "crates/telemetry/tests/content_guard.rs::op_19_records_are_linked_by_identifier_only",
   "crates/telemetry/tests/content_guard.rs::op_19_the_guard_decides_from_declared_field_names",
+  "crates/telemetry/tests/trace_export.rs::op_19_forbidden_fields_are_dropped_before_the_exporter",
 ]
 
 [[rule]]

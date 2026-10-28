@@ -109,6 +109,9 @@ status = "central-decision"
 stage = 0
 title = "Required infrastructure is PostgreSQL and NATS JetStream, used only as a signal"
 tests = [
+  "bins/work-server/src/config.rs::t_20_both_databases_and_nats_are_configured",
+  "bins/work-server/src/startup.rs::t_20_postgres_18_and_later_are_accepted",
+  "bins/work-server/src/startup.rs::t_20_postgres_older_than_18_is_refused",
   "xtask/src/policy_compat.rs::t_56_kms_emulator_bundle_and_missing_services_are_rejected",
   "xtask/src/rules_deps.rs::t_22_accelerator_clients_in_the_default_tree_are_rejected",
   "xtask/src/rules_switches.rs::t_32_dev_mode_and_security_skipping_switches_are_rejected",
@@ -2856,6 +2859,8 @@ tests = [
   "crates/parse/src/secret/tests.rs::sec_35_rule_set_digest_is_stable",
   "crates/parse/src/secret/tests.rs::sec_35_vendored_rule_file_is_checked_against_its_recorded_digest",
   "crates/parse/src/secret/tests.rs::sec_35_work_rule_ids_may_not_shadow_gitleaks_rules",
+  "crates/telemetry/tests/collector_redaction.rs::sec_35_collector_redacts_with_the_scanner_pattern_set",
+  "crates/telemetry/tests/trace_export.rs::op_19_forbidden_fields_are_dropped_before_the_exporter",
 ]
 
 [[rule]]
@@ -3165,6 +3170,10 @@ acceptance = "to-fill"
 title = ""
 tests = [
   "crates/dispatch/src/domain.rs::p_42_event_carries_the_pointer_traceparent",
+  "crates/telemetry/tests/trace_export.rs::p_42_continued_traces_follow_the_caller_sampling_decision",
+  "crates/telemetry/tests/trace_export.rs::p_42_traceparent_accepts_what_the_ledger_domain_accepts",
+  "crates/telemetry/tests/trace_export.rs::p_42_traceparent_round_trips_through_the_outbox",
+  "crates/telemetry/tests/trace_export.rs::p_42_unsampled_and_unexported_spans_still_give_records_a_traceparent",
 ]
 
 [[rule]]
@@ -3745,6 +3754,8 @@ stage = 2
 acceptance = "to-fill"
 title = ""
 tests = [
+  "crates/dispatch/src/app.rs::p_98_a_payload_that_is_not_a_work_event_is_rejected",
+  "crates/dispatch/src/domain.rs::p_98_malformed_events_are_rejected",
   "crates/dispatch/src/domain.rs::p_98_pos_above_i32_is_a_decimal_string_and_hex_is_lower_case",
 ]
 
@@ -3987,7 +3998,12 @@ family = "T"
 status = "central-decision"
 stage = 3
 title = ""
-tests = []
+tests = [
+  "bins/work-server/src/config.rs::t_20_both_databases_and_nats_are_configured",
+  "bins/work-server/src/config.rs::t_20_urls_with_a_password_are_rejected",
+  "bins/work-server/src/startup.rs::t_20_postgres_18_and_later_are_accepted",
+  "bins/work-server/src/startup.rs::t_20_postgres_older_than_18_is_refused",
+]
 
 [[rule]]
 id = "T-22"
@@ -4088,11 +4104,21 @@ tests = [
   "bins/work-server/src/config.rs::t_32_invalid_configuration_stops_the_process",
   "bins/work-server/src/config.rs::t_32_unknown_keys_such_as_a_dev_mode_are_rejected",
   "crates/dispatch/src/app.rs::t_32_publisher_refuses_an_invalid_configuration",
+  "crates/dispatch/src/domain.rs::t_32_invalid_consumer_settings_are_rejected",
   "crates/dispatch/src/domain.rs::t_32_invalid_publisher_settings_are_rejected",
+  "crates/telemetry/tests/trace_export.rs::t_39_a_stalled_exporter_never_blocks_span_creation",
   "xtask/src/policy.rs::t_32_component_crate_without_layers_is_reported",
   "xtask/src/rules.rs::t_32_clippy_disallows_direct_clock_and_rng",
+  "xtask/src/rules.rs::t_32_clippy_disallows_unbounded_channels",
+  "xtask/src/rules_async.rs::t_32_allowlist_entries_need_a_reason_and_must_match",
+  "xtask/src/rules_async.rs::t_32_client_with_configured_request_timeout_passes",
+  "xtask/src/rules_async.rs::t_32_external_call_without_timeout_is_rejected",
+  "xtask/src/rules_async.rs::t_32_nats_publish_between_begin_and_commit_is_rejected",
+  "xtask/src/rules_async.rs::t_32_port_call_in_a_function_holding_a_transaction_is_rejected",
+  "xtask/src/rules_async.rs::t_32_repository_allowlist_parses_with_reasons",
   "xtask/src/rules_clippy.rs::t_32_disallowed_lint_suppressed_outside_adapters_is_rejected",
   "xtask/src/rules_clippy.rs::t_32_lint_tables_and_rustflags_cannot_turn_the_lints_off",
+  "xtask/src/rules_kernel.rs::t_32_nats_client_in_kernel_tree_is_rejected",
   "xtask/src/rules_source.rs::t_32_async_and_tokio_in_domain_layer_are_rejected",
   "xtask/src/rules_source.rs::t_32_grouped_std_imports_in_domain_layers_are_expanded",
   "xtask/src/rules_source.rs::t_32_hash_maps_and_sets_in_domain_layers_are_rejected",
@@ -4258,6 +4284,12 @@ tests = [
   "crates/telemetry/tests/content_guard.rs::op_19_record_body_bytes_never_reach_the_output",
   "crates/telemetry/tests/content_guard.rs::op_19_records_are_linked_by_identifier_only",
   "crates/telemetry/tests/redaction_canary.rs::t_39_json_logs_never_contain_secrets",
+  "crates/telemetry/tests/trace_export.rs::op_18_sample_ratio_must_lie_in_the_unit_interval",
+  "crates/telemetry/tests/trace_export.rs::op_19_forbidden_fields_are_dropped_before_the_exporter",
+  "crates/telemetry/tests/trace_export.rs::p_42_continued_traces_follow_the_caller_sampling_decision",
+  "crates/telemetry/tests/trace_export.rs::p_42_traceparent_round_trips_through_the_outbox",
+  "crates/telemetry/tests/trace_export.rs::t_39_a_stalled_exporter_never_blocks_span_creation",
+  "crates/telemetry/tests/trace_export.rs::t_39_no_endpoint_installs_no_exporter_and_an_endpoint_needs_a_runtime",
 ]
 
 [[rule]]
@@ -4523,6 +4555,7 @@ status = "policy-default"
 pd = "set"
 title = "Observability with OpenTelemetry Collector, Jaeger, Prometheus and Grafana locally"
 tests = [
+  "crates/telemetry/tests/collector_redaction.rs::sec_35_collector_redacts_with_the_scanner_pattern_set",
   "xtask/src/policy_compat.rs::t_56_kms_emulator_bundle_and_missing_services_are_rejected",
 ]
 
@@ -4745,6 +4778,8 @@ pd = "set"
 title = ""
 tests = [
   "crates/dispatch/src/app.rs::t_76_a_duplicate_ack_still_removes_the_pointer",
+  "crates/dispatch/src/app.rs::t_76_poll_takes_a_bounded_batch_and_acks_each_delivery",
+  "crates/dispatch/src/domain.rs::t_76_consumers_are_durable_per_group_and_partition",
   "crates/dispatch/src/domain.rs::t_76_defaults_are_the_policy_defaults",
   "crates/dispatch/src/domain.rs::t_76_multi_node_profile_keeps_three_replicas",
   "crates/dispatch/src/domain.rs::t_76_partition_is_a_stable_hash_of_the_ledger_mod_p",
@@ -4799,6 +4834,7 @@ status = "frozen-technical"
 acceptance = "to-fill"
 title = ""
 tests = [
+  "bins/work-server/src/config.rs::t_20_both_databases_and_nats_are_configured",
   "crates/store/src/migrate.rs::op_2_tables_live_in_exactly_one_cluster",
 ]
 
@@ -4854,9 +4890,15 @@ acceptance = "to-fill"
 pd = "set"
 title = "Telemetry is minimised, pseudonymous and never a decision input"
 tests = [
+  "bins/work-server/src/config.rs::t_20_urls_with_a_password_are_rejected",
   "crates/telemetry/tests/content_guard.rs::p_43_content_and_secret_fields_are_never_recorded",
   "crates/telemetry/tests/content_guard.rs::sec_24_the_log_format_redacts_without_the_guard",
   "crates/telemetry/tests/redaction_canary.rs::t_39_json_logs_never_contain_secrets",
+  "crates/telemetry/tests/trace_export.rs::op_18_root_traces_are_sampled_at_the_configured_ratio",
+  "crates/telemetry/tests/trace_export.rs::op_18_sample_ratio_must_lie_in_the_unit_interval",
+  "crates/telemetry/tests/trace_export.rs::p_42_unsampled_and_unexported_spans_still_give_records_a_traceparent",
+  "crates/telemetry/tests/trace_export.rs::t_39_a_stalled_exporter_never_blocks_span_creation",
+  "crates/telemetry/tests/trace_export.rs::t_39_no_endpoint_installs_no_exporter_and_an_endpoint_needs_a_runtime",
 ]
 
 [[rule]]
@@ -4902,7 +4944,10 @@ family = "OP"
 status = "frozen-technical"
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/dispatch/src/app.rs::op_25_one_durable_consumer_per_owned_partition",
+  "crates/dispatch/src/domain.rs::op_25_consumer_count_is_bounded_by_partitions_not_ledgers",
+]
 
 [[rule]]
 id = "OP-26"
