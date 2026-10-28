@@ -2,7 +2,9 @@
 //! pointers, the pending pointers of one ledger and their removal after the ack (§18 OP-34);
 //! `Bus`, the NATS JetStream signal (T-17, T-21, T-76); `Pull`, the per-partition durable pull
 //! consumers (T-76 rule 6); `Handler`, what a consumer hands each event to; and `Committed`, the
-//! cursor scans of committed state a consumer falls back to while NATS is unreachable (T-21).
+//! cursor scans of committed state a consumer falls back to while NATS is unreachable, resumed
+//! from the consumer's cursor (T-21, §18 OP-39). Ledger discovery pages by the last id seen
+//! (T-83).
 
 use std::future::Future;
 use std::time::Duration;
@@ -13,9 +15,13 @@ use crate::domain::{Event, StreamSettings};
 
 /// The outbox of the canonical store.
 pub trait Outbox: Send + Sync {
-    /// Up to `limit` ledgers with pending pointers, in ascending byte order (OP-34).
-    fn ledgers(&self, limit: u32)
-    -> impl Future<Output = Result<Vec<LedgerId>, StoreError>> + Send;
+    /// Up to `limit` ledgers with pending pointers above `after`, in ascending byte order
+    /// (OP-34, T-83).
+    fn ledgers(
+        &self,
+        after: Option<&LedgerId>,
+        limit: u32,
+    ) -> impl Future<Output = Result<Vec<LedgerId>, StoreError>> + Send;
 
     /// Up to `limit` pending pointers of `ledger` in `(pos, event_id)` order.
     fn pending(
@@ -153,9 +159,21 @@ pub trait Handler: Send + Sync {
 
 /// Committed state, read while NATS is unreachable (T-21, §18 OP-34 rule 2).
 pub trait Committed: Send + Sync {
-    /// Up to `limit` ledgers with pending pointers, in ascending byte order.
-    fn ledgers(&self, limit: u32)
-    -> impl Future<Output = Result<Vec<LedgerId>, StoreError>> + Send;
+    /// Up to `limit` ledgers with pending pointers above `after`, in ascending byte order
+    /// (T-83).
+    fn ledgers(
+        &self,
+        after: Option<&LedgerId>,
+        limit: u32,
+    ) -> impl Future<Output = Result<Vec<LedgerId>, StoreError>> + Send;
+
+    /// The last pointer key of `ledger` whose effect consumer `group` applied (§18 OP-39), or
+    /// `None` before the first.
+    fn cursor(
+        &self,
+        ledger: &LedgerId,
+        group: &str,
+    ) -> impl Future<Output = Result<Option<PointerKey>, StoreError>> + Send;
 
     /// Up to `limit` pending pointers of `ledger` after `after`, in `(pos, event_id)` order.
     fn pending_after(

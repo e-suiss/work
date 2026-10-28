@@ -171,8 +171,8 @@ impl PublisherConfig {
     }
 }
 
-/// Consumer settings, checked once by [`ConsumerConfig::validate`] (T-32 rule 8). The values
-/// have no default: §18 OP-34 rule 7 sets only the publisher's.
+/// Consumer settings, checked once by [`ConsumerConfig::validate`] (T-32 rule 8).
+/// [`ConsumerConfig::new`] gives the §18 OP-40 policy defaults.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ConsumerConfig {
     /// Consumer group; the durable consumer of partition `p` is `<group>-p<p>` (T-76 rule 6).
@@ -181,7 +181,8 @@ pub struct ConsumerConfig {
     pub partitions: Vec<u16>,
     /// Stream and subject schema (T-76).
     pub stream: StreamSettings,
-    /// Messages pulled per fetch.
+    /// Messages pulled per fetch; JetStream hands out at most `max_in_flight` of them while
+    /// they are unacknowledged.
     pub batch_size: usize,
     /// Unacknowledged messages a durable consumer may hold (`max_ack_pending`).
     pub max_in_flight: usize,
@@ -200,6 +201,24 @@ pub struct ConsumerConfig {
 }
 
 impl ConsumerConfig {
+    /// The §18 OP-40 defaults for consumer `group` owning `partitions` of the default stream.
+    #[must_use]
+    pub fn new(group: impl Into<String>, partitions: Vec<u16>) -> Self {
+        Self {
+            group: group.into(),
+            partitions,
+            stream: StreamSettings::default(),
+            batch_size: 256,
+            max_in_flight: 64,
+            fetch_wait: Duration::from_secs(1),
+            ack_wait: Duration::from_secs(30),
+            call_timeout: Duration::from_secs(5),
+            fallback_interval: Duration::from_secs(1),
+            ledgers_per_scan: 1024,
+            seen_capacity: 65_536,
+        }
+    }
+
     /// The durable consumer name of partition `p`, `<group>-p<p>` (T-76 rule 6).
     #[must_use]
     pub fn durable(&self, p: u16) -> String {
@@ -211,7 +230,7 @@ impl ConsumerConfig {
     /// # Errors
     /// The first [`ConfigError`] found.
     pub fn validate(&self) -> Result<(), ConfigError> {
-        if !is_plain_token(&self.group) {
+        if !is_plain_token(&self.group) || self.group.len() > MAX_GROUP_LEN {
             return Err(ConfigError::Group);
         }
         if self.stream.partitions == 0 {
@@ -227,7 +246,7 @@ impl ConsumerConfig {
             return Err(ConfigError::Owned);
         }
         if self.batch_size == 0
-            || self.max_in_flight < self.batch_size
+            || self.max_in_flight == 0
             || i64::try_from(self.max_in_flight).is_err()
             || self.ledgers_per_scan == 0
             || self.seen_capacity == 0
@@ -244,6 +263,9 @@ impl ConsumerConfig {
         Ok(())
     }
 }
+
+/// The longest consumer group name; the cursor table checks the same bound (§18 OP-39).
+pub const MAX_GROUP_LEN: usize = 64;
 
 /// The most replicas a JetStream stream can have.
 pub const MAX_REPLICAS: usize = 5;
@@ -275,11 +297,8 @@ pub enum ConfigError {
     /// Replicas outside `1..=MAX_REPLICAS`.
     #[error("replicas must be between 1 and 5")]
     Replicas,
-    /// A zero discovery, batch, in-flight or seen bound, or a consumer in-flight bound below its
-    /// batch.
-    #[error(
-        "discovery, batch, in-flight and seen bounds must be at least 1, a consumer's in-flight at least its batch"
-    )]
+    /// A zero discovery, batch, in-flight or seen bound.
+    #[error("discovery, batch, in-flight and seen bounds must be at least 1")]
     Bounds,
     /// A zero timeout or interval, a minimum backoff above the maximum, or a fetch wait not
     /// below the call timeout.
@@ -287,8 +306,8 @@ pub enum ConfigError {
         "timeouts and intervals must be positive, backoff_min at most backoff_max and fetch_wait below call_timeout"
     )]
     Timing,
-    /// The consumer group is not a `[a-z0-9_]+` token.
-    #[error("consumer group must be a `[a-z0-9_]+` token")]
+    /// The consumer group is not a `[a-z0-9_]{1,64}` token.
+    #[error("consumer group must be a `[a-z0-9_]{{1,64}}` token")]
     Group,
     /// No owned partition, a repeated one, or one not below P.
     #[error("owned partitions must be distinct, non-empty and below the partition count")]
@@ -395,6 +414,8 @@ pub struct EventFacts<'a> {
     pub record_id: &'a [u8; 32],
     /// `recorded_at` of the record, Unix milliseconds.
     pub recorded_at_ms: i64,
+    /// Version of the work item after the record (`seq`, §15 P-29, T-81).
+    pub seq: u64,
 }
 
 /// The event could not be built.
@@ -413,8 +434,8 @@ pub fn source(installation: &str, ledger: &[u8; 32]) -> String {
 
 /// The structured-mode CloudEvents 1.0 JSON of the minimal event (§15 P-35, P-42; T-18):
 /// `specversion`, `id`, `source`, `type`, `time` = the record's `recorded_at`, and the
-/// extensions `traceparent`, `recordid`, `ledger` and `pos`; members in byte order, so equal
-/// facts give equal bytes.
+/// extensions `traceparent`, `recordid`, `ledger`, `pos` and `seq` (the item version as a decimal
+/// string, like `pos`; T-81); members in byte order, so equal facts give equal bytes.
 ///
 /// # Errors
 /// [`EnvelopeError::Time`].
@@ -430,6 +451,7 @@ pub fn cloud_event(installation: &str, facts: &EventFacts<'_>) -> Result<Vec<u8>
         "recordid": hex(facts.record_id),
         "ledger": hex(facts.ledger),
         "pos": facts.pos.to_string(),
+        "seq": facts.seq.to_string(),
     });
     Ok(event.to_string().into_bytes())
 }
@@ -450,6 +472,8 @@ pub struct Event {
     pub record_id: [u8; 32],
     /// W3C `traceparent` (§15 P-42).
     pub traceparent: String,
+    /// Version of the work item after the record (§15 P-29, T-81).
+    pub seq: u64,
 }
 
 impl Event {
@@ -463,6 +487,7 @@ impl Event {
             pos: facts.pos,
             record_id: *facts.record_id,
             traceparent: facts.traceparent.to_owned(),
+            seq: facts.seq,
         }
     }
 }
@@ -485,9 +510,12 @@ pub enum EventError {
     /// `pos` is not a decimal without sign or leading zero (P-98).
     #[error("event pos is not a canonical decimal")]
     Pos,
+    /// `seq` is not a decimal without sign or leading zero (T-81).
+    #[error("event seq is not a canonical decimal")]
+    Seq,
 }
 
-/// Parses the structured-mode CloudEvents JSON of a Work event (§15 P-35, P-98).
+/// Parses the structured-mode CloudEvents JSON of a Work event (§15 P-35, P-98; T-81).
 ///
 /// # Errors
 /// [`EventError`].
@@ -511,6 +539,7 @@ pub fn parse_event(payload: &[u8]) -> Result<Event, EventError> {
         pos: decimal(member("pos")?).ok_or(EventError::Pos)?,
         record_id: unhex32(member("recordid")?).ok_or(EventError::Hex("recordid"))?,
         traceparent: member("traceparent")?.to_owned(),
+        seq: decimal(member("seq")?).ok_or(EventError::Seq)?,
     })
 }
 
@@ -649,6 +678,7 @@ mod tests {
             traceparent: "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
             record_id: &[0x01; 32],
             recorded_at_ms: 1_792_749_600_123,
+            seq: 3,
         }
     }
 
@@ -765,7 +795,8 @@ mod tests {
         assert_eq!(v["recordid"], "01".repeat(32));
         assert_eq!(v["ledger"], "ab".repeat(32));
         assert_eq!(v["pos"], "7");
-        assert_eq!(v.as_object().map(serde_json::Map::len), Some(9));
+        assert_eq!(v["seq"], "3");
+        assert_eq!(v.as_object().map(serde_json::Map::len), Some(10));
     }
 
     #[test]
@@ -964,10 +995,17 @@ mod tests {
     #[test]
     fn t_32_invalid_consumer_settings_are_rejected() {
         let ok = consumer_config();
-        let cases: [(ConsumerConfig, ConfigError); 9] = [
+        let cases: [(ConsumerConfig, ConfigError); 10] = [
             (
                 ConsumerConfig {
                     group: "derive.x".to_owned(),
+                    ..ok.clone()
+                },
+                ConfigError::Group,
+            ),
+            (
+                ConsumerConfig {
+                    group: "d".repeat(MAX_GROUP_LEN + 1),
                     ..ok.clone()
                 },
                 ConfigError::Group,
@@ -1002,7 +1040,7 @@ mod tests {
             ),
             (
                 ConsumerConfig {
-                    max_in_flight: 4,
+                    max_in_flight: 0,
                     ..ok.clone()
                 },
                 ConfigError::Bounds,
@@ -1089,6 +1127,67 @@ mod tests {
         assert_eq!(
             parse_event(&with("recordid", "01".repeat(31).into())),
             Err(EventError::Hex("recordid"))
+        );
+    }
+
+    #[test]
+    fn op_40_consumer_defaults_are_the_policy_defaults() {
+        let c = ConsumerConfig::new("derive", vec![0, 15]);
+        assert_eq!(c.validate(), Ok(()));
+        assert_eq!(c.stream, StreamSettings::default());
+        assert_eq!(c.batch_size, 256);
+        assert_eq!(c.max_in_flight, 64);
+        assert_eq!(c.call_timeout, Duration::from_secs(5));
+        assert_eq!(c.fetch_wait, Duration::from_secs(1));
+        assert_eq!(c.fallback_interval, Duration::from_secs(1));
+        assert_eq!(c.ledgers_per_scan, 1024);
+        assert_eq!(c.ack_wait, Duration::from_secs(30));
+        assert_eq!(c.seen_capacity, 65_536);
+        assert_eq!(
+            PublisherConfig::new("https://work.example").ledgers_per_poll,
+            1024
+        );
+        assert!(
+            ConsumerConfig::new("d".repeat(MAX_GROUP_LEN), vec![0])
+                .validate()
+                .is_ok()
+        );
+    }
+
+    #[test]
+    fn t_81_seq_is_the_item_version_as_a_decimal_string() {
+        let f = EventFacts {
+            seq: 1 << 40,
+            ..facts()
+        };
+        let bytes = cloud_event("https://w.example", &f).unwrap();
+        let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(v["seq"], "1099511627776");
+        assert_eq!(parse_event(&bytes).unwrap().seq, 1 << 40);
+        let zero = EventFacts { seq: 0, ..facts() };
+        let bytes = cloud_event("https://w.example", &zero).unwrap();
+        assert_eq!(parse_event(&bytes).unwrap(), Event::from_facts(&zero));
+        let with = |seq: serde_json::Value| {
+            let mut e = v.clone();
+            e["seq"] = seq;
+            e.to_string().into_bytes()
+        };
+        for bad in ["03", "+3", "-1", "3a", "18446744073709551616"] {
+            assert_eq!(
+                parse_event(&with(bad.into())),
+                Err(EventError::Seq),
+                "{bad}"
+            );
+        }
+        assert_eq!(
+            parse_event(&with(3.into())),
+            Err(EventError::Missing("seq"))
+        );
+        let mut missing = v.clone();
+        missing.as_object_mut().unwrap().remove("seq");
+        assert_eq!(
+            parse_event(missing.to_string().as_bytes()),
+            Err(EventError::Missing("seq"))
         );
     }
 

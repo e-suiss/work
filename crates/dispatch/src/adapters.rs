@@ -1,8 +1,9 @@
 //! Adapters of the publisher and consumer ports: [`PgOutbox`] over the canonical store,
-//! connected as `work_publisher` (§18 OP-34, T-73 rule 2), also serving the consumer's cursor
-//! scans (T-21); [`JetStreamBus`] over NATS JetStream with the T-76 stream, `Nats-Msg-Id`,
-//! `traceparent` and the CloudEvents structured content type; and [`JetStreamPull`], the
-//! per-partition durable pull consumers with explicit acks (T-76 rule 6).
+//! connected as `work_publisher` (§18 OP-34, T-73 rule 2); [`PgCommitted`], a consumer's cursor
+//! scans of the canonical store as `work_deriver` (T-21, T-82) resumed from its cursor in the
+//! derived store (§18 OP-39); [`JetStreamBus`] over NATS JetStream with the T-76 stream,
+//! `Nats-Msg-Id`, `traceparent` and the CloudEvents structured content type; and
+//! [`JetStreamPull`], the per-partition durable pull consumers with explicit acks (T-76 rule 6).
 
 use std::collections::BTreeMap;
 use std::future::Future;
@@ -19,7 +20,10 @@ use async_nats::jetstream::{
     stream,
 };
 use futures_util::StreamExt;
-use work_store::{CommittedRecord, LedgerId, PendingEvent, PointerKey, PublisherPool, StoreError};
+use work_store::{
+    CommittedRecord, DeriverPool, LedgerId, LedgerTx, PendingEvent, PointerKey, Pool,
+    PublisherPool, StoreError,
+};
 
 use crate::domain::StreamSettings;
 use crate::ports::{
@@ -41,8 +45,12 @@ impl PgOutbox {
 }
 
 impl Outbox for PgOutbox {
-    async fn ledgers(&self, limit: u32) -> Result<Vec<LedgerId>, StoreError> {
-        self.pool.outbox_ledgers(limit).await
+    async fn ledgers(
+        &self,
+        after: Option<&LedgerId>,
+        limit: u32,
+    ) -> Result<Vec<LedgerId>, StoreError> {
+        self.pool.outbox_ledgers(after, limit).await
     }
 
     async fn pending(
@@ -64,9 +72,40 @@ impl Outbox for PgOutbox {
     }
 }
 
-impl Committed for PgOutbox {
-    async fn ledgers(&self, limit: u32) -> Result<Vec<LedgerId>, StoreError> {
-        self.pool.outbox_ledgers(limit).await
+/// Committed state for a consumer's fallback: the canonical store over a pool logged in as
+/// `work_deriver` (T-82) and the consumer cursors of the derived store (§18 OP-39).
+#[derive(Debug, Clone)]
+pub struct PgCommitted {
+    canonical: DeriverPool,
+    derived: Pool,
+}
+
+impl PgCommitted {
+    /// Over `canonical` and `derived`, the derived database's pool logged in as `work_deriver`.
+    #[must_use]
+    pub const fn new(canonical: DeriverPool, derived: Pool) -> Self {
+        Self { canonical, derived }
+    }
+}
+
+impl Committed for PgCommitted {
+    async fn ledgers(
+        &self,
+        after: Option<&LedgerId>,
+        limit: u32,
+    ) -> Result<Vec<LedgerId>, StoreError> {
+        self.canonical.outbox_ledgers(after, limit).await
+    }
+
+    async fn cursor(
+        &self,
+        ledger: &LedgerId,
+        group: &str,
+    ) -> Result<Option<PointerKey>, StoreError> {
+        let mut tx = LedgerTx::begin(&self.derived, ledger).await?;
+        let key = tx.consumer_cursor(group).await?;
+        tx.commit().await?;
+        Ok(key)
     }
 
     async fn pending_after(
@@ -75,7 +114,7 @@ impl Committed for PgOutbox {
         after: Option<&PointerKey>,
         limit: u32,
     ) -> Result<Vec<PendingEvent>, StoreError> {
-        let mut tx = self.pool.begin(ledger).await?;
+        let mut tx = self.canonical.begin(ledger).await?;
         let rows = tx.outbox_pending_after(after, limit).await?;
         tx.commit().await?;
         Ok(rows)
@@ -87,7 +126,7 @@ impl Committed for PgOutbox {
         after: Option<u64>,
         limit: u32,
     ) -> Result<Vec<CommittedRecord>, StoreError> {
-        let mut tx = self.pool.begin(ledger).await?;
+        let mut tx = self.canonical.begin(ledger).await?;
         let rows = tx.log_after(after, limit).await?;
         tx.commit().await?;
         Ok(rows)

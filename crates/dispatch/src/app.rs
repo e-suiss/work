@@ -6,10 +6,12 @@
 //! The [`Consumer`] pulls bounded batches from one durable consumer per owned partition and
 //! hands each event to a [`Handler`]; when NATS is unreachable it reports
 //! [`Health::Degraded`] and its fallback scan hands the same events, built from the pending
-//! pointers and their committed rows, to the same handler. Repeats are dropped by event id and
-//! order is never assumed (T-18, T-21).
+//! pointers and their committed rows, to the same handler, from the consumer's cursor of each
+//! ledger (§18 OP-39). Repeats are dropped by event id and order is never assumed (T-18, T-21).
+//! Both page through the ledgers with pending pointers by the last id seen and start over after
+//! a short page (T-83).
 
-use std::collections::VecDeque;
+use std::collections::{BTreeMap, VecDeque};
 use std::future::Future;
 use std::time::Duration;
 
@@ -136,13 +138,16 @@ impl<O: Outbox, B: Bus> Publisher<O, B> {
     }
 
     /// Publishes every ledger with pending pointers until `shutdown` resolves. Each poll
-    /// discovers up to `ledgers_per_poll` ledgers through the store and publishes them in turn;
-    /// after a full discovery without failure the next poll starts at once, otherwise it waits
-    /// `poll_interval`, and after a failure the exponential backoff (T-21).
+    /// discovers up to `ledgers_per_poll` ledgers above the last one discovered and publishes
+    /// them in turn; a shorter page starts the next poll from the lowest id again (T-83), so a
+    /// ledger that keeps failing never hides the ones after it. After a full page without
+    /// failure the next poll starts at once, otherwise it waits `poll_interval`, and after a
+    /// failure the exponential backoff (T-21).
     pub async fn run(&self, shutdown: impl Future<Output = ()>) {
         let mut shutdown = std::pin::pin!(shutdown);
         let mut backoff = Backoff::new(self.config.backoff_min, self.config.backoff_max);
         let mut stream_ready = false;
+        let mut after: Option<LedgerId> = None;
         loop {
             let mut failed = false;
             let mut full = false;
@@ -156,10 +161,11 @@ impl<O: Outbox, B: Bus> Publisher<O, B> {
                 }
             }
             if stream_ready {
-                match self.discover().await {
+                match self.discover(after.as_ref()).await {
                     Ok(ledgers) => {
                         full = ledgers.len()
                             >= usize::try_from(self.config.ledgers_per_poll).unwrap_or(usize::MAX);
+                        after = if full { ledgers.last().copied() } else { None };
                         for ledger in &ledgers {
                             if let Err(e) = self.publish_ledger(ledger).await {
                                 tracing::warn!(error = %e, "outbox publish pass stopped");
@@ -190,12 +196,12 @@ impl<O: Outbox, B: Bus> Publisher<O, B> {
         }
     }
 
-    /// Up to `ledgers_per_poll` ledgers with pending pointers (§18 OP-34).
+    /// Up to `ledgers_per_poll` ledgers with pending pointers above `after` (§18 OP-34, T-83).
     ///
     /// # Errors
     /// [`DispatchError::Store`] or [`DispatchError::StoreTimedOut`].
-    pub async fn discover(&self) -> Result<Vec<LedgerId>, DispatchError> {
-        self.store(self.outbox.ledgers(self.config.ledgers_per_poll))
+    pub async fn discover(&self, after: Option<&LedgerId>) -> Result<Vec<LedgerId>, DispatchError> {
+        self.store(self.outbox.ledgers(after, self.config.ledgers_per_poll))
             .await
     }
 
@@ -301,6 +307,7 @@ fn facts<'a>(ledger: &'a LedgerId, event: &'a PendingEvent) -> EventFacts<'a> {
         traceparent: &event.traceparent,
         record_id: &event.record_id,
         recorded_at_ms: event.recorded_at_ms,
+        seq: event.version,
     }
 }
 
@@ -360,6 +367,7 @@ pub struct Consumer<P, H> {
     config: ConsumerConfig,
     seen: Seen,
     health: Health,
+    scanned: BTreeMap<u16, LedgerId>,
 }
 
 impl<P: Pull, H: Handler> Consumer<P, H> {
@@ -376,6 +384,7 @@ impl<P: Pull, H: Handler> Consumer<P, H> {
             seen: Seen::new(config.seen_capacity),
             config,
             health: Health::Degraded,
+            scanned: BTreeMap::new(),
         })
     }
 
@@ -495,10 +504,11 @@ impl<P: Pull, H: Handler> Consumer<P, H> {
     }
 
     /// The fallback while NATS is unreachable (T-21, §18 OP-34 rule 2): for each ledger of
-    /// partition `p` among the first `ledgers_per_scan` with pending pointers, reads the pointers
-    /// page by page from the start and hands the event of each, built from its committed row, to
-    /// the handler. The events equal the ones NATS carries, so repeats across both paths drop
-    /// by event id.
+    /// partition `p` among the next `ledgers_per_scan` with pending pointers, above the last one
+    /// this partition's previous scan discovered (from the lowest again after a short page,
+    /// T-83), reads the pointers page by page after the group's cursor of that ledger (§18
+    /// OP-39) and hands the event of each, built from its committed row, to the handler. The
+    /// events equal the ones NATS carries, so repeats across both paths drop by event id.
     ///
     /// # Errors
     /// [`ConsumeError`]; events handled before the failure stay handled.
@@ -510,15 +520,27 @@ impl<P: Pull, H: Handler> Consumer<P, H> {
         self.owned(p)?;
         let mut done = Consumed::new(self.health);
         let ledgers = self
-            .store(committed.ledgers(self.config.ledgers_per_scan))
+            .store(committed.ledgers(self.scanned.get(&p), self.config.ledgers_per_scan))
             .await?;
+        let full =
+            ledgers.len() >= usize::try_from(self.config.ledgers_per_scan).unwrap_or(usize::MAX);
+        match ledgers.last() {
+            Some(last) if full => {
+                self.scanned.insert(p, *last);
+            }
+            _ => {
+                self.scanned.remove(&p);
+            }
+        }
         let page = u32::try_from(self.config.batch_size).unwrap_or(u32::MAX);
         let partitions = self.config.stream.partitions;
         for ledger in ledgers
             .iter()
             .filter(|l| partition(l.as_bytes(), partitions) == p)
         {
-            let mut after: Option<PointerKey> = None;
+            let mut after = self
+                .store(committed.cursor(ledger, &self.config.group))
+                .await?;
             loop {
                 let rows = self
                     .store(committed.pending_after(ledger, after.as_ref(), page))
@@ -641,6 +663,8 @@ mod tests {
             traceparent: TRACE.to_owned(),
             record_id: [0x01; 32],
             recorded_at_ms: 1_792_749_600_123,
+            item: work_store::ItemRef::Commitment([0x02; 32]),
+            version: pos.saturating_add(1),
         }
     }
 
@@ -649,7 +673,7 @@ mod tests {
         rows: Mutex<Vec<PendingEvent>>,
         more: Mutex<BTreeMap<LedgerId, Vec<PendingEvent>>>,
         removals: Mutex<Vec<Vec<PointerKey>>>,
-        discoveries: Mutex<Vec<u32>>,
+        discoveries: Mutex<Vec<(Option<LedgerId>, u32)>>,
     }
 
     impl MemOutbox {
@@ -669,9 +693,13 @@ mod tests {
     impl Outbox for MemOutbox {
         fn ledgers(
             &self,
+            after: Option<&LedgerId>,
             limit: u32,
         ) -> impl Future<Output = Result<Vec<LedgerId>, StoreError>> + Send {
-            self.discoveries.lock().unwrap().push(limit);
+            self.discoveries
+                .lock()
+                .unwrap()
+                .push((after.copied(), limit));
             let mut found: Vec<LedgerId> = self
                 .more
                 .lock()
@@ -684,6 +712,7 @@ mod tests {
                 found.push(ledger());
             }
             found.sort();
+            found.retain(|l| after.is_none_or(|a| l > a));
             found.truncate(usize::try_from(limit).unwrap());
             std::future::ready(Ok(found))
         }
@@ -923,8 +952,14 @@ mod tests {
         assert!(p.outbox.rows.lock().unwrap().is_empty());
         assert!(p.outbox.more.lock().unwrap().values().all(Vec::is_empty));
         let discoveries = p.outbox.discoveries.lock().unwrap();
-        assert_eq!(discoveries.first(), Some(&2));
-        assert_eq!(discoveries.len(), 3);
+        assert_eq!(
+            *discoveries,
+            [
+                (None, 2),
+                (Some(LedgerId::from_bytes([0x02; 32])), 2),
+                (Some(LedgerId::from_bytes([0xcd; 32])), 2)
+            ]
+        );
         let sent = p.bus.sent.lock().unwrap();
         assert_eq!(sent.len(), 4);
         let first = StreamSettings::default().subject(&[0x01; 32], "work.opened");
@@ -942,7 +977,53 @@ mod tests {
         };
         let p = Publisher::new(MemOutbox::default(), MemBus::up(), quick).unwrap();
         p.run(sleep(Duration::from_millis(30))).await;
-        assert_eq!(*p.outbox.discoveries.lock().unwrap(), [2]);
+        assert_eq!(*p.outbox.discoveries.lock().unwrap(), [(None, 2)]);
+    }
+
+    #[tokio::test]
+    async fn t_83_a_failing_ledger_never_hides_the_ones_after_it() {
+        let outbox = MemOutbox::default();
+        *outbox.rows.lock().unwrap() = vec![pending(0, "a")];
+        for b in [0x01_u8, 0x02] {
+            outbox
+                .more
+                .lock()
+                .unwrap()
+                .insert(LedgerId::from_bytes([b; 32]), vec![pending(0, "x")]);
+        }
+        let bus = MemBus {
+            ack_up_to: Some(0),
+            ..MemBus::up()
+        };
+        let failing = PublisherConfig {
+            ledgers_per_poll: 2,
+            backoff_min: Duration::from_millis(1),
+            backoff_max: Duration::from_millis(1),
+            ..config()
+        };
+        let p = Publisher::new(outbox, bus, failing).unwrap();
+        p.run(sleep(Duration::from_millis(50))).await;
+        let discoveries = p.outbox.discoveries.lock().unwrap();
+        assert_eq!(
+            discoveries.get(..3),
+            Some(
+                &[
+                    (None, 2),
+                    (Some(LedgerId::from_bytes([0x02; 32])), 2),
+                    (None, 2)
+                ][..]
+            )
+        );
+        let subject = StreamSettings::default().subject(&L, "work.opened");
+        assert!(
+            p.bus
+                .sent
+                .lock()
+                .unwrap()
+                .iter()
+                .any(|o| o.subject == subject)
+        );
+        assert_eq!(p.outbox.rows.lock().unwrap().len(), 1);
     }
 
     mod consumer {
@@ -1060,16 +1141,34 @@ mod tests {
         #[derive(Default)]
         struct MemCommitted {
             pending: BTreeMap<LedgerId, Vec<PendingEvent>>,
+            cursors: BTreeMap<(LedgerId, String), PointerKey>,
             pages: Mutex<Vec<Option<PointerKey>>>,
+            discoveries: Mutex<Vec<Option<LedgerId>>>,
         }
 
         impl Committed for MemCommitted {
             fn ledgers(
                 &self,
+                after: Option<&LedgerId>,
                 limit: u32,
             ) -> impl Future<Output = Result<Vec<LedgerId>, StoreError>> + Send {
+                self.discoveries.lock().unwrap().push(after.copied());
                 let n = usize::try_from(limit).unwrap();
-                std::future::ready(Ok(self.pending.keys().copied().take(n).collect()))
+                std::future::ready(Ok(self
+                    .pending
+                    .keys()
+                    .filter(|l| after.is_none_or(|a| *l > a))
+                    .copied()
+                    .take(n)
+                    .collect()))
+            }
+
+            fn cursor(
+                &self,
+                ledger: &LedgerId,
+                group: &str,
+            ) -> impl Future<Output = Result<Option<PointerKey>, StoreError>> + Send {
+                std::future::ready(Ok(self.cursors.get(&(*ledger, group.to_owned())).cloned()))
             }
 
             fn pending_after(
@@ -1297,6 +1396,57 @@ mod tests {
             c.fallback(&m, partition(&M, 16)).await.unwrap();
             assert_eq!(taken(&c).last().map(String::as_str), Some("m"));
             assert!(!taken(&c).contains(&"x".to_owned()));
+        }
+
+        #[tokio::test]
+        async fn op_39_fallback_resumes_after_the_group_cursor_of_each_ledger() {
+            let mut c = consumer();
+            let mut m = committed();
+            let at = PointerKey {
+                pos: 1,
+                event_id: "c".to_owned(),
+            };
+            m.cursors
+                .insert((LedgerId::from_bytes(L), "derive".to_owned()), at.clone());
+            m.cursors.insert(
+                (LedgerId::from_bytes(L), "other".to_owned()),
+                PointerKey {
+                    pos: 3,
+                    event_id: "e".to_owned(),
+                },
+            );
+            let done = c.fallback(&m, partition(&L, 16)).await.unwrap();
+            assert_eq!(done.handled, 2);
+            assert_eq!(taken(&c), ["d", "e"]);
+            assert_eq!(m.pages.lock().unwrap().first(), Some(&Some(at)));
+        }
+
+        #[tokio::test]
+        async fn t_83_fallback_pages_through_ledgers_and_wraps_after_a_short_page() {
+            let mut c = Consumer::new(
+                MemPull::default(),
+                MemHandler::default(),
+                ConsumerConfig {
+                    ledgers_per_scan: 1,
+                    ..config()
+                },
+            )
+            .unwrap();
+            let m = committed();
+            let p = partition(&L, 16);
+            for _ in 0..5 {
+                c.fallback(&m, p).await.unwrap();
+            }
+            let (one, l, cd) = (
+                LedgerId::from_bytes([0x01; 32]),
+                LedgerId::from_bytes(L),
+                LedgerId::from_bytes(M),
+            );
+            assert_eq!(
+                *m.discoveries.lock().unwrap(),
+                [None, Some(one), Some(l), Some(cd), None]
+            );
+            assert_eq!(taken(&c), ["a", "b", "c", "d", "e"]);
         }
 
         #[tokio::test]

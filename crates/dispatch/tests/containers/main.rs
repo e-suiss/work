@@ -1,5 +1,5 @@
 //! The outbox publisher and the event consumer against real PostgreSQL 18 and NATS JetStream
-//! (T-17, T-18, T-21, T-76, §18 OP-25, OP-34; T-36 rule 7, T-37 rule 9). These tests need
+//! (T-17, T-18, T-21, T-76, T-81, T-82, T-83, §18 OP-25, OP-34, OP-39; T-36 rule 7, T-37 rule 9). These tests need
 //! Docker; `just test-containers` runs them.
 
 #![allow(
@@ -17,10 +17,10 @@ use async_nats::jetstream::{self, stream::DiscardPolicy};
 use futures_util::StreamExt;
 use work_dispatch::{
     BusError, Committed, Consumer, ConsumerConfig, DispatchError, Event, Handler, HandlerError,
-    Health, JetStreamBus, JetStreamPull, PgOutbox, Published, Publisher, PublisherConfig,
-    StreamSettings,
+    Health, JetStreamBus, JetStreamPull, PgCommitted, PgOutbox, Published, Publisher,
+    PublisherConfig, StreamSettings,
 };
-use work_store::{Cluster, LedgerId, LedgerTx, PointerKey, Pool, PublisherPool};
+use work_store::{Cluster, DeriverPool, LedgerId, LedgerTx, PointerKey, Pool, PublisherPool};
 use work_testkit::{Nats, Postgres};
 
 const PASSWORD: &str = "test-only-not-a-secret";
@@ -58,22 +58,31 @@ impl Env {
             databases.extend(["-c", stmt.as_str()]);
         }
         pg.client(&databases).await.unwrap();
-        let mut canonical = psql("work").to_vec();
-        canonical.extend(["-c", Cluster::Canonical.bootstrap()]);
-        pg.client(&canonical).await.unwrap();
+        for cluster in Cluster::ALL {
+            let mut bootstrap = psql(cluster.database()).to_vec();
+            bootstrap.extend(["-c", cluster.bootstrap()]);
+            pg.client(&bootstrap).await.unwrap();
+        }
         let env = Self { pg };
-        work_store::migrate(&env.pool("work_owner"), Cluster::Canonical)
-            .await
-            .unwrap();
+        for cluster in Cluster::ALL {
+            work_store::migrate(&env.pool_on(cluster, "work_owner"), cluster)
+                .await
+                .unwrap();
+        }
         env.sql(SEED).await;
         env
     }
 
     fn pool(&self, role: &str) -> Pool {
+        self.pool_on(Cluster::Canonical, role)
+    }
+
+    fn pool_on(&self, cluster: Cluster, role: &str) -> Pool {
         let url = format!(
-            "postgres://{role}:{PASSWORD}@{}:{}/work",
+            "postgres://{role}:{PASSWORD}@{}:{}/{}",
             self.pg.host(),
-            self.pg.port()
+            self.pg.port(),
+            cluster.database()
         );
         Pool::connect_lazy(&url).unwrap()
     }
@@ -189,6 +198,11 @@ async fn t_17_pointers_are_published_with_msg_id_and_removed_after_the_ack() {
     );
     assert_eq!(event["recordid"], "01".repeat(32));
     assert_eq!(event["pos"], "0");
+    assert_eq!(event["seq"], "1");
+    let declined = stream.get_raw_message(4).await.unwrap();
+    let event: serde_json::Value = serde_json::from_slice(&declined.payload).unwrap();
+    assert_eq!(event["id"], "evt-3");
+    assert_eq!(event["seq"], "3");
 }
 
 // T-76 OP-34
@@ -288,13 +302,18 @@ async fn t_80_run_discovers_the_ledgers_with_pending_pointers() {
     };
     let p = with_config(&env, nats.connect().await.unwrap(), quick).await;
     assert_eq!(
-        p.discover().await.unwrap(),
+        p.discover(None).await.unwrap(),
         [LedgerId::from_bytes(L)],
         "ascending, bounded by the limit"
     );
+    assert_eq!(
+        p.discover(Some(&LedgerId::from_bytes(L))).await.unwrap(),
+        [LedgerId::from_bytes(M)],
+        "the next page starts after the last id"
+    );
     p.run(tokio::time::sleep(Duration::from_secs(3))).await;
     assert_eq!(env.pending().await, Vec::<String>::new());
-    assert_eq!(p.discover().await.unwrap(), Vec::<LedgerId>::new());
+    assert_eq!(p.discover(None).await.unwrap(), Vec::<LedgerId>::new());
     let js = nats.jetstream().await.unwrap();
     assert_eq!(stream_messages(&js).await, 5);
     let stream = js.get_stream("WORK_EVENTS").await.unwrap();
@@ -346,42 +365,48 @@ impl Handler for Recorder {
 }
 
 fn consumer_config() -> ConsumerConfig {
-    let stream = StreamSettings::default();
+    let partition = work_dispatch::domain::partition(&L, StreamSettings::default().partitions);
     ConsumerConfig {
-        group: "derive".to_owned(),
-        partitions: vec![work_dispatch::domain::partition(&L, stream.partitions)],
-        stream,
         batch_size: 3,
         max_in_flight: 8,
         fetch_wait: Duration::from_millis(500),
-        ack_wait: Duration::from_secs(30),
         call_timeout: Duration::from_secs(2),
         fallback_interval: Duration::from_millis(100),
         ledgers_per_scan: 16,
         seen_capacity: 1024,
+        ..ConsumerConfig::new("derive", vec![partition])
     }
 }
 
-async fn outbox(env: &Env) -> PgOutbox {
-    PgOutbox::new(
-        PublisherPool::new(env.pool("work_publisher"))
-            .await
-            .unwrap(),
+async fn committed(env: &Env) -> PgCommitted {
+    PgCommitted::new(
+        DeriverPool::new(env.pool("work_deriver")).await.unwrap(),
+        env.pool_on(Cluster::Derived, "work_deriver"),
     )
 }
 
-// T-21 OP-34 T-17
+// T-21 T-82 OP-34 T-17 T-81
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "needs Docker"]
 async fn t_21_committed_state_is_read_from_a_ledger_pos_cursor() {
     let env = Env::start().await;
-    let o = outbox(&env).await;
+    let o = committed(&env).await;
     let ledger = LedgerId::from_bytes(L);
     let ids = |rows: Vec<work_store::PendingEvent>| -> Vec<String> {
         rows.into_iter().map(|r| r.key.event_id).collect()
     };
     let first = o.pending_after(&ledger, None, 2).await.unwrap();
     let last = first.last().map(|r| r.key.clone()).unwrap();
+    assert_eq!(
+        first
+            .iter()
+            .map(|r| (r.item, r.version))
+            .collect::<Vec<_>>(),
+        [
+            (work_store::ItemRef::Work([0x0b; 16]), 1),
+            (work_store::ItemRef::Commitment([0x0a; 32]), 1)
+        ]
+    );
     assert_eq!(ids(first), ["evt-0", "evt-1"]);
     let rest = o.pending_after(&ledger, Some(&last), 10).await.unwrap();
     assert_eq!(rest.first().map(|r| r.record_id), Some([0x02; 32]));
@@ -411,6 +436,44 @@ async fn t_21_committed_state_is_read_from_a_ledger_pos_cursor() {
     assert_eq!(o.log_after(&ledger, Some(2), 10).await.unwrap().len(), 0);
     let other = LedgerId::from_bytes(M);
     assert_eq!(o.log_after(&other, None, 10).await.unwrap().len(), 0);
+    assert_eq!(o.ledgers(None, 10).await.unwrap(), [ledger]);
+    assert_eq!(o.ledgers(Some(&ledger), 10).await.unwrap(), []);
+    assert_eq!(o.cursor(&ledger, "derive").await.unwrap(), None);
+}
+
+// OP-39 T-21 T-82
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs Docker"]
+async fn op_39_the_fallback_resumes_from_the_cursor_the_effect_advanced() {
+    let env = Env::start().await;
+    let ledger = LedgerId::from_bytes(L);
+    let derived = env.pool_on(Cluster::Derived, "work_deriver");
+    let mut tx = LedgerTx::begin(&derived, &ledger).await.unwrap();
+    let at = PointerKey {
+        pos: 0,
+        event_id: "evt-1".to_owned(),
+    };
+    assert!(tx.advance_consumer_cursor("derive", &at).await.unwrap());
+    tx.commit().await.unwrap();
+    let o = committed(&env).await;
+    assert_eq!(o.cursor(&ledger, "derive").await.unwrap(), Some(at));
+    let down = async_nats::ConnectOptions::new()
+        .retry_on_initial_connect()
+        .connect("nats://127.0.0.1:1")
+        .await
+        .unwrap();
+    let config = consumer_config();
+    let part = *config.partitions.first().unwrap();
+    let mut c = Consumer::new(
+        JetStreamPull::new(down, Duration::from_secs(2)),
+        Recorder::default(),
+        config,
+    )
+    .unwrap();
+    let done = c.fallback(&o, part).await.unwrap();
+    assert_eq!(done.handled, 2);
+    assert_eq!(c.handler().ids(), ["evt-2", "evt-3"]);
+    assert_eq!(env.pending().await, ["evt-0", "evt-1", "evt-2", "evt-3"]);
 }
 
 // T-76 OP-25 T-18
@@ -483,7 +546,7 @@ async fn t_21_consumer_falls_back_to_committed_state_while_nats_is_unreachable()
         .connect("nats://127.0.0.1:1")
         .await
         .unwrap();
-    let o = outbox(&env).await;
+    let o = committed(&env).await;
     let config = consumer_config();
     let part = *config.partitions.first().unwrap();
     let mut c = Consumer::new(
