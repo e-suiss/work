@@ -1,0 +1,6 @@
+# T-32
+
+[[timeout]]
+path = "crates/testkit/src/"
+id = "T-36"
+reason = "work-testkit is only a dev-dependency: it connects to the disposable NATS container a test just started, and the test run's own time limit bounds the call"

@@ -1,4 +1,4 @@
-//! `kernel` (T-4, T-31 rule 5): the dependency tree of `work-kernel` holds only
+//! `kernel` (T-4, T-31 rule 5, T-32 rule 3): the dependency tree of `work-kernel` holds only
 //! the `no_std` verification part of `suiss-crypto`; no std runtime, I/O, async,
 //! FFI, signer or other shared crate.
 
@@ -21,6 +21,14 @@ const FORBIDDEN_IN_TREE: &[&str] = &[
     "futures",
     "futures-util",
     "futures-executor",
+    "futures-channel",
+    "futures-io",
+    "tokio-util",
+    "tokio-stream",
+    "async-nats",
+    "async-channel",
+    "flume",
+    "crossbeam-channel",
     "mio",
     "socket2",
     "libc",
@@ -30,6 +38,10 @@ const FORBIDDEN_IN_TREE: &[&str] = &[
     "rustix",
     "reqwest",
     "hyper",
+    "hyper-util",
+    "h2",
+    "tonic",
+    "tower",
     "sqlx",
     "rand",
     "getrandom",
@@ -142,6 +154,25 @@ mod tests {
         ))
         .unwrap();
         assert!(kernel_violations(Path::new("/ws"), &ok).is_empty());
+    }
+
+    // T-32 T-4
+    #[test]
+    fn t_32_nats_client_in_kernel_tree_is_rejected() {
+        let crypto = external("esuiss-crypto", "0.1.0", false);
+        let nats = external("async-nats", "0.50.0", false);
+        let crypto_id = "registry+https://github.com/rust-lang/crates.io-index#esuiss-crypto@0.1.0";
+        let nats_id = "registry+https://github.com/rust-lang/crates.io-index#async-nats@0.50.0";
+        let k = with_registry_dep(kernel(), "esuiss-crypto", Some("suiss-crypto"), false);
+        let md = parse(&metadata_with_edges(
+            &[k, crypto, nats],
+            &[],
+            &[(KERNEL_ID, crypto_id, None), (crypto_id, nats_id, None)],
+        ))
+        .unwrap();
+        let found = kernel_violations(Path::new("/ws"), &md);
+        assert_eq!(found.len(), 1, "{found:?}");
+        assert!(found[0].message.contains("async-nats"));
     }
 
     // T-31 T-4
