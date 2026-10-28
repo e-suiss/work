@@ -120,10 +120,16 @@ async fn postgres(
 }
 
 async fn nats(url: &str, limit: Duration) -> Result<async_nats::Client, StartupError> {
+    let options = match (std::env::var("NATS_USER"), std::env::var("NATS_PASSWORD")) {
+        (Ok(user), Ok(password)) => {
+            async_nats::ConnectOptions::with_user_and_password(user, password)
+        }
+        _ => async_nats::ConnectOptions::new(),
+    };
     let client = bounded(
         "nats",
         limit,
-        async_nats::ConnectOptions::new()
+        options
             .name(APPLICATION_NAME)
             .connection_timeout(limit)
             .request_timeout(Some(limit))

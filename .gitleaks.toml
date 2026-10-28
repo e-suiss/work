@@ -14,3 +14,11 @@ paths = [
     '''(^|/)package-lock\.json$''',
     '''^supply-chain/imports\.lock$''',
 ]
+
+[[allowlists]]
+description = "Secret-detection patterns, not secrets"
+paths = [
+    '''^deploy/compose/observability/otel-collector\.yaml$''',
+    '''^crates/parse/vendor/gitleaks-[0-9.]+/gitleaks\.toml$''',
+    '''^crates/parse/rules/work-secrets\.toml$''',
+]

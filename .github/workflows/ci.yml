@@ -302,9 +302,17 @@ jobs:
           for _ in $(seq 1 60); do curl -fsS http://127.0.0.1:4010/readyz >/dev/null 2>&1 && break; sleep 1; done
           curl -fsS http://127.0.0.1:4010/readyz
       - name: Server starts and stops
+        env:
+          WORK_LISTEN: 127.0.0.1:18090
+          WORK_POSTGRES__CANONICAL: postgres://work_app@127.0.0.1:5442/work
+          WORK_POSTGRES__DERIVED: postgres://work_app@127.0.0.1:5442/work_derived
+          WORK_NATS__URL: nats://127.0.0.1:4232
+          PGPASSWORD: local-only-not-a-secret
+          NATS_USER: work
+          NATS_PASSWORD: local-only-not-a-secret
         run: |
           cargo build --locked -p work-server
-          WORK_LISTEN=127.0.0.1:18090 target/debug/work-server &
+          target/debug/work-server &
           pid=$!
           for _ in $(seq 1 50); do (echo > /dev/tcp/127.0.0.1/18090) 2>/dev/null && break; sleep 0.2; done
           (echo > /dev/tcp/127.0.0.1/18090) 2>/dev/null

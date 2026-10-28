@@ -37,7 +37,7 @@ pub(crate) struct Postgres {
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Nats {
-    /// Server URL, without credentials.
+    /// Server URL, without credentials; the user and password come from `NATS_USER` and `NATS_PASSWORD`.
     pub(crate) url: String,
 }
 
