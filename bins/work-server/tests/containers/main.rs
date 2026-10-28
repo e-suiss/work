@@ -171,7 +171,7 @@ async fn t_20_starts_with_postgres_18_and_jetstream_and_does_not_migrate() {
     assert!(log.contains("jetstream.checked"), "{log}");
 }
 
-// T-20 MD-14 T-9
+// T-20 T-84 MD-14 T-9
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "needs Docker"]
 async fn t_20_refuses_to_start_without_jetstream() {
@@ -183,7 +183,7 @@ async fn t_20_refuses_to_start_without_jetstream() {
     assert!(log.contains("JetStream"), "{log}");
 }
 
-// T-20 MD-14 T-9
+// T-20 T-84 MD-14 T-9
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "needs Docker"]
 async fn t_20_refuses_to_start_when_nats_is_unreachable() {
@@ -206,7 +206,7 @@ async fn t_20_refuses_to_start_when_a_database_is_missing() {
     assert!(log.contains("server.start_refused"), "{log}");
 }
 
-// T-21 T-28 T-39
+// T-21 T-84 T-28 T-39
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "needs Docker"]
 async fn t_21_losing_nats_after_start_does_not_stop_the_server() {

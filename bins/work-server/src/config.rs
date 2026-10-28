@@ -6,6 +6,7 @@ use std::time::Duration;
 use figment::Figment;
 use figment::providers::{Env, Format, Serialized, Toml};
 use serde::{Deserialize, Serialize};
+use work_telemetry::{DEFAULT_MAX_QUEUE_SIZE, InvalidSampleRatio, SampleRatio, TraceConfig};
 
 /// Validated process configuration.
 #[derive(Debug, Deserialize, Serialize)]
@@ -19,6 +20,8 @@ pub(crate) struct Config {
     pub(crate) postgres: Postgres,
     /// The NATS JetStream server (T-20, T-21).
     pub(crate) nats: Nats,
+    /// Trace export (T-39, OP-18).
+    pub(crate) trace: Trace,
     /// Upper bound on each external call made at start-up, in milliseconds.
     pub(crate) startup_timeout_ms: u64,
 }
@@ -41,6 +44,16 @@ pub(crate) struct Nats {
     pub(crate) url: String,
 }
 
+/// Trace export settings.
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Trace {
+    /// The OTLP/gRPC collector endpoint; none exports no spans.
+    pub(crate) endpoint: Option<String>,
+    /// The share of new root traces that are sampled, in `0.0..=1.0` (§18 OP-40 rule 2).
+    pub(crate) sample_ratio: f64,
+}
+
 impl Default for Config {
     fn default() -> Self {
         Self {
@@ -53,6 +66,11 @@ impl Default for Config {
             nats: Nats {
                 url: "nats://127.0.0.1:4222".to_owned(),
             },
+            trace: Trace {
+                endpoint: None,
+                sample_ratio: SampleRatio::DEFAULT.get(),
+            },
+            // OP-40
             startup_timeout_ms: 5_000,
         }
     }
@@ -69,6 +87,8 @@ pub(crate) enum ConfigError {
     PasswordInUrl(&'static str),
     #[error("startup_timeout_ms must be positive")]
     ZeroTimeout,
+    #[error("trace.sample_ratio: {0}")]
+    SampleRatio(#[from] InvalidSampleRatio),
 }
 
 impl Config {
@@ -91,10 +111,12 @@ impl Config {
         if self.log.trim().is_empty() {
             return Err(ConfigError::EmptyLogFilter);
         }
+        let endpoint = self.trace.endpoint.as_deref().unwrap_or_default();
         for (key, url) in [
-            ("postgres.canonical", &self.postgres.canonical),
-            ("postgres.derived", &self.postgres.derived),
-            ("nats.url", &self.nats.url),
+            ("postgres.canonical", self.postgres.canonical.as_str()),
+            ("postgres.derived", self.postgres.derived.as_str()),
+            ("nats.url", self.nats.url.as_str()),
+            ("trace.endpoint", endpoint),
         ] {
             if has_password(url) {
                 return Err(ConfigError::PasswordInUrl(key));
@@ -103,7 +125,19 @@ impl Config {
         if self.startup_timeout_ms == 0 {
             return Err(ConfigError::ZeroTimeout);
         }
+        SampleRatio::new(self.trace.sample_ratio)?;
         Ok(())
+    }
+
+    /// The trace export settings of this process.
+    pub(crate) fn trace_config(&self) -> Result<TraceConfig, ConfigError> {
+        Ok(TraceConfig {
+            service: "work-server".to_owned(),
+            version: env!("CARGO_PKG_VERSION").to_owned(),
+            endpoint: self.trace.endpoint.clone(),
+            sample_ratio: SampleRatio::new(self.trace.sample_ratio)?,
+            max_queue_size: DEFAULT_MAX_QUEUE_SIZE,
+        })
     }
 
     pub(crate) const fn startup_timeout(&self) -> Duration {
@@ -184,6 +218,30 @@ mod tests {
         ));
     }
 
+    // OP-40 OP-18 T-39
+    #[test]
+    fn op_40_new_root_traces_are_sampled_at_one_in_ten_by_default() {
+        let config = Config::default();
+        assert_eq!(config.trace.endpoint, None);
+        let trace = config.trace_config().unwrap();
+        assert_eq!(trace.sample_ratio, SampleRatio::DEFAULT);
+        assert!((trace.sample_ratio.get() - 0.1).abs() < f64::EPSILON);
+        let set =
+            with("[trace]\nendpoint = \"http://collector:4317\"\nsample_ratio = 1.0").unwrap();
+        let trace = set.trace_config().unwrap();
+        assert_eq!(trace.sample_ratio, SampleRatio::ALWAYS);
+        assert_eq!(trace.endpoint.as_deref(), Some("http://collector:4317"));
+        for bad in ["-0.1", "1.5", "nan"] {
+            assert!(
+                matches!(
+                    with(&format!("[trace]\nsample_ratio = {bad}")),
+                    Err(ConfigError::SampleRatio(_))
+                ),
+                "{bad}"
+            );
+        }
+    }
+
     // T-20 OP-18
     #[test]
     fn t_20_urls_with_a_password_are_rejected() {
@@ -197,6 +255,10 @@ mod tests {
                 "postgres.derived",
             ),
             ("[nats]\nurl = \"nats://u:pw@bus:4222\"", "nats.url"),
+            (
+                "[trace]\nendpoint = \"http://u:pw@collector:4317\"",
+                "trace.endpoint",
+            ),
         ] {
             assert!(
                 matches!(with(toml), Err(ConfigError::PasswordInUrl(k)) if k == key),

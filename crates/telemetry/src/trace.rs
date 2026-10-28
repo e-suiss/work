@@ -41,6 +41,8 @@ impl SampleRatio {
     pub const ALWAYS: Self = Self(1.0);
     /// No root trace is sampled; continued traces follow the caller's decision.
     pub const NEVER: Self = Self(0.0);
+    /// The policy default: one new root trace in ten is sampled (§18 OP-40 rule 2).
+    pub const DEFAULT: Self = Self(0.1);
 
     /// A ratio in `0.0..=1.0`.
     ///

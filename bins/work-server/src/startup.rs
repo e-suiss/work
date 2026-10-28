@@ -1,7 +1,8 @@
-//! Start-up checks of the mandatory infrastructure (T-20, MD-14): both PostgreSQL databases
-//! answer and run major version 18 or later, and NATS answers with JetStream enabled; otherwise
-//! the process does not start. Migrations are not run here (OP-28). Once running, losing NATS
-//! is only a delay (T-21, T-28): the client reconnects in the background and the loss is logged.
+//! Start-up checks of the mandatory infrastructure (T-20, T-84, MD-14): both PostgreSQL
+//! databases answer and run major version 18 or later, and NATS answers with JetStream enabled
+//! within the start-up timeout; otherwise the process does not start. Migrations are not run
+//! here (OP-28). Once running, losing NATS is only a delay (T-21, T-28, T-84): the client
+//! reconnects in the background and the loss is logged.
 
 use std::future::Future;
 use std::time::Duration;

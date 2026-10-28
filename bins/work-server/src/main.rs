@@ -21,21 +21,36 @@ fn main() -> ExitCode {
         }
     };
 
-    if let Err(error) = work_telemetry::init(&config.log) {
-        #[allow(clippy::print_stderr, reason = "telemetry failed to install")]
-        {
-            eprintln!("work-server: {error}");
-        }
-        return ExitCode::FAILURE;
-    }
-
     let runtime = match tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()
     {
         Ok(runtime) => runtime,
         Err(error) => {
-            tracing::error!(%error, "cannot start the async runtime");
+            #[allow(clippy::print_stderr, reason = "telemetry is not installed yet")]
+            {
+                eprintln!("work-server: cannot start the async runtime: {error}");
+            }
+            return ExitCode::FAILURE;
+        }
+    };
+
+    let telemetry = {
+        let _entered = runtime.enter();
+        config
+            .trace_config()
+            .map_err(|e| e.to_string())
+            .and_then(|trace| {
+                work_telemetry::init_with_traces(&config.log, &trace).map_err(|e| e.to_string())
+            })
+    };
+    let _telemetry = match telemetry {
+        Ok(telemetry) => telemetry,
+        Err(error) => {
+            #[allow(clippy::print_stderr, reason = "telemetry failed to install")]
+            {
+                eprintln!("work-server: {error}");
+            }
             return ExitCode::FAILURE;
         }
     };
