@@ -310,3 +310,51 @@ async fn t_36_the_security_checks_catch_injected_violations() {
     }
     tx.rollback().await.unwrap();
 }
+
+// OP-13 OP-15 T-36
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs Docker"]
+async fn op_14_every_table_with_personal_fields_is_in_the_erasure_scope_list() {
+    let env = Env::start().await;
+    for cluster in Cluster::ALL {
+        let mut c = env.admin(cluster).await;
+        let tagged: Vec<(String, String)> = sqlx::query_as(
+            "SELECT n.nspname || '.' || c.relname, \
+                    substring(pg_catalog.obj_description(c.oid, 'pg_class') FROM 'erasure=([a-z_:]+)$') \
+               FROM pg_catalog.pg_class c \
+               JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace \
+              WHERE n.nspname IN ('ledger', 'work', 'derived', 'projection') \
+                AND c.relkind IN ('r', 'p') AND NOT c.relispartition \
+                AND pg_catalog.obj_description(c.oid, 'pg_class') !~ 'erasure=none$' \
+              ORDER BY 1",
+        )
+        .fetch_all(&mut c)
+        .await
+        .unwrap();
+        let mut listed: Vec<(String, String)> = match cluster {
+            Cluster::Canonical => work_store::ERASURE_SCOPE
+                .iter()
+                .map(|s| (s.table.to_owned(), s.erasure.to_owned()))
+                .collect(),
+            Cluster::Derived => Vec::new(),
+        };
+        listed.sort();
+        assert_eq!(tagged, listed, "{cluster:?}");
+    }
+    let mut c = env.admin(Cluster::Canonical).await;
+    for scope in work_store::ERASURE_SCOPE {
+        for column in scope.columns {
+            let found: bool = sqlx::query_scalar(
+                "SELECT EXISTS (SELECT 1 FROM pg_catalog.pg_attribute \
+                  WHERE attrelid = pg_catalog.to_regclass($1) AND attname = $2 \
+                    AND attnum > 0 AND NOT attisdropped)",
+            )
+            .bind(scope.table)
+            .bind(column)
+            .fetch_one(&mut c)
+            .await
+            .unwrap();
+            assert!(found, "{}.{column}", scope.table);
+        }
+    }
+}
