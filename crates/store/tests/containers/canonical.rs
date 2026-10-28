@@ -60,7 +60,7 @@ fn log_row(pos: i64, prev: &str, recorded_at: &str) -> String {
     ))
 }
 
-async fn seeded() -> (Env, String) {
+pub(crate) async fn seeded() -> (Env, String) {
     let env = Env::start().await;
     let l = hex(&L);
     run(&env.canonical("work_sequencer"), &l, &[&sql(SEED)]).await;
@@ -508,7 +508,7 @@ async fn op_12_only_the_archive_role_drops_a_cold_partition_whose_copy_matches()
         &["SELECT work.ensure_monthly_partitions('work.idempotency_key', 4, 0)"],
     )
     .await;
-    let old = "date_trunc('month', now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC' - interval '3 months' + interval '1 day'";
+    let old = "(date_trunc('month', now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC' - interval '3 months' + interval '1 day')";
     let seq = env.canonical("work_sequencer");
     for scope in [&l, &m] {
         let row = format!(
