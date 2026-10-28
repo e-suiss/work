@@ -11,6 +11,7 @@ mod id;
 mod idempotency;
 mod migrate;
 mod outbox;
+mod publisher;
 mod scope;
 
 pub use erasure::{ERASURE_SCOPE, ErasureScope};
@@ -22,6 +23,7 @@ pub use idempotency::{
 };
 pub use migrate::{Cluster, migrate, migrate_from_env};
 pub use outbox::{CommittedRecord, PendingEvent, PointerKey};
+pub use publisher::{PUBLISHER_ROLE, PublisherPool};
 pub use scope::{Head, LedgerTx};
 
 /// The connection pool type, so other crates need no driver dependency.

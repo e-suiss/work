@@ -18,6 +18,8 @@ pub struct StreamSettings {
     pub max_age: Duration,
     /// `Nats-Msg-Id` duplicate window (T-76 rule 3).
     pub duplicate_window: Duration,
+    /// File-storage replicas: 1 on a single node, 3 in the multi-node profile.
+    pub replicas: usize,
 }
 
 impl Default for StreamSettings {
@@ -28,11 +30,21 @@ impl Default for StreamSettings {
             partitions: 16,
             max_age: Duration::from_hours(7 * 24),
             duplicate_window: Duration::from_mins(2),
+            replicas: 1,
         }
     }
 }
 
 impl StreamSettings {
+    /// The defaults with 3 replicas, for the multi-node profile.
+    #[must_use]
+    pub fn multi_node() -> Self {
+        Self {
+            replicas: 3,
+            ..Self::default()
+        }
+    }
+
     /// The stream's subject filter, `<prefix>.*.*.>`.
     #[must_use]
     pub fn filter(&self) -> String {
@@ -60,6 +72,8 @@ pub struct PublisherConfig {
     pub source: String,
     /// Stream and subject schema (T-76).
     pub stream: StreamSettings,
+    /// Ledgers with pending pointers discovered per poll.
+    pub ledgers_per_poll: u32,
     /// Pointers read per transaction.
     pub batch_size: u32,
     /// Publishes awaiting their JetStream ack at once (T-32 rule 7).
@@ -81,6 +95,7 @@ impl PublisherConfig {
         Self {
             source: source.into(),
             stream: StreamSettings::default(),
+            ledgers_per_poll: 1024,
             batch_size: 256,
             max_in_flight: 64,
             call_timeout: Duration::from_secs(5),
@@ -123,7 +138,10 @@ impl PublisherConfig {
         if s.max_age.is_zero() || s.duplicate_window.is_zero() || s.duplicate_window > s.max_age {
             return Err(ConfigError::Retention);
         }
-        if self.batch_size == 0 || self.max_in_flight == 0 {
+        if !(1..=MAX_REPLICAS).contains(&s.replicas) {
+            return Err(ConfigError::Replicas);
+        }
+        if self.ledgers_per_poll == 0 || self.batch_size == 0 || self.max_in_flight == 0 {
             return Err(ConfigError::Bounds);
         }
         if self.call_timeout.is_zero()
@@ -136,6 +154,9 @@ impl PublisherConfig {
         Ok(())
     }
 }
+
+/// The most replicas a JetStream stream can have.
+pub const MAX_REPLICAS: usize = 5;
 
 fn is_plain_token(t: &str) -> bool {
     !t.is_empty()
@@ -161,8 +182,11 @@ pub enum ConfigError {
     /// A zero age or window, or a window longer than the age.
     #[error("max_age and duplicate_window must be positive and the window no longer than the age")]
     Retention,
-    /// A zero batch size or in-flight bound.
-    #[error("batch_size and max_in_flight must be at least 1")]
+    /// Replicas outside `1..=MAX_REPLICAS`.
+    #[error("replicas must be between 1 and 5")]
+    Replicas,
+    /// A zero discovery, batch or in-flight bound.
+    #[error("ledgers_per_poll, batch_size and max_in_flight must be at least 1")]
     Bounds,
     /// A zero timeout or interval, or a minimum backoff above the maximum.
     #[error("timeouts and intervals must be positive and backoff_min at most backoff_max")]
@@ -366,10 +390,29 @@ mod tests {
         assert_eq!(s.partitions, 16);
         assert_eq!(s.max_age, Duration::from_hours(168));
         assert_eq!(s.duplicate_window, Duration::from_mins(2));
+        assert_eq!(s.replicas, 1);
         assert_eq!(
             PublisherConfig::new("https://work.example").validate(),
             Ok(())
         );
+    }
+
+    #[test]
+    fn t_76_multi_node_profile_keeps_three_replicas() {
+        let s = StreamSettings::multi_node();
+        assert_eq!(s.replicas, 3);
+        assert_eq!(
+            StreamSettings {
+                replicas: 1,
+                ..s.clone()
+            },
+            StreamSettings::default()
+        );
+        let config = PublisherConfig {
+            stream: s,
+            ..PublisherConfig::new("https://work.example")
+        };
+        assert_eq!(config.validate(), Ok(()));
     }
 
     #[test]
@@ -456,6 +499,23 @@ mod tests {
     }
 
     #[test]
+    fn p_98_pos_above_i32_is_a_decimal_string_and_hex_is_lower_case() {
+        let f = EventFacts {
+            pos: 1 << 33,
+            ..facts()
+        };
+        let v: serde_json::Value =
+            serde_json::from_slice(&cloud_event("https://w.example", &f).unwrap()).unwrap();
+        assert_eq!(v["pos"], "8589934592");
+        assert_eq!(v["ledger"], "ab".repeat(32));
+        assert_eq!(v["recordid"], "01".repeat(32));
+        assert_eq!(
+            v["source"],
+            format!("https://w.example/ledgers/{}", "ab".repeat(32))
+        );
+    }
+
+    #[test]
     fn p_42_event_carries_the_pointer_traceparent() {
         let v: serde_json::Value =
             serde_json::from_slice(&cloud_event("https://w.example", &facts()).unwrap()).unwrap();
@@ -477,7 +537,7 @@ mod tests {
     #[test]
     fn t_32_invalid_publisher_settings_are_rejected() {
         let ok = PublisherConfig::new("https://work.example");
-        let cases: [(PublisherConfig, ConfigError); 9] = [
+        let cases: [(PublisherConfig, ConfigError); 12] = [
             (
                 PublisherConfig::new("http://work.example"),
                 ConfigError::Source,
@@ -529,7 +589,34 @@ mod tests {
             ),
             (
                 PublisherConfig {
+                    stream: StreamSettings {
+                        replicas: 0,
+                        ..StreamSettings::default()
+                    },
+                    ..ok.clone()
+                },
+                ConfigError::Replicas,
+            ),
+            (
+                PublisherConfig {
+                    stream: StreamSettings {
+                        replicas: 6,
+                        ..StreamSettings::default()
+                    },
+                    ..ok.clone()
+                },
+                ConfigError::Replicas,
+            ),
+            (
+                PublisherConfig {
                     max_in_flight: 0,
+                    ..ok.clone()
+                },
+                ConfigError::Bounds,
+            ),
+            (
+                PublisherConfig {
+                    ledgers_per_poll: 0,
                     ..ok.clone()
                 },
                 ConfigError::Bounds,

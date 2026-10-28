@@ -10,6 +10,9 @@ pub enum StoreError {
     /// The transaction did not take the ledger scope (T-13).
     #[error("ledger scope was not applied")]
     Scope,
+    /// The pool does not log in as the role the operation needs.
+    #[error("connected as the wrong database role")]
+    Role,
     /// A stored row does not match the model.
     #[error("stored row is malformed")]
     Corrupt,

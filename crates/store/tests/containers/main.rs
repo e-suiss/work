@@ -14,4 +14,5 @@ mod canonical;
 mod derived;
 mod env;
 mod idempotency;
+mod publisher;
 mod schema;

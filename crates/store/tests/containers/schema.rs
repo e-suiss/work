@@ -58,8 +58,12 @@ funcs AS (
       JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
      WHERE n.nspname IN ('ledger', 'work', 'derived', 'projection')
 ),
-definer_allowed (fq) AS (
-    VALUES ('work.drop_archived_partition')
+definer_allowed (fq, rolname) AS (
+    VALUES ('work.drop_archived_partition', 'work_archive'),
+           ('ledger.outbox_ledgers', 'work_publisher')
+),
+scope_exception_allowed (fq) AS (
+    VALUES ('ledger.outbox')
 ),
 partitioned_allowed (fq) AS (
     VALUES ('work.idempotency_key'), ('work.inbound_seen')
@@ -225,12 +229,42 @@ violations (check_id, object) AS (
     SELECT 'definer_search_path_pinned', fq FROM funcs
      WHERE prosecdef AND config NOT LIKE '%search_path=pg_catalog, pg_temp%'
     UNION ALL
-    SELECT 'definer_execute_only_archive', r.rolname || ' ' || f.fq FROM funcs f CROSS JOIN roles r
-     WHERE f.prosecdef AND r.rolname NOT IN ('work_owner', 'work_archive')
+    SELECT 'definer_execute_exact', r.rolname || ' ' || f.fq FROM funcs f CROSS JOIN roles r
+     WHERE f.prosecdef AND r.rolname <> 'work_owner'
        AND pg_catalog.has_function_privilege(r.rolname, f.oid, 'EXECUTE')
+       AND NOT EXISTS (SELECT 1 FROM definer_allowed d WHERE d.fq = f.fq AND d.rolname = r.rolname)
     UNION ALL
-    SELECT 'definer_execute_only_archive', 'public ' || fq FROM funcs
+    SELECT 'definer_execute_exact', 'public ' || fq FROM funcs
      WHERE prosecdef AND pg_catalog.has_function_privilege('public', oid, 'EXECUTE')
+    UNION ALL
+    SELECT 'definer_execute_present', d.rolname || ' ' || d.fq FROM definer_allowed d
+     WHERE NOT EXISTS (
+         SELECT 1 FROM funcs f
+          WHERE f.fq = d.fq AND f.prosecdef AND pg_catalog.has_function_privilege(d.rolname, f.oid, 'EXECUTE'))
+       AND pg_catalog.current_database() = 'work'
+    UNION ALL
+    SELECT 'scope_exception_exact', tab.fq || ' ' || p.polname FROM tab
+      JOIN pg_catalog.pg_policy p ON p.polrelid = tab.oid
+     WHERE (COALESCE(pg_catalog.pg_get_expr(p.polqual, p.polrelid), '') ~* 'outbox_scan|session_user|current_user'
+            OR COALESCE(pg_catalog.pg_get_expr(p.polwithcheck, p.polrelid), '') ~* 'outbox_scan|session_user|current_user')
+       AND (tab.fq NOT IN (SELECT fq FROM scope_exception_allowed)
+            OR p.polname <> 'ledger_scope'
+            OR pg_catalog.pg_get_expr(p.polwithcheck, p.polrelid) ~* 'outbox_scan|session_user|current_user'
+            OR pg_catalog.pg_get_expr(p.polqual, p.polrelid) !~
+               '^\(\([^ ]*ledger_id[^ ]* = ledger\.current_ledger_id\(\)\) OR \(\(CURRENT_USER = ''work_owner''::name\) AND \((pg_catalog\.)?current_setting\(''app\.outbox_scan''::text, true\) = ''on''::text\)\)\)$')
+    UNION ALL
+    SELECT 'scope_exception_present', fq FROM scope_exception_allowed a
+     WHERE pg_catalog.current_database() = 'work'
+       AND NOT EXISTS (
+           SELECT 1 FROM funcs f
+            WHERE f.fq = 'ledger.outbox_ledgers' AND f.prosecdef AND f.config LIKE '%app.outbox_scan=on%')
+    UNION ALL
+    SELECT 'scope_exception_setter_exact', fq FROM funcs
+     WHERE config LIKE '%outbox_scan%' AND fq <> 'ledger.outbox_ledgers'
+    UNION ALL
+    SELECT 'definer_result_ids_only', fq FROM funcs
+     WHERE fq = 'ledger.outbox_ledgers'
+       AND pg_catalog.pg_get_function_result(oid) <> 'SETOF ledger.digest32'
     UNION ALL
     SELECT 'role_attributes', rolname FROM pg_catalog.pg_roles
      WHERE rolname LIKE 'work\_%' AND (rolsuper OR rolbypassrls OR rolcreaterole OR rolcreatedb OR rolreplication)
@@ -280,7 +314,11 @@ async fn t_36_the_security_checks_catch_injected_violations() {
          GRANT UPDATE ON work.body_part TO work_sequencer;
          CREATE TABLE work.stray (id uuid PRIMARY KEY);
          ALTER FUNCTION work.partition_slice(regclass) SECURITY DEFINER;
-         GRANT EXECUTE ON FUNCTION work.drop_archived_partition(regclass, ledger.digest32) TO work_app;",
+         GRANT EXECUTE ON FUNCTION work.drop_archived_partition(regclass, ledger.digest32) TO work_app;
+         GRANT EXECUTE ON FUNCTION ledger.outbox_ledgers(bigint) TO work_sequencer;
+         ALTER POLICY ledger_scope ON ledger.log
+             USING (ledger_id = ledger.current_ledger_id()
+                    OR (CURRENT_USER = 'work_owner' AND current_setting('app.outbox_scan', true) = 'on'));",
     )
     .await
     .unwrap();
@@ -301,7 +339,8 @@ async fn t_36_the_security_checks_catch_injected_violations() {
         "rls_ledger_scope_policy",
         "security_definer_exact",
         "definer_search_path_pinned",
-        "definer_execute_only_archive",
+        "definer_execute_exact",
+        "scope_exception_exact",
     ] {
         assert!(
             found.iter().any(|f| f == want),

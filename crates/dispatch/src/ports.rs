@@ -1,5 +1,6 @@
-//! Ports of the publisher (T-32 rule 2): `Outbox`, the pending pointers of one ledger and their
-//! removal after the ack (§18 OP-34), and `Bus`, the NATS JetStream signal (T-17, T-21, T-76).
+//! Ports of the publisher (T-32 rule 2): `Outbox`, the ledgers with pending pointers, the pending
+//! pointers of one ledger and their removal after the ack (§18 OP-34), and `Bus`, the NATS
+//! JetStream signal (T-17, T-21, T-76).
 
 use std::future::Future;
 
@@ -9,6 +10,10 @@ use crate::domain::StreamSettings;
 
 /// The outbox of the canonical store.
 pub trait Outbox: Send + Sync {
+    /// Up to `limit` ledgers with pending pointers, in ascending byte order (OP-34).
+    fn ledgers(&self, limit: u32)
+    -> impl Future<Output = Result<Vec<LedgerId>, StoreError>> + Send;
+
     /// Up to `limit` pending pointers of `ledger` in `(pos, event_id)` order.
     fn pending(
         &self,

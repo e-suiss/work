@@ -6,6 +6,7 @@
 
 use std::collections::VecDeque;
 use std::future::Future;
+use std::time::Duration;
 
 use tokio::time::{sleep, timeout};
 use work_store::{LedgerId, PendingEvent, PointerKey, StoreError};
@@ -128,14 +129,17 @@ impl<O: Outbox, B: Bus> Publisher<O, B> {
         }
     }
 
-    /// Publishes the ledgers of `ledgers` until `shutdown` resolves: polls every
-    /// `poll_interval`, and after a failure waits with exponential backoff (T-21).
-    pub async fn run(&self, ledgers: &[LedgerId], shutdown: impl Future<Output = ()>) {
+    /// Publishes every ledger with pending pointers until `shutdown` resolves. Each poll
+    /// discovers up to `ledgers_per_poll` ledgers through the store and publishes them in turn;
+    /// after a full discovery without failure the next poll starts at once, otherwise it waits
+    /// `poll_interval`, and after a failure the exponential backoff (T-21).
+    pub async fn run(&self, shutdown: impl Future<Output = ()>) {
         let mut shutdown = std::pin::pin!(shutdown);
         let mut backoff = Backoff::new(self.config.backoff_min, self.config.backoff_max);
         let mut stream_ready = false;
         loop {
             let mut failed = false;
+            let mut full = false;
             if !stream_ready {
                 match self.ensure_stream().await {
                     Ok(()) => stream_ready = true,
@@ -146,9 +150,19 @@ impl<O: Outbox, B: Bus> Publisher<O, B> {
                 }
             }
             if stream_ready {
-                for ledger in ledgers {
-                    if let Err(e) = self.publish_ledger(ledger).await {
-                        tracing::warn!(error = %e, "outbox publish pass stopped");
+                match self.discover().await {
+                    Ok(ledgers) => {
+                        full = ledgers.len()
+                            >= usize::try_from(self.config.ledgers_per_poll).unwrap_or(usize::MAX);
+                        for ledger in &ledgers {
+                            if let Err(e) = self.publish_ledger(ledger).await {
+                                tracing::warn!(error = %e, "outbox publish pass stopped");
+                                failed = true;
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        tracing::warn!(error = %e, "outbox ledger discovery failed");
                         failed = true;
                     }
                 }
@@ -157,13 +171,26 @@ impl<O: Outbox, B: Bus> Publisher<O, B> {
                 backoff.fail()
             } else {
                 backoff.reset();
-                self.config.poll_interval
+                if full {
+                    Duration::ZERO
+                } else {
+                    self.config.poll_interval
+                }
             };
             tokio::select! {
                 () = &mut shutdown => return,
                 () = sleep(wait) => {}
             }
         }
+    }
+
+    /// Up to `ledgers_per_poll` ledgers with pending pointers (§18 OP-34).
+    ///
+    /// # Errors
+    /// [`DispatchError::Store`] or [`DispatchError::StoreTimedOut`].
+    pub async fn discover(&self) -> Result<Vec<LedgerId>, DispatchError> {
+        self.store(self.outbox.ledgers(self.config.ledgers_per_poll))
+            .await
     }
 
     async fn store<T>(
@@ -269,8 +296,8 @@ impl<O: Outbox, B: Bus> Publisher<O, B> {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeMap;
     use std::sync::Mutex;
-    use std::time::Duration;
 
     use super::*;
     use crate::domain::StreamSettings;
@@ -295,30 +322,68 @@ mod tests {
     #[derive(Default)]
     struct MemOutbox {
         rows: Mutex<Vec<PendingEvent>>,
+        more: Mutex<BTreeMap<LedgerId, Vec<PendingEvent>>>,
         removals: Mutex<Vec<Vec<PointerKey>>>,
+        discoveries: Mutex<Vec<u32>>,
+    }
+
+    impl MemOutbox {
+        fn with_rows<T>(
+            &self,
+            ledger: &LedgerId,
+            f: impl FnOnce(&mut Vec<PendingEvent>) -> T,
+        ) -> T {
+            if *ledger == self::ledger() {
+                f(&mut self.rows.lock().unwrap())
+            } else {
+                f(self.more.lock().unwrap().entry(*ledger).or_default())
+            }
+        }
     }
 
     impl Outbox for MemOutbox {
+        fn ledgers(
+            &self,
+            limit: u32,
+        ) -> impl Future<Output = Result<Vec<LedgerId>, StoreError>> + Send {
+            self.discoveries.lock().unwrap().push(limit);
+            let mut found: Vec<LedgerId> = self
+                .more
+                .lock()
+                .unwrap()
+                .iter()
+                .filter(|(_, rows)| !rows.is_empty())
+                .map(|(l, _)| *l)
+                .collect();
+            if !self.rows.lock().unwrap().is_empty() {
+                found.push(ledger());
+            }
+            found.sort();
+            found.truncate(usize::try_from(limit).unwrap());
+            std::future::ready(Ok(found))
+        }
+
         fn pending(
             &self,
-            _ledger: &LedgerId,
+            ledger: &LedgerId,
             limit: u32,
         ) -> impl Future<Output = Result<Vec<PendingEvent>, StoreError>> + Send {
-            let rows = self.rows.lock().unwrap();
             let n = usize::try_from(limit).unwrap();
-            std::future::ready(Ok(rows.iter().take(n).cloned().collect()))
+            let rows = self.with_rows(ledger, |rows| rows.iter().take(n).cloned().collect());
+            std::future::ready(Ok(rows))
         }
 
         fn remove(
             &self,
-            _ledger: &LedgerId,
+            ledger: &LedgerId,
             keys: &[PointerKey],
         ) -> impl Future<Output = Result<u64, StoreError>> + Send {
-            let mut rows = self.rows.lock().unwrap();
-            let before = rows.len();
-            rows.retain(|r| !keys.contains(&r.key));
+            let gone = self.with_rows(ledger, |rows| {
+                let before = rows.len();
+                rows.retain(|r| !keys.contains(&r.key));
+                before.checked_sub(rows.len()).unwrap()
+            });
             self.removals.lock().unwrap().push(keys.to_vec());
-            let gone = before.checked_sub(rows.len()).unwrap();
             std::future::ready(Ok(u64::try_from(gone).unwrap()))
         }
     }
@@ -383,6 +448,7 @@ mod tests {
 
     fn config() -> PublisherConfig {
         PublisherConfig {
+            ledgers_per_poll: 2,
             batch_size: 2,
             max_in_flight: 1,
             call_timeout: Duration::from_secs(1),
@@ -507,7 +573,50 @@ mod tests {
             ..config()
         };
         let p = Publisher::new(outbox, MemBus::up(), quick).unwrap();
-        p.run(&[ledger()], sleep(Duration::from_millis(50))).await;
+        p.run(sleep(Duration::from_millis(50))).await;
         assert!(p.outbox.rows.lock().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn t_80_run_discovers_every_ledger_with_pending_pointers() {
+        let outbox = MemOutbox::default();
+        *outbox.rows.lock().unwrap() = vec![pending(0, "a")];
+        for b in [0x01_u8, 0x02, 0xcd] {
+            outbox
+                .more
+                .lock()
+                .unwrap()
+                .insert(LedgerId::from_bytes([b; 32]), vec![pending(0, "x")]);
+        }
+        let quick = PublisherConfig {
+            ledgers_per_poll: 2,
+            poll_interval: Duration::from_secs(60),
+            ..config()
+        };
+        let p = Publisher::new(outbox, MemBus::up(), quick).unwrap();
+        p.run(sleep(Duration::from_millis(50))).await;
+        assert!(p.outbox.rows.lock().unwrap().is_empty());
+        assert!(p.outbox.more.lock().unwrap().values().all(Vec::is_empty));
+        let discoveries = p.outbox.discoveries.lock().unwrap();
+        assert_eq!(discoveries.first(), Some(&2));
+        assert_eq!(discoveries.len(), 3);
+        let sent = p.bus.sent.lock().unwrap();
+        assert_eq!(sent.len(), 4);
+        let first = StreamSettings::default().subject(&[0x01; 32], "work.opened");
+        assert_eq!(
+            sent.first().map(|o| o.subject.as_str()),
+            Some(first.as_str())
+        );
+    }
+
+    #[tokio::test]
+    async fn t_21_run_waits_the_poll_interval_when_nothing_is_pending() {
+        let quick = PublisherConfig {
+            poll_interval: Duration::from_secs(60),
+            ..config()
+        };
+        let p = Publisher::new(MemOutbox::default(), MemBus::up(), quick).unwrap();
+        p.run(sleep(Duration::from_millis(30))).await;
+        assert_eq!(*p.outbox.discoveries.lock().unwrap(), [2]);
     }
 }

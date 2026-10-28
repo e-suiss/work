@@ -16,7 +16,7 @@ use work_dispatch::{
     BusError, DispatchError, JetStreamBus, PgOutbox, Published, Publisher, PublisherConfig,
     StreamSettings,
 };
-use work_store::{Cluster, LedgerId, LedgerTx, Pool};
+use work_store::{Cluster, LedgerId, LedgerTx, Pool, PublisherPool};
 use work_testkit::{Nats, Postgres};
 
 const PASSWORD: &str = "test-only-not-a-secret";
@@ -24,6 +24,8 @@ const LOGINS: &str = include_str!("../../../store/fixtures/publisher-logins.sql"
 const SEED: &str = include_str!("../../../store/fixtures/publisher-outbox.sql");
 const REDELIVER: &str = include_str!("../../../store/fixtures/publisher-redeliver.sql");
 const L: [u8; 32] = [0xab; 32];
+const M: [u8; 32] = [0xcd; 32];
+const OTHER_LEDGER: &str = include_str!("../../../store/fixtures/publisher-second-ledger.sql");
 const SOURCE: &str = "https://work.test";
 
 struct Env {
@@ -109,11 +111,22 @@ fn config() -> PublisherConfig {
     }
 }
 
-fn publisher(env: &Env, client: async_nats::Client) -> Publisher<PgOutbox, JetStreamBus> {
+async fn publisher(env: &Env, client: async_nats::Client) -> Publisher<PgOutbox, JetStreamBus> {
+    with_config(env, client, config()).await
+}
+
+async fn with_config(
+    env: &Env,
+    client: async_nats::Client,
+    config: PublisherConfig,
+) -> Publisher<PgOutbox, JetStreamBus> {
+    let pool = PublisherPool::new(env.pool("work_publisher"))
+        .await
+        .unwrap();
     Publisher::new(
-        PgOutbox::new(env.pool("work_publisher")),
+        PgOutbox::new(pool),
         JetStreamBus::new(client, Duration::from_secs(2)),
-        config(),
+        config,
     )
     .unwrap()
 }
@@ -129,7 +142,7 @@ async fn stream_messages(js: &jetstream::Context) -> u64 {
 async fn t_17_pointers_are_published_with_msg_id_and_removed_after_the_ack() {
     let env = Env::start().await;
     let nats = Nats::start().await.unwrap();
-    let p = publisher(&env, nats.connect().await.unwrap());
+    let p = publisher(&env, nats.connect().await.unwrap()).await;
     p.ensure_stream().await.unwrap();
     let ledger = LedgerId::from_bytes(L);
     let done = p.publish_ledger(&ledger).await.unwrap();
@@ -149,6 +162,8 @@ async fn t_17_pointers_are_published_with_msg_id_and_removed_after_the_ack() {
     assert_eq!(info.config.subjects, ["work.evt.*.*.>"]);
     assert_eq!(info.config.max_age, Duration::from_hours(7 * 24));
     assert_eq!(info.config.duplicate_window, Duration::from_mins(2));
+    assert_eq!(info.config.num_replicas, 1);
+    assert_eq!(info.config.storage, jetstream::stream::StorageType::File);
     let first = stream.get_raw_message(1).await.unwrap();
     assert_eq!(
         first.subject.as_str(),
@@ -178,7 +193,7 @@ async fn t_17_pointers_are_published_with_msg_id_and_removed_after_the_ack() {
 async fn t_76_a_redelivered_pointer_is_published_once_per_event_id() {
     let env = Env::start().await;
     let nats = Nats::start().await.unwrap();
-    let p = publisher(&env, nats.connect().await.unwrap());
+    let p = publisher(&env, nats.connect().await.unwrap()).await;
     p.ensure_stream().await.unwrap();
     let ledger = LedgerId::from_bytes(L);
     p.publish_ledger(&ledger).await.unwrap();
@@ -204,7 +219,7 @@ async fn t_76_a_redelivered_pointer_is_published_once_per_event_id() {
 async fn op_34_a_pointer_is_removed_only_after_its_ack() {
     let env = Env::start().await;
     let nats = Nats::start().await.unwrap();
-    let p = publisher(&env, nats.connect().await.unwrap());
+    let p = publisher(&env, nats.connect().await.unwrap()).await;
     p.ensure_stream().await.unwrap();
     let js = nats.jetstream().await.unwrap();
     let mut limited = js
@@ -237,7 +252,7 @@ async fn t_21_nats_outage_keeps_the_pointers_until_it_returns() {
         .connect("nats://127.0.0.1:1")
         .await
         .unwrap();
-    let p = publisher(&env, down);
+    let p = publisher(&env, down).await;
     let ledger = LedgerId::from_bytes(L);
     let err = p.publish_ledger(&ledger).await.unwrap_err();
     assert!(
@@ -249,8 +264,58 @@ async fn t_21_nats_outage_keeps_the_pointers_until_it_returns() {
     );
     assert_eq!(env.pending().await, ["evt-0", "evt-1", "evt-2", "evt-3"]);
     let nats = Nats::start().await.unwrap();
-    let p = publisher(&env, nats.connect().await.unwrap());
+    let p = publisher(&env, nats.connect().await.unwrap()).await;
     p.ensure_stream().await.unwrap();
     assert_eq!(p.publish_ledger(&ledger).await.unwrap().removed, 4);
     assert_eq!(env.pending().await, Vec::<String>::new());
+}
+
+// T-80 OP-34 T-17 T-21
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs Docker"]
+async fn t_80_run_discovers_the_ledgers_with_pending_pointers() {
+    let env = Env::start().await;
+    env.sql(OTHER_LEDGER).await;
+    let nats = Nats::start().await.unwrap();
+    let quick = PublisherConfig {
+        ledgers_per_poll: 1,
+        poll_interval: Duration::from_millis(50),
+        ..config()
+    };
+    let p = with_config(&env, nats.connect().await.unwrap(), quick).await;
+    assert_eq!(
+        p.discover().await.unwrap(),
+        [LedgerId::from_bytes(L)],
+        "ascending, bounded by the limit"
+    );
+    p.run(tokio::time::sleep(Duration::from_secs(3))).await;
+    assert_eq!(env.pending().await, Vec::<String>::new());
+    assert_eq!(p.discover().await.unwrap(), Vec::<LedgerId>::new());
+    let js = nats.jetstream().await.unwrap();
+    assert_eq!(stream_messages(&js).await, 5);
+    let stream = js.get_stream("WORK_EVENTS").await.unwrap();
+    let last = stream.get_raw_message(5).await.unwrap();
+    assert_eq!(
+        last.subject.as_str(),
+        StreamSettings::default().subject(&M, "work.opened")
+    );
+    let event: serde_json::Value = serde_json::from_slice(&last.payload).unwrap();
+    assert_eq!(event["ledger"], "cd".repeat(32));
+    assert_eq!(event["pos"], "0");
+    assert_eq!(
+        event["source"],
+        format!("{SOURCE}/ledgers/{}", "cd".repeat(32))
+    );
+}
+
+// T-80 T-79 T-13 OP-34
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs Docker"]
+async fn t_80_only_a_publisher_role_builds_the_publisher_pool() {
+    let env = Env::start().await;
+    assert!(matches!(
+        PublisherPool::new(env.pool("work_owner")).await,
+        Err(work_store::StoreError::Role)
+    ));
+    assert!(PublisherPool::new(env.pool("work_publisher")).await.is_ok());
 }

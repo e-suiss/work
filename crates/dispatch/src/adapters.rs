@@ -7,39 +7,43 @@ use std::pin::Pin;
 use std::time::Duration;
 
 use async_nats::jetstream::{self, message::PublishMessage, stream};
-use work_store::{LedgerId, LedgerTx, PendingEvent, PointerKey, Pool, StoreError};
+use work_store::{LedgerId, PendingEvent, PointerKey, PublisherPool, StoreError};
 
 use crate::domain::StreamSettings;
 use crate::ports::{Acked, Bus, BusError, Outbound, Outbox};
 
-/// The canonical store's outbox; the pool must log in as `work_publisher`.
+/// The canonical store's outbox over a pool logged in as `work_publisher`.
 #[derive(Debug, Clone)]
 pub struct PgOutbox {
-    pool: Pool,
+    pool: PublisherPool,
 }
 
 impl PgOutbox {
     /// Over `pool`.
     #[must_use]
-    pub const fn new(pool: Pool) -> Self {
+    pub const fn new(pool: PublisherPool) -> Self {
         Self { pool }
     }
 }
 
 impl Outbox for PgOutbox {
+    async fn ledgers(&self, limit: u32) -> Result<Vec<LedgerId>, StoreError> {
+        self.pool.outbox_ledgers(limit).await
+    }
+
     async fn pending(
         &self,
         ledger: &LedgerId,
         limit: u32,
     ) -> Result<Vec<PendingEvent>, StoreError> {
-        let mut tx = LedgerTx::begin(&self.pool, ledger).await?;
+        let mut tx = self.pool.begin(ledger).await?;
         let rows = tx.outbox_pending(limit).await?;
         tx.commit().await?;
         Ok(rows)
     }
 
     async fn remove(&self, ledger: &LedgerId, keys: &[PointerKey]) -> Result<u64, StoreError> {
-        let mut tx = LedgerTx::begin(&self.pool, ledger).await?;
+        let mut tx = self.pool.begin(ledger).await?;
         let n = tx.outbox_remove(keys).await?;
         tx.commit().await?;
         Ok(n)
@@ -81,6 +85,7 @@ impl Bus for JetStreamBus {
                 subjects: vec![settings.filter()],
                 retention: stream::RetentionPolicy::Limits,
                 storage: stream::StorageType::File,
+                num_replicas: settings.replicas,
                 max_age: settings.max_age,
                 duplicate_window: settings.duplicate_window,
                 ..Default::default()
