@@ -164,10 +164,7 @@ impl Postgres {
         let _copying = self.copying.lock().await;
         self.client(&["createdb", "--template", TEMPLATE, &name])
             .await?;
-        let url = format!(
-            "postgres://{SUPERUSER}:{PASSWORD}@{}:{}/{name}",
-            self.host, self.port
-        );
+        let url = self.superuser_url(&name);
         Ok(TestDatabase { name, url })
     }
 
@@ -181,6 +178,16 @@ impl Postgres {
             .exec(&["sh", "-c", "cat \"$PGDATA/PG_VERSION\""])
             .await?;
         Ok(out.trim().to_owned())
+    }
+
+    /// Connection URL for the superuser of the test container on `database`, for
+    /// bootstrap steps a database administrator runs (roles, databases).
+    #[must_use]
+    pub fn superuser_url(&self, database: &str) -> String {
+        format!(
+            "postgres://{SUPERUSER}:{PASSWORD}@{}:{}/{database}",
+            self.host, self.port
+        )
     }
 
     /// Host the server listens on, as seen from the test.

@@ -287,7 +287,8 @@ jobs:
         run: |
           c() { docker compose -f deploy/compose/compose.yaml "$@"; }
           c exec -T -e PGPASSWORD=local-only-not-a-secret postgres psql -h 127.0.0.1 -U work_app -d work -tAc 'select 1'
-          for pair in work_app:access work_app:relay access_app:work relay_app:work; do
+          c exec -T -e PGPASSWORD=local-only-not-a-secret postgres psql -h 127.0.0.1 -U work_app -d work_derived -tAc 'select 1'
+          for pair in work_app:access work_app:relay access_app:work relay_app:work access_app:work_derived relay_app:work_derived work_sequencer:work_derived work_deriver:work; do
             role="${pair%%:*}" db="${pair#*:}"
             if c exec -T -e PGPASSWORD=local-only-not-a-secret postgres psql -h 127.0.0.1 -U "$role" -d "$db" -tAc 'select 1'; then
               echo "$role reached the $db database" >&2
@@ -350,10 +351,32 @@ jobs:
             echo "HAVE_BASELINE=false" >> "$GITHUB_ENV"
           fi
           git checkout --quiet "$head"
-      - name: Kernel regression gate, fails above 5 % (T-44, T-60)
+      - name: Kernel regression gate, fails above 5 % unless a Bench-Accepted trailer accepts it (T-44, T-60, T-77)
+        env:
+          BENCH_BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
         run: |
-          if [[ "$HAVE_BASELINE" == true ]]; then
-            just bench-instructions --baseline=base --callgrind-limits='ir=5%'
-          else
+          set -o pipefail
+          cargo xtask check bench-accepted
+          if [[ "$HAVE_BASELINE" != true ]]; then
             just bench-instructions
+            exit 0
           fi
+          if just bench-instructions --baseline=base --callgrind-limits='ir=5%'; then
+            exit 0
+          fi
+          accepted="$(cargo xtask bench-accepted)"
+          if [[ -z "$accepted" ]]; then
+            exit 1
+          fi
+          just bench-instructions --baseline=base | tee bench-accepted.txt
+          {
+            echo "### Accepted instruction-count regression (T-77)"
+            echo
+            echo '```'
+            echo "$accepted"
+            echo '```'
+            echo
+            echo '```'
+            cat bench-accepted.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

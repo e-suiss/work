@@ -1,12 +1,16 @@
 # T-38, T-60
 anyhow
+aws-lc-rs
+aws-lc-sys
 bincode-next
 bollard-buildkit-proto
 camino
+crossbeam-utils
 defmt
 defmt-macros
 figment
 fs-err
+generic-array
 getrandom
 gungraun
 gungraun-common
@@ -17,7 +21,9 @@ icu_normalizer_data
 icu_properties_data
 indexmap
 libc
+libsqlite3-sys
 num-traits
+parking_lot_core
 portable-atomic
 portable-atomic-util
 proc-macro2

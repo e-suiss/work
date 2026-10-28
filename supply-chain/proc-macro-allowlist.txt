@@ -20,6 +20,7 @@ rustversion
 serde_derive
 serde_repr
 serde_with_macros
+sqlx-macros
 structmeta-derive
 thiserror-impl
 time-macros

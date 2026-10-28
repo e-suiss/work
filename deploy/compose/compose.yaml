@@ -22,8 +22,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: local-only-not-a-secret
       POSTGRES_INITDB_ARGS: --auth=scram-sha-256 --data-checksums
-      WORK_OWNER_PASSWORD: local-only-not-a-secret
-      WORK_APP_PASSWORD: local-only-not-a-secret
+      WORK_DB_PASSWORD: local-only-not-a-secret
       ACCESS_OWNER_PASSWORD: local-only-not-a-secret
       ACCESS_APP_PASSWORD: local-only-not-a-secret
       RELAY_OWNER_PASSWORD: local-only-not-a-secret
@@ -31,6 +30,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql
       - ./postgres/initdb:/docker-entrypoint-initdb.d:ro
+      - ../../crates/store/bootstrap:/work-bootstrap:ro
     ports:
       - "127.0.0.1:${WORK_DEV_PG_PORT:-5442}:5432"
     healthcheck:

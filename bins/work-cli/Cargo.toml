@@ -8,5 +8,10 @@ license.workspace = true
 repository.workspace = true
 publish = false
 
+# T-36 OP-28
+[dependencies]
+tokio = { workspace = true, features = ["rt"] }
+work-store = { workspace = true }
+
 [lints]
 workspace = true

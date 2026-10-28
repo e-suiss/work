@@ -8,5 +8,14 @@ license.workspace = true
 repository.workspace = true
 publish = false
 
+# T-36
+[dependencies]
+sqlx = { workspace = true, features = ["postgres", "runtime-tokio", "tls-rustls-aws-lc-rs", "macros", "migrate"] }
+thiserror = { workspace = true, features = ["std"] }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+work-testkit = { workspace = true }
+
 [lints]
 workspace = true

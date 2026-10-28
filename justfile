@@ -141,7 +141,7 @@ spec-counterparts *args:
 # T-41, T-51, T-56, T-57
 dev:
     {{compose}} up --detach --build --wait
-    @echo "PostgreSQL     postgres://work_app@127.0.0.1:${WORK_DEV_PG_PORT:-5442}/work"
+    @echo "PostgreSQL     postgres://work_app@127.0.0.1:${WORK_DEV_PG_PORT:-5442}/work and /work_derived  (migrate: just dev-migrate)"
     @echo "NATS           nats://work@127.0.0.1:${WORK_DEV_NATS_PORT:-4232}  (monitor http://127.0.0.1:${WORK_DEV_NATS_MONITOR_PORT:-8232})"
     @echo "SoftHSM        PKCS#11 token 'work-dev': just dev-hsm --show-slots"
     @echo "Grafana        http://127.0.0.1:${WORK_DEV_GRAFANA_PORT:-3310}  (user admin, password local-only-not-a-secret)"
@@ -159,11 +159,19 @@ dev-status:
 dev-hsm *args:
     {{compose}} exec softhsm softhsm2-util {{args}}
 
+# T-36, OP-28: migrations are a separate step, never part of node start-up
+dev-migrate:
+    for c in canonical derived; do \
+      PGHOST=127.0.0.1 PGPORT="${WORK_DEV_PG_PORT:-5442}" PGUSER=work_owner PGPASSWORD={{dev_db_password}} \
+        cargo run --locked -q -p work-cli -- migrate "$c"; \
+    done
+
 # T-41
 db-reset:
     {{compose}} rm --stop --force relay relay-migrate access postgres
     docker volume rm --force work-dev_pgdata
     just dev
+    just dev-migrate
     just db-seed
 
 db-seed:

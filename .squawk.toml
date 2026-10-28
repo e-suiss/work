@@ -1,0 +1,3 @@
+# T-36 T-52
+assume_in_transaction = true
+pg_version = "18.0"

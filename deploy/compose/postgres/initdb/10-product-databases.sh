@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# T-51, T-8, T-36, OP-12
+# T-51, T-8, T-36, OP-2, OP-12
 set -euo pipefail
 
 create_product() {
@@ -32,6 +32,21 @@ ALTER DEFAULT PRIVILEGES FOR ROLE :"owner" GRANT EXECUTE ON FUNCTIONS TO :"app";
 SQL
 }
 
-create_product work "$WORK_OWNER_PASSWORD" "$WORK_APP_PASSWORD"
+create_work() {
+    local bootstrap=/work-bootstrap
+    psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname postgres -f "$bootstrap/roles.sql"
+    for role in work_owner work_app work_sequencer work_checkpointer work_publisher work_erasure \
+        work_archive work_deriver work_reconciler; do
+        psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname postgres \
+            -v role="$role" -v password="$WORK_DB_PASSWORD" <<'SQL'
+ALTER ROLE :"role" LOGIN PASSWORD :'password';
+SQL
+    done
+    psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname postgres -f "$bootstrap/databases.sql"
+    psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname work -f "$bootstrap/canonical.sql"
+    psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname work_derived -f "$bootstrap/derived.sql"
+}
+
+create_work
 create_product access "$ACCESS_OWNER_PASSWORD" "$ACCESS_APP_PASSWORD"
 create_product relay "$RELAY_OWNER_PASSWORD" "$RELAY_APP_PASSWORD"
