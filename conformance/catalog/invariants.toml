@@ -2001,7 +2001,11 @@ family = "T"
 status = "canonical-invariant"
 stage = 2
 title = ""
-tests = []
+tests = [
+  "crates/dispatch/src/app.rs::t_21_bus_outage_keeps_every_pointer",
+  "crates/dispatch/src/app.rs::t_21_run_polls_until_shutdown",
+  "crates/dispatch/src/domain.rs::t_21_backoff_doubles_up_to_the_maximum_and_resets",
+]
 
 [[rule]]
 id = "T-25"

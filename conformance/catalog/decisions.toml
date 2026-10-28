@@ -3084,7 +3084,10 @@ status = "frozen-protocol"
 stage = 3
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/dispatch/src/domain.rs::p_35_out_of_range_time_is_an_error",
+  "crates/dispatch/src/domain.rs::p_35_time_is_rfc3339_utc_milliseconds",
+]
 
 [[rule]]
 id = "P-36"
@@ -3143,7 +3146,9 @@ family = "P"
 status = "frozen-technical"
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/dispatch/src/domain.rs::p_42_event_carries_the_pointer_traceparent",
+]
 
 [[rule]]
 id = "P-45"
@@ -3222,7 +3227,10 @@ stage = 3
 acceptance = "to-fill"
 pd = "set"
 title = ""
-tests = []
+tests = [
+  "crates/store/src/idempotency.rs::p_97_a_key_that_is_not_a_uuidv7_does_not_parse",
+  "crates/store/src/idempotency.rs::p_97_a_uuidv7_key_parses_round_trips_and_carries_its_time",
+]
 
 [[rule]]
 id = "P-55"
@@ -3691,7 +3699,23 @@ family = "P"
 status = "frozen-protocol"
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/store/src/idempotency.rs::op_38_admission_follows_the_hot_window_and_the_clock_uncertainty",
+  "crates/store/src/idempotency.rs::p_97_key_rejections_carry_their_reason_codes",
+]
+
+[[rule]]
+id = "P-97"
+family = "P"
+status = "frozen-protocol"
+acceptance = "to-fill"
+title = ""
+tests = [
+  "crates/store/src/idempotency.rs::op_38_admission_follows_the_hot_window_and_the_clock_uncertainty",
+  "crates/store/src/idempotency.rs::p_97_a_key_that_is_not_a_uuidv7_does_not_parse",
+  "crates/store/src/idempotency.rs::p_97_a_uuidv7_key_parses_round_trips_and_carries_its_time",
+  "crates/store/src/idempotency.rs::p_97_key_rejections_carry_their_reason_codes",
+]
 
 [[rule]]
 id = "PR-2"
@@ -3903,7 +3927,10 @@ status = "frozen-technical"
 stage = 2
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/dispatch/src/app.rs::t_17_pointers_publish_in_order_with_the_event_id_as_msg_id",
+  "crates/dispatch/src/domain.rs::t_17_event_is_derived_deterministically_from_the_committed_row",
+]
 
 [[rule]]
 id = "T-19"
@@ -4020,6 +4047,8 @@ title = "Component layers and ports; clock and randomness only through ports"
 tests = [
   "bins/work-server/src/config.rs::t_32_invalid_configuration_stops_the_process",
   "bins/work-server/src/config.rs::t_32_unknown_keys_such_as_a_dev_mode_are_rejected",
+  "crates/dispatch/src/app.rs::t_32_publisher_refuses_an_invalid_configuration",
+  "crates/dispatch/src/domain.rs::t_32_invalid_publisher_settings_are_rejected",
   "xtask/src/policy.rs::t_32_component_crate_without_layers_is_reported",
   "xtask/src/rules.rs::t_32_clippy_disallows_direct_clock_and_rng",
   "xtask/src/rules_clippy.rs::t_32_disallowed_lint_suppressed_outside_adapters_is_rejected",
@@ -4667,7 +4696,12 @@ stage = 2
 acceptance = "to-fill"
 pd = "set"
 title = ""
-tests = []
+tests = [
+  "crates/dispatch/src/app.rs::t_76_a_duplicate_ack_still_removes_the_pointer",
+  "crates/dispatch/src/domain.rs::t_76_defaults_are_the_policy_defaults",
+  "crates/dispatch/src/domain.rs::t_76_partition_is_a_stable_hash_of_the_ledger_mod_p",
+  "crates/dispatch/src/domain.rs::t_76_subject_carries_only_partition_ledger_and_type",
+]
 
 [[rule]]
 id = "T-77"
@@ -4725,7 +4759,10 @@ status = "frozen-technical"
 stage = 2
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/store/src/idempotency.rs::op_8_a_caller_reference_is_bounded_and_not_printed",
+  "crates/store/src/idempotency.rs::op_8_a_stored_row_maps_to_one_outcome_or_is_corrupt",
+]
 
 [[rule]]
 id = "OP-10"
@@ -4744,7 +4781,10 @@ stage = 2
 acceptance = "to-fill"
 pd = "set"
 title = ""
-tests = []
+tests = [
+  "crates/store/src/erasure.rs::op_14_the_erasure_scope_list_matches_the_migration_tags",
+  "crates/store/src/idempotency.rs::op_8_a_caller_reference_is_bounded_and_not_printed",
+]
 
 [[rule]]
 id = "OP-18"
@@ -4865,7 +4905,9 @@ status = "frozen-technical"
 acceptance = "to-fill"
 pd = "set"
 title = ""
-tests = []
+tests = [
+  "crates/store/src/idempotency.rs::op_38_admission_follows_the_hot_window_and_the_clock_uncertainty",
+]
 
 [[rule]]
 id = "OP-33"
@@ -4884,7 +4926,9 @@ stage = 2
 acceptance = "to-fill"
 pd = "set"
 title = ""
-tests = []
+tests = [
+  "crates/dispatch/src/app.rs::op_34_only_acknowledged_pointers_are_removed",
+]
 
 [[rule]]
 id = "OP-35"
@@ -4901,7 +4945,9 @@ status = "frozen-technical"
 acceptance = "to-fill"
 pd = "set"
 title = ""
-tests = []
+tests = [
+  "crates/store/src/idempotency.rs::op_38_admission_follows_the_hot_window_and_the_clock_uncertainty",
+]
 
 [[rule]]
 id = "OP-37"
@@ -4911,3 +4957,13 @@ acceptance = "to-fill"
 pd = "set"
 title = ""
 tests = []
+
+[[rule]]
+id = "OP-38"
+family = "OP"
+status = "frozen-technical"
+acceptance = "to-fill"
+title = ""
+tests = [
+  "crates/store/src/idempotency.rs::op_38_admission_follows_the_hot_window_and_the_clock_uncertainty",
+]
