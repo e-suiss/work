@@ -6,7 +6,7 @@ use tracing::Metadata;
 use tracing_subscriber::layer::{Context, Layer};
 
 /// Field-name words that name record content, secrets, credentials or payment data.
-const CONTENT_WORDS: &[&str] = &[
+pub const CONTENT_WORDS: &[&str] = &[
     "body",
     "bodies",
     "payload",
@@ -38,10 +38,11 @@ const CONTENT_WORDS: &[&str] = &[
 ];
 
 /// Adjacent field-name words that together name a secret.
-const CONTENT_PAIRS: &[(&str, &str)] = &[("api", "key"), ("private", "key"), ("signing", "key")];
+pub const CONTENT_PAIRS: &[(&str, &str)] =
+    &[("api", "key"), ("private", "key"), ("signing", "key")];
 
 /// The OpenTelemetry `GenAI` semantic-convention namespace, unstable upstream (P-43 rule 3).
-const GENAI_PREFIX: &str = "gen_ai";
+pub const GENAI_PREFIX: &str = "gen_ai";
 
 /// Why a field name may not be recorded.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

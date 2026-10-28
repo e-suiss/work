@@ -12,6 +12,18 @@ publish = false
 tracing = { workspace = true, features = ["std"] }
 tracing-subscriber = { workspace = true, features = ["std", "fmt", "env-filter", "ansi"] }
 serde_json = { workspace = true, features = ["std"] }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["rt"] }
+opentelemetry = { workspace = true, features = ["trace"] }
+opentelemetry_sdk = { workspace = true, features = ["trace"] }
+opentelemetry-otlp = { workspace = true, features = ["trace", "grpc-tonic"] }
+tracing-opentelemetry = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt", "rt-multi-thread"] }
+regex = { workspace = true, features = ["std", "unicode"] }
+toml = { workspace = true, features = ["std", "parse", "serde"] }
+serde = { workspace = true, features = ["std", "derive"] }
 
 [lints]
 workspace = true

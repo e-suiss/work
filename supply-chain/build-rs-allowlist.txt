@@ -39,6 +39,7 @@ serde_core
 serde_json
 thiserror
 uncased
+valuable
 wasm-bindgen
 wasm-bindgen-shared
 winapi
@@ -52,4 +53,6 @@ windows_i686_msvc
 windows_x86_64_gnu
 windows_x86_64_gnullvm
 windows_x86_64_msvc
+wit-bindgen
+zerocopy
 zmij

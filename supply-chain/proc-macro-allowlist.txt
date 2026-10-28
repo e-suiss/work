@@ -32,5 +32,6 @@ wasm-bindgen-macro
 windows-implement
 windows-interface
 yoke-derive
+zerocopy-derive
 zerofrom-derive
 zerovec-derive
