@@ -105,3 +105,26 @@ rules:
           - pattern-regex: '(?i)\b(?:trace|debug|info|warn|error|event|span|trace_span|debug_span|info_span|warn_span|error_span)!\s*\((?:[^;]*?,)?\s*[?%]?\s*(?:[a-z_][a-z0-9_]*\.)*(?:[a-z0-9]+_)*(?:body|bodies|payload|payloads|content|contents|plaintext|ciphertext|secret|secrets|password|passwords|passwd|passphrase|token|tokens|cookie|cookies|credential|credentials|apikey|privatekey|otp|card|pan|cvv|cvc|iban|api_key|private_key|signing_key)(?:_[a-z0-9]+)*\s*(?:=|,|\))'
           - pattern-regex: '(?i)\b(?:trace|debug|info|warn|error|event|span|trace_span|debug_span|info_span|warn_span|error_span)!\s*\((?:[^;]*?,)?\s*[?%]?\s*gen_ai\.'
           - pattern-regex: '(?i)\b(?:trace|debug|info|warn|error|event)!\s*\([^;]*?"[^"]*\{(?:[a-z0-9]+_)*(?:body|bodies|payload|payloads|content|contents|plaintext|ciphertext|secret|secrets|password|passwords|passwd|passphrase|token|tokens|cookie|cookies|credential|credentials|apikey|privatekey|otp|card|pan|cvv|cvc|iban|api_key|private_key|signing_key)(?:_[a-z0-9]+)*(?::[^}]*)?\}'
+
+  - id: event-carrier-not-nats
+    # T-18, T-21, Access OP-19
+    message: >-
+      PostgreSQL LISTEN/NOTIFY or Redis pub/sub used as an event carrier (T-18). Events
+      leave through the outbox to NATS JetStream; a consumer that misses them reads
+      committed state (T-21).
+    severity: ERROR
+    languages: [rust]
+    paths:
+      exclude:
+        - "**/tests/**"
+        - "**/tests.rs"
+    patterns:
+      - pattern-not-inside: |
+          mod tests { ... }
+      - pattern-either:
+          - pattern-regex: '(?i)\bpg_notify\s*\('
+          - pattern-regex: '(?i)"\s*(?:LISTEN|UNLISTEN|NOTIFY)\s+(?:\*|"?[a-z_][a-z0-9_$]*"?)\s*[,;"]'
+          - pattern-regex: '\bPg(?:Listener|Notification)\b'
+          - pattern-regex: '\b(?:redis|fred|deadpool_redis|bb8_redis)::[A-Za-z0-9_:]*(?i:pubsub|subscribe|publish)'
+          - pattern-regex: '\.(?:get_async_pubsub|get_pubsub|into_pubsub|as_pubsub|into_monitor)\s*\('
+          - pattern-regex: '(?i)\bcmd\s*\(\s*"(?:s|p)?(?:subscribe|publish|unsubscribe|punsubscribe)"'

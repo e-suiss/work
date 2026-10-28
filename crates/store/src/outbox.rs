@@ -2,7 +2,8 @@
 //! carries only its identity; the publisher reads the pending rows of one ledger in `(pos,
 //! event_id)` order, builds the event from the committed record, and after the JetStream ack
 //! removes the row as `work_publisher`, the only role with `DELETE` on `ledger.outbox` (OP-12
-//! rule 6). Every statement runs in a [`LedgerTx`].
+//! rule 6). While NATS is unreachable a consumer scans the pending rows and the log from a
+//! `(ledger, pos)` cursor instead (T-21). Every statement runs in a [`LedgerTx`].
 
 use crate::{LedgerTx, StoreError};
 
@@ -77,17 +78,38 @@ impl LedgerTx<'_> {
     /// # Errors
     /// [`StoreError::Db`], or [`StoreError::Corrupt`] for an out-of-range row.
     pub async fn outbox_pending(&mut self, limit: u32) -> Result<Vec<PendingEvent>, StoreError> {
+        self.outbox_pending_after(None, limit).await
+    }
+
+    /// Up to `limit` pending outbox rows of the scoped ledger whose key follows `after` (all
+    /// rows for `None`), in `(pos, event_id)` order: the cursor scan a consumer falls back to
+    /// while NATS is unreachable (§17 T-21, §18 OP-34 rule 2).
+    ///
+    /// # Errors
+    /// [`StoreError::Db`], also when the role may not read the outbox, or
+    /// [`StoreError::Corrupt`] for an out-of-range row or position.
+    pub async fn outbox_pending_after(
+        &mut self,
+        after: Option<&PointerKey>,
+        limit: u32,
+    ) -> Result<Vec<PendingEvent>, StoreError> {
         let ledger = *self.ledger().as_bytes();
+        let (after_pos, after_id) = match after {
+            Some(k) => (pos_param(k.pos)?, k.event_id.as_str()),
+            None => (-1, ""),
+        };
         let rows: Vec<PendingRow> = sqlx::query_as(
             "SELECT o.pos, o.event_id::text, o.event_type::text, o.traceparent::text, \
              l.record_id::bytea, (extract(epoch FROM l.recorded_at) * 1000)::bigint \
              FROM ledger.outbox o \
              JOIN ledger.log l ON l.ledger_id = o.ledger_id AND l.pos = o.pos \
-             WHERE o.ledger_id = $1 \
+             WHERE o.ledger_id = $1 AND (o.pos, o.event_id) > ($2::bigint, $3::text) \
              ORDER BY o.pos, o.event_id \
-             LIMIT $2",
+             LIMIT $4",
         )
         .bind(ledger.as_slice())
+        .bind(after_pos)
+        .bind(after_id)
         .bind(i64::from(limit))
         .fetch_all(self.conn())
         .await?;
@@ -139,6 +161,47 @@ impl LedgerTx<'_> {
             },
         )
         .transpose()
+    }
+
+    /// Up to `limit` committed log rows of the scoped ledger with a position above `after` (from
+    /// position 0 for `None`), in position order: the full scan from the `(ledger, pos)` cursor
+    /// (§17 T-17, T-21).
+    ///
+    /// # Errors
+    /// [`StoreError::Db`], also when the role may not read the log, or [`StoreError::Corrupt`]
+    /// for an out-of-range row or position.
+    pub async fn log_after(
+        &mut self,
+        after: Option<u64>,
+        limit: u32,
+    ) -> Result<Vec<CommittedRecord>, StoreError> {
+        let ledger = *self.ledger().as_bytes();
+        let after_pos = after.map_or(Ok(-1), pos_param)?;
+        let rows: Vec<RecordRow> = sqlx::query_as(
+            "SELECT pos, record_id::bytea, (extract(epoch FROM recorded_at) * 1000)::bigint, \
+             record_bytes, envelope_bytes \
+             FROM ledger.log WHERE ledger_id = $1 AND pos > $2 \
+             ORDER BY pos \
+             LIMIT $3",
+        )
+        .bind(ledger.as_slice())
+        .bind(after_pos)
+        .bind(i64::from(limit))
+        .fetch_all(self.conn())
+        .await?;
+        rows.into_iter()
+            .map(
+                |(pos, record_id, recorded_at_ms, record_bytes, envelope_bytes)| {
+                    Ok(CommittedRecord {
+                        pos: pos_of(pos)?,
+                        record_id: digest_of(&record_id)?,
+                        recorded_at_ms,
+                        record_bytes,
+                        envelope_bytes,
+                    })
+                },
+            )
+            .collect()
     }
 
     /// Removes the acknowledged rows `keys` of the scoped ledger (OP-34 rule 2) and returns how

@@ -1,12 +1,15 @@
-//! Ports of the publisher (T-32 rule 2): `Outbox`, the ledgers with pending pointers, the pending
-//! pointers of one ledger and their removal after the ack (§18 OP-34), and `Bus`, the NATS
-//! JetStream signal (T-17, T-21, T-76).
+//! Ports of the publisher and the consumer (T-32 rule 2): `Outbox`, the ledgers with pending
+//! pointers, the pending pointers of one ledger and their removal after the ack (§18 OP-34);
+//! `Bus`, the NATS JetStream signal (T-17, T-21, T-76); `Pull`, the per-partition durable pull
+//! consumers (T-76 rule 6); `Handler`, what a consumer hands each event to; and `Committed`, the
+//! cursor scans of committed state a consumer falls back to while NATS is unreachable (T-21).
 
 use std::future::Future;
+use std::time::Duration;
 
-use work_store::{LedgerId, PendingEvent, PointerKey, StoreError};
+use work_store::{CommittedRecord, LedgerId, PendingEvent, PointerKey, StoreError};
 
-use crate::domain::StreamSettings;
+use crate::domain::{Event, StreamSettings};
 
 /// The outbox of the canonical store.
 pub trait Outbox: Send + Sync {
@@ -73,4 +76,100 @@ pub trait Bus: Send + Sync {
 
     /// Sends `event`; the returned future resolves with the JetStream ack.
     fn publish(&self, event: Outbound) -> impl Future<Output = Result<Self::Ack, BusError>> + Send;
+}
+
+/// One durable pull consumer of one partition (T-76 rule 6).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PullSpec {
+    /// Stream name.
+    pub stream: String,
+    /// Durable consumer name, `<group>-p<p>`.
+    pub durable: String,
+    /// The partition's subject filter.
+    pub filter: String,
+    /// Unacknowledged messages the consumer may hold.
+    pub max_in_flight: usize,
+    /// How long JetStream waits for an ack before redelivering.
+    pub ack_wait: Duration,
+}
+
+/// A pulled message and the token that settles it.
+#[derive(Debug)]
+pub struct Inbound<T> {
+    /// Structured-mode CloudEvents JSON.
+    pub payload: Vec<u8>,
+    /// Settles this delivery through [`Pull::settle`].
+    pub token: T,
+}
+
+/// How a delivery is settled.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Settle {
+    /// Handled, or a repeat of a handled event.
+    Ack,
+    /// Not handled now; JetStream redelivers it.
+    Retry,
+    /// Not a Work event; never redelivered.
+    Reject,
+}
+
+/// Per-partition durable pull consumers over the T-76 stream.
+pub trait Pull: Send + Sync {
+    /// Settles one delivery.
+    type Token: Send;
+
+    /// Creates the durable consumer or brings its configuration to `spec`.
+    fn ensure_consumer(&self, spec: &PullSpec)
+    -> impl Future<Output = Result<(), BusError>> + Send;
+
+    /// Up to `max` messages of `spec`'s consumer, waiting at most `wait` for them.
+    fn fetch(
+        &self,
+        spec: &PullSpec,
+        max: usize,
+        wait: Duration,
+    ) -> impl Future<Output = Result<Vec<Inbound<Self::Token>>, BusError>> + Send;
+
+    /// Settles a delivery.
+    fn settle(
+        &self,
+        token: Self::Token,
+        how: Settle,
+    ) -> impl Future<Output = Result<(), BusError>> + Send;
+}
+
+/// The handler did not take an event now; it is offered again (T-18: the receiver re-reads
+/// state when in doubt).
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[error("handler: {0}")]
+pub struct HandlerError(pub String);
+
+/// What a consumer hands each event to. It may see an event more than once and in any order
+/// (T-18); its result never depends on either.
+pub trait Handler: Send + Sync {
+    /// Takes `event`.
+    fn handle(&self, event: &Event) -> impl Future<Output = Result<(), HandlerError>> + Send;
+}
+
+/// Committed state, read while NATS is unreachable (T-21, §18 OP-34 rule 2).
+pub trait Committed: Send + Sync {
+    /// Up to `limit` ledgers with pending pointers, in ascending byte order.
+    fn ledgers(&self, limit: u32)
+    -> impl Future<Output = Result<Vec<LedgerId>, StoreError>> + Send;
+
+    /// Up to `limit` pending pointers of `ledger` after `after`, in `(pos, event_id)` order.
+    fn pending_after(
+        &self,
+        ledger: &LedgerId,
+        after: Option<&PointerKey>,
+        limit: u32,
+    ) -> impl Future<Output = Result<Vec<PendingEvent>, StoreError>> + Send;
+
+    /// Up to `limit` committed log rows of `ledger` above the cursor position `after`.
+    fn log_after(
+        &self,
+        ledger: &LedgerId,
+        after: Option<u64>,
+        limit: u32,
+    ) -> impl Future<Output = Result<Vec<CommittedRecord>, StoreError>> + Send;
 }

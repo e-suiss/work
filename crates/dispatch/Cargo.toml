@@ -12,6 +12,7 @@ publish = false
 [dependencies]
 work-store = { workspace = true }
 async-nats = { workspace = true, features = ["jetstream"] }
+futures-util = { workspace = true }
 serde_json = { workspace = true, features = ["std"] }
 thiserror = { workspace = true, features = ["std"] }
 tokio = { workspace = true, features = ["macros", "rt", "time"] }

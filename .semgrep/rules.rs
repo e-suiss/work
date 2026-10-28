@@ -120,3 +120,26 @@ fn telemetry(record: &Record, body: &[u8], token: &Token) {
     // ok: telemetry-content-field
     debug!(tokenizer_width = 4, panel = "left", "configured");
 }
+
+async fn carriers(conn: &mut Conn, pool: &Pool, client: &redis::Client) {
+    // ruleid: event-carrier-not-nats
+    conn.execute("SELECT pg_notify('work_events', $1)");
+    // ruleid: event-carrier-not-nats
+    conn.execute("NOTIFY work_events, 'opened'");
+    // ruleid: event-carrier-not-nats
+    conn.execute("LISTEN work_events");
+    // ruleid: event-carrier-not-nats
+    let listener = PgListener::connect_with(pool).await;
+    // ruleid: event-carrier-not-nats
+    let pubsub = client.get_async_pubsub().await;
+    // ruleid: event-carrier-not-nats
+    redis::cmd("PUBLISH").arg("work_events").arg("opened");
+    // ruleid: event-carrier-not-nats
+    let msg: redis::PubSub = conn.as_pubsub();
+    // ok: event-carrier-not-nats
+    js.publish("work.evt.07.ab.work.opened", payload).await;
+    // ok: event-carrier-not-nats
+    let bind = "listen on 0.0.0.0:8080";
+    // ok: event-carrier-not-nats
+    conn.execute("SELECT notify_at FROM derived.timer_v1");
+}

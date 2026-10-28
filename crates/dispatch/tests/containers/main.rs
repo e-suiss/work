@@ -1,6 +1,6 @@
-//! The outbox publisher against real PostgreSQL 18 and NATS JetStream (T-17, T-21, T-76,
-//! §18 OP-34; T-36 rule 7, T-37 rule 9). These tests need Docker; `just test-containers` runs
-//! them.
+//! The outbox publisher and the event consumer against real PostgreSQL 18 and NATS JetStream
+//! (T-17, T-18, T-21, T-76, §18 OP-25, OP-34; T-36 rule 7, T-37 rule 9). These tests need
+//! Docker; `just test-containers` runs them.
 
 #![allow(
     clippy::unwrap_used,
@@ -9,14 +9,18 @@
     reason = "test code"
 )]
 
+use std::future::Future;
+use std::sync::Mutex;
 use std::time::Duration;
 
 use async_nats::jetstream::{self, stream::DiscardPolicy};
+use futures_util::StreamExt;
 use work_dispatch::{
-    BusError, DispatchError, JetStreamBus, PgOutbox, Published, Publisher, PublisherConfig,
+    BusError, Committed, Consumer, ConsumerConfig, DispatchError, Event, Handler, HandlerError,
+    Health, JetStreamBus, JetStreamPull, PgOutbox, Published, Publisher, PublisherConfig,
     StreamSettings,
 };
-use work_store::{Cluster, LedgerId, LedgerTx, Pool, PublisherPool};
+use work_store::{Cluster, LedgerId, LedgerTx, PointerKey, Pool, PublisherPool};
 use work_testkit::{Nats, Postgres};
 
 const PASSWORD: &str = "test-only-not-a-secret";
@@ -318,4 +322,200 @@ async fn t_80_only_a_publisher_role_builds_the_publisher_pool() {
         Err(work_store::StoreError::Role)
     ));
     assert!(PublisherPool::new(env.pool("work_publisher")).await.is_ok());
+}
+
+#[derive(Default)]
+struct Recorder(Mutex<Vec<Event>>);
+
+impl Recorder {
+    fn ids(&self) -> Vec<String> {
+        self.0
+            .lock()
+            .unwrap()
+            .iter()
+            .map(|e| e.id.clone())
+            .collect()
+    }
+}
+
+impl Handler for Recorder {
+    fn handle(&self, event: &Event) -> impl Future<Output = Result<(), HandlerError>> + Send {
+        self.0.lock().unwrap().push(event.clone());
+        std::future::ready(Ok(()))
+    }
+}
+
+fn consumer_config() -> ConsumerConfig {
+    let stream = StreamSettings::default();
+    ConsumerConfig {
+        group: "derive".to_owned(),
+        partitions: vec![work_dispatch::domain::partition(&L, stream.partitions)],
+        stream,
+        batch_size: 3,
+        max_in_flight: 8,
+        fetch_wait: Duration::from_millis(500),
+        ack_wait: Duration::from_secs(30),
+        call_timeout: Duration::from_secs(2),
+        fallback_interval: Duration::from_millis(100),
+        ledgers_per_scan: 16,
+        seen_capacity: 1024,
+    }
+}
+
+async fn outbox(env: &Env) -> PgOutbox {
+    PgOutbox::new(
+        PublisherPool::new(env.pool("work_publisher"))
+            .await
+            .unwrap(),
+    )
+}
+
+// T-21 OP-34 T-17
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs Docker"]
+async fn t_21_committed_state_is_read_from_a_ledger_pos_cursor() {
+    let env = Env::start().await;
+    let o = outbox(&env).await;
+    let ledger = LedgerId::from_bytes(L);
+    let ids = |rows: Vec<work_store::PendingEvent>| -> Vec<String> {
+        rows.into_iter().map(|r| r.key.event_id).collect()
+    };
+    let first = o.pending_after(&ledger, None, 2).await.unwrap();
+    let last = first.last().map(|r| r.key.clone()).unwrap();
+    assert_eq!(ids(first), ["evt-0", "evt-1"]);
+    let rest = o.pending_after(&ledger, Some(&last), 10).await.unwrap();
+    assert_eq!(rest.first().map(|r| r.record_id), Some([0x02; 32]));
+    assert_eq!(ids(rest), ["evt-2", "evt-3"]);
+    let end = PointerKey {
+        pos: 2,
+        event_id: "evt-3".to_owned(),
+    };
+    assert_eq!(
+        ids(o.pending_after(&ledger, Some(&end), 10).await.unwrap()),
+        Vec::<String>::new()
+    );
+    let log: Vec<u64> = o
+        .log_after(&ledger, None, 2)
+        .await
+        .unwrap()
+        .iter()
+        .map(|r| r.pos)
+        .collect();
+    assert_eq!(log, [0, 1]);
+    let tail = o.log_after(&ledger, Some(1), 10).await.unwrap();
+    assert_eq!(tail.iter().map(|r| r.pos).collect::<Vec<_>>(), [2]);
+    assert_eq!(
+        tail.first().map(|r| r.recorded_at_ms),
+        Some(1_792_749_602_500)
+    );
+    assert_eq!(o.log_after(&ledger, Some(2), 10).await.unwrap().len(), 0);
+    let other = LedgerId::from_bytes(M);
+    assert_eq!(o.log_after(&other, None, 10).await.unwrap().len(), 0);
+}
+
+// T-76 OP-25 T-18
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs Docker"]
+async fn t_76_per_partition_durable_consumers_take_each_event_once() {
+    let env = Env::start().await;
+    let nats = Nats::start().await.unwrap();
+    let p = publisher(&env, nats.connect().await.unwrap()).await;
+    p.ensure_stream().await.unwrap();
+    p.publish_ledger(&LedgerId::from_bytes(L)).await.unwrap();
+    let config = consumer_config();
+    let part = *config.partitions.first().unwrap();
+    let mut c = Consumer::new(
+        JetStreamPull::new(nats.connect().await.unwrap(), Duration::from_secs(2)),
+        Recorder::default(),
+        config,
+    )
+    .unwrap();
+    assert_eq!(c.prepare().await, Health::Live);
+    let js = nats.jetstream().await.unwrap();
+    let mut stream = js.get_stream("WORK_EVENTS").await.unwrap();
+    let names: Vec<String> = stream.consumer_names().map(|n| n.unwrap()).collect().await;
+    assert_eq!(names, [c.config().durable(part)]);
+    let info = stream
+        .get_consumer::<jetstream::consumer::pull::Config>(&c.config().durable(part))
+        .await
+        .unwrap()
+        .info()
+        .await
+        .unwrap()
+        .config
+        .clone();
+    assert_eq!(
+        info.filter_subject,
+        c.config().stream.partition_filter(part)
+    );
+    assert_eq!(info.max_ack_pending, 8);
+    let first = c.poll(part).await.unwrap();
+    let second = c.poll(part).await.unwrap();
+    assert_eq!(first.handled + second.handled, 4);
+    assert_eq!(first.health, Health::Live);
+    assert_eq!(c.handler().ids(), ["evt-0", "evt-1", "evt-2", "evt-3"]);
+    let events = c.handler().0.lock().unwrap().clone();
+    assert!(events.iter().all(|e| e.ledger == L));
+    assert_eq!(
+        events.iter().map(|e| e.pos).collect::<Vec<_>>(),
+        [0, 0, 1, 2]
+    );
+    assert_eq!(c.poll(part).await.unwrap().handled, 0);
+    let pending = stream
+        .get_consumer::<jetstream::consumer::pull::Config>(&c.config().durable(part))
+        .await
+        .unwrap()
+        .info()
+        .await
+        .unwrap()
+        .num_ack_pending;
+    assert_eq!(pending, 0);
+    assert_eq!(stream.info().await.unwrap().state.consumer_count, 1);
+}
+
+// T-21 T-28 T-18 OP-34
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs Docker"]
+async fn t_21_consumer_falls_back_to_committed_state_while_nats_is_unreachable() {
+    let env = Env::start().await;
+    let down = async_nats::ConnectOptions::new()
+        .retry_on_initial_connect()
+        .connect("nats://127.0.0.1:1")
+        .await
+        .unwrap();
+    let o = outbox(&env).await;
+    let config = consumer_config();
+    let part = *config.partitions.first().unwrap();
+    let mut c = Consumer::new(
+        JetStreamPull::new(down, Duration::from_secs(2)),
+        Recorder::default(),
+        config,
+    )
+    .unwrap();
+    c.run(&o, tokio::time::sleep(Duration::from_secs(3))).await;
+    assert_eq!(c.health(), Health::Degraded);
+    assert_eq!(
+        c.handler().ids(),
+        ["evt-0", "evt-1", "evt-2", "evt-3"],
+        "repeats across scans drop by event id"
+    );
+    assert_eq!(env.pending().await, ["evt-0", "evt-1", "evt-2", "evt-3"]);
+    let nats = Nats::start().await.unwrap();
+    let p = publisher(&env, nats.connect().await.unwrap()).await;
+    p.ensure_stream().await.unwrap();
+    p.publish_ledger(&LedgerId::from_bytes(L)).await.unwrap();
+    let mut live = Consumer::new(
+        JetStreamPull::new(nats.connect().await.unwrap(), Duration::from_secs(2)),
+        Recorder::default(),
+        consumer_config(),
+    )
+    .unwrap();
+    assert_eq!(live.prepare().await, Health::Live);
+    let first = live.poll(part).await.unwrap();
+    let second = live.poll(part).await.unwrap();
+    assert_eq!(first.health, Health::Live);
+    assert_eq!(first.handled + second.handled, 4);
+    let from_log = c.handler().0.lock().unwrap().clone();
+    let from_nats = live.handler().0.lock().unwrap().clone();
+    assert_eq!(from_nats, from_log, "both paths carry the same events");
 }

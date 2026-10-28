@@ -3,6 +3,11 @@
 //! awaits the JetStream ack outside any transaction (T-32 rule 4), then removes the acknowledged
 //! pointers in a second transaction. Delivery is at least once and deduplicated by event id
 //! (T-76 rule 3); a NATS outage leaves the pointers in place and is retried with backoff (T-21).
+//! The [`Consumer`] pulls bounded batches from one durable consumer per owned partition and
+//! hands each event to a [`Handler`]; when NATS is unreachable it reports
+//! [`Health::Degraded`] and its fallback scan hands the same events, built from the pending
+//! pointers and their committed rows, to the same handler. Repeats are dropped by event id and
+//! order is never assumed (T-18, T-21).
 
 use std::collections::VecDeque;
 use std::future::Future;
@@ -12,9 +17,10 @@ use tokio::time::{sleep, timeout};
 use work_store::{LedgerId, PendingEvent, PointerKey, StoreError};
 
 use crate::domain::{
-    Backoff, ConfigError, EnvelopeError, EventFacts, PublisherConfig, cloud_event,
+    Backoff, ConfigError, ConsumerConfig, EnvelopeError, Event, EventFacts, Health,
+    PublisherConfig, Seen, cloud_event, parse_event, partition,
 };
-use crate::ports::{Bus, BusError, Outbound, Outbox};
+use crate::ports::{Bus, BusError, Committed, Handler, Outbound, Outbox, Pull, PullSpec, Settle};
 
 /// Why one publishing pass stopped; the pointers not yet acknowledged stay pending.
 #[derive(Debug, thiserror::Error)]
@@ -204,15 +210,7 @@ impl<O: Outbox, B: Bus> Publisher<O, B> {
     }
 
     fn outbound(&self, ledger: &LedgerId, event: &PendingEvent) -> Result<Outbound, EnvelopeError> {
-        let facts = EventFacts {
-            ledger: ledger.as_bytes(),
-            pos: event.key.pos,
-            event_id: &event.key.event_id,
-            event_type: &event.event_type,
-            traceparent: &event.traceparent,
-            record_id: &event.record_id,
-            recorded_at_ms: event.recorded_at_ms,
-        };
+        let facts = facts(ledger, event);
         Ok(Outbound {
             subject: self
                 .config
@@ -291,6 +289,333 @@ impl<O: Outbox, B: Bus> Publisher<O, B> {
                 failure.get_or_insert(BusError::TimedOut.into());
             }
         }
+    }
+}
+
+fn facts<'a>(ledger: &'a LedgerId, event: &'a PendingEvent) -> EventFacts<'a> {
+    EventFacts {
+        ledger: ledger.as_bytes(),
+        pos: event.key.pos,
+        event_id: &event.key.event_id,
+        event_type: &event.event_type,
+        traceparent: &event.traceparent,
+        record_id: &event.record_id,
+        recorded_at_ms: event.recorded_at_ms,
+    }
+}
+
+/// Why a consumer call stopped.
+#[derive(Debug, thiserror::Error)]
+pub enum ConsumeError {
+    /// The partition is not one this consumer owns.
+    #[error("partition {0} is not owned by this consumer")]
+    NotOwned(u16),
+    /// The store failed during the fallback scan.
+    #[error("store: {0}")]
+    Store(#[from] StoreError),
+    /// A store call did not finish within the call timeout.
+    #[error("store call timed out")]
+    StoreTimedOut,
+}
+
+/// Counts of one [`Consumer::poll`] or [`Consumer::fallback`] pass.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Consumed {
+    /// Whether the NATS path worked during the pass.
+    pub health: Health,
+    /// Events the handler took.
+    pub handled: u64,
+    /// Repeats of events already taken (T-76 rule 3).
+    pub duplicates: u64,
+    /// Events the handler did not take now.
+    pub retried: u64,
+    /// Payloads that are not Work events.
+    pub rejected: u64,
+}
+
+impl Consumed {
+    const fn new(health: Health) -> Self {
+        Self {
+            health,
+            handled: 0,
+            duplicates: 0,
+            retried: 0,
+            rejected: 0,
+        }
+    }
+}
+
+enum Outcome {
+    Handled,
+    Duplicate,
+    Retried,
+}
+
+/// Consumes the T-76 stream through per-partition durable pull consumers (T-76 rule 6) and,
+/// while NATS is unreachable, reads committed state instead (T-21).
+#[derive(Debug)]
+pub struct Consumer<P, H> {
+    pull: P,
+    handler: H,
+    config: ConsumerConfig,
+    seen: Seen,
+    health: Health,
+}
+
+impl<P: Pull, H: Handler> Consumer<P, H> {
+    /// A consumer over `pull` handing events to `handler`; it starts [`Health::Degraded`] until
+    /// [`Consumer::prepare`] succeeds.
+    ///
+    /// # Errors
+    /// [`ConfigError`] if `config` does not validate.
+    pub fn new(pull: P, handler: H, config: ConsumerConfig) -> Result<Self, ConfigError> {
+        config.validate()?;
+        Ok(Self {
+            pull,
+            handler,
+            seen: Seen::new(config.seen_capacity),
+            config,
+            health: Health::Degraded,
+        })
+    }
+
+    /// The validated settings.
+    #[must_use]
+    pub const fn config(&self) -> &ConsumerConfig {
+        &self.config
+    }
+
+    /// The health of the last NATS call.
+    #[must_use]
+    pub const fn health(&self) -> Health {
+        self.health
+    }
+
+    /// The handler.
+    #[must_use]
+    pub const fn handler(&self) -> &H {
+        &self.handler
+    }
+
+    /// The durable pull consumer of partition `p`.
+    #[must_use]
+    pub fn spec(&self, p: u16) -> PullSpec {
+        PullSpec {
+            stream: self.config.stream.name.clone(),
+            durable: self.config.durable(p),
+            filter: self.config.stream.partition_filter(p),
+            max_in_flight: self.config.max_in_flight,
+            ack_wait: self.config.ack_wait,
+        }
+    }
+
+    /// Creates or updates the durable consumer of every owned partition.
+    pub async fn prepare(&mut self) -> Health {
+        let mut health = Health::Live;
+        for &p in &self.config.partitions {
+            let spec = self.spec(p);
+            match timeout(self.config.call_timeout, self.pull.ensure_consumer(&spec)).await {
+                Ok(Ok(())) => {}
+                Ok(Err(e)) => {
+                    tracing::warn!(error = %e, durable = %spec.durable, "event consumer not ready");
+                    health = Health::Degraded;
+                }
+                Err(_) => {
+                    tracing::warn!(durable = %spec.durable, "event consumer setup timed out");
+                    health = Health::Degraded;
+                }
+            }
+        }
+        self.health = health;
+        health
+    }
+
+    /// Pulls one bounded batch of partition `p`, hands each new event to the handler and
+    /// settles every delivery. A NATS failure is no error: the pass reports
+    /// [`Health::Degraded`].
+    ///
+    /// # Errors
+    /// [`ConsumeError::NotOwned`].
+    pub async fn poll(&mut self, p: u16) -> Result<Consumed, ConsumeError> {
+        self.owned(p)?;
+        let spec = self.spec(p);
+        let fetched = timeout(
+            self.config.call_timeout,
+            self.pull
+                .fetch(&spec, self.config.batch_size, self.config.fetch_wait),
+        )
+        .await
+        .map_err(|_| BusError::TimedOut)
+        .and_then(|r| r);
+        let batch = match fetched {
+            Ok(batch) => batch,
+            Err(e) => {
+                tracing::warn!(error = %e, durable = %spec.durable, "event fetch failed");
+                self.health = Health::Degraded;
+                return Ok(Consumed::new(Health::Degraded));
+            }
+        };
+        let mut done = Consumed::new(Health::Live);
+        for inbound in batch {
+            let how = match parse_event(&inbound.payload) {
+                Err(e) => {
+                    tracing::warn!(error = %e, durable = %spec.durable, "not a work event");
+                    done.rejected = done.rejected.saturating_add(1);
+                    Settle::Reject
+                }
+                Ok(event) => match self.take(&event).await {
+                    Outcome::Handled => {
+                        done.handled = done.handled.saturating_add(1);
+                        Settle::Ack
+                    }
+                    Outcome::Duplicate => {
+                        done.duplicates = done.duplicates.saturating_add(1);
+                        Settle::Ack
+                    }
+                    Outcome::Retried => {
+                        done.retried = done.retried.saturating_add(1);
+                        Settle::Retry
+                    }
+                },
+            };
+            let settled = timeout(
+                self.config.call_timeout,
+                self.pull.settle(inbound.token, how),
+            )
+            .await
+            .map_err(|_| BusError::TimedOut)
+            .and_then(|r| r);
+            if let Err(e) = settled {
+                tracing::warn!(error = %e, durable = %spec.durable, "event settle failed");
+                done.health = Health::Degraded;
+            }
+        }
+        self.health = done.health;
+        Ok(done)
+    }
+
+    /// The fallback while NATS is unreachable (T-21, §18 OP-34 rule 2): for each ledger of
+    /// partition `p` among the first `ledgers_per_scan` with pending pointers, reads the pointers
+    /// page by page from the start and hands the event of each, built from its committed row, to
+    /// the handler. The events equal the ones NATS carries, so repeats across both paths drop
+    /// by event id.
+    ///
+    /// # Errors
+    /// [`ConsumeError`]; events handled before the failure stay handled.
+    pub async fn fallback<C: Committed>(
+        &mut self,
+        committed: &C,
+        p: u16,
+    ) -> Result<Consumed, ConsumeError> {
+        self.owned(p)?;
+        let mut done = Consumed::new(self.health);
+        let ledgers = self
+            .store(committed.ledgers(self.config.ledgers_per_scan))
+            .await?;
+        let page = u32::try_from(self.config.batch_size).unwrap_or(u32::MAX);
+        let partitions = self.config.stream.partitions;
+        for ledger in ledgers
+            .iter()
+            .filter(|l| partition(l.as_bytes(), partitions) == p)
+        {
+            let mut after: Option<PointerKey> = None;
+            loop {
+                let rows = self
+                    .store(committed.pending_after(ledger, after.as_ref(), page))
+                    .await?;
+                for row in &rows {
+                    match self.take(&Event::from_facts(&facts(ledger, row))).await {
+                        Outcome::Handled => done.handled = done.handled.saturating_add(1),
+                        Outcome::Duplicate => {
+                            done.duplicates = done.duplicates.saturating_add(1);
+                        }
+                        Outcome::Retried => done.retried = done.retried.saturating_add(1),
+                    }
+                }
+                let full = rows.len() >= self.config.batch_size;
+                after = rows.last().map(|r| r.key.clone());
+                if !full || after.is_none() {
+                    break;
+                }
+            }
+        }
+        Ok(done)
+    }
+
+    /// Consumes every owned partition until `shutdown` resolves: while live it polls each
+    /// partition in turn, each fetch waiting up to `fetch_wait`; while degraded it runs the fallback scan of each and waits
+    /// `fallback_interval` before retrying NATS (T-21).
+    pub async fn run<C: Committed>(&mut self, committed: &C, shutdown: impl Future<Output = ()>) {
+        let mut shutdown = std::pin::pin!(shutdown);
+        let mut ready = false;
+        loop {
+            if !ready {
+                ready = self.prepare().await == Health::Live;
+            }
+            let mut degraded = !ready;
+            if ready {
+                for p in self.config.partitions.clone() {
+                    if let Ok(done) = self.poll(p).await {
+                        degraded |= done.health == Health::Degraded;
+                    }
+                }
+            }
+            if degraded {
+                ready = false;
+                for p in self.config.partitions.clone() {
+                    if let Err(e) = self.fallback(committed, p).await {
+                        tracing::warn!(error = %e, partition = p, "fallback scan stopped");
+                    }
+                }
+            }
+            let wait = if degraded {
+                self.config.fallback_interval
+            } else {
+                Duration::ZERO
+            };
+            tokio::select! {
+                () = &mut shutdown => return,
+                () = sleep(wait) => {}
+            }
+        }
+    }
+
+    fn owned(&self, p: u16) -> Result<(), ConsumeError> {
+        if self.config.partitions.contains(&p) {
+            Ok(())
+        } else {
+            Err(ConsumeError::NotOwned(p))
+        }
+    }
+
+    async fn take(&mut self, event: &Event) -> Outcome {
+        if self.seen.contains(&event.ledger, &event.id) {
+            return Outcome::Duplicate;
+        }
+        match timeout(self.config.call_timeout, self.handler.handle(event)).await {
+            Ok(Ok(())) => {
+                self.seen.insert(&event.ledger, &event.id);
+                Outcome::Handled
+            }
+            Ok(Err(e)) => {
+                tracing::warn!(error = %e, event = %event.id, "event not handled");
+                Outcome::Retried
+            }
+            Err(_) => {
+                tracing::warn!(event = %event.id, "event handler timed out");
+                Outcome::Retried
+            }
+        }
+    }
+
+    async fn store<T>(
+        &self,
+        call: impl Future<Output = Result<T, StoreError>>,
+    ) -> Result<T, ConsumeError> {
+        timeout(self.config.call_timeout, call)
+            .await
+            .map_err(|_| ConsumeError::StoreTimedOut)?
+            .map_err(ConsumeError::from)
     }
 }
 
@@ -618,5 +943,400 @@ mod tests {
         let p = Publisher::new(MemOutbox::default(), MemBus::up(), quick).unwrap();
         p.run(sleep(Duration::from_millis(30))).await;
         assert_eq!(*p.outbox.discoveries.lock().unwrap(), [2]);
+    }
+
+    mod consumer {
+        use std::collections::{BTreeMap, BTreeSet, VecDeque};
+        use std::sync::Mutex;
+        use std::sync::atomic::{AtomicBool, Ordering};
+
+        use work_store::CommittedRecord;
+
+        use super::*;
+        use crate::ports::{HandlerError, Inbound};
+
+        #[derive(Default)]
+        struct MemPull {
+            queues: Mutex<BTreeMap<String, VecDeque<Vec<u8>>>>,
+            ensured: Mutex<Vec<PullSpec>>,
+            settled: Mutex<Vec<(u64, Settle)>>,
+            next: Mutex<u64>,
+            down: AtomicBool,
+        }
+
+        impl MemPull {
+            fn push(&self, durable: &str, payload: Vec<u8>) {
+                self.queues
+                    .lock()
+                    .unwrap()
+                    .entry(durable.to_owned())
+                    .or_default()
+                    .push_back(payload);
+            }
+
+            fn err(&self) -> Option<BusError> {
+                self.down
+                    .load(Ordering::SeqCst)
+                    .then(|| BusError::Unavailable("down".to_owned()))
+            }
+        }
+
+        impl Pull for MemPull {
+            type Token = u64;
+
+            fn ensure_consumer(
+                &self,
+                spec: &PullSpec,
+            ) -> impl Future<Output = Result<(), BusError>> + Send {
+                let r = if let Some(e) = self.err() {
+                    Err(e)
+                } else {
+                    self.ensured.lock().unwrap().push(spec.clone());
+                    Ok(())
+                };
+                std::future::ready(r)
+            }
+
+            fn fetch(
+                &self,
+                spec: &PullSpec,
+                max: usize,
+                _wait: Duration,
+            ) -> impl Future<Output = Result<Vec<Inbound<u64>>, BusError>> + Send {
+                if let Some(e) = self.err() {
+                    return std::future::ready(Err(e));
+                }
+                let mut queues = self.queues.lock().unwrap();
+                let queue = queues.entry(spec.durable.clone()).or_default();
+                let mut next = self.next.lock().unwrap();
+                let mut out = Vec::new();
+                while out.len() < max {
+                    let Some(payload) = queue.pop_front() else {
+                        break;
+                    };
+                    out.push(Inbound {
+                        payload,
+                        token: *next,
+                    });
+                    *next = next.checked_add(1).unwrap();
+                }
+                std::future::ready(Ok(out))
+            }
+
+            fn settle(
+                &self,
+                token: u64,
+                how: Settle,
+            ) -> impl Future<Output = Result<(), BusError>> + Send {
+                self.settled.lock().unwrap().push((token, how));
+                std::future::ready(Ok(()))
+            }
+        }
+
+        #[derive(Default)]
+        struct MemHandler {
+            taken: Mutex<Vec<(u64, String)>>,
+            fail_once: Mutex<BTreeSet<String>>,
+        }
+
+        impl Handler for MemHandler {
+            fn handle(
+                &self,
+                event: &Event,
+            ) -> impl Future<Output = Result<(), HandlerError>> + Send {
+                let r = if self.fail_once.lock().unwrap().remove(&event.id) {
+                    Err(HandlerError("busy".to_owned()))
+                } else {
+                    self.taken
+                        .lock()
+                        .unwrap()
+                        .push((event.pos, event.id.clone()));
+                    Ok(())
+                };
+                std::future::ready(r)
+            }
+        }
+
+        #[derive(Default)]
+        struct MemCommitted {
+            pending: BTreeMap<LedgerId, Vec<PendingEvent>>,
+            pages: Mutex<Vec<Option<PointerKey>>>,
+        }
+
+        impl Committed for MemCommitted {
+            fn ledgers(
+                &self,
+                limit: u32,
+            ) -> impl Future<Output = Result<Vec<LedgerId>, StoreError>> + Send {
+                let n = usize::try_from(limit).unwrap();
+                std::future::ready(Ok(self.pending.keys().copied().take(n).collect()))
+            }
+
+            fn pending_after(
+                &self,
+                ledger: &LedgerId,
+                after: Option<&PointerKey>,
+                limit: u32,
+            ) -> impl Future<Output = Result<Vec<PendingEvent>, StoreError>> + Send {
+                self.pages.lock().unwrap().push(after.cloned());
+                let n = usize::try_from(limit).unwrap();
+                let rows = self
+                    .pending
+                    .get(ledger)
+                    .into_iter()
+                    .flatten()
+                    .filter(|r| after.is_none_or(|a| r.key > *a))
+                    .take(n)
+                    .cloned()
+                    .collect();
+                std::future::ready(Ok(rows))
+            }
+
+            fn log_after(
+                &self,
+                _ledger: &LedgerId,
+                _after: Option<u64>,
+                _limit: u32,
+            ) -> impl Future<Output = Result<Vec<CommittedRecord>, StoreError>> + Send {
+                std::future::ready(Ok(Vec::new()))
+            }
+        }
+
+        const M: [u8; 32] = [0xcd; 32];
+
+        fn config() -> ConsumerConfig {
+            ConsumerConfig {
+                group: "derive".to_owned(),
+                partitions: vec![partition(&L, 16), partition(&M, 16)],
+                stream: StreamSettings::default(),
+                batch_size: 2,
+                max_in_flight: 4,
+                fetch_wait: Duration::from_millis(10),
+                ack_wait: Duration::from_secs(30),
+                call_timeout: Duration::from_secs(1),
+                fallback_interval: Duration::from_millis(5),
+                ledgers_per_scan: 16,
+                seen_capacity: 64,
+            }
+        }
+
+        fn payload(ledger: &[u8; 32], pos: u64, id: &str) -> Vec<u8> {
+            let row = pending(pos, id);
+            let l = LedgerId::from_bytes(*ledger);
+            cloud_event("https://work.example", &facts(&l, &row)).unwrap()
+        }
+
+        fn consumer() -> Consumer<MemPull, MemHandler> {
+            Consumer::new(MemPull::default(), MemHandler::default(), config()).unwrap()
+        }
+
+        fn taken(c: &Consumer<MemPull, MemHandler>) -> Vec<String> {
+            c.handler()
+                .taken
+                .lock()
+                .unwrap()
+                .iter()
+                .map(|(_, id)| id.clone())
+                .collect()
+        }
+
+        #[tokio::test]
+        async fn op_25_one_durable_consumer_per_owned_partition() {
+            let mut c = consumer();
+            assert_eq!(c.health(), Health::Degraded);
+            assert_eq!(c.prepare().await, Health::Live);
+            let ensured = c.pull.ensured.lock().unwrap().clone();
+            let names: Vec<&str> = ensured.iter().map(|s| s.durable.as_str()).collect();
+            assert_eq!(names, ["derive-p11", "derive-p13"]);
+            assert!(ensured.iter().all(|s| s.stream == "WORK_EVENTS"
+                && s.max_in_flight == 4
+                && s.ack_wait == Duration::from_secs(30)));
+            assert_eq!(
+                ensured.first().map(|s| s.filter.as_str()),
+                Some("work.evt.11.*.>")
+            );
+        }
+
+        #[tokio::test]
+        async fn t_76_poll_takes_a_bounded_batch_and_acks_each_delivery() {
+            let mut c = consumer();
+            let p = partition(&L, 16);
+            for (pos, id) in [(0, "a"), (1, "b"), (2, "c")] {
+                c.pull.push("derive-p11", payload(&L, pos, id));
+            }
+            let done = c.poll(p).await.unwrap();
+            assert_eq!(done.health, Health::Live);
+            assert_eq!(done.handled, 2);
+            assert_eq!(taken(&c), ["a", "b"]);
+            assert_eq!(
+                *c.pull.settled.lock().unwrap(),
+                [(0, Settle::Ack), (1, Settle::Ack)]
+            );
+            assert_eq!(c.poll(p).await.unwrap().handled, 1);
+            assert_eq!(taken(&c), ["a", "b", "c"]);
+        }
+
+        #[tokio::test]
+        async fn t_18_repeats_drop_by_event_id_and_order_is_not_assumed() {
+            let mut c = consumer();
+            let p = partition(&L, 16);
+            for (pos, id) in [(2, "c"), (0, "a"), (2, "c"), (1, "b")] {
+                c.pull.push("derive-p11", payload(&L, pos, id));
+            }
+            let first = c.poll(p).await.unwrap();
+            let second = c.poll(p).await.unwrap();
+            assert_eq!(first.handled + second.handled, 3);
+            assert_eq!(first.duplicates + second.duplicates, 1);
+            assert_eq!(
+                *c.handler().taken.lock().unwrap(),
+                [
+                    (2, "c".to_owned()),
+                    (0, "a".to_owned()),
+                    (1, "b".to_owned())
+                ]
+            );
+            assert!(
+                c.pull
+                    .settled
+                    .lock()
+                    .unwrap()
+                    .iter()
+                    .all(|(_, how)| *how == Settle::Ack)
+            );
+        }
+
+        #[tokio::test]
+        async fn p_98_a_payload_that_is_not_a_work_event_is_rejected() {
+            let mut c = consumer();
+            c.pull
+                .push("derive-p11", b"{\"specversion\":\"1.0\"}".to_vec());
+            let done = c.poll(partition(&L, 16)).await.unwrap();
+            assert_eq!(done.rejected, 1);
+            assert_eq!(*c.pull.settled.lock().unwrap(), [(0, Settle::Reject)]);
+            assert_eq!(taken(&c), Vec::<String>::new());
+        }
+
+        #[tokio::test]
+        async fn t_18_a_handler_failure_is_redelivered_and_not_remembered() {
+            let mut c = consumer();
+            let p = partition(&L, 16);
+            c.handler().fail_once.lock().unwrap().insert("a".to_owned());
+            c.pull.push("derive-p11", payload(&L, 0, "a"));
+            let done = c.poll(p).await.unwrap();
+            assert_eq!(done.retried, 1);
+            assert_eq!(*c.pull.settled.lock().unwrap(), [(0, Settle::Retry)]);
+            c.pull.push("derive-p11", payload(&L, 0, "a"));
+            assert_eq!(c.poll(p).await.unwrap().handled, 1);
+            assert_eq!(taken(&c), ["a"]);
+        }
+
+        #[tokio::test]
+        async fn t_21_unreachable_nats_reports_degraded() {
+            let mut c = consumer();
+            c.pull.down.store(true, Ordering::SeqCst);
+            assert_eq!(c.prepare().await, Health::Degraded);
+            let done = c.poll(partition(&L, 16)).await.unwrap();
+            assert_eq!(done.health, Health::Degraded);
+            assert_eq!(c.health(), Health::Degraded);
+            c.pull.down.store(false, Ordering::SeqCst);
+            assert_eq!(c.prepare().await, Health::Live);
+        }
+
+        #[tokio::test]
+        async fn t_21_a_partition_not_owned_is_refused() {
+            let mut c = consumer();
+            let other = (0..16)
+                .find(|p| !c.config().partitions.contains(p))
+                .unwrap();
+            assert!(matches!(
+                c.poll(other).await,
+                Err(ConsumeError::NotOwned(p)) if p == other
+            ));
+            assert!(matches!(
+                c.fallback(&MemCommitted::default(), other).await,
+                Err(ConsumeError::NotOwned(_))
+            ));
+        }
+
+        fn committed() -> MemCommitted {
+            let mut m = MemCommitted::default();
+            m.pending.insert(
+                LedgerId::from_bytes(L),
+                vec![
+                    pending(0, "a"),
+                    pending(0, "b"),
+                    pending(1, "c"),
+                    pending(2, "d"),
+                    pending(3, "e"),
+                ],
+            );
+            m.pending
+                .insert(LedgerId::from_bytes(M), vec![pending(0, "m")]);
+            m.pending
+                .insert(LedgerId::from_bytes([0x01; 32]), vec![pending(0, "x")]);
+            m
+        }
+
+        #[tokio::test]
+        async fn t_21_fallback_reads_committed_state_of_the_partition_from_a_cursor() {
+            let mut c = consumer();
+            let m = committed();
+            let done = c.fallback(&m, partition(&L, 16)).await.unwrap();
+            assert_eq!(done.health, Health::Degraded);
+            assert_eq!(done.handled, 5);
+            assert_eq!(taken(&c), ["a", "b", "c", "d", "e"]);
+            let key = |pos, id: &str| {
+                Some(PointerKey {
+                    pos,
+                    event_id: id.to_owned(),
+                })
+            };
+            assert_eq!(*m.pages.lock().unwrap(), [None, key(0, "b"), key(2, "d")]);
+            let again = c.fallback(&m, partition(&L, 16)).await.unwrap();
+            assert_eq!((again.handled, again.duplicates), (0, 5));
+            c.fallback(&m, partition(&M, 16)).await.unwrap();
+            assert_eq!(taken(&c).last().map(String::as_str), Some("m"));
+            assert!(!taken(&c).contains(&"x".to_owned()));
+        }
+
+        #[tokio::test]
+        async fn t_21_events_from_both_paths_are_taken_once() {
+            let mut c = consumer();
+            let m = committed();
+            let p = partition(&L, 16);
+            c.fallback(&m, p).await.unwrap();
+            c.pull.push("derive-p11", payload(&L, 1, "c"));
+            c.pull.push("derive-p11", payload(&L, 4, "f"));
+            let done = c.poll(p).await.unwrap();
+            assert_eq!((done.handled, done.duplicates), (1, 1));
+            assert_eq!(taken(&c), ["a", "b", "c", "d", "e", "f"]);
+        }
+
+        #[tokio::test]
+        async fn t_18_the_fallback_event_equals_the_published_one() {
+            let row = pending(9, "z");
+            let l = LedgerId::from_bytes(L);
+            let published =
+                parse_event(&cloud_event("https://work.example", &facts(&l, &row)).unwrap())
+                    .unwrap();
+            assert_eq!(published, Event::from_facts(&facts(&l, &row)));
+        }
+
+        #[tokio::test]
+        async fn t_21_run_falls_back_while_nats_is_down_and_returns_to_it() {
+            let mut c = consumer();
+            c.pull.down.store(true, Ordering::SeqCst);
+            let m = committed();
+            c.run(&m, sleep(Duration::from_millis(30))).await;
+            assert_eq!(c.health(), Health::Degraded);
+            assert_eq!(taken(&c), ["a", "b", "c", "d", "e", "m"]);
+            c.pull.down.store(false, Ordering::SeqCst);
+            c.pull.push("derive-p13", payload(&M, 1, "n"));
+            c.pull.push("derive-p13", payload(&M, 0, "m"));
+            c.run(&m, sleep(Duration::from_millis(30))).await;
+            assert_eq!(c.health(), Health::Live);
+            assert_eq!(taken(&c).last().map(String::as_str), Some("n"));
+            assert_eq!(taken(&c).len(), 7);
+        }
     }
 }
