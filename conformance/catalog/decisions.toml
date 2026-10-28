@@ -3064,7 +3064,9 @@ status = "frozen-protocol"
 stage = 2
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/store/src/id.rs::t_81_item_kind_and_id_round_trip_with_the_stored_lengths",
+]
 
 [[rule]]
 id = "P-30"
@@ -4279,6 +4281,7 @@ stage = 0
 acceptance = "to-fill"
 title = "OpenTelemetry signals with trace context, no identity labels and no secrets"
 tests = [
+  "bins/work-server/src/config.rs::op_40_new_root_traces_are_sampled_at_one_in_ten_by_default",
   "crates/telemetry/src/guard.rs::p_43_content_secret_and_genai_names_are_forbidden",
   "crates/telemetry/src/guard.rs::p_43_identifier_fields_are_allowed",
   "crates/telemetry/tests/content_guard.rs::op_19_record_body_bytes_never_reach_the_output",
@@ -4828,6 +4831,48 @@ tests = [
 ]
 
 [[rule]]
+id = "T-81"
+family = "T"
+status = "frozen-technical"
+stage = 2
+acceptance = "to-fill"
+title = ""
+tests = [
+  "crates/dispatch/src/domain.rs::t_81_seq_is_the_item_version_as_a_decimal_string",
+  "crates/store/src/id.rs::t_81_item_kind_and_id_round_trip_with_the_stored_lengths",
+]
+
+[[rule]]
+id = "T-82"
+family = "T"
+status = "frozen-technical"
+stage = 2
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "T-83"
+family = "T"
+status = "frozen-technical"
+stage = 2
+acceptance = "to-fill"
+title = ""
+tests = [
+  "crates/dispatch/src/app.rs::t_83_a_failing_ledger_never_hides_the_ones_after_it",
+  "crates/dispatch/src/app.rs::t_83_fallback_pages_through_ledgers_and_wraps_after_a_short_page",
+]
+
+[[rule]]
+id = "T-84"
+family = "T"
+status = "frozen-technical"
+stage = 2
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
 id = "OP-2"
 family = "OP"
 status = "frozen-technical"
@@ -4890,6 +4935,7 @@ acceptance = "to-fill"
 pd = "set"
 title = "Telemetry is minimised, pseudonymous and never a decision input"
 tests = [
+  "bins/work-server/src/config.rs::op_40_new_root_traces_are_sampled_at_one_in_ten_by_default",
   "bins/work-server/src/config.rs::t_20_urls_with_a_password_are_rejected",
   "crates/telemetry/tests/content_guard.rs::p_43_content_and_secret_fields_are_never_recorded",
   "crates/telemetry/tests/content_guard.rs::sec_24_the_log_format_redacts_without_the_guard",
@@ -5078,4 +5124,26 @@ acceptance = "to-fill"
 title = ""
 tests = [
   "crates/store/src/idempotency.rs::op_38_admission_follows_the_hot_window_and_the_clock_uncertainty",
+]
+
+[[rule]]
+id = "OP-39"
+family = "OP"
+status = "frozen-technical"
+stage = 2
+acceptance = "to-fill"
+title = ""
+tests = [
+  "crates/dispatch/src/app.rs::op_39_fallback_resumes_after_the_group_cursor_of_each_ledger",
+]
+
+[[rule]]
+id = "OP-40"
+family = "OP"
+status = "policy-default"
+pd = "set"
+title = ""
+tests = [
+  "bins/work-server/src/config.rs::op_40_new_root_traces_are_sampled_at_one_in_ten_by_default",
+  "crates/dispatch/src/domain.rs::op_40_consumer_defaults_are_the_policy_defaults",
 ]
