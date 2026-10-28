@@ -97,3 +97,26 @@ fn exit() {
     // ruleid: process-exit-in-library
     std::process::exit(1);
 }
+
+fn telemetry(record: &Record, body: &[u8], token: &Token) {
+    // ruleid: telemetry-content-field
+    tracing::info!(body = ?body, "received");
+    // ruleid: telemetry-content-field
+    info!(record = %record.id, ?body, "received");
+    // ruleid: telemetry-content-field
+    tracing::debug!(request.payload = %record.payload, "parsed");
+    // ruleid: telemetry-content-field
+    warn!(refresh_token = %token, "expired");
+    // ruleid: telemetry-content-field
+    let span = info_span!("declare", record = %record.id, record_body = tracing::field::Empty);
+    // ruleid: telemetry-content-field
+    info!(gen_ai.request.model = "model-x", "agent.called");
+    // ruleid: telemetry-content-field
+    error!("cannot parse {body:?}");
+    // ok: telemetry-content-field
+    info!(record = %record.id, work = %record.work, correlation = %record.correlation, "record.accepted");
+    // ok: telemetry-content-field
+    info!(record = %record.id, "body received");
+    // ok: telemetry-content-field
+    debug!(tokenizer_width = 4, panel = "left", "configured");
+}

@@ -60,15 +60,21 @@ semgrep:
     "${sg[@]}" --test --config .semgrep/rules.yml .semgrep/rules.rs; \
     "${sg[@]}" scan --config .semgrep/ --error --metrics=off
 
-# T-36, T-52
+# T-36, T-52, OP-28
 squawk:
-    files="$(find crates -path '*/migrations/*.sql' 2>/dev/null)"; \
+    files="$(find crates -path '*/migrations/*.sql' 2>/dev/null | sort)"; \
     if ! command -v squawk > /dev/null; then \
       if [ -z "$files" ]; then echo "squawk not installed and no migrations yet; skipping"; exit 0; fi; \
       echo "squawk 2.68.0 required: https://github.com/sbdchd/squawk/releases/tag/v2.68.0" >&2; exit 1; \
     fi; \
     if squawk crates/store/fixtures/squawk-unsafe.sql > /dev/null; then echo "squawk accepted the unsafe fixture" >&2; exit 1; fi; \
-    if [ -z "$files" ]; then echo "no migrations yet"; else squawk $files; fi
+    if squawk crates/store/fixtures/squawk-unsafe-index.sql > /dev/null; then echo "squawk accepted a blocking index on an existing table (OP-28)" >&2; exit 1; fi; \
+    squawk --no-assume-in-transaction crates/store/fixtures/squawk-concurrent-index.sql; \
+    if [ -z "$files" ]; then echo "no migrations yet"; exit 0; fi; \
+    tx=(); notx=(); \
+    for f in $files; do if [ "$(head -c 17 "$f")" = "-- no-transaction" ]; then notx+=("$f"); else tx+=("$f"); fi; done; \
+    if [ "${#tx[@]}" -gt 0 ]; then squawk "${tx[@]}"; fi; \
+    if [ "${#notx[@]}" -gt 0 ]; then squawk --no-assume-in-transaction "${notx[@]}"; fi
 
 # T-31
 cross:

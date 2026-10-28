@@ -84,3 +84,24 @@ rules:
       - pattern: std::process::exit(...)
       - pattern: process::exit(...)
       - pattern: std::process::abort()
+
+  - id: telemetry-content-field
+    # P-43, OP-19, OP-18, T-39, SEC-24
+    message: >-
+      A span or event field names record content, a secret, a credential, payment data
+      or an unstable OpenTelemetry GenAI attribute (P-43, OP-19, T-39 rule 3, SEC-24).
+      Link the record by its identifier (`rec_…`, item id, `correlation`) instead.
+    severity: ERROR
+    languages: [rust]
+    paths:
+      exclude:
+        - "**/tests/**"
+        - "**/tests.rs"
+        - "xtask/**"
+    patterns:
+      - pattern-not-inside: |
+          mod tests { ... }
+      - pattern-either:
+          - pattern-regex: '(?i)\b(?:trace|debug|info|warn|error|event|span|trace_span|debug_span|info_span|warn_span|error_span)!\s*\((?:[^;]*?,)?\s*[?%]?\s*(?:[a-z_][a-z0-9_]*\.)*(?:[a-z0-9]+_)*(?:body|bodies|payload|payloads|content|contents|plaintext|ciphertext|secret|secrets|password|passwords|passwd|passphrase|token|tokens|cookie|cookies|credential|credentials|apikey|privatekey|otp|card|pan|cvv|cvc|iban|api_key|private_key|signing_key)(?:_[a-z0-9]+)*\s*(?:=|,|\))'
+          - pattern-regex: '(?i)\b(?:trace|debug|info|warn|error|event|span|trace_span|debug_span|info_span|warn_span|error_span)!\s*\((?:[^;]*?,)?\s*[?%]?\s*gen_ai\.'
+          - pattern-regex: '(?i)\b(?:trace|debug|info|warn|error|event)!\s*\([^;]*?"[^"]*\{(?:[a-z0-9]+_)*(?:body|bodies|payload|payloads|content|contents|plaintext|ciphertext|secret|secrets|password|passwords|passwd|passphrase|token|tokens|cookie|cookies|credential|credentials|apikey|privatekey|otp|card|pan|cvv|cvc|iban|api_key|private_key|signing_key)(?:_[a-z0-9]+)*(?::[^}]*)?\}'

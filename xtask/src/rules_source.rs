@@ -34,6 +34,7 @@ fn rust_files(root: &Path) -> Result<Vec<(String, PathBuf)>, String> {
 const RULE_DEFINITION_FILES: &[&str] = &[
     "xtask/src/rules_source.rs",
     "xtask/src/rules_derived.rs",
+    "xtask/src/rules_migrations.rs",
     "xtask/src/rules_switches.rs",
     "xtask/src/rules_comments.rs",
     "xtask/src/policy_terms.rs",

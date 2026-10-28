@@ -88,17 +88,19 @@ impl Db {
     }
 }
 
+/// A SQL token.
 #[derive(Debug, Clone, PartialEq, Eq)]
-enum Tok {
+pub(crate) enum Tok {
     Word { text: String, quoted: bool },
     Str(String),
     Punct(char),
 }
 
+/// A SQL token and its 1-based line.
 #[derive(Debug, Clone)]
-struct Token {
-    tok: Tok,
-    line: usize,
+pub(crate) struct Token {
+    pub(crate) tok: Tok,
+    pub(crate) line: usize,
 }
 
 fn find_seq(chars: &[char], from: usize, tag: &[char]) -> Option<usize> {
@@ -267,7 +269,8 @@ impl Lexer {
     }
 }
 
-fn tokenize(sql: &str) -> Vec<Token> {
+/// Splits SQL into tokens, skipping comments.
+pub(crate) fn tokenize(sql: &str) -> Vec<Token> {
     Lexer {
         chars: sql.chars().collect(),
         i: 0,
@@ -277,7 +280,8 @@ fn tokenize(sql: &str) -> Vec<Token> {
     .run()
 }
 
-fn statements(tokens: Vec<Token>) -> Vec<Vec<Token>> {
+/// Groups tokens into `;`-separated statements.
+pub(crate) fn statements(tokens: Vec<Token>) -> Vec<Vec<Token>> {
     let mut out = Vec::new();
     let mut current = Vec::new();
     for t in tokens {
@@ -296,32 +300,36 @@ fn statements(tokens: Vec<Token>) -> Vec<Vec<Token>> {
 }
 
 /// A cursor over one statement.
-struct Cursor<'a> {
+pub(crate) struct Cursor<'a> {
     toks: &'a [Token],
     k: usize,
 }
 
 impl<'a> Cursor<'a> {
+    pub(crate) fn new(toks: &'a [Token]) -> Self {
+        Self { toks, k: 0 }
+    }
+
     fn peek(&self) -> Option<&Tok> {
         self.toks.get(self.k).map(|t| &t.tok)
     }
 
-    fn line(&self) -> usize {
+    pub(crate) fn line(&self) -> usize {
         self.toks
             .get(self.k)
             .or_else(|| self.toks.last())
             .map_or(1, |t| t.line)
     }
 
-    fn bump(&mut self) {
+    pub(crate) fn bump(&mut self) {
         self.k = self.k.saturating_add(1);
     }
 
-    fn is_kw(&self, kw: &str) -> bool {
+    pub(crate) fn is_kw(&self, kw: &str) -> bool {
         matches!(self.peek(), Some(Tok::Word { text, quoted: false }) if text == kw)
     }
 
-    fn eat(&mut self, kw: &str) -> bool {
+    pub(crate) fn eat(&mut self, kw: &str) -> bool {
         let hit = self.is_kw(kw);
         if hit {
             self.bump();
@@ -329,7 +337,7 @@ impl<'a> Cursor<'a> {
         hit
     }
 
-    fn eat_all(&mut self, kws: &[&str]) -> bool {
+    pub(crate) fn eat_all(&mut self, kws: &[&str]) -> bool {
         let start = self.k;
         if kws.iter().all(|kw| self.eat(kw)) {
             true
@@ -339,11 +347,11 @@ impl<'a> Cursor<'a> {
         }
     }
 
-    fn punct(&self, p: char) -> bool {
+    pub(crate) fn punct(&self, p: char) -> bool {
         self.peek() == Some(&Tok::Punct(p))
     }
 
-    fn word(&mut self) -> Option<String> {
+    pub(crate) fn word(&mut self) -> Option<String> {
         match self.peek() {
             Some(Tok::Word { text, .. }) => {
                 let text = text.clone();
@@ -354,7 +362,7 @@ impl<'a> Cursor<'a> {
         }
     }
 
-    fn name(&mut self) -> Option<Name> {
+    pub(crate) fn name(&mut self) -> Option<Name> {
         let first = self.word()?;
         if self.punct('.') {
             self.bump();
@@ -422,14 +430,15 @@ impl<'a> Cursor<'a> {
     }
 }
 
+/// A possibly schema-qualified table name.
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct Name {
+pub(crate) struct Name {
     schema: Option<String>,
     table: String,
 }
 
 impl Name {
-    fn key(&self) -> String {
+    pub(crate) fn key(&self) -> String {
         match &self.schema {
             Some(s) => format!("{s}.{}", self.table),
             None => self.table.clone(),
@@ -506,6 +515,20 @@ pub(crate) struct Schema {
 }
 
 impl Schema {
+    /// Every column added to a table: (table, column, file, line).
+    pub(crate) fn columns(&self) -> impl Iterator<Item = (&str, &str, &str, usize)> {
+        self.tables.iter().flat_map(|(key, t)| {
+            t.columns.iter().map(move |c| {
+                (
+                    key.as_str(),
+                    c.name.as_str(),
+                    c.site.file.as_str(),
+                    c.site.line,
+                )
+            })
+        })
+    }
+
     fn entry(&mut self, name: &Name, db: Option<Db>) -> &mut Table {
         let key = name.key();
         self.tables.entry(key).or_insert_with(|| {

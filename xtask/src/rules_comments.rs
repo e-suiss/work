@@ -46,7 +46,7 @@ const KOTLIN_DIRECTIVES: &[&str] = &[
 
 const PROTO_DIRECTIVES: &[&str] = &["buf:lint:ignore"];
 
-const SQL_DIRECTIVES: &[&str] = &["squawk-ignore", "sqlfluff:"];
+const SQL_DIRECTIVES: &[&str] = &["squawk-ignore", "sqlfluff:", "no-transaction"];
 
 const HTML_DIRECTIVES: &[&str] = &["prettier-ignore"];
 
@@ -462,12 +462,19 @@ const TOOL_WRITTEN: &[&str] = &[
     "supply-chain/imports.lock",
 ];
 
+/// Third-party files vendored byte for byte under a recorded digest (SEC-35).
+const VENDORED_VERBATIM: &[&str] = &["crates/parse/vendor/gitleaks-8.30.1/gitleaks.toml"];
+
 /// The files both comment rules read: tracked and unignored files with a known
-/// comment syntax, without tool-written files.
+/// comment syntax, without tool-written and verbatim vendored files.
 pub(crate) fn scanned_files(root: &Path) -> Result<Vec<String>, String> {
     Ok(repo_files(root)?
         .into_iter()
-        .filter(|f| !TOOL_WRITTEN.contains(&f.as_str()) && kind(f).is_some())
+        .filter(|f| {
+            !TOOL_WRITTEN.contains(&f.as_str())
+                && !VENDORED_VERBATIM.contains(&f.as_str())
+                && kind(f).is_some()
+        })
         .collect())
 }
 

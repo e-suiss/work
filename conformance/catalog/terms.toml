@@ -19,3 +19,8 @@ not = ["approval_ui", "approval_screen"]
 [[term]]
 canonical = "condition"
 not = ["depends_on"]
+
+[[allow]]
+path = "crates/telemetry/src/guard.rs"
+name = "card"
+reason = "payment card data is a forbidden telemetry field (SEC-24), not a Work item"

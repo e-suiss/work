@@ -1,4 +1,4 @@
-//! Architecture and code rules (T-4, T-22, T-31, T-32, T-33, T-36, T-53, T-75); each
+//! Architecture and code rules (T-4, T-22, T-31, T-32, T-33, T-36, T-53, T-75, OP-28, SEC-24); each
 //! check lives in a `rules_*` module.
 
 #[path = "rules_clippy.rs"]
@@ -15,6 +15,8 @@ pub(crate) mod files;
 mod kernel;
 #[path = "rules_lex.rs"]
 pub(crate) mod lex;
+#[path = "rules_migrations.rs"]
+mod migrations;
 #[path = "rules_profile.rs"]
 mod profile;
 #[path = "rules_source.rs"]
@@ -49,6 +51,14 @@ pub(crate) fn checks() -> Vec<Check> {
         Check {
             name: "derived-columns",
             run: derived::check,
+        },
+        Check {
+            name: "credential-columns",
+            run: migrations::check_credentials,
+        },
+        Check {
+            name: "migration-step",
+            run: migrations::check_step,
         },
         Check {
             name: "no-dev-mode",
