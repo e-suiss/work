@@ -31,17 +31,34 @@ impl Nats {
     ///
     /// [`TestkitError`] if the image is not pinned or the container does not start.
     pub async fn start() -> Result<Self, TestkitError> {
+        Self::start_with(
+            &["--jetstream", "--store_dir", "/data", "--http_port", "8222"],
+            "?js-enabled-only=true",
+        )
+        .await
+    }
+
+    /// Starts NATS with JetStream disabled, for tests of what needs it (T-20).
+    ///
+    /// # Errors
+    ///
+    /// [`TestkitError`] if the image is not pinned or the container does not start.
+    pub async fn start_without_jetstream() -> Result<Self, TestkitError> {
+        Self::start_with(&["--http_port", "8222"], "").await
+    }
+
+    async fn start_with(cmd: &[&str], health_query: &str) -> Result<Self, TestkitError> {
         let container = compose_image("nats")?
             .generic()
             .with_exposed_port(PORT.tcp())
             .with_wait_for(WaitFor::healthcheck())
-            .with_cmd(["--jetstream", "--store_dir", "/data", "--http_port", "8222"])
+            .with_cmd(cmd.iter().copied())
             .with_health_check(
                 Healthcheck::cmd([
                     "wget",
                     "-q",
                     "-O-",
-                    &format!("http://127.0.0.1:{MONITOR}/healthz?js-enabled-only=true"),
+                    &format!("http://127.0.0.1:{MONITOR}/healthz{health_query}"),
                 ])
                 .with_interval(Duration::from_millis(250))
                 .with_timeout(Duration::from_secs(3))

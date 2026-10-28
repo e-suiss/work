@@ -13,6 +13,7 @@ mod migrate;
 mod outbox;
 mod publisher;
 mod scope;
+mod server;
 
 pub use erasure::{ERASURE_SCOPE, ErasureScope};
 pub use error::StoreError;
@@ -25,6 +26,7 @@ pub use migrate::{Cluster, migrate, migrate_from_env};
 pub use outbox::{CommittedRecord, PendingEvent, PointerKey};
 pub use publisher::{PUBLISHER_ROLE, PublisherPool};
 pub use scope::{Head, LedgerTx};
+pub use server::{connect, server_version_num};
 
 /// The connection pool type, so other crates need no driver dependency.
 pub use sqlx::PgPool as Pool;

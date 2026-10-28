@@ -2,10 +2,12 @@
 //! business logic lives in `crates/` (T-31).
 
 mod config;
+mod startup;
 
 use std::process::ExitCode;
 
 use config::Config;
+use startup::Infrastructure;
 
 fn main() -> ExitCode {
     let config = match Config::load() {
@@ -38,7 +40,20 @@ fn main() -> ExitCode {
         }
     };
 
-    match runtime.block_on(serve(&config)) {
+    runtime.block_on(run(&config))
+}
+
+async fn run(config: &Config) -> ExitCode {
+    let infrastructure = match Infrastructure::connect(config).await {
+        Ok(infrastructure) => infrastructure,
+        Err(error) => {
+            tracing::error!(event = "server.start_refused", %error, "mandatory infrastructure is not usable");
+            return ExitCode::FAILURE;
+        }
+    };
+    let served = serve(config).await;
+    infrastructure.close(config.startup_timeout()).await;
+    match served {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
             tracing::error!(%error, "server stopped with an error");

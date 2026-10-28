@@ -9,13 +9,19 @@ repository.workspace = true
 publish = false
 
 [dependencies]
+work-store = { workspace = true }
 work-telemetry = { workspace = true }
+async-nats = { workspace = true, features = ["jetstream"] }
 axum = { workspace = true, features = ["http1", "http2", "tokio"] }
 figment = { workspace = true, features = ["env", "toml"] }
 serde = { workspace = true, features = ["derive", "std"] }
 thiserror = { workspace = true, features = ["std"] }
-tokio = { workspace = true, features = ["macros", "net", "rt-multi-thread", "signal"] }
+tokio = { workspace = true, features = ["macros", "net", "rt-multi-thread", "signal", "time"] }
 tracing = { workspace = true, features = ["std"] }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "net", "rt-multi-thread", "time"] }
+work-testkit = { workspace = true }
 
 [lints]
 workspace = true
