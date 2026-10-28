@@ -33,6 +33,7 @@ fn rust_files(root: &Path) -> Result<Vec<(String, PathBuf)>, String> {
 /// Files whose pattern tables and tests spell out the text they forbid.
 const RULE_DEFINITION_FILES: &[&str] = &[
     "xtask/src/rules_source.rs",
+    "xtask/src/rules_derived.rs",
     "xtask/src/rules_switches.rs",
     "xtask/src/rules_comments.rs",
     "xtask/src/policy_terms.rs",
@@ -481,6 +482,18 @@ pub(crate) const DELETE_ALLOWLIST_FILE: &str = "xtask/physical-delete-allowlist.
 struct DeleteAllowlist {
     #[serde(default)]
     table: Vec<AllowedTable>,
+    #[serde(default)]
+    drop: Vec<AllowedDrop>,
+}
+
+/// A reviewed SQL function whose body may run `DROP TABLE` (archive path, OP-12 rule 4).
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct AllowedDrop {
+    pub(crate) file: String,
+    pub(crate) function: String,
+    pub(crate) id: String,
+    pub(crate) reason: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -503,6 +516,86 @@ pub(crate) fn parse_allowlist(text: &str) -> Result<(Vec<String>, Vec<String>), 
         names.push(t.name);
     }
     Ok((names, problems))
+}
+
+/// Parses the reviewed `DROP TABLE` functions; every entry needs a spec ID and a reason.
+pub(crate) fn parse_drops(text: &str) -> Result<(Vec<AllowedDrop>, Vec<String>), String> {
+    let list: DeleteAllowlist =
+        toml::from_str(text).map_err(|e| format!("{DELETE_ALLOWLIST_FILE}: {e}"))?;
+    let problems = list
+        .drop
+        .iter()
+        .filter(|d| d.reason.trim().is_empty() || d.id.trim().is_empty())
+        .map(|d| format!("`{}` needs an id and a reason", d.function))
+        .collect();
+    Ok((list.drop, problems))
+}
+
+/// Byte ranges of the `$$` bodies of `functions` in comment-free SQL.
+pub(crate) fn function_bodies(sql: &str, functions: &[&str]) -> Vec<(usize, usize)> {
+    let upper = sql.to_ascii_uppercase();
+    let mut out = Vec::new();
+    for f in functions {
+        let needle = format!("FUNCTION {}(", f.to_ascii_uppercase());
+        let mut from = 0;
+        while let Some(pos) = upper.get(from..).and_then(|s| s.find(&needle)) {
+            let at = from.saturating_add(pos);
+            from = at.saturating_add(needle.len());
+            let Some(open) = upper.get(from..).and_then(|s| s.find("$$")) else {
+                break;
+            };
+            let start = from.saturating_add(open).saturating_add(2);
+            let Some(close) = upper.get(start..).and_then(|s| s.find("$$")) else {
+                break;
+            };
+            let end = start.saturating_add(close);
+            out.push((start, end));
+            from = end;
+        }
+    }
+    out
+}
+
+/// Privilege names that may precede `TRUNCATE` in a `GRANT` or `REVOKE` list.
+const PRIVILEGES: &[&str] = &[
+    "SELECT",
+    "INSERT",
+    "UPDATE",
+    "DELETE",
+    "TRUNCATE",
+    "REFERENCES",
+    "TRIGGER",
+    "MAINTAIN",
+];
+
+/// True if the word at `k` is a trigger event (`BEFORE TRUNCATE`, `UPDATE OR TRUNCATE`)
+/// or a privilege in a `GRANT`/`REVOKE` list, not a statement.
+fn truncate_is_not_a_statement(words: &[(usize, &str, usize)], k: usize) -> bool {
+    let stmt = words.get(k).map(|&(_, _, s)| s);
+    let word = |i: usize| {
+        words
+            .get(i)
+            .filter(|&&(_, _, s)| Some(s) == stmt)
+            .map(|&(_, w, _)| w)
+    };
+    let Some(prev) = k.checked_sub(1) else {
+        return false;
+    };
+    if matches!(word(prev), Some("BEFORE" | "AFTER" | "OR")) {
+        return true;
+    }
+    let mut i = prev;
+    loop {
+        match word(i) {
+            Some("GRANT" | "REVOKE") => return true,
+            Some(w) if PRIVILEGES.contains(&w) => {}
+            _ => return false,
+        }
+        let Some(next) = i.checked_sub(1) else {
+            return false;
+        };
+        i = next;
+    }
 }
 
 /// `ALTER TABLE … DROP x` forms that do not remove a column.
@@ -555,6 +648,7 @@ pub(crate) fn delete_findings(sql: &str, allow: &[String]) -> Vec<(usize, String
                     ));
                 }
             }
+            ("TRUNCATE", _) if truncate_is_not_a_statement(&words, k) => {}
             ("TRUNCATE", _) => out.push((
                 at,
                 "`TRUNCATE` is forbidden (T-36 rule 4, OP-12)".to_owned(),
@@ -609,13 +703,34 @@ fn strip_sql_comments(sql: &str) -> String {
     out
 }
 
+/// Findings in a SQL file, with `DROP TABLE` allowed only inside the bodies of the
+/// reviewed `functions` (OP-12 rule 4).
+pub(crate) fn sql_delete_findings(
+    sql: &str,
+    allow: &[String],
+    functions: &[&str],
+) -> Vec<(usize, String)> {
+    let bodies = function_bodies(sql, functions);
+    delete_findings(sql, allow)
+        .into_iter()
+        .filter(|(at, msg)| {
+            !(msg.starts_with("`DROP TABLE`") && bodies.iter().any(|&(s, e)| *at >= s && *at < e))
+        })
+        .collect()
+}
+
 pub(crate) fn check_delete(root: &Path) -> Result<Vec<Violation>, String> {
     let (allow, problems) = match read_optional(&root.join(DELETE_ALLOWLIST_FILE))? {
         Some(text) => parse_allowlist(&text)?,
         None => (Vec::new(), Vec::new()),
     };
+    let (drops, drop_problems) = match read_optional(&root.join(DELETE_ALLOWLIST_FILE))? {
+        Some(text) => parse_drops(&text)?,
+        None => (Vec::new(), Vec::new()),
+    };
     let mut out: Vec<Violation> = problems
         .into_iter()
+        .chain(drop_problems)
         .map(|m| violation(DELETE, DELETE_ALLOWLIST_FILE, 1, m))
         .collect();
     for path in walk(root)? {
@@ -623,7 +738,12 @@ pub(crate) fn check_delete(root: &Path) -> Result<Vec<Violation>, String> {
         match path.extension().and_then(|e| e.to_str()) {
             Some("sql") => {
                 let sql = strip_sql_comments(&read(&path)?);
-                for (at, msg) in delete_findings(&sql, &allow) {
+                let functions: Vec<&str> = drops
+                    .iter()
+                    .filter(|d| d.file == rel_path)
+                    .map(|d| d.function.as_str())
+                    .collect();
+                for (at, msg) in sql_delete_findings(&sql, &allow, &functions) {
                     out.push(violation(DELETE, &rel_path, line_at(&sql, at), msg));
                 }
             }
@@ -1034,6 +1154,49 @@ mod tests {
         assert_eq!(delete_findings("DELETE FROM records", &allow).len(), 1);
         let (_, missing) = parse_allowlist("[[table]]\nname = \"jobs\"\nreason = \" \"\n").unwrap();
         assert_eq!(missing.len(), 1);
+    }
+
+    // T-36 OP-12 OP-17
+    #[test]
+    fn t_36_truncate_trigger_events_and_privileges_are_not_statements() {
+        let sql = "CREATE TRIGGER t BEFORE TRUNCATE ON a FOR EACH STATEMENT EXECUTE FUNCTION f();\n\
+                   CREATE TRIGGER u AFTER UPDATE OR TRUNCATE ON a EXECUTE FUNCTION f();\n\
+                   EXECUTE format('REVOKE DELETE, TRUNCATE ON %s FROM %I', t, o);\n\
+                   GRANT TRUNCATE ON a TO b;";
+        assert_eq!(delete_findings(sql, &[]), vec![]);
+        assert_eq!(delete_findings("TRUNCATE a;", &[]).len(), 1);
+        assert_eq!(delete_findings("BEGIN; TRUNCATE TABLE a;", &[]).len(), 1);
+        assert_eq!(delete_findings("SELECT 1; TRUNCATE a, b;", &[]).len(), 1);
+        assert_eq!(delete_findings("DELETE FROM x; TRUNCATE y;", &[]).len(), 2);
+        assert_eq!(
+            delete_findings("GRANT SELECT ON a TO b; TRUNCATE a;", &[]).len(),
+            1
+        );
+        assert_eq!(
+            delete_findings("ALTER TABLE a OWNER TO u; TRUNCATE a;", &[]).len(),
+            1
+        );
+    }
+
+    // T-36 OP-12
+    #[test]
+    fn t_36_drop_table_is_allowed_only_in_a_reviewed_function_body() {
+        let sql = "CREATE FUNCTION work.drop_archived(p regclass) RETURNS void AS $$\n\
+                   BEGIN EXECUTE format('DROP TABLE %s', p); END $$;\n\
+                   CREATE FUNCTION work.other() RETURNS void AS $$ BEGIN DROP TABLE x; END $$;\n\
+                   DROP TABLE y;";
+        assert_eq!(
+            sql_delete_findings(sql, &[], &["work.drop_archived"]).len(),
+            2
+        );
+        assert_eq!(sql_delete_findings(sql, &[], &[]).len(), 3);
+        let (drops, problems) = parse_drops(
+            "[[drop]]\nfile = \"a.sql\"\nfunction = \"work.f\"\nid = \"OP-12\"\nreason = \"r\"\n\
+             [[drop]]\nfile = \"a.sql\"\nfunction = \"work.g\"\nid = \"\"\nreason = \"r\"\n",
+        )
+        .unwrap();
+        assert_eq!(drops.len(), 2);
+        assert_eq!(problems.len(), 1);
     }
 
     // T-36 OP-12

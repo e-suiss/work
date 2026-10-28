@@ -1,4 +1,4 @@
-//! Architecture and code rules (T-4, T-22, T-31, T-32, T-33, T-36, T-53); each
+//! Architecture and code rules (T-4, T-22, T-31, T-32, T-33, T-36, T-53, T-75); each
 //! check lives in a `rules_*` module.
 
 #[path = "rules_clippy.rs"]
@@ -7,6 +7,8 @@ mod clippy;
 pub(crate) mod comments;
 #[path = "rules_deps.rs"]
 pub(crate) mod deps;
+#[path = "rules_derived.rs"]
+mod derived;
 #[path = "rules_files.rs"]
 pub(crate) mod files;
 #[path = "rules_kernel.rs"]
@@ -43,6 +45,10 @@ pub(crate) fn checks() -> Vec<Check> {
         Check {
             name: "no-physical-delete",
             run: source::check_delete,
+        },
+        Check {
+            name: "derived-columns",
+            run: derived::check,
         },
         Check {
             name: "no-dev-mode",

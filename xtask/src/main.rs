@@ -13,6 +13,7 @@
     reason = "xtask is a developer CLI; it reports to the terminal"
 )]
 
+mod bench_accepted;
 mod catalog;
 mod counterparts;
 mod policy;
@@ -48,6 +49,10 @@ fn checks() -> Vec<Check> {
     all.extend(policy::checks());
     all.extend(supply_chain::checks());
     all.extend(catalog::checks());
+    all.push(Check {
+        name: "bench-accepted",
+        run: bench_accepted::check,
+    });
     all
 }
 
@@ -111,6 +116,9 @@ fn usage() -> ExitCode {
         "  spec-counterparts [--update] compare E-40 counterpart clauses with recorded digests (T-50)"
     );
     eprintln!("  watch-report                 list WATCH rows for the scheduled review (F-25)");
+    eprintln!(
+        "  bench-accepted               print the Bench-Accepted trailers since $BENCH_BASE (T-77)"
+    );
     ExitCode::FAILURE
 }
 
@@ -144,6 +152,16 @@ fn main() -> ExitCode {
             }
             Err(error) => {
                 eprintln!("watch-report: {error}");
+                ExitCode::FAILURE
+            }
+        },
+        Some("bench-accepted") => match bench_accepted::report(&root) {
+            Ok(text) => {
+                print!("{text}");
+                ExitCode::SUCCESS
+            }
+            Err(error) => {
+                eprintln!("bench-accepted: {error}");
                 ExitCode::FAILURE
             }
         },

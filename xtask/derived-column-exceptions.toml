@@ -1,0 +1,25 @@
+# T-75, C-40
+
+[[exception]]
+table = "work.body_dek"
+column = "state"
+spec = "OP-15"
+reason = "key lifecycle of a body DEK (active or destroyed), written by the erasure role when the HSM key is destroyed; a crypto-shred fact about key material, not a derived state of work"
+
+[[exception]]
+table = "work.retention_hold"
+column = "state"
+spec = "OP-12"
+reason = "lifecycle of a legal, litigation or regulator hold (active or released); an operational retention fact, not a derived state of work"
+
+[[exception]]
+table = "work.erasure_log"
+column = "state"
+spec = "OP-14"
+reason = "progress of an erasure request across every copy in the erasure scope list; an operational fact, not a derived state of work"
+
+[[exception]]
+table = "work.record_header"
+column = "auth_context_ref"
+spec = "P-11"
+reason = "reference to the Access authentication context carried in the ledger envelope; not the derived C-40 context concept"
