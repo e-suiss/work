@@ -24,3 +24,6 @@ BEGIN
     END LOOP;
 END
 $$;
+
+-- T-80
+GRANT SET ON PARAMETER app.outbox_scan TO work_owner;
