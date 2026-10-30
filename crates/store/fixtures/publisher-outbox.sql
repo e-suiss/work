@@ -1,8 +1,8 @@
--- T-17 OP-34 P-42 T-81
-INSERT INTO ledger.head (ledger_id, pos, epoch) VALUES (decode(repeat('ab', 32), 'hex'), -1, 0);
+-- T-17 OP-34 P-42 T-81 P-100 T-85
+INSERT INTO ledger.head (ledger_id, pos, epoch, frontier) VALUES (decode(repeat('ab', 32), 'hex'), -1, 0, '\x');
 INSERT INTO ledger.log (ledger_id, pos, epoch, record_id, recorded_at, prev, leaf_hash, record_bytes, envelope_bytes)
 VALUES (decode(repeat('ab', 32), 'hex'), 0, 0, decode(repeat('01', 32), 'hex'), '2026-10-23T10:00:00.123Z',
-        decode(repeat('00', 32), 'hex'), decode(repeat('11', 32), 'hex'), '\xd2', '\xa0'),
+        NULL, decode(repeat('11', 32), 'hex'), '\xd2', '\xa0'),
        (decode(repeat('ab', 32), 'hex'), 1, 0, decode(repeat('02', 32), 'hex'), '2026-10-23T10:00:01.000Z',
         decode(repeat('11', 32), 'hex'), decode(repeat('12', 32), 'hex'), '\xd2', '\xa0'),
        (decode(repeat('ab', 32), 'hex'), 2, 0, decode(repeat('03', 32), 'hex'), '2026-10-23T10:00:02.500Z',
@@ -13,5 +13,6 @@ VALUES (decode(repeat('ab', 32), 'hex'), 0, 'evt-0', 'work.opened', '00-4bf92f35
        (decode(repeat('ab', 32), 'hex'), 1, 'evt-2', 'commitment.promised', '00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01', 'commitment', decode(repeat('0a', 32), 'hex'), 2),
        (decode(repeat('ab', 32), 'hex'), 2, 'evt-3', 'commitment.declined', '00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01', 'commitment', decode(repeat('0a', 32), 'hex'), 3);
 UPDATE ledger.head
-   SET pos = 2, head_leaf = decode(repeat('13', 32), 'hex'), head_recorded_at = '2026-10-23T10:00:02.500Z'
+   SET pos = 2, head_leaf = decode(repeat('13', 32), 'hex'), head_recorded_at = '2026-10-23T10:00:02.500Z',
+       frontier = decode(repeat('5a', 32) || repeat('13', 32), 'hex')
  WHERE ledger_id = decode(repeat('ab', 32), 'hex') AND pos = -1 AND epoch = 0;

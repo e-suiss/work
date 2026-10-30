@@ -143,6 +143,20 @@ pub(crate) async fn fails(pool: &PgPool, scope: &str, stmts: &[&str], code: Opti
     }
 }
 
+/// Runs `stmts` scoped to `scope` and expects the commit, or a statement, to fail with `code`.
+pub(crate) async fn commit_fails(pool: &PgPool, scope: &str, stmts: &[&str], code: &str) {
+    match scoped(pool, scope, stmts, true).await {
+        Ok(()) => panic!("expected the commit to fail: {stmts:?}"),
+        Err(e) => {
+            let got = e
+                .as_database_error()
+                .and_then(sqlx::error::DatabaseError::code)
+                .map(std::borrow::Cow::into_owned);
+            assert_eq!(got.as_deref(), Some(code), "{stmts:?}: {e}");
+        }
+    }
+}
+
 /// One `bigint` from `query` scoped to `scope`; commits only with `commit`.
 pub(crate) async fn scalar(pool: &PgPool, scope: &str, query: &str, commit: bool) -> i64 {
     let mut tx = pool.begin().await.unwrap();

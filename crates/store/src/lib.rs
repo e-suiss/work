@@ -14,10 +14,11 @@ mod migrate;
 mod outbox;
 mod publisher;
 mod scope;
+mod sequencer;
 mod server;
 
 pub use erasure::{ERASURE_SCOPE, ErasureScope};
-pub use error::StoreError;
+pub use error::{AppendError, StoreError};
 pub use id::{ItemRef, LedgerId};
 pub use idempotency::{
     Admission, CLOCK_UNCERTAINTY_MS, CallerRef, HOT_WINDOW_MS, IdempotencyDecision, IdempotencyKey,
@@ -30,6 +31,10 @@ pub use publisher::{
     PublisherPool, PublisherRole,
 };
 pub use scope::{Head, LedgerTx};
+pub use sequencer::{
+    AppendBatch, Durability, Genesis, ItemHeadRow, LogRow, NewHead, OutboxRow, SEQUENCER_ROLE,
+    SequencerPool, StoredHead,
+};
 pub use server::{connect, server_version_num};
 
 /// The connection pool type, so other crates need no driver dependency.

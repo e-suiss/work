@@ -9,16 +9,17 @@ async fn with_second_ledger() -> (Env, String, String) {
     let (env, l) = seeded().await;
     let m = hex(&M);
     let stmts = [
-        "INSERT INTO ledger.head (ledger_id, pos, epoch) VALUES (ledger.current_ledger_id(), -1, 0)".to_owned(),
+        "INSERT INTO ledger.head (ledger_id, pos, epoch, frontier) VALUES (ledger.current_ledger_id(), -1, 0, '\\x')".to_owned(),
         "INSERT INTO ledger.log (ledger_id, pos, epoch, record_id, recorded_at, prev, leaf_hash, record_bytes, envelope_bytes) \
          VALUES (ledger.current_ledger_id(), 0, 0, decode(repeat('04', 32), 'hex'), '2026-10-23T11:00:00.000Z', \
-         decode(repeat('00', 32), 'hex'), decode(repeat('21', 32), 'hex'), '\\xd2', '\\xa0')".to_owned(),
+         NULL, decode(repeat('21', 32), 'hex'), '\\xd2', '\\xa0')".to_owned(),
         format!(
             "INSERT INTO ledger.outbox (ledger_id, pos, event_id, event_type, traceparent, item_kind, item_id, version) \
              VALUES (ledger.current_ledger_id(), 0, 'evt-m0', 'work.opened', '{TRACE}', 'work', decode(repeat('0c', 16), 'hex'), 1)"
         ),
         "UPDATE ledger.head SET pos = 0, head_leaf = decode(repeat('21', 32), 'hex'), \
-         head_recorded_at = '2026-10-23T11:00:00.000Z' \
+         head_recorded_at = '2026-10-23T11:00:00.000Z', \
+         frontier = decode(repeat('21', 32), 'hex') \
          WHERE ledger_id = ledger.current_ledger_id() AND pos = -1 AND epoch = 0".to_owned(),
     ];
     let refs: Vec<&str> = stmts.iter().map(String::as_str).collect();

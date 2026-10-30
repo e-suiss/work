@@ -17,6 +17,19 @@ pub const PUBLISHER_ROLE: &str = "work_publisher";
 /// The login role a [`DeriverPool`] must have (T-82).
 pub const DERIVER_ROLE: &str = "work_deriver";
 
+pub(crate) async fn check_role(pool: &PgPool, role: &str) -> Result<(), StoreError> {
+    let member: bool =
+        sqlx::query_scalar("SELECT pg_catalog.pg_has_role(current_user, $1, 'USAGE')")
+            .bind(role)
+            .fetch_one(pool)
+            .await?;
+    if member {
+        Ok(())
+    } else {
+        Err(StoreError::Role)
+    }
+}
+
 mod sealed {
     pub trait Sealed {}
 }
@@ -79,14 +92,7 @@ impl<R: DiscoveryRole> DiscoveryPool<R> {
     /// # Errors
     /// [`StoreError::Db`], or [`StoreError::Role`] for any other role.
     pub async fn new(pool: PgPool) -> Result<Self, StoreError> {
-        let member: bool =
-            sqlx::query_scalar("SELECT pg_catalog.pg_has_role(current_user, $1, 'USAGE')")
-                .bind(R::NAME)
-                .fetch_one(&pool)
-                .await?;
-        if !member {
-            return Err(StoreError::Role);
-        }
+        check_role(&pool, R::NAME).await?;
         Ok(Self {
             pool,
             role: PhantomData,

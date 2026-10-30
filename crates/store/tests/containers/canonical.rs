@@ -6,11 +6,11 @@ use crate::env::{Env, L, M, fails, hex, run, scalar, with_ledgers};
 const TRACE: &str = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01";
 
 const SEED: &str = "
-INSERT INTO ledger.head (ledger_id, pos, epoch) VALUES (decode('{L}', 'hex'), -1, 0);
+INSERT INTO ledger.head (ledger_id, pos, epoch, frontier) VALUES (decode('{L}', 'hex'), -1, 0, '\\x');
 INSERT INTO work.ledger_profile VALUES (decode('{L}', 'hex'), 'single-node');
 INSERT INTO ledger.log (ledger_id, pos, epoch, record_id, recorded_at, prev, leaf_hash, record_bytes, envelope_bytes)
 VALUES (decode('{L}', 'hex'), 0, 0, decode(repeat('01', 32), 'hex'), '2026-10-23T10:00:00.123Z',
-        decode(repeat('00', 32), 'hex'), decode(repeat('11', 32), 'hex'), '\\xd2', '\\xa0');
+        NULL, decode(repeat('11', 32), 'hex'), '\\xd2', '\\xa0');
 INSERT INTO work.record_header (
     ledger_id, pos, kind, record_type, author, author_actor_type, author_actor_type_source,
     occurred_at, ingest, proof_commit, protocol_major, protocol_minor, schema_digest)
@@ -44,7 +44,8 @@ INSERT INTO ledger.outbox (ledger_id, pos, event_id, event_type, traceparent, it
 VALUES (decode('{L}', 'hex'), 0, 'evt-0', 'commitment.requested', '{T}', 'commitment', decode(repeat('01', 32), 'hex'), 1),
        (decode('{L}', 'hex'), 0, 'evt-1', 'work.opened', '{T}', 'work', decode('01890a5dac96774bbcceb302099a8057', 'hex'), 1);
 UPDATE ledger.head
-   SET pos = 0, head_leaf = decode(repeat('11', 32), 'hex'), head_recorded_at = '2026-10-23T10:00:00.123Z'
+   SET pos = 0, head_leaf = decode(repeat('11', 32), 'hex'), head_recorded_at = '2026-10-23T10:00:00.123Z',
+       frontier = decode(repeat('11', 32), 'hex')
  WHERE ledger_id = decode('{L}', 'hex') AND pos = -1 AND epoch = 0;
 ";
 
@@ -72,7 +73,7 @@ pub(crate) async fn seeded() -> (Env, String) {
 #[ignore = "needs Docker"]
 async fn t_36_migrations_rerun_as_a_no_op() {
     let env = Env::start().await;
-    for (cluster, applied) in [(Cluster::Canonical, 12), (Cluster::Derived, 7)] {
+    for (cluster, applied) in [(Cluster::Canonical, 14), (Cluster::Derived, 7)] {
         work_store::migrate(&env.pool(cluster, "work_owner"), cluster)
             .await
             .unwrap();
@@ -137,7 +138,8 @@ async fn op_5_appends_need_a_contiguous_chain_and_the_head_compare_and_set() {
         &[
             &log_row(1, "11", ok),
             &sql(&format!(
-                "UPDATE ledger.head SET pos = 1, head_leaf = decode(repeat('12', 32), 'hex'), head_recorded_at = '{ok}' \
+                "UPDATE ledger.head SET pos = 1, head_leaf = decode(repeat('12', 32), 'hex'), head_recorded_at = '{ok}', \
+                 frontier = decode(repeat('5b', 32), 'hex') \
                  WHERE ledger_id = decode('{{L}}', 'hex') AND pos = 0 AND epoch = 0"
             )),
         ],
@@ -162,7 +164,7 @@ async fn op_12_append_only_tables_reject_update_delete_and_truncate_from_every_r
     let cases: &[(&str, &str)] = &[
         (
             "work_app",
-            "INSERT INTO ledger.head (ledger_id, pos, epoch) VALUES (decode(repeat('ab', 32), 'hex'), -1, 0)",
+            "INSERT INTO ledger.head (ledger_id, pos, epoch, frontier) VALUES (decode(repeat('ab', 32), 'hex'), -1, 0, '\\x')",
         ),
         ("work_sequencer", "UPDATE ledger.log SET epoch = 1"),
         (
@@ -218,7 +220,7 @@ async fn t_13_rows_outside_the_ledger_scope_are_invisible_and_unwritable() {
     fails(
         &seq,
         "",
-        &["INSERT INTO ledger.head (ledger_id, pos, epoch) VALUES (decode(repeat('cd', 32), 'hex'), -1, 0)"],
+        &["INSERT INTO ledger.head (ledger_id, pos, epoch, frontier) VALUES (decode(repeat('cd', 32), 'hex'), -1, 0, '\\x')"],
         Some("42501"),
     )
     .await;

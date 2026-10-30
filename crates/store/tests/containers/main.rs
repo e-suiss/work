@@ -16,3 +16,4 @@ mod env;
 mod idempotency;
 mod publisher;
 mod schema;
+mod sequencer;
