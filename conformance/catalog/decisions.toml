@@ -2976,6 +2976,7 @@ tests = [
   "crates/kernel/src/reason.rs::p_11_every_reason_round_trips_through_its_wire_string",
   "crates/kernel/tests/derivation.rs::p_11_ledger_order_violations_are_errors",
   "crates/kernel/tests/record_vectors.rs::p_11_accepted_record_vectors",
+  "crates/ledger/src/envelope.rs::p_100_every_golden_envelope_is_sealed_from_its_slot",
   "sdks/bindings/core/tests/reason_codes.rs::t_69_typescript_reason_codes_are_the_kernel_codes",
   "sdks/bindings/core/tests/vectors.rs::p_11_every_vector_reason_is_a_kernel_code_and_every_id_is_unique",
   "sdks/bindings/core/tests/vectors.rs::t_5_t_37_inv_7_native_record_vectors_through_bindings_core",
@@ -3352,6 +3353,7 @@ acceptance = "to-fill"
 title = ""
 tests = [
   "crates/kernel/src/id.rs::p_67_party_ref_is_one_to_255_bytes",
+  "crates/ledger/src/genesis.rs::p_100_genesis_matches_the_golden_vector",
   "crates/store/src/id.rs::t_13_ledger_scope_is_the_lower_case_hex_of_the_digest",
   "sdks/bindings/core/tests/vectors.rs::p_67_digests_are_encoded_as_the_sha_256_label_and_32_bytes",
 ]
@@ -3466,7 +3468,9 @@ status = "frozen-protocol"
 stage = 1
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/ledger/src/envelope.rs::p_100_every_golden_envelope_is_sealed_from_its_slot",
+]
 
 [[rule]]
 id = "P-76"
@@ -3777,7 +3781,10 @@ status = "frozen-protocol"
 stage = 2
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/ledger/src/envelope.rs::p_100_every_golden_envelope_is_sealed_from_its_slot",
+  "crates/ledger/src/genesis.rs::p_100_genesis_matches_the_golden_vector",
+]
 
 [[rule]]
 id = "P-101"
@@ -3786,7 +3793,10 @@ status = "frozen-protocol"
 stage = 2
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/ledger/src/envelope.rs::p_100_every_golden_envelope_is_sealed_from_its_slot",
+  "crates/ledger/src/genesis.rs::p_100_genesis_matches_the_golden_vector",
+]
 
 [[rule]]
 id = "PR-2"
@@ -4775,7 +4785,9 @@ family = "T"
 status = "frozen-technical"
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/ledger/src/envelope.rs::p_100_every_golden_envelope_is_sealed_from_its_slot",
+]
 
 [[rule]]
 id = "T-75"
