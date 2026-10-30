@@ -21,7 +21,7 @@
         "P-79"
       ],
       "input": "records.json record/declaration-promise-for-principal hex",
-      "digest_hex": "f2b44a85f678e81e9ac7fcef7b86a394faf6bb11e120e6e1f320505dd0815bd8",
+      "digest_hex": "24acfbb1c55d08cc4c47cd5e9a0fd503ad005f980a4df9ddf988b9481d945739",
       "prefix": null
     },
     {
@@ -32,7 +32,7 @@
       ],
       "input": "records.json envelope/declaration-promise-for-principal hex",
       "prefix_hex": "00",
-      "digest_hex": "07fe943f37205c1549ee4be5a151ac739e6c1e2ba6af7cf1f6fe61d22d98b901"
+      "digest_hex": "a1d23e6874b3e4852850d8cf96c38bbd952efee61ecac26714a652dfa8f8bb2a"
     },
     {
       "id": "digest/body-commit-0x02",

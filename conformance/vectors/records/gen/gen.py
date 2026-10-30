@@ -236,7 +236,18 @@ EVIDENCE = CORE + "evidence/"
 ROLE = CORE + "derived_from/"
 PROC = "https://procurement.example/ns/"
 CLINIC = "https://clinic.example/ns/"
-LEDGER = label("ledger-genesis")
+CDDL_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "cddl", "work-record.cddl")
+with open(CDDL_FILE, "rb") as f:
+    CDDL_DIGEST = [-16, sha(f.read())]
+GENESIS = {
+    "pos": 0,
+    "recorded_at": 1792109000000,
+    "versions": {"protocol": [1, 0], "schema": CDDL_DIGEST},
+    "nonce": sha(b"work-vector:genesis-nonce"),
+}
+GENESIS_BYTES = enc(GENESIS)
+LEDGER = [-16, sha(GENESIS_BYTES)]
+GENESIS_LEAF = sha(b"\x00" + GENESIS_BYTES)
 W1 = bytes.fromhex("019a2f4c8e1b7c3da5e6f70812345678")
 W2 = bytes.fromhex("019a2f4c8e1b7c3da5e6f70887654321")
 ALICE = "party:acme:alice"
@@ -779,7 +790,7 @@ records = [
      "Practice Claim whose params carry a digest scalar written as [-16, bytes] and a list of text scalars, with a Practice qualifier on references under the pinned namespace."),
 ]
 
-envelope_state = {"prev": [-16, b"\x00" * 32], "pos": 41, "recorded_at": 1792109100000}
+envelope_state = {"prev": [-16, GENESIS_LEAF], "pos": 1, "recorded_at": 1792109100000}
 
 
 def envelope(rec, c, rid, ingest):
@@ -812,7 +823,7 @@ def context_for(rec, kw):
     return ctx(rec, **kw)
 
 
-ENVELOPE_RULES = ["P-11", "P-12", "P-21", "P-67", "P-75", "P-76"]
+ENVELOPE_RULES = ["P-11", "P-12", "P-21", "P-67", "P-75", "P-76", "P-100"]
 out_recs = []
 out_envs = []
 for name, rec, kw, rules, purpose in records:
@@ -838,7 +849,7 @@ write_json("records.json", {
               "proof_commit = SHA-256 of the full tagged WorkRecordCose bytes as received; these vectors carry no signatures, so proof_commit values are placeholders",
               "Digest values labelled work-vector:* are SHA-256 of ASCII placeholder strings, not real objects",
               "context holds verifier inputs that are not record bytes: origin, actor_type exactly as the envelope ActorTypeAnnotation (author and one entry per on_behalf_of party), understood_extensions, and recorded_at when the record carries params.effective_at",
-              "prev of the first envelope is the all-zero placeholder until suiss-ledger fixes the genesis rule",
+              "ledger is the LedgerID of genesis.json genesis/accept; the first envelope is at pos 1 and its prev is the genesis leaf hash (P-100)",
               "PartyRef values are placeholder text until the Access Party reference byte form is fixed"],
     "records": out_recs, "envelopes": out_envs})
 
@@ -883,6 +894,55 @@ def variant(base, **changes):
         else:
             r[k] = v
     return r
+
+GENESIS_RULES = ["P-100", "P-11", "P-18", "P-27", "P-67", "Access CR-1"]
+write_cbor("GenesisEnvelope", "genesis-accept", GENESIS_BYTES, "pass")
+genesis_cases = [{
+    "id": "genesis/accept", "rules": GENESIS_RULES,
+    "purpose": "The genesis at position 0 of the ledger every records.json envelope names; nonce is a fixed placeholder for the Rng port value.",
+    "diag": diag(GENESIS), "hex": GENESIS_BYTES.hex(), "decoded": decoded(GENESIS_BYTES),
+    "ledger_id": {"encoded_digest_hex": enc(LEDGER).hex(), "digest_hex": LEDGER[1].hex()},
+    "leaf_hash": GENESIS_LEAF.hex(), "cddl": "pass", "expect": {"outcome": "accept"}}]
+genesis_rejects = [
+    ("prev-present", variant(GENESIS, prev=[-16, b"\x00" * 32]), ["P-100", "P-67"], "schema:unknown_core_field"),
+    ("ledger-present", variant(GENESIS, ledger=label("ledger:other")), ["P-100", "C-35"], "schema:unknown_core_field"),
+    ("record-present", variant(GENESIS, record=label("record:genesis")), ["P-100"], "schema:unknown_core_field"),
+    ("nonce-missing", variant(GENESIS, nonce=None), ["P-100", "T-32"], "schema:required_field"),
+    ("nonce-31-bytes", variant(GENESIS, nonce=GENESIS["nonce"][:31]), ["P-100", "T-32", "P-72"], "limit_exceeded:string"),
+    ("pos-1", variant(GENESIS, pos=1), ["P-100"], "schema:required_field"),
+]
+for name, g, rules, reason in genesis_rejects:
+    b = enc(g)
+    check(b)
+    write_cbor("GenesisEnvelope", "genesis-reject-" + name, b, "fail")
+    expect = {"outcome": "reject"}
+    if reason is not None:
+        expect["reason"] = reason
+    genesis_cases.append({"id": "genesis-reject/" + name, "rules": rules, "diag": diag(g), "hex": b.hex(),
+                          "decoded": decoded(b, g), "cddl": "fail", "expect": expect})
+first_env = check(bytes.fromhex(out_envs[0]["hex"]))
+envelope_rejects = [
+    ("pos-0", dict(first_env, pos=0), ["P-100", "P-11"], "pass", "schema:unknown_core_field",
+     "A LedgerEnvelope that claims position 0; the CDDL allows any uint, the kernel reads position 0 as the genesis schema."),
+    ("prev-missing", variant(first_env, prev=None), ["P-100", "P-11"], "fail", "schema:required_field",
+     "An envelope at position 1 without prev; prev is required at every position above 0."),
+]
+for name, e, rules, cddl, reason, purpose in envelope_rejects:
+    b = enc(e)
+    check(b)
+    write_cbor("LedgerEnvelope", "genesis-envelope-reject-" + name, b, cddl)
+    expect = {"outcome": "reject"}
+    if reason is not None:
+        expect["reason"] = reason
+    genesis_cases.append({"id": "envelope-reject/" + name, "rules": rules, "purpose": purpose, "hex": b.hex(),
+                          "decoded": decoded(b, e), "cddl": cddl, "expect": expect})
+write_json("genesis.json", {
+    "file": "genesis.json",
+    "notes": ["ledger_id.digest_hex = SHA-256(det-CBOR(GenesisEnvelope)), no prefix; ledger_id.encoded_digest_hex is its det-CBOR Digest [-16, bstr]",
+              "leaf_hash = SHA-256(0x00 || det-CBOR(GenesisEnvelope)); records.json envelope 0 carries it as prev",
+              "versions.schema is the Digest of the work-record.cddl bytes (P-100 item 7); nonce is a work-vector:* placeholder for the Rng port value",
+              "the kernel picks the envelope schema by pos: 0 is GenesisEnvelope, above 0 is LedgerEnvelope (P-100 item 6)"],
+    "cases": genesis_cases})
 
 
 amend_top_ext = variant(rec_amend, ext=None)

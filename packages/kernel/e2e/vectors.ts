@@ -65,7 +65,7 @@ const recordsDir = new URL("../../../conformance/vectors/records/", import.meta.
 const fixturesDir = new URL("../../../sdks/bindings/core/tests/fixtures/", import.meta.url);
 
 /** Record vector files whose inputs are raw CBOR or digest bytes, which the WebAssembly API does not take; until the shared CBOR and crypto crates exist (P-8), the native binding tests check only their reason codes and digest encodings (T-37). */
-export const nativeOnlyRecordFiles = ["cbor-canonical.json", "digest.json"] as const;
+export const nativeOnlyRecordFiles = ["cbor-canonical.json", "digest.json", "genesis.json"] as const;
 
 /** Record vector files the browser runs through `validateRecord` and `deriveRecords`. */
 export const recordFiles = [

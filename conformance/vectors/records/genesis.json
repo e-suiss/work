@@ -1,0 +1,323 @@
+{
+  "file": "genesis.json",
+  "notes": [
+    "ledger_id.digest_hex = SHA-256(det-CBOR(GenesisEnvelope)), no prefix; ledger_id.encoded_digest_hex is its det-CBOR Digest [-16, bstr]",
+    "leaf_hash = SHA-256(0x00 || det-CBOR(GenesisEnvelope)); records.json envelope 0 carries it as prev",
+    "versions.schema is the Digest of the work-record.cddl bytes (P-100 item 7); nonce is a work-vector:* placeholder for the Rng port value",
+    "the kernel picks the envelope schema by pos: 0 is GenesisEnvelope, above 0 is LedgerEnvelope (P-100 item 6)"
+  ],
+  "cases": [
+    {
+      "id": "genesis/accept",
+      "rules": [
+        "P-100",
+        "P-11",
+        "P-18",
+        "P-27",
+        "P-67",
+        "Access CR-1"
+      ],
+      "purpose": "The genesis at position 0 of the ledger every records.json envelope names; nonce is a fixed placeholder for the Rng port value.",
+      "diag": "{\n  \"pos\": 0,\n  \"nonce\": h'2025e173fb03d476f4de998999fec78a671204faf5875e5e8ef5f3cd02b236e4',\n  \"versions\": {\n    \"schema\": [-16, h'deb2f778471ed7d04eef43270a22b004bbb7a381fd630afcb73bd0479af931c5'],\n    \"protocol\": [1, 0]\n  },\n  \"recorded_at\": 1792109000000\n}",
+      "hex": "a463706f7300656e6f6e636558202025e173fb03d476f4de998999fec78a671204faf5875e5e8ef5f3cd02b236e46876657273696f6e73a266736368656d61822f5820deb2f778471ed7d04eef43270a22b004bbb7a381fd630afcb73bd0479af931c56870726f746f636f6c8201006b7265636f726465645f61741b000001a142053540",
+      "decoded": {
+        "pos": 0,
+        "nonce": "2025e173fb03d476f4de998999fec78a671204faf5875e5e8ef5f3cd02b236e4",
+        "versions": {
+          "schema": [
+            -16,
+            "deb2f778471ed7d04eef43270a22b004bbb7a381fd630afcb73bd0479af931c5"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "recorded_at": 1792109000000
+      },
+      "ledger_id": {
+        "encoded_digest_hex": "822f5820870824c26a226f425f3d0efc9df79a6e9680265269b883c31f9c398845efb14a",
+        "digest_hex": "870824c26a226f425f3d0efc9df79a6e9680265269b883c31f9c398845efb14a"
+      },
+      "leaf_hash": "efd72b7e577f289cf8f8098eac731aa22253c9e6820e1f854750c01fcb814632",
+      "cddl": "pass",
+      "expect": {
+        "outcome": "accept"
+      }
+    },
+    {
+      "id": "genesis-reject/prev-present",
+      "rules": [
+        "P-100",
+        "P-67"
+      ],
+      "diag": "{\n  \"pos\": 0,\n  \"prev\": [-16, h'0000000000000000000000000000000000000000000000000000000000000000'],\n  \"nonce\": h'2025e173fb03d476f4de998999fec78a671204faf5875e5e8ef5f3cd02b236e4',\n  \"versions\": {\n    \"schema\": [-16, h'deb2f778471ed7d04eef43270a22b004bbb7a381fd630afcb73bd0479af931c5'],\n    \"protocol\": [1, 0]\n  },\n  \"recorded_at\": 1792109000000\n}",
+      "hex": "a563706f73006470726576822f58200000000000000000000000000000000000000000000000000000000000000000656e6f6e636558202025e173fb03d476f4de998999fec78a671204faf5875e5e8ef5f3cd02b236e46876657273696f6e73a266736368656d61822f5820deb2f778471ed7d04eef43270a22b004bbb7a381fd630afcb73bd0479af931c56870726f746f636f6c8201006b7265636f726465645f61741b000001a142053540",
+      "decoded": {
+        "pos": 0,
+        "prev": [
+          -16,
+          "0000000000000000000000000000000000000000000000000000000000000000"
+        ],
+        "nonce": "2025e173fb03d476f4de998999fec78a671204faf5875e5e8ef5f3cd02b236e4",
+        "versions": {
+          "schema": [
+            -16,
+            "deb2f778471ed7d04eef43270a22b004bbb7a381fd630afcb73bd0479af931c5"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "recorded_at": 1792109000000
+      },
+      "cddl": "fail",
+      "expect": {
+        "outcome": "reject",
+        "reason": "schema:unknown_core_field"
+      }
+    },
+    {
+      "id": "genesis-reject/ledger-present",
+      "rules": [
+        "P-100",
+        "C-35"
+      ],
+      "diag": "{\n  \"pos\": 0,\n  \"nonce\": h'2025e173fb03d476f4de998999fec78a671204faf5875e5e8ef5f3cd02b236e4',\n  \"ledger\": [-16, h'47ec174adb84f1ec348cf53d5ef1b9f63109e08c062e08f1956ee0b0239fc5e3'],\n  \"versions\": {\n    \"schema\": [-16, h'deb2f778471ed7d04eef43270a22b004bbb7a381fd630afcb73bd0479af931c5'],\n    \"protocol\": [1, 0]\n  },\n  \"recorded_at\": 1792109000000\n}",
+      "hex": "a563706f7300656e6f6e636558202025e173fb03d476f4de998999fec78a671204faf5875e5e8ef5f3cd02b236e4666c6564676572822f582047ec174adb84f1ec348cf53d5ef1b9f63109e08c062e08f1956ee0b0239fc5e36876657273696f6e73a266736368656d61822f5820deb2f778471ed7d04eef43270a22b004bbb7a381fd630afcb73bd0479af931c56870726f746f636f6c8201006b7265636f726465645f61741b000001a142053540",
+      "decoded": {
+        "pos": 0,
+        "nonce": "2025e173fb03d476f4de998999fec78a671204faf5875e5e8ef5f3cd02b236e4",
+        "ledger": [
+          -16,
+          "47ec174adb84f1ec348cf53d5ef1b9f63109e08c062e08f1956ee0b0239fc5e3"
+        ],
+        "versions": {
+          "schema": [
+            -16,
+            "deb2f778471ed7d04eef43270a22b004bbb7a381fd630afcb73bd0479af931c5"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "recorded_at": 1792109000000
+      },
+      "cddl": "fail",
+      "expect": {
+        "outcome": "reject",
+        "reason": "schema:unknown_core_field"
+      }
+    },
+    {
+      "id": "genesis-reject/record-present",
+      "rules": [
+        "P-100"
+      ],
+      "diag": "{\n  \"pos\": 0,\n  \"nonce\": h'2025e173fb03d476f4de998999fec78a671204faf5875e5e8ef5f3cd02b236e4',\n  \"record\": [-16, h'284b55a2e41f206581e85da55bdfcd5324210fed68963320dd22cdd323a44f7e'],\n  \"versions\": {\n    \"schema\": [-16, h'deb2f778471ed7d04eef43270a22b004bbb7a381fd630afcb73bd0479af931c5'],\n    \"protocol\": [1, 0]\n  },\n  \"recorded_at\": 1792109000000\n}",
+      "hex": "a563706f7300656e6f6e636558202025e173fb03d476f4de998999fec78a671204faf5875e5e8ef5f3cd02b236e4667265636f7264822f5820284b55a2e41f206581e85da55bdfcd5324210fed68963320dd22cdd323a44f7e6876657273696f6e73a266736368656d61822f5820deb2f778471ed7d04eef43270a22b004bbb7a381fd630afcb73bd0479af931c56870726f746f636f6c8201006b7265636f726465645f61741b000001a142053540",
+      "decoded": {
+        "pos": 0,
+        "nonce": "2025e173fb03d476f4de998999fec78a671204faf5875e5e8ef5f3cd02b236e4",
+        "record": [
+          -16,
+          "284b55a2e41f206581e85da55bdfcd5324210fed68963320dd22cdd323a44f7e"
+        ],
+        "versions": {
+          "schema": [
+            -16,
+            "deb2f778471ed7d04eef43270a22b004bbb7a381fd630afcb73bd0479af931c5"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "recorded_at": 1792109000000
+      },
+      "cddl": "fail",
+      "expect": {
+        "outcome": "reject",
+        "reason": "schema:unknown_core_field"
+      }
+    },
+    {
+      "id": "genesis-reject/nonce-missing",
+      "rules": [
+        "P-100",
+        "T-32"
+      ],
+      "diag": "{\n  \"pos\": 0,\n  \"versions\": {\n    \"schema\": [-16, h'deb2f778471ed7d04eef43270a22b004bbb7a381fd630afcb73bd0479af931c5'],\n    \"protocol\": [1, 0]\n  },\n  \"recorded_at\": 1792109000000\n}",
+      "hex": "a363706f73006876657273696f6e73a266736368656d61822f5820deb2f778471ed7d04eef43270a22b004bbb7a381fd630afcb73bd0479af931c56870726f746f636f6c8201006b7265636f726465645f61741b000001a142053540",
+      "decoded": {
+        "pos": 0,
+        "versions": {
+          "schema": [
+            -16,
+            "deb2f778471ed7d04eef43270a22b004bbb7a381fd630afcb73bd0479af931c5"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "recorded_at": 1792109000000
+      },
+      "cddl": "fail",
+      "expect": {
+        "outcome": "reject",
+        "reason": "schema:required_field"
+      }
+    },
+    {
+      "id": "genesis-reject/nonce-31-bytes",
+      "rules": [
+        "P-100",
+        "T-32",
+        "P-72"
+      ],
+      "diag": "{\n  \"pos\": 0,\n  \"nonce\": h'2025e173fb03d476f4de998999fec78a671204faf5875e5e8ef5f3cd02b236',\n  \"versions\": {\n    \"schema\": [-16, h'deb2f778471ed7d04eef43270a22b004bbb7a381fd630afcb73bd0479af931c5'],\n    \"protocol\": [1, 0]\n  },\n  \"recorded_at\": 1792109000000\n}",
+      "hex": "a463706f7300656e6f6e6365581f2025e173fb03d476f4de998999fec78a671204faf5875e5e8ef5f3cd02b2366876657273696f6e73a266736368656d61822f5820deb2f778471ed7d04eef43270a22b004bbb7a381fd630afcb73bd0479af931c56870726f746f636f6c8201006b7265636f726465645f61741b000001a142053540",
+      "decoded": {
+        "pos": 0,
+        "nonce": "2025e173fb03d476f4de998999fec78a671204faf5875e5e8ef5f3cd02b236",
+        "versions": {
+          "schema": [
+            -16,
+            "deb2f778471ed7d04eef43270a22b004bbb7a381fd630afcb73bd0479af931c5"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "recorded_at": 1792109000000
+      },
+      "cddl": "fail",
+      "expect": {
+        "outcome": "reject",
+        "reason": "limit_exceeded:string"
+      }
+    },
+    {
+      "id": "genesis-reject/pos-1",
+      "rules": [
+        "P-100"
+      ],
+      "diag": "{\n  \"pos\": 1,\n  \"nonce\": h'2025e173fb03d476f4de998999fec78a671204faf5875e5e8ef5f3cd02b236e4',\n  \"versions\": {\n    \"schema\": [-16, h'deb2f778471ed7d04eef43270a22b004bbb7a381fd630afcb73bd0479af931c5'],\n    \"protocol\": [1, 0]\n  },\n  \"recorded_at\": 1792109000000\n}",
+      "hex": "a463706f7301656e6f6e636558202025e173fb03d476f4de998999fec78a671204faf5875e5e8ef5f3cd02b236e46876657273696f6e73a266736368656d61822f5820deb2f778471ed7d04eef43270a22b004bbb7a381fd630afcb73bd0479af931c56870726f746f636f6c8201006b7265636f726465645f61741b000001a142053540",
+      "decoded": {
+        "pos": 1,
+        "nonce": "2025e173fb03d476f4de998999fec78a671204faf5875e5e8ef5f3cd02b236e4",
+        "versions": {
+          "schema": [
+            -16,
+            "deb2f778471ed7d04eef43270a22b004bbb7a381fd630afcb73bd0479af931c5"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "recorded_at": 1792109000000
+      },
+      "cddl": "fail",
+      "expect": {
+        "outcome": "reject",
+        "reason": "schema:required_field"
+      }
+    },
+    {
+      "id": "envelope-reject/pos-0",
+      "rules": [
+        "P-100",
+        "P-11"
+      ],
+      "purpose": "A LedgerEnvelope that claims position 0; the CDDL allows any uint, the kernel reads position 0 as the genesis schema.",
+      "hex": "a863706f73006470726576822f5820efd72b7e577f289cf8f8098eac731aa22253c9e6820e1f854750c01fcb81463266696e676573746861646d6974746564666c6564676572822f5820870824c26a226f425f3d0efc9df79a6e9680265269b883c31f9c398845efb14a667265636f7264822f582024acfbb1c55d08cc4c47cd5e9a0fd503ad005f980a4df9ddf988b9481d9457396a6163746f725f74797065a266617574686f7282656167656e746e6163636573735f62696e64696e676c6f6e5f626568616c665f6f6681826c6f7267616e697a6174696f6e6e6163636573735f62696e64696e676b7265636f726465645f61741b000001a14206bbe06c70726f6f665f636f6d6d6974822f5820c25e1c133a9b6310a68328aa90aca5d32ef8444908fdcb606b9a12cc6bd84763",
+      "decoded": {
+        "pos": 0,
+        "prev": [
+          -16,
+          "efd72b7e577f289cf8f8098eac731aa22253c9e6820e1f854750c01fcb814632"
+        ],
+        "ingest": "admitted",
+        "ledger": [
+          -16,
+          "870824c26a226f425f3d0efc9df79a6e9680265269b883c31f9c398845efb14a"
+        ],
+        "record": [
+          -16,
+          "24acfbb1c55d08cc4c47cd5e9a0fd503ad005f980a4df9ddf988b9481d945739"
+        ],
+        "actor_type": {
+          "author": [
+            "agent",
+            "access_binding"
+          ],
+          "on_behalf_of": [
+            [
+              "organization",
+              "access_binding"
+            ]
+          ]
+        },
+        "recorded_at": 1792109100000,
+        "proof_commit": [
+          -16,
+          "c25e1c133a9b6310a68328aa90aca5d32ef8444908fdcb606b9a12cc6bd84763"
+        ]
+      },
+      "cddl": "pass",
+      "expect": {
+        "outcome": "reject",
+        "reason": "schema:unknown_core_field"
+      }
+    },
+    {
+      "id": "envelope-reject/prev-missing",
+      "rules": [
+        "P-100",
+        "P-11"
+      ],
+      "purpose": "An envelope at position 1 without prev; prev is required at every position above 0.",
+      "hex": "a763706f730166696e676573746861646d6974746564666c6564676572822f5820870824c26a226f425f3d0efc9df79a6e9680265269b883c31f9c398845efb14a667265636f7264822f582024acfbb1c55d08cc4c47cd5e9a0fd503ad005f980a4df9ddf988b9481d9457396a6163746f725f74797065a266617574686f7282656167656e746e6163636573735f62696e64696e676c6f6e5f626568616c665f6f6681826c6f7267616e697a6174696f6e6e6163636573735f62696e64696e676b7265636f726465645f61741b000001a14206bbe06c70726f6f665f636f6d6d6974822f5820c25e1c133a9b6310a68328aa90aca5d32ef8444908fdcb606b9a12cc6bd84763",
+      "decoded": {
+        "pos": 1,
+        "ingest": "admitted",
+        "ledger": [
+          -16,
+          "870824c26a226f425f3d0efc9df79a6e9680265269b883c31f9c398845efb14a"
+        ],
+        "record": [
+          -16,
+          "24acfbb1c55d08cc4c47cd5e9a0fd503ad005f980a4df9ddf988b9481d945739"
+        ],
+        "actor_type": {
+          "author": [
+            "agent",
+            "access_binding"
+          ],
+          "on_behalf_of": [
+            [
+              "organization",
+              "access_binding"
+            ]
+          ]
+        },
+        "recorded_at": 1792109100000,
+        "proof_commit": [
+          -16,
+          "c25e1c133a9b6310a68328aa90aca5d32ef8444908fdcb606b9a12cc6bd84763"
+        ]
+      },
+      "cddl": "fail",
+      "expect": {
+        "outcome": "reject",
+        "reason": "schema:required_field"
+      }
+    }
+  ]
+}

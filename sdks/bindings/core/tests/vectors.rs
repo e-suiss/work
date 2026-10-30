@@ -75,9 +75,15 @@ fn entries() -> String {
 // T-5 T-37 T-69 INV-7 P-31
 #[test]
 fn t_5_t_37_inv_7_native_derivation_through_bindings_core() {
+    let derived = derive_records(&entries(), DERIVE_INPUTS);
+    if std::env::var_os("WORK_WRITE_GENERATED").is_some() {
+        std::fs::write("tests/fixtures/derive-expected.json", format!("{derived}\n")).unwrap();
+        return;
+    }
     assert_eq!(
-        derive_records(&entries(), DERIVE_INPUTS),
-        DERIVE_EXPECTED.trim_end()
+        derived,
+        DERIVE_EXPECTED.trim_end(),
+        "tests/fixtures/derive-expected.json is stale: WORK_WRITE_GENERATED=1 cargo test -p work-bindings-core --test vectors"
     );
 }
 
@@ -116,7 +122,7 @@ fn t_5_t_37_kernel_derivation_errors_cross_the_binding() {
         derive_records(&Value::from(entries.clone()).to_string(), DERIVE_INPUTS),
         r#"{"error":{"code":"position_gap","position":99}}"#
     );
-    entries[1]["position"] = json!(42);
+    entries[1]["position"] = json!(2);
     entries[1]["record"]["kind"] = json!("note");
     assert_eq!(
         derive_records(&Value::from(entries).to_string(), DERIVE_INPUTS),
