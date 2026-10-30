@@ -3780,6 +3780,15 @@ title = ""
 tests = []
 
 [[rule]]
+id = "P-101"
+family = "P"
+status = "frozen-protocol"
+stage = 2
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
 id = "PR-2"
 family = "PR"
 status = "frozen-product"

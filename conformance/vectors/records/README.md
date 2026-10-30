@@ -41,10 +41,10 @@ just cddl            # validate every record, envelope, genesis and digest vecto
 | Record ID | `SHA-256(det-CBOR(SignedRecord))`, the digest of the COSE payload (P-79) | none |
 | LedgerID | `SHA-256(det-CBOR(GenesisEnvelope))` as a `Digest` (P-67, P-100, Access CR-1); the CloudEvents `ledger` extension is its 32 bytes in hex (P-98) | none |
 | Leaf hash | `SHA-256(0x00 ‖ det-CBOR(LedgerEnvelope))`, and the same over `GenesisEnvelope` at position 0 | `0x00` |
-| Body commitment | `SHA-256(0x02 ‖ salt ‖ det-CBOR([name, media_type, content]))`, 32-byte salt from the `Rng` port, fresh per part (P-68) | `0x02` |
+| Body commitment | `SHA-256(0x03 ‖ salt ‖ det-CBOR([name, media_type, content]))`, 32-byte salt from the `Rng` port, fresh per part (P-68, P-101) | `0x03` |
 | `proof_commit` | `SHA-256(WorkRecordCose bytes as received)` (P-75, P-76) | none |
 
-`0x01` is the Access field commitment; Work does not use it.
+The prefixes are the `suiss-crypto` values (P-101): `0x01` is the RFC 9162 interior node and `0x02` the field commitment, which Work does not use.
 
 ## Reason codes
 

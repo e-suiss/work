@@ -35,13 +35,14 @@
       "digest_hex": "a1d23e6874b3e4852850d8cf96c38bbd952efee61ecac26714a652dfa8f8bb2a"
     },
     {
-      "id": "digest/body-commit-0x02",
+      "id": "digest/body-commit-0x03",
       "rules": [
         "P-5",
         "P-17",
-        "P-68"
+        "P-68",
+        "P-101"
       ],
-      "note": "commit = SHA-256(0x02 || salt[32] || det-CBOR([name, media_type, content])); the salt is fixed here and comes from the Rng port in production",
+      "note": "commit = SHA-256(0x03 || salt[32] || det-CBOR([name, media_type, content])); the salt is fixed here and comes from the Rng port in production",
       "prefix_hex": "02",
       "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
       "part": {
@@ -50,7 +51,7 @@
         "content_hex": "a2636475651b000001a18a1b3000676f626c696765657470617274793a61636d653a62757965722d6f7267"
       },
       "part_cbor_hex": "83657465726d73706170706c69636174696f6e2f63626f72582ba2636475651b000001a18a1b3000676f626c696765657470617274793a61636d653a62757965722d6f7267",
-      "digest_hex": "91ac4268baefb3e7a8f1efb01358a1dc66b9dcd7480662fee3ae3bc5dde966e9"
+      "digest_hex": "c55288c75c8f90a1460d6f0617dce3a016c0a2f70d76d6dcd6694a150884295d"
     },
     {
       "id": "digest/wrong-alg-label",
