@@ -3771,6 +3771,15 @@ title = ""
 tests = []
 
 [[rule]]
+id = "P-100"
+family = "P"
+status = "frozen-protocol"
+stage = 2
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
 id = "PR-2"
 family = "PR"
 status = "frozen-product"
@@ -4599,6 +4608,14 @@ tests = [
   "xtask/src/supply_cooldown.rs::t_60_new_version_fails_unless_a_reasoned_exception_covers_it",
   "xtask/src/supply_cooldown.rs::t_60_unjudged_versions_fail_in_ci_and_online",
   "xtask/src/supply_cooldown.rs::t_60_version_published_six_days_ago_is_too_new",
+  "xtask/src/supply_cooldown.rs::t_86_failed_lookups_are_never_cached_as_verified",
+  "xtask/src/supply_cooldown.rs::t_86_lightweight_tag_keeps_the_cooldown",
+  "xtask/src/supply_cooldown.rs::t_86_published_commit_other_than_the_tag_commit_keeps_the_cooldown",
+  "xtask/src/supply_cooldown.rs::t_86_range_declarations_keep_the_cooldown",
+  "xtask/src/supply_cooldown.rs::t_86_third_party_crates_get_no_provenance_exemption",
+  "xtask/src/supply_cooldown.rs::t_86_trusted_publishing_from_another_repository_keeps_the_cooldown",
+  "xtask/src/supply_cooldown.rs::t_86_unverified_tag_signature_keeps_the_cooldown",
+  "xtask/src/supply_cooldown.rs::t_86_verified_provenance_lifts_the_cooldown_for_an_exactly_pinned_shared_crate",
   "xtask/src/supply_pinning.rs::t_60_action_pinned_to_tag_is_rejected",
   "xtask/src/supply_pinning.rs::t_60_compose_variable_defaults_must_be_pinned",
   "xtask/src/supply_pinning.rs::t_60_docker_run_and_pull_in_workflow_steps_need_a_digest",
@@ -4871,6 +4888,33 @@ stage = 2
 acceptance = "to-fill"
 title = ""
 tests = []
+
+[[rule]]
+id = "T-85"
+family = "T"
+status = "frozen-technical"
+stage = 2
+acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "T-86"
+family = "T"
+status = "frozen-technical"
+stage = 2
+acceptance = "to-fill"
+title = ""
+tests = [
+  "xtask/src/supply_cooldown.rs::t_86_failed_lookups_are_never_cached_as_verified",
+  "xtask/src/supply_cooldown.rs::t_86_lightweight_tag_keeps_the_cooldown",
+  "xtask/src/supply_cooldown.rs::t_86_published_commit_other_than_the_tag_commit_keeps_the_cooldown",
+  "xtask/src/supply_cooldown.rs::t_86_range_declarations_keep_the_cooldown",
+  "xtask/src/supply_cooldown.rs::t_86_third_party_crates_get_no_provenance_exemption",
+  "xtask/src/supply_cooldown.rs::t_86_trusted_publishing_from_another_repository_keeps_the_cooldown",
+  "xtask/src/supply_cooldown.rs::t_86_unverified_tag_signature_keeps_the_cooldown",
+  "xtask/src/supply_cooldown.rs::t_86_verified_provenance_lifts_the_cooldown_for_an_exactly_pinned_shared_crate",
+]
 
 [[rule]]
 id = "OP-2"
