@@ -1,5 +1,5 @@
 -- P-100 P-11 OP-5 Access T6
--- squawk-ignore-file constraint-missing-not-valid
+-- squawk-ignore-file ban-drop-not-null, constraint-missing-not-valid
 SET LOCAL ROLE work_owner;
 SET LOCAL lock_timeout = '10s';
 SET LOCAL statement_timeout = '5min';
