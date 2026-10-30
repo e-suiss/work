@@ -1,6 +1,7 @@
 # T-38
 async-stream-impl
 async-trait
+curve25519-dalek-derive
 darling_macro
 defmt-macros
 derive_more-impl

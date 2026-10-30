@@ -6,6 +6,7 @@ bincode-next
 bollard-buildkit-proto
 camino
 crossbeam-utils
+curve25519-dalek
 defmt
 defmt-macros
 figment

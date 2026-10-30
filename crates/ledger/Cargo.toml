@@ -8,5 +8,17 @@ license.workspace = true
 repository.workspace = true
 publish = false
 
+[dependencies]
+suiss-ledger = { workspace = true }
+suiss-crypto = { workspace = true, features = ["verify"] }
+work-store = { workspace = true }
+sha2 = { workspace = true }
+thiserror = { workspace = true, features = ["std"] }
+
+[dev-dependencies]
+serde_json = { workspace = true, features = ["std"] }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+work-testkit = { workspace = true }
+
 [lints]
 workspace = true

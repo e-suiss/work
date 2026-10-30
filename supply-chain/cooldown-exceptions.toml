@@ -11,3 +11,9 @@ crate = "ctutils"
 version = "0.4.4"
 advisory = "RUSTSEC-2026-0385"
 reason = "0.4.3 and earlier generate masks and compare u128 values in non-constant time; 0.4.4 is the first fixed release and cargo deny rejects the older ones"
+
+[[exception]]
+crate = "crypto-bigint"
+version = "0.7.9"
+advisory = "RUSTSEC-2026-0387"
+reason = "0.7.5 and earlier run secret-dependent branches in operations meant to be constant time; 0.7.6 to 0.7.8 are yanked, so 0.7.9 is the earliest fixed release cargo deny accepts"
