@@ -210,6 +210,57 @@ def label(s):
     return [-16, sha(("work-vector:" + s).encode())]
 
 
+# P-6 P-75 P-76
+ED_P = 2 ** 255 - 19
+ED_L = 2 ** 252 + 27742317777372353535851937790883648493
+ED_D = -121665 * pow(121666, ED_P - 2, ED_P) % ED_P
+
+
+def _ed_add(a, b):
+    x1, y1, z1, t1 = a
+    x2, y2, z2, t2 = b
+    p, q = (y1 - x1) * (y2 - x2) % ED_P, (y1 + x1) * (y2 + x2) % ED_P
+    r, s = 2 * t1 * t2 * ED_D % ED_P, 2 * z1 * z2 % ED_P
+    e, f, g, h = q - p, s - r, s + r, q + p
+    return (e * f % ED_P, g * h % ED_P, f * g % ED_P, e * h % ED_P)
+
+
+def _ed_mul(n, point):
+    out = (0, 1, 1, 0)
+    while n:
+        if n & 1:
+            out = _ed_add(out, point)
+        point = _ed_add(point, point)
+        n >>= 1
+    return out
+
+
+def _ed_base():
+    y = 4 * pow(5, ED_P - 2, ED_P) % ED_P
+    x2 = (y * y - 1) * pow(ED_D * y * y + 1, ED_P - 2, ED_P) % ED_P
+    x = pow(x2, (ED_P + 3) // 8, ED_P)
+    if (x * x - x2) % ED_P:
+        x = x * pow(2, (ED_P - 1) // 4, ED_P) % ED_P
+    x = ED_P - x if x & 1 else x
+    return (x, y, 1, x * y % ED_P)
+
+
+def _ed_point(point):
+    x, y, z, _ = point
+    zi = pow(z, ED_P - 2, ED_P)
+    return ((y * zi % ED_P) | ((x * zi % ED_P & 1) << 255)).to_bytes(32, "little")
+
+
+def ed25519(seed, message):
+    h = hashlib.sha512(seed).digest()
+    a = (int.from_bytes(h[:32], "little") & ((1 << 254) - 8)) | (1 << 254)
+    public = _ed_point(_ed_mul(a, _ed_base()))
+    r = int.from_bytes(hashlib.sha512(h[32:] + message).digest(), "little") % ED_L
+    big_r = _ed_point(_ed_mul(r, _ed_base()))
+    k = int.from_bytes(hashlib.sha512(big_r + public + message).digest(), "little") % ED_L
+    return public, big_r + ((r + k * a) % ED_L).to_bytes(32, "little")
+
+
 def write_json(name, obj):
     with open(os.path.join(OUT, name), "w") as f:
         json.dump(obj, f, indent=2, ensure_ascii=False)
@@ -863,6 +914,35 @@ write_json("records.json", {
     "records": out_recs, "envelopes": out_envs})
 
 body_salt = bytes(range(32))
+second_salt = bytes(range(32, 64))
+LARGE_PART = 65536
+LARGE_NAME, LARGE_MEDIA = "attachment", "application/octet-stream"
+
+
+def large_content(n):
+    return b"\x61" * n
+
+
+def large_part(n):
+    return {"name": LARGE_NAME, "media_type": LARGE_MEDIA, "content": {"fill_hex": "61", "fill_count": n}}
+
+
+def large_input(n):
+    content = large_content(n)
+    third = content if n <= LARGE_PART else [-16, sha(content)]
+    return enc([LARGE_NAME, LARGE_MEDIA, third])
+
+
+def body_commit(salt, n):
+    return sha(b"\x03" + salt + large_input(n))
+
+
+PROOF_SEED = bytes.fromhex("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60")
+PROOF_KID = b"\x11" * 32
+proof_payload = bytes.fromhex(out_recs[0]["hex"])
+proof_protected = enc({1: -19, 3: "application/work-record+cbor", 4: PROOF_KID})
+proof_public, proof_signature = ed25519(PROOF_SEED, enc(["Signature1", proof_protected, b"", proof_payload]))
+proof_cose = enc(Tag(18, [proof_protected, {}, proof_payload, proof_signature]))
 body_content = enc({"obligee": BUYER, "due": 1793318400000})
 body_input = enc(["terms", "application/cbor", body_content])
 digest_cases = [
@@ -882,6 +962,31 @@ digest_cases = [
      "part": {"name": "terms", "media_type": "application/cbor", "content_hex": body_content.hex()},
      "part_cbor_hex": body_input.hex(),
      "digest_hex": sha(b"\x03" + body_salt + body_input).hex()},
+    {"id": "digest/body-commit-64kib", "rules": ["P-68", "P-101", "P-104"],
+     "note": "content of exactly 65536 bytes is committed as itself (P-104 item 2)",
+     "salt_hex": body_salt.hex(), "part": large_part(LARGE_PART), "content_form": "bytes",
+     "digest_hex": body_commit(body_salt, LARGE_PART).hex()},
+    {"id": "digest/body-commit-64kib-plus-1", "rules": ["P-68", "P-101", "P-104"],
+     "note": "content above 65536 bytes is committed by its unprefixed SHA-256 Digest: det-CBOR([name, media_type, [-16, SHA-256(content)]]) (P-104 item 1)",
+     "salt_hex": body_salt.hex(), "part": large_part(LARGE_PART + 1), "content_form": "digest",
+     "content_digest_hex": sha(large_content(LARGE_PART + 1)).hex(),
+     "part_cbor_hex": large_input(LARGE_PART + 1).hex(),
+     "digest_hex": body_commit(body_salt, LARGE_PART + 1).hex()},
+    {"id": "digest/body-commit-64kib-plus-1-second-salt", "rules": ["P-68", "P-104"],
+     "note": "the same large content under another salt gives another commitment (P-68 item 2, P-104 item 4)",
+     "salt_hex": second_salt.hex(), "part": large_part(LARGE_PART + 1), "content_form": "digest",
+     "digest_hex": body_commit(second_salt, LARGE_PART + 1).hex()},
+    {"id": "digest/body-commit-narrowed-limit", "rules": ["P-7", "P-104"],
+     "note": "an installation that narrows the string limit commits the 65536-byte part exactly as digest/body-commit-64kib; the threshold is the protocol constant 65536 (P-104 item 3)",
+     "context": {"string_limit": 4096}, "same_as": "digest/body-commit-64kib",
+     "salt_hex": body_salt.hex(), "part": large_part(LARGE_PART), "content_form": "bytes",
+     "digest_hex": body_commit(body_salt, LARGE_PART).hex()},
+    {"id": "digest/proof-commit", "rules": ["P-6", "P-75", "P-76", "P-79", "P-102"],
+     "note": "proof_commit = SHA-256 of the full tagged COSE_Sign1 bytes as received, no prefix; the payload is the records.json record/declaration-promise-for-principal hex, signed with the RFC 8032 section 7.1 test 1 Ed25519 key under kid h'11' * 32",
+     "input": "records.json record/declaration-promise-for-principal hex",
+     "public_key_hex": proof_public.hex(), "kid_hex": PROOF_KID.hex(),
+     "cose_hex": proof_cose.hex(), "record_id_hex": sha(proof_payload).hex(),
+     "digest_hex": sha(proof_cose).hex(), "prefix": None},
     {"id": "digest/wrong-alg-label", "rules": ["P-5", "P-67", "Access CR-1"],
      "encoded_digest_hex": enc([-44, sha(b"")]).hex(), "cddl": "fail",
      "expect": {"outcome": "reject", "reason": "schema:digest_alg"}},
@@ -889,7 +994,7 @@ digest_cases = [
      "encoded_digest_hex": enc([-16, sha(b"")[:31]]).hex(), "cddl": "fail",
      "expect": {"outcome": "reject", "reason": "schema:digest_length"}},
 ]
-for case in digest_cases[4:]:
+for case in [c for c in digest_cases if c.get("cddl") == "fail"]:
     write_cbor("Digest", "digest-" + case["id"].split("/")[1], bytes.fromhex(case["encoded_digest_hex"]), "fail")
 write_json("digest.json", {"file": "digest.json", "cases": digest_cases})
 

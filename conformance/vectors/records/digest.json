@@ -54,6 +54,108 @@
       "digest_hex": "c55288c75c8f90a1460d6f0617dce3a016c0a2f70d76d6dcd6694a150884295d"
     },
     {
+      "id": "digest/body-commit-64kib",
+      "rules": [
+        "P-68",
+        "P-101",
+        "P-104"
+      ],
+      "note": "content of exactly 65536 bytes is committed as itself (P-104 item 2)",
+      "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "part": {
+        "name": "attachment",
+        "media_type": "application/octet-stream",
+        "content": {
+          "fill_hex": "61",
+          "fill_count": 65536
+        }
+      },
+      "content_form": "bytes",
+      "digest_hex": "b5a29a530b85286208860ec56dc2f5e3958115d639d33d6ef77aea936ddd4924"
+    },
+    {
+      "id": "digest/body-commit-64kib-plus-1",
+      "rules": [
+        "P-68",
+        "P-101",
+        "P-104"
+      ],
+      "note": "content above 65536 bytes is committed by its unprefixed SHA-256 Digest: det-CBOR([name, media_type, [-16, SHA-256(content)]]) (P-104 item 1)",
+      "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "part": {
+        "name": "attachment",
+        "media_type": "application/octet-stream",
+        "content": {
+          "fill_hex": "61",
+          "fill_count": 65537
+        }
+      },
+      "content_form": "digest",
+      "content_digest_hex": "008ffc88d3c96a9f307524eb361e47c5222a887fc45fa0c1fb8d429c5c23b430",
+      "part_cbor_hex": "836a6174746163686d656e7478186170706c69636174696f6e2f6f637465742d73747265616d822f5820008ffc88d3c96a9f307524eb361e47c5222a887fc45fa0c1fb8d429c5c23b430",
+      "digest_hex": "07f431227880fd8bd33528298d3c5abc468aa89241e5d27f3aeb67505cdf041f"
+    },
+    {
+      "id": "digest/body-commit-64kib-plus-1-second-salt",
+      "rules": [
+        "P-68",
+        "P-104"
+      ],
+      "note": "the same large content under another salt gives another commitment (P-68 item 2, P-104 item 4)",
+      "salt_hex": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+      "part": {
+        "name": "attachment",
+        "media_type": "application/octet-stream",
+        "content": {
+          "fill_hex": "61",
+          "fill_count": 65537
+        }
+      },
+      "content_form": "digest",
+      "digest_hex": "1a92f476c02fcad835ab7810e44302622af22b988c1e6b2bdecff8e5c17c067f"
+    },
+    {
+      "id": "digest/body-commit-narrowed-limit",
+      "rules": [
+        "P-7",
+        "P-104"
+      ],
+      "note": "an installation that narrows the string limit commits the 65536-byte part exactly as digest/body-commit-64kib; the threshold is the protocol constant 65536 (P-104 item 3)",
+      "context": {
+        "string_limit": 4096
+      },
+      "same_as": "digest/body-commit-64kib",
+      "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "part": {
+        "name": "attachment",
+        "media_type": "application/octet-stream",
+        "content": {
+          "fill_hex": "61",
+          "fill_count": 65536
+        }
+      },
+      "content_form": "bytes",
+      "digest_hex": "b5a29a530b85286208860ec56dc2f5e3958115d639d33d6ef77aea936ddd4924"
+    },
+    {
+      "id": "digest/proof-commit",
+      "rules": [
+        "P-6",
+        "P-75",
+        "P-76",
+        "P-79",
+        "P-102"
+      ],
+      "note": "proof_commit = SHA-256 of the full tagged COSE_Sign1 bytes as received, no prefix; the payload is the records.json record/declaration-promise-for-principal hex, signed with the RFC 8032 section 7.1 test 1 Ed25519 key under kid h'11' * 32",
+      "input": "records.json record/declaration-promise-for-principal hex",
+      "public_key_hex": "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a",
+      "kid_hex": "1111111111111111111111111111111111111111111111111111111111111111",
+      "cose_hex": "d2845845a3013203781c6170706c69636174696f6e2f776f726b2d7265636f72642b63626f720458201111111111111111111111111111111111111111111111111111111111111111a05902b0ae64626f647981a26470617274657465726d7366636f6d6d6974822f582062b38a840000a72b70ada334eb12c9dba46e2ac7cbd1ff648c28af1be0cd046e646b696e646b6465636c61726174696f6e6474797065782d68747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f70726f6d69736565626173697381822f582034652546558611697ac7366fb82fa846579b73842dfdd35bd368148ef5a6aa2166617574686f72781a70617274793a61636d653a6167656e742d70726f637572652d37666c6564676572822f582055afae708526b561a91bbf7b87472d835e89f839febd2ba3ca155827660c79c56863617061636974798263666f727470617274793a61636d653a62757965722d6f726768636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786870726f6475636572a3656d6f64656c781b75726e3a6578616d706c653a6d6f64656c3a6d2d323032362d303966636f6e666967822f5820eeca01d5aad719bb2d97b002128a3dc82b270df133900492d033ed3792dd51296776657273696f6e7370726f637572652d6167656e742f332e322e306876657273696f6e73a266736368656d61822f58203f765db7a715d24969b634a12d2c8a65d7673af9c682b851ecf49a8ae0e468016870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f582053694badcc59f1049a25ef040b3e97eb9dd174e11add1af787d1eb477e9d63f06a7669736962696c697479a16373656564776f726b6b636f7272656c6174696f6e8182782368747470733a2f2f6132612d70726f746f636f6c2e6f72672f636f6e746578742d6964686374782d386632636c6f6e5f626568616c665f6f66817470617274793a61636d653a62757965722d6f72675840e0000f0e3c44364b7848ba4e4df7c3089e045c6f64fd9c7187360159389b2e03003419507ae86bfcecab3570822220fb769b2f054e1cd21e044053f8f71e5e06",
+      "record_id_hex": "5b47b7f4e361b479b6e13d5cef2b6ef77a5cb6452d0d11a8da25c383f0ebefe6",
+      "digest_hex": "4c26879efc56d94e9de3957b56112e5f69088c8f128bf0ba6283c614ea30b363",
+      "prefix": null
+    },
+    {
       "id": "digest/wrong-alg-label",
       "rules": [
         "P-5",

@@ -20,7 +20,9 @@ just cddl            # validate every record, envelope, genesis and digest vecto
   - `actor_type`: the envelope's `ActorTypeAnnotation`: `author` is `[type, source]` of the author from the Access identity binding (P-12), and `on_behalf_of`, present when the record has an `on_behalf_of` chain, holds one entry per party in chain order (INV-18);
   - `understood_extensions`: the `ExtKey`s this verifier implements (P-19, P-69);
   - `recorded_at`: the ledger time, present when the record carries `params.effective_at` (P-80);
-  - `tag_allowlist`: CBOR tags allowed at this position (`cbor-canonical.json` only).
+  - `tag_allowlist`: CBOR tags allowed at this position (`cbor-canonical.json` only);
+  - `string_limit`: a narrowed single string bound of the installation (`digest.json` only).
+- A large body part's `content` in `digest.json` is `fill_count` repetitions of `fill_hex`.
 - `expect.outcome` is `accept`, `reject` or `quarantine`; `reject` and `quarantine` carry a `reason` code, except the `genesis.json` rejections whose code P-100 does not fix yet.
 - `cddl` is `fail` when `work-record.cddl` alone rejects the bytes and `pass` when a kernel rule decides the outcome (P-76). The per-subtype `params` maps of P-92 are written in the CDDL, but the open Practice alternative of `DeclarationTyped` also matches core subtypes, so a missing or mismatched core `params` key passes the CDDL and the kernel rejects it. Likewise `LedgerEnvelope.pos` is any `uint` in the CDDL; that position 0 holds only the genesis is a kernel rule (P-100): the kernel picks the schema by `pos`, so a genesis at another position fails `schema:required_field` and an envelope at position 0 fails `schema:unknown_core_field`.
 - Until the Access Party reference byte form is fixed (P-67, OQ-34), `PartyRef` is any 1 to 255 byte text, so any such string also passes `ParamScalar` in the CDDL; the kernel applies the subtype schema.
@@ -29,7 +31,7 @@ just cddl            # validate every record, envelope, genesis and digest vecto
 ## Placeholders
 
 - Digests labelled `work-vector:*` are SHA-256 of placeholder ASCII, not of real objects.
-- `proof_commit` values are placeholders until signed vectors exist; the rule is SHA-256 of the full tagged `WorkRecordCose` bytes as received (P-75, P-76).
+- Envelope `proof_commit` values are placeholders until signed envelope vectors exist; the rule is SHA-256 of the full tagged `WorkRecordCose` bytes as received (P-75, P-76). `digest.json` `digest/proof-commit` computes it over a real `COSE_Sign1` of the first `records.json` record, signed with the RFC 8032 section 7.1 test 1 Ed25519 key.
 - `PartyRef` values and the COSE code points `-19` and `-9` follow Access once the Party reference byte form is fixed (P-67, OQ-34).
 - The genesis rule is fixed (P-100): every record names the LedgerID of `genesis.json` `genesis/accept`, and the envelope chain starts at position 1 with `prev` set to the genesis leaf hash. The genesis `versions.schema` is the `Digest` of the `work-record.cddl` bytes, so any change to the schema changes the LedgerID and every record vector; the `nonce` is a `work-vector:*` placeholder, in production it comes from the `Rng` port.
 - Practice namespaces are `https://procurement.example/ns/` and `https://clinic.example/ns/`.
@@ -41,7 +43,7 @@ just cddl            # validate every record, envelope, genesis and digest vecto
 | Record ID | `SHA-256(det-CBOR(SignedRecord))`, the digest of the COSE payload (P-79) | none |
 | LedgerID | `SHA-256(det-CBOR(GenesisEnvelope))` as a `Digest` (P-67, P-100, Access CR-1); the CloudEvents `ledger` extension is its 32 bytes in hex (P-98) | none |
 | Leaf hash | `SHA-256(0x00 ‖ det-CBOR(LedgerEnvelope))`, and the same over `GenesisEnvelope` at position 0 | `0x00` |
-| Body commitment | `SHA-256(0x03 ‖ salt ‖ det-CBOR([name, media_type, content]))`, 32-byte salt from the `Rng` port, fresh per part (P-68, P-101) | `0x03` |
+| Body commitment | `SHA-256(0x03 ‖ salt ‖ det-CBOR([name, media_type, content]))`, 32-byte salt from the `Rng` port, fresh per part (P-68, P-101); content above 65,536 bytes is replaced by its unprefixed `Digest`, whatever limit an installation narrows (P-104) | `0x03` |
 | `proof_commit` | `SHA-256(WorkRecordCose bytes as received)` (P-75, P-76) | none |
 
 The prefixes are the `suiss-crypto` values (P-101): `0x01` is the RFC 9162 interior node and `0x02` the field commitment, which Work does not use.
@@ -79,7 +81,7 @@ A code may carry a namespaced sub-code, `<code>:<absolute HTTPS URI>`; a verifie
 | File | Cases | Rules |
 |---|---|---|
 | `cbor-canonical.json` | 39: 13 accept, 26 reject (one generated from `generator`) | P-5, P-6, P-7, P-72, Access CR-10 |
-| `digest.json` | 6: 4 computations, 2 reject (`cddl: fail`) | P-5, P-6, P-11, P-17, P-67, P-68, P-79, Access CR-1 |
+| `digest.json` | 11: 9 computations (record ID, leaf, body commitments at 64 KiB, at 64 KiB + 1 byte under two salts and under a narrowed string limit, `proof_commit`), 2 reject (`cddl: fail`) | P-5, P-6, P-7, P-11, P-17, P-67, P-68, P-75, P-76, P-79, P-101, P-102, P-104, Access CR-1 |
 | `genesis.json` | 9: the genesis with its LedgerID and leaf hash (accept); 6 genesis rejects (`cddl: fail`): `prev`, `ledger` or `record` present, `nonce` missing, a 31-byte `nonce`, `pos: 1`; 2 envelope rejects: `pos: 0` (`cddl: pass`) and position 1 without `prev` (`cddl: fail`) | P-100, P-11, P-18, P-27, P-67, P-72, C-35, T-32, Access CR-1 |
 | `records.json` | 11 records and 11 envelopes chained from the genesis at positions 1 to 11, all accept | P-9…P-19, P-21, P-24, P-67…P-85, P-92, P-93, P-100, C-5, C-16, C-27, C-29, E-13, EV-3, EV-4, EV-21, EV-24, INV-20, ST-10, ST-12, ST-27, T-66, T-68 |
 | `records-quarantine.json` | 5 records and 5 envelopes, quarantine: 2 `extension_critical_unknown` (`cddl: pass`), 3 `protocol_version_unknown` (`cddl: fail`) | P-18, P-19, P-69, P-87, P-94, C-5, T-4 |
