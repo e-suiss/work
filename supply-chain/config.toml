@@ -342,11 +342,11 @@ version = "0.14.1"
 criteria = "safe-to-deploy"
 
 [[exemptions.esuiss-crypto]]
-version = "0.2.2"
+version = "0.2.3"
 criteria = "safe-to-deploy"
 
 [[exemptions.esuiss-ledger]]
-version = "0.2.2"
+version = "0.2.3"
 criteria = "safe-to-deploy"
 
 [[exemptions.etcetera]]
