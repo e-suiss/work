@@ -218,10 +218,8 @@ async fn opened(env: &Env) -> (SequencerPool, LedgerId) {
     (pool, g.ledger)
 }
 
-fn work(n: u8) -> ItemRef {
-    let mut id = [0_u8; 16];
-    id[0] = n;
-    ItemRef::Work(id)
+fn commitment(n: u8) -> ItemRef {
+    ItemRef::Commitment([n; 32])
 }
 
 // OP-31 OP-5 OP-3 T-74
@@ -241,7 +239,7 @@ async fn op_31_concurrent_requests_share_batches_and_get_contiguous_positions() 
     for n in 1..=100_u8 {
         let g = group.clone();
         waiting.push(tokio::spawn(async move {
-            g.submit(record(n, work(n), 1)).await
+            g.submit(record(n, commitment(n), 1)).await
         }));
     }
     tokio::time::sleep(Duration::from_millis(200)).await;
@@ -275,18 +273,18 @@ async fn op_41_a_full_queue_answers_busy_at_once_and_writes_nothing() {
     let (group, task) = GroupCommit::spawn(leader, clock, config);
     let first = {
         let g = group.clone();
-        tokio::spawn(async move { g.submit(record(1, work(1), 1)).await })
+        tokio::spawn(async move { g.submit(record(1, commitment(1), 1)).await })
     };
     tokio::time::sleep(Duration::from_millis(100)).await;
     let queued: Vec<_> = (2..=3_u8)
         .map(|n| {
             let g = group.clone();
-            tokio::spawn(async move { g.submit(record(n, work(n), 1)).await })
+            tokio::spawn(async move { g.submit(record(n, commitment(n), 1)).await })
         })
         .collect();
     tokio::time::sleep(Duration::from_millis(100)).await;
     assert!(matches!(
-        group.submit(record(4, work(4), 1)).await,
+        group.submit(record(4, commitment(4), 1)).await,
         Err(SubmitError::Busy { retry_after }) if retry_after == Duration::from_secs(1)
     ));
     permits.add_permits(10);
@@ -312,13 +310,13 @@ async fn op_31_a_refused_record_does_not_sink_its_batch() {
         at: AT,
     };
     let (group, task) = GroupCommit::spawn(leader, clock, GroupConfig::default());
-    let shared = work(9);
+    let shared = commitment(9);
     let mut waiting = Vec::new();
     for (n, item, version) in [
-        (1, work(1), 1),
+        (1, commitment(1), 1),
         (2, shared, 1),
         (3, shared, 1),
-        (4, work(4), 1),
+        (4, commitment(4), 1),
     ] {
         let g = group.clone();
         waiting.push(tokio::spawn(async move {

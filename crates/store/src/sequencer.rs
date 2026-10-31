@@ -542,8 +542,9 @@ impl SequencerPool {
     /// already exists (`23505` on `item_head_pk`), an item to advance is not stored at
     /// `version - 1`, or the item guard rejects the step (`23514` with
     /// `item_version_not_monotonic` or `item_position_not_monotonic`); it carries
-    /// [`StoreError::KeyReused`] when an idempotency key is already stored in its month. Since the head row is
-    /// locked and checked first, none of these is about leadership. Everything else is
+    /// [`StoreError::KeyReused`] when the caller's idempotency key is already stored in a hot
+    /// partition. Since the head row is locked and checked first, none of these is about
+    /// leadership. Everything else is
     /// [`AppendError::Failed`]: [`StoreError::NotOpened`], [`StoreError::HeadMoved`] when the
     /// head is not at `b.after` under `b.epoch`, [`StoreError::Corrupt`] for a value beyond
     /// `bigint`, and [`StoreError::Db`] for any other database error, including a failed or
@@ -573,6 +574,14 @@ impl SequencerPool {
         write_items(&mut tx, &b.items).await?;
         insert_outbox(&mut tx, &b.outbox).await?;
         for k in &b.keys {
+            if tx
+                .idempotency_key(&k.caller, &k.key)
+                .await
+                .map_err(failed)?
+                .is_some()
+            {
+                return Err(AppendError::Refused(StoreError::KeyReused));
+            }
             tx.insert_idempotency_key(&k.caller, &k.key, &k.stored)
                 .await
                 .map_err(key_failure)?;
