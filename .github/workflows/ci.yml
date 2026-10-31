@@ -47,8 +47,12 @@ jobs:
       - name: Repository rules (T-31, T-36, T-46, T-52, T-60)
         env:
           XTASK_ONLINE: "1"
-          XTASK_CATALOG_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
-        run: just rules
+          CATALOG_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [[ -z "$CATALOG_BASE" || "$CATALOG_BASE" =~ ^0+$ ]]; then
+            CATALOG_BASE="$(git merge-base HEAD origin/main)"
+          fi
+          XTASK_CATALOG_BASE="$CATALOG_BASE" just rules
       - name: Record vectors regenerate byte for byte (P-11, P-72)
         run: just vectors
       - name: Install squawk 2.68.0 (T-52, T-60)
