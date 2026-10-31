@@ -26,10 +26,10 @@ work-testkit = { path = "crates/testkit" }
 work-bindings-core = { path = "sdks/bindings/core" }
 
 # T-31, T-54, T-72, T-74
-suiss-ledger = { package = "esuiss-ledger", version = "=0.2.2", default-features = false }
-suiss-crypto = { package = "esuiss-crypto", version = "=0.2.2", default-features = false }
-suiss-restriction = { package = "esuiss-restriction", version = "=0.2.2", default-features = false }
-suiss-sandbox = { package = "esuiss-sandbox", version = "=0.2.2", default-features = false }
+suiss-ledger = { package = "esuiss-ledger", version = "=0.2.3", default-features = false }
+suiss-crypto = { package = "esuiss-crypto", version = "=0.2.3", default-features = false }
+suiss-restriction = { package = "esuiss-restriction", version = "=0.2.3", default-features = false }
+suiss-sandbox = { package = "esuiss-sandbox", version = "=0.2.3", default-features = false }
 
 # T-60
 thiserror = { version = "2.0.21", default-features = false }

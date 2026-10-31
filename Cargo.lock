@@ -1016,9 +1016,9 @@ dependencies = [
 
 [[package]]
 name = "esuiss-crypto"
-version = "0.2.2"
+version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c0858a3f5d7c4fa7496e0f2ec50f35cdcc653c6defcdc330e67a8a60f995ec58"
+checksum = "567f50b52d48a960973a1e5093029dd17a8a598f70cd0f472008e2e0d95dc491"
 dependencies = [
  "curve25519-dalek",
  "ed25519-dalek",
@@ -1029,9 +1029,9 @@ dependencies = [
 
 [[package]]
 name = "esuiss-ledger"
-version = "0.2.2"
+version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6b8d173de13858a156e6a877ca3783ba9cd2dd9224b083ba6177c4c16be93fdd"
+checksum = "e9b786b6fa2b156dd2e6b42ef79c18ca82eead377276636c00a3075249a2368b"
 dependencies = [
  "esuiss-crypto",
  "sha2 0.11.1",

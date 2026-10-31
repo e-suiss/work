@@ -17,7 +17,7 @@ digest = "sha256:6706e46030ed51e55ee208c8ab8d59f1c58dd17a04c4ba054f74f43210d6c3a
 
 # T-54
 [shared-crates]
-esuiss-crypto = "0.2.2"
-esuiss-ledger = "0.2.2"
-esuiss-restriction = "0.2.2"
-esuiss-sandbox = "0.2.2"
+esuiss-crypto = "0.2.3"
+esuiss-ledger = "0.2.3"
+esuiss-restriction = "0.2.3"
+esuiss-sandbox = "0.2.3"
