@@ -248,27 +248,41 @@ pub(crate) fn parse(json: &str) -> Result<Metadata, String> {
 
 static CACHE: OnceLock<Result<Arc<Metadata>, String>> = OnceLock::new();
 
+/// The `cargo metadata` arguments, offline and locked, resolved for every platform or, with
+/// `target`, only for that target triple.
+pub(crate) fn args(target: Option<&str>) -> Vec<&str> {
+    let mut args = vec!["metadata", "--format-version", "1", "--locked", "--offline"];
+    if let Some(target) = target {
+        args.extend(["--filter-platform", target]);
+    }
+    args
+}
+
+fn run(root: &Path, target: Option<&str>) -> Result<Metadata, String> {
+    let cargo = std::env::var("CARGO").unwrap_or_else(|_| "cargo".to_owned());
+    let output = Command::new(cargo)
+        .args(args(target))
+        .current_dir(root)
+        .output()
+        .map_err(|e| format!("cargo metadata: {e}"))?;
+    if !output.status.success() {
+        return Err(format!(
+            "cargo metadata failed: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        ));
+    }
+    let json = String::from_utf8(output.stdout).map_err(|e| format!("cargo metadata: {e}"))?;
+    parse(&json)
+}
+
 /// Runs `cargo metadata` once per process (offline, locked) and caches it.
 pub(crate) fn load(root: &Path) -> Result<Arc<Metadata>, String> {
-    CACHE
-        .get_or_init(|| {
-            let cargo = std::env::var("CARGO").unwrap_or_else(|_| "cargo".to_owned());
-            let output = Command::new(cargo)
-                .args(["metadata", "--format-version", "1", "--locked", "--offline"])
-                .current_dir(root)
-                .output()
-                .map_err(|e| format!("cargo metadata: {e}"))?;
-            if !output.status.success() {
-                return Err(format!(
-                    "cargo metadata failed: {}",
-                    String::from_utf8_lossy(&output.stderr).trim()
-                ));
-            }
-            let json =
-                String::from_utf8(output.stdout).map_err(|e| format!("cargo metadata: {e}"))?;
-            parse(&json).map(Arc::new)
-        })
-        .clone()
+    CACHE.get_or_init(|| run(root, None).map(Arc::new)).clone()
+}
+
+/// Runs `cargo metadata` with the resolve graph filtered to one target triple (T-87).
+pub(crate) fn load_for_target(root: &Path, target: &str) -> Result<Metadata, String> {
+    run(root, Some(target))
 }
 
 #[cfg(test)]
