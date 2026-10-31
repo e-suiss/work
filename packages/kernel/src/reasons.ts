@@ -3,6 +3,7 @@ export const REASON_CODES = [
   "malformed_cbor:truncated",
   "malformed_cbor:trailing_bytes",
   "malformed_cbor:invalid_utf8",
+  "malformed_cbor:reserved_additional_info",
   "non_canonical_cbor:non_preferred_argument",
   "non_canonical_cbor:unsorted_map_keys",
   "non_canonical_cbor:duplicate_map_key",

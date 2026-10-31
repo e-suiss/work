@@ -6,6 +6,7 @@ mod decode;
 mod derivation;
 
 use serde_json::{Map, Value, json};
+use work_kernel::codec::check_record;
 use work_kernel::id::Time;
 use work_kernel::limits::SemanticLimits;
 use work_kernel::reason::{QuarantineReason, Reason, Schema};
@@ -76,37 +77,7 @@ fn context(v: &Value) -> Mapped<Context> {
     })
 }
 
-/// Validates one record given as its `decoded` JSON projection against a verifier context shaped like a vector `context` (`origin`, `actor_type` as the envelope's `ActorTypeAnnotation`, `understood_extensions`, optional `recorded_at`), under the default semantic limits.
-///
-/// Returns `{"outcome":"accept"}`, `{"outcome":"reject","reason":<code>}` or `{"outcome":"quarantine","reason":<code>}`; a record the projection cannot carry is a `schema:*` rejection. Input that is not JSON or a context that does not fit returns `{"error":{"code":"invalid_json"}}` or `{"error":{"code":"invalid_context"}}`.
-#[must_use]
-pub fn validate_record(decoded: &str, context_json: &str) -> String {
-    let (Some(decoded), Some(context_value)) = (parse(decoded), parse(context_json)) else {
-        return input_error("invalid_json");
-    };
-    let Ok(ctx) = context(&context_value) else {
-        return input_error("invalid_context");
-    };
-    let outcome = match decode::structure(&decoded).and_then(|()| {
-        if decode::unknown_protocol(&decoded) {
-            Ok(None)
-        } else {
-            decode::record(&decoded).map(Some)
-        }
-    }) {
-        Err(reason) => Outcome::Rejected(reason),
-        Ok(None) => Outcome::Quarantined(QuarantineReason::ProtocolVersionUnknown),
-        Ok(Some(record)) => validate(
-            &record,
-            &ValidationContext {
-                origin: ctx.origin,
-                actor_types: &ctx.actor_types,
-                understood_extensions: &ctx.understood,
-                limits: SemanticLimits::DEFAULT,
-                recorded_at: ctx.recorded_at,
-            },
-        ),
-    };
+fn answer(outcome: Outcome) -> String {
     match outcome {
         Outcome::Accepted => json!({ "outcome": "accept" }),
         Outcome::Rejected(reason) => json!({ "outcome": "reject", "reason": reason.to_string() }),
@@ -115,6 +86,54 @@ pub fn validate_record(decoded: &str, context_json: &str) -> String {
         }
     }
     .to_string()
+}
+
+fn with_context(
+    context_json: &str,
+    check: impl FnOnce(&ValidationContext<'_>) -> Outcome,
+) -> String {
+    let Some(context_value) = parse(context_json) else {
+        return input_error("invalid_json");
+    };
+    let Ok(ctx) = context(&context_value) else {
+        return input_error("invalid_context");
+    };
+    answer(check(&ValidationContext {
+        origin: ctx.origin,
+        actor_types: &ctx.actor_types,
+        understood_extensions: &ctx.understood,
+        limits: SemanticLimits::DEFAULT,
+        recorded_at: ctx.recorded_at,
+    }))
+}
+
+/// Validates one record given as its `decoded` JSON projection against a verifier context shaped like a vector `context` (`origin`, `actor_type` as the envelope's `ActorTypeAnnotation`, `understood_extensions`, optional `recorded_at`), under the default semantic limits.
+///
+/// Returns `{"outcome":"accept"}`, `{"outcome":"reject","reason":<code>}` or `{"outcome":"quarantine","reason":<code>}`; a record the projection cannot carry is a `schema:*` rejection. Input that is not JSON or a context that does not fit returns `{"error":{"code":"invalid_json"}}` or `{"error":{"code":"invalid_context"}}`.
+#[must_use]
+pub fn validate_record(decoded: &str, context_json: &str) -> String {
+    let Some(decoded) = parse(decoded) else {
+        return input_error("invalid_json");
+    };
+    with_context(context_json, |ctx| {
+        match decode::structure(&decoded).and_then(|()| {
+            if decode::unknown_protocol(&decoded) {
+                Ok(None)
+            } else {
+                decode::record(&decoded).map(Some)
+            }
+        }) {
+            Err(reason) => Outcome::Rejected(reason),
+            Ok(None) => Outcome::Quarantined(QuarantineReason::ProtocolVersionUnknown),
+            Ok(Some(record)) => validate(&record, ctx),
+        }
+    })
+}
+
+/// Validates one record given as its deterministic CBOR `SignedRecord` bytes, the normative input (T-69 item 6, P-5), against the same context as [`validate_record`]; the answer is the one [`validate_record`] gives for the record's `decoded` projection.
+#[must_use]
+pub fn validate_record_cbor(record: &[u8], context_json: &str) -> String {
+    with_context(context_json, |ctx| check_record(record, ctx))
 }
 
 pub use derivation::derive_records;

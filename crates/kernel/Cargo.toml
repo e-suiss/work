@@ -11,6 +11,10 @@ publish = false
 [lib]
 name = "work_kernel"
 
+# T-31 T-64 P-8
+[dependencies]
+suiss-crypto = { workspace = true, features = ["verify"] }
+
 # T-37
 [dev-dependencies]
 serde = { workspace = true, features = ["std", "derive"] }

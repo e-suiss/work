@@ -69,7 +69,7 @@ def check(data, allowed_tags=()):
         size = {24: 1, 25: 2, 26: 4, 27: 8}.get(ai)
         if size is None:
             if ai != 31:
-                raise ValueError("reserved additional information has no kernel reason code")
+                raise Reject("malformed_cbor:reserved_additional_info")
             raise Reject("non_canonical_cbor:indefinite_length")
         if pos + size > len(data):
             raise Reject("malformed_cbor:truncated")
@@ -79,10 +79,13 @@ def check(data, allowed_tags=()):
             raise Reject("non_canonical_cbor:non_preferred_argument")
         return n
 
+    def nested(depth):
+        if depth + 1 > MAX_DEPTH:
+            raise Reject("limit_exceeded:depth")
+        return depth + 1
+
     def item(depth):
         nonlocal pos
-        if depth > MAX_DEPTH:
-            raise Reject("limit_exceeded:depth")
         if pos >= len(data):
             raise Reject("malformed_cbor:truncated")
         ib = data[pos]
@@ -115,14 +118,16 @@ def check(data, allowed_tags=()):
         if major == 4:
             if n > MAX_ITEMS:
                 raise Reject("limit_exceeded:items")
-            return [item(depth + 1) for _ in range(n)]
+            inner = nested(depth)
+            return [item(inner) for _ in range(n)]
         if major == 5:
             if n > MAX_ITEMS:
                 raise Reject("limit_exceeded:items")
+            inner = nested(depth)
             out, prev = {}, None
             for _ in range(n):
                 start = pos
-                k = item(depth + 1)
+                k = item(inner)
                 kb = bytes(data[start:pos])
                 if prev is not None:
                     if kb == prev:
@@ -130,13 +135,13 @@ def check(data, allowed_tags=()):
                     if kb < prev:
                         raise Reject("non_canonical_cbor:unsorted_map_keys")
                 prev = kb
-                out[k if not isinstance(k, list) else tuple(k)] = item(depth + 1)
+                out[k if not isinstance(k, list) else tuple(k)] = item(inner)
             return out
         if n not in allowed_tags:
             raise Reject("non_canonical_cbor:tag_not_allowed")
-        return Tag(n, item(depth + 1))
+        return Tag(n, item(nested(depth)))
 
-    v = item(1)
+    v = item(0)
     if pos != len(data):
         raise Reject("malformed_cbor:trailing_bytes")
     return v
@@ -312,7 +317,7 @@ cbor_cases = [
     ("map-int-before-text", enc({1: -19, "a": 0}).hex(), "accept", None, "P-5"),
     ("map-uint-before-nint", enc({1: 0, -1: 0}).hex(), "accept", None, "P-5"),
     ("array-256-items", big_array(256).hex(), "accept", None, "P-7"),
-    ("depth-16", (b"\x81" * 15 + b"\x00").hex(), "accept", None, "P-7"),
+    ("depth-16", (b"\x81" * 16 + b"\x00").hex(), "accept", None, "P-7"),
     ("cose-tag-18-at-container", "d28440a0f640", "container", None, "P-6"),
     ("uint-23-in-1-byte", "1817", "reject", "non_canonical_cbor:non_preferred_argument", "P-5"),
     ("uint-23-in-2-bytes", "190017", "reject", "non_canonical_cbor:non_preferred_argument", "P-5"),
@@ -337,8 +342,12 @@ cbor_cases = [
     ("simple-undefined", "f7", "reject", "non_canonical_cbor:simple_not_in_profile", "P-5"),
     ("trailing-bytes", "0000", "reject", "malformed_cbor:trailing_bytes", "P-5"),
     ("invalid-utf8", "62c328", "reject", "malformed_cbor:invalid_utf8", "P-5"),
+    ("reserved-ai-28-uint", "1c", "reject", "malformed_cbor:reserved_additional_info", "P-103"),
+    ("reserved-ai-29-text", "7d", "reject", "malformed_cbor:reserved_additional_info", "P-103"),
+    ("reserved-ai-30-in-array", "811e", "reject", "malformed_cbor:reserved_additional_info", "P-103"),
+    ("simple-ai-28", "fc", "reject", "non_canonical_cbor:simple_not_in_profile", "P-103"),
     ("array-257-items", big_array(257).hex(), "reject", "limit_exceeded:items", "P-7"),
-    ("depth-17", (b"\x81" * 16 + b"\x00").hex(), "reject", "limit_exceeded:depth", "P-7"),
+    ("depth-17", (b"\x81" * 17 + b"\x00").hex(), "reject", "limit_exceeded:depth", "P-7"),
 ]
 out_cbor = []
 for name, hx, outcome, reason, rule in cbor_cases:
@@ -869,7 +878,7 @@ digest_cases = [
      "prefix_hex": "00", "digest_hex": out_envs[0]["leaf_hash"]},
     {"id": "digest/body-commit-0x03", "rules": ["P-5", "P-17", "P-68", "P-101"],
      "note": "commit = SHA-256(0x03 || salt[32] || det-CBOR([name, media_type, content])); the salt is fixed here and comes from the Rng port in production",
-     "prefix_hex": "02", "salt_hex": body_salt.hex(),
+     "prefix_hex": "03", "salt_hex": body_salt.hex(),
      "part": {"name": "terms", "media_type": "application/cbor", "content_hex": body_content.hex()},
      "part_cbor_hex": body_input.hex(),
      "digest_hex": sha(b"\x03" + body_salt + body_input).hex()},

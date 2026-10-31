@@ -47,6 +47,8 @@ wire_enum! {
         TrailingBytes => "trailing_bytes",
         /// A text string is not valid UTF-8.
         InvalidUtf8 => "invalid_utf8",
+        /// An initial byte carries the reserved additional information 28, 29 or 30 (P-103).
+        ReservedAdditionalInfo => "reserved_additional_info",
     }
 }
 

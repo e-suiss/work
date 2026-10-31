@@ -1,4 +1,4 @@
-//! The bindings' JSON front end natively against the record, rejection and quarantine vectors in `conformance/vectors/records` and the derivation fixture, which WebAssembly and Swift run through their bindings for the same bytes; the CBOR and digest vectors need the shared CBOR and crypto crates (P-8), so until then only their reason codes and digest encodings are checked here (T-5, T-37, INV-7, INV-8, X-24).
+//! The bindings' front ends natively against the record, rejection and quarantine vectors in `conformance/vectors/records` and the derivation fixture, which WebAssembly and Swift run through their bindings for the same bytes: the CBOR entry point on each case's `hex` and the JSON entry point on its `decoded` projection give the expected answer byte for byte (T-5, T-37, T-69, INV-7, INV-8, X-24); the CBOR, digest and genesis vectors run through the kernel's own tests.
 
 #![allow(
     clippy::unwrap_used,
@@ -8,7 +8,7 @@
 )]
 
 use serde_json::{Value, json};
-use work_bindings_core::{derive_records, validate_record};
+use work_bindings_core::{derive_records, validate_record, validate_record_cbor};
 use work_kernel::reason::Reason;
 
 const RECORDS: &str = include_str!("../../../../conformance/vectors/records/records.json");
@@ -45,6 +45,39 @@ fn t_5_t_37_inv_7_native_record_vectors_through_bindings_core() {
         let out = validate_record(&case["decoded"].to_string(), &case["context"].to_string());
         assert_eq!(out, case["expect"].to_string(), "{}", case["id"]);
     }
+}
+
+fn hex(text: &str) -> Vec<u8> {
+    text.as_bytes()
+        .chunks(2)
+        .map(|pair| u8::from_str_radix(std::str::from_utf8(pair).unwrap(), 16).unwrap())
+        .collect()
+}
+
+// T-69 P-5 T-37 INV-7
+#[test]
+fn t_69_cbor_entry_point_answers_like_the_json_projection() {
+    let cases = cases();
+    for case in &cases {
+        let context = case["context"].to_string();
+        let out = validate_record_cbor(&hex(case["hex"].as_str().unwrap()), &context);
+        assert_eq!(out, case["expect"].to_string(), "{}", case["id"]);
+        assert_eq!(
+            out,
+            validate_record(&case["decoded"].to_string(), &context),
+            "{}",
+            case["id"]
+        );
+    }
+    let context = cases[0]["context"].to_string();
+    assert_eq!(
+        validate_record_cbor(&[0xa0, 0x00], &context),
+        r#"{"outcome":"reject","reason":"malformed_cbor:trailing_bytes"}"#
+    );
+    assert_eq!(
+        validate_record_cbor(&[0xa0], "{"),
+        r#"{"error":{"code":"invalid_json"}}"#
+    );
 }
 
 /// The accepted records with their chained envelopes, as ledger entries in order.

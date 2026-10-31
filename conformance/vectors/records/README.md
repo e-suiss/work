@@ -50,7 +50,7 @@ The prefixes are the `suiss-crypto` values (P-101): `0x01` is the RFC 9162 inter
 
 | Code | Meaning |
 |---|---|
-| `malformed_cbor:<detail>` | Not well-formed CBOR (`truncated`, `trailing_bytes`, `invalid_utf8`) |
+| `malformed_cbor:<detail>` | Not well-formed CBOR (`truncated`, `trailing_bytes`, `invalid_utf8`, `reserved_additional_info` for additional information 28 to 30 outside major type 7, P-103) |
 | `non_canonical_cbor:<detail>` | Well-formed but not deterministic: `non_preferred_argument`, `unsorted_map_keys`, `duplicate_map_key`, `indefinite_length`, `tag_not_allowed`, `float_not_in_profile`, `simple_not_in_profile` |
 | `limit_exceeded:<limit>` | Structural or CDDL bound (`depth`, `items`, `string`) or Work semantic (`basis`, `on_behalf_of`, `relations`, `concerns`, `request`) limit; a semantic limit's own code wins (P-91) |
 | `schema:<detail>` | Schema mismatch (`kind`, `relation`, `required_field`, `unknown_core_field` for an unknown key in the record or any closed core map, `empty_optional_list`, `empty_optional_map`, `type_uri`, `ext_key`, `params` including a missing, forbidden or mismatched P-92 key, `digest_alg`, `digest_length`, `ingest`, `container`) |

@@ -21,7 +21,7 @@
         "P-79"
       ],
       "input": "records.json record/declaration-promise-for-principal hex",
-      "digest_hex": "24acfbb1c55d08cc4c47cd5e9a0fd503ad005f980a4df9ddf988b9481d945739",
+      "digest_hex": "5b47b7f4e361b479b6e13d5cef2b6ef77a5cb6452d0d11a8da25c383f0ebefe6",
       "prefix": null
     },
     {
@@ -32,7 +32,7 @@
       ],
       "input": "records.json envelope/declaration-promise-for-principal hex",
       "prefix_hex": "00",
-      "digest_hex": "a1d23e6874b3e4852850d8cf96c38bbd952efee61ecac26714a652dfa8f8bb2a"
+      "digest_hex": "61361943266af03fb142777a3434cd3903729fbddc639a145733054c49650dc2"
     },
     {
       "id": "digest/body-commit-0x03",
@@ -43,7 +43,7 @@
         "P-101"
       ],
       "note": "commit = SHA-256(0x03 || salt[32] || det-CBOR([name, media_type, content])); the salt is fixed here and comes from the Rng port in production",
-      "prefix_hex": "02",
+      "prefix_hex": "03",
       "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
       "part": {
         "name": "terms",

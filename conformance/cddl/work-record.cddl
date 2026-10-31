@@ -11,9 +11,10 @@ COSE_Sign1_Record = [
   signature: bstr .size (64..3309),
 ]
 
-; P-6 P-69 Access CR-2 Access CR-5 Access CR-24
+; P-6 P-69 P-102 Access CR-2 Access CR-5 Access CR-24
 ProtectedHeader = {
   1 => SigAlg,
+  3 => "application/work-record+cbor",
   4 => bstr .size 32,
 }
 

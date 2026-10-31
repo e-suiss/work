@@ -1,4 +1,4 @@
-//! The record rules against the shared record vectors in `conformance/vectors/records`, through the one JSON front end the bindings share, so the kernel and every binding map the `decoded` projection the same way (P-11, T-5, T-37).
+//! The record rules against the shared record vectors in `conformance/vectors/records`: each case's deterministic CBOR `hex` through the kernel's decoder, and its `decoded` projection through the one JSON front end the bindings share, give the expected answer (P-5, P-11, T-5, T-37, T-69).
 
 #![allow(
     clippy::unwrap_used,
@@ -8,7 +8,7 @@
 )]
 
 use serde_json::Value;
-use work_bindings_core::validate_record;
+use work_bindings_core::{validate_record, validate_record_cbor};
 use work_kernel::reason::Reason;
 
 const RECORDS: &str = include_str!(concat!(
@@ -36,8 +36,22 @@ fn check_all(cases: &[Value]) {
                 case["id"]
             );
         }
-        let out = validate_record(&case["decoded"].to_string(), &case["context"].to_string());
+        let context = case["context"].to_string();
+        let out = validate_record(&case["decoded"].to_string(), &context);
         assert_eq!(out, expect.to_string(), "{}", case["id"]);
+        let bytes: Vec<u8> = case["hex"]
+            .as_str()
+            .unwrap()
+            .as_bytes()
+            .chunks(2)
+            .map(|pair| u8::from_str_radix(std::str::from_utf8(pair).unwrap(), 16).unwrap())
+            .collect();
+        assert_eq!(
+            validate_record_cbor(&bytes, &context),
+            out,
+            "{}",
+            case["id"]
+        );
     }
 }
 

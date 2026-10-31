@@ -1043,6 +1043,7 @@ name = "esuiss-work-kernel"
 version = "0.1.0"
 dependencies = [
  "divan",
+ "esuiss-crypto",
  "gungraun",
  "serde",
  "serde_json",

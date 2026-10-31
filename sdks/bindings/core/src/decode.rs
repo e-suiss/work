@@ -401,24 +401,34 @@ fn body(v: &Value) -> Mapped<BodyCommitment> {
     })
 }
 
-/// The structural limits a deterministic CBOR decoder applies before any schema rule: nesting depth and items per array or map (P-7, Access CR-10).
+/// The structural limits a deterministic CBOR decoder applies before any schema rule: nesting depth counted in containers, as the shared decoder counts it, and items per array or map (P-7, Access CR-10).
 pub(crate) fn structure(v: &Value) -> Mapped<()> {
     fn walk(v: &Value, depth: usize) -> Mapped<()> {
-        if depth > MAX_DEPTH {
-            return Err(Reason::LimitExceeded(Limit::Depth));
-        }
-        let next = depth.saturating_add(1);
+        let inner = || {
+            let next = depth.saturating_add(1);
+            if next > MAX_DEPTH {
+                Err(Reason::LimitExceeded(Limit::Depth))
+            } else {
+                Ok(next)
+            }
+        };
         match v {
             Value::Array(items) if items.len() > MAX_ITEMS => {
                 Err(Reason::LimitExceeded(Limit::Items))
             }
             Value::Object(m) if m.len() > MAX_ITEMS => Err(Reason::LimitExceeded(Limit::Items)),
-            Value::Array(items) => items.iter().try_for_each(|x| walk(x, next)),
-            Value::Object(m) => m.values().try_for_each(|x| walk(x, next)),
+            Value::Array(items) => {
+                let next = inner()?;
+                items.iter().try_for_each(|x| walk(x, next))
+            }
+            Value::Object(m) => {
+                let next = inner()?;
+                m.values().try_for_each(|x| walk(x, next))
+            }
             Value::Null | Value::Bool(_) | Value::Number(_) | Value::String(_) => Ok(()),
         }
     }
-    walk(v, 1)
+    walk(v, 0)
 }
 
 /// True when the record names a protocol version this kernel has no rule set for; read before strict decoding, so a later version's new fields and kinds are quarantined, not rejected (P-87).
