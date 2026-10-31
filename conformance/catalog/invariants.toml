@@ -308,6 +308,7 @@ tests = [
   "packages/kernel/src/records.test.ts::t_5_t_37_inv_7 WebAssembly kernel matches every record vector",
   "sdks/bindings/core/tests/vectors.rs::t_5_t_37_inv_7_native_derivation_through_bindings_core",
   "sdks/bindings/core/tests/vectors.rs::t_5_t_37_inv_7_native_record_vectors_through_bindings_core",
+  "sdks/bindings/core/tests/vectors.rs::t_69_cbor_entry_point_answers_like_the_json_projection",
   "sdks/bindings/uniffi/tests/swift/main.swift::t_5_t_37_inv_7_swift_derivation_matches_native_bytes",
   "sdks/bindings/uniffi/tests/swift/main.swift::t_5_t_37_inv_7_swift_record_vectors_match",
 ]
@@ -407,6 +408,7 @@ status = "canonical-invariant"
 stage = 1
 title = ""
 tests = [
+  "crates/kernel/tests/codec_vectors.rs::p_100_envelope_vectors_decode_and_chain_from_the_genesis",
   "crates/kernel/tests/records.rs::inv_18_every_on_behalf_of_ring_has_an_actor_type",
 ]
 
@@ -1645,6 +1647,7 @@ status = "canonical-invariant"
 stage = 3
 title = ""
 tests = [
+  "crates/kernel/tests/codec_vectors.rs::p_100_envelope_vectors_decode_and_chain_from_the_genesis",
   "crates/kernel/tests/records.rs::inv_18_every_on_behalf_of_ring_has_an_actor_type",
   "crates/kernel/tests/records.rs::inv_23_actor_type_is_not_an_authority_input",
 ]
@@ -1686,6 +1689,7 @@ status = "canonical-invariant"
 stage = 2
 title = ""
 tests = [
+  "crates/kernel/tests/codec_vectors.rs::p_101_body_commitment_vector_uses_the_shared_prefix_0x03",
   "crates/kernel/tests/records.rs::p_9_vector_examples_are_accepted",
   "crates/telemetry/tests/content_guard.rs::op_19_record_body_bytes_never_reach_the_output",
   "crates/telemetry/tests/content_guard.rs::sec_24_the_log_format_redacts_without_the_guard",
@@ -1755,6 +1759,7 @@ status = "canonical-invariant"
 stage = 2
 title = ""
 tests = [
+  "crates/kernel/tests/codec_vectors.rs::p_100_genesis_vectors_select_the_schema_by_position",
   "crates/kernel/tests/derivation.rs::p_11_ledger_order_violations_are_errors",
   "crates/kernel/tests/derivation.rs::p_27_ledger_time_input_decides_pending_effect",
 ]
@@ -1932,6 +1937,8 @@ tests = [
   "xtask/src/rules_kernel.rs::t_31_kernel_binds_suiss_crypto_without_default_features",
   "xtask/src/rules_kernel.rs::t_31_std_pulling_crate_in_kernel_tree_is_rejected",
   "xtask/src/rules_kernel.rs::t_32_nats_client_in_kernel_tree_is_rejected",
+  "xtask/src/rules_kernel.rs::t_87_a_host_only_libc_edge_passes_and_a_target_edge_names_the_target",
+  "xtask/src/rules_kernel.rs::t_87_the_tree_is_resolved_for_each_distribution_target",
   "xtask/src/rules_source.rs::t_32_grouped_std_imports_in_domain_layers_are_expanded",
   "xtask/src/rules_source.rs::t_32_hash_maps_and_sets_in_domain_layers_are_rejected",
   "xtask/src/rules_source.rs::t_32_kernel_and_domain_layers_are_pure_paths",

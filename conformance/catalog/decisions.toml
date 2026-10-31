@@ -2908,6 +2908,9 @@ stage = 1
 acceptance = "to-fill"
 title = ""
 tests = [
+  "crates/kernel/src/codec/mod.rs::p_5_every_shared_decoder_error_has_a_work_code",
+  "crates/kernel/tests/codec_vectors.rs::p_5_cbor_canonical_vectors_through_the_shared_decoder",
+  "crates/kernel/tests/codec_vectors.rs::p_67_digest_vectors_decode_encode_and_reject",
   "crates/kernel/tests/record_vectors.rs::p_72_rejected_record_vectors",
   "crates/kernel/tests/records.rs::p_69_ext_keys_are_in_canonical_map_order",
   "crates/kernel/tests/records.rs::p_72_empty_optional_lists_are_rejected",
@@ -2915,6 +2918,7 @@ tests = [
   "crates/kernel/tests/records.rs::p_80_param_text_is_a_code_uri_or_party_reference",
   "sdks/bindings/core/tests/vectors.rs::p_11_every_vector_reason_is_a_kernel_code_and_every_id_is_unique",
   "sdks/bindings/core/tests/vectors.rs::p_67_digests_are_encoded_as_the_sha_256_label_and_32_bytes",
+  "sdks/bindings/core/tests/vectors.rs::t_69_cbor_entry_point_answers_like_the_json_projection",
 ]
 
 [[rule]]
@@ -2926,6 +2930,14 @@ acceptance = "to-fill"
 title = ""
 tests = [
   "crates/kernel/src/verify.rs::p_6_rejected_signature_carries_its_detail",
+  "crates/kernel/tests/cose.rs::p_102_the_protected_header_carries_the_work_record_content_type",
+  "crates/kernel/tests/cose.rs::p_6_a_changed_payload_or_signature_is_invalid",
+  "crates/kernel/tests/cose.rs::p_6_a_kid_without_a_bound_key_is_kid_unknown",
+  "crates/kernel/tests/cose.rs::p_6_ed25519_record_signature_verifies_over_the_signed_record_bytes",
+  "crates/kernel/tests/cose.rs::p_6_esp256_and_es256_verify_with_low_s",
+  "crates/kernel/tests/cose.rs::p_6_headers_outside_the_profile_are_header_profile",
+  "crates/kernel/tests/cose.rs::p_6_only_a_tagged_attached_cose_sign1_is_a_record_container",
+  "crates/kernel/tests/cose.rs::p_6_the_algorithm_comes_from_policy_never_from_the_header",
 ]
 
 [[rule]]
@@ -2937,7 +2949,12 @@ acceptance = "to-fill"
 pd = "set"
 title = ""
 tests = [
+  "crates/kernel/src/codec/mod.rs::p_7_structural_limits_only_narrow",
   "crates/kernel/src/verify.rs::p_6_rejected_signature_carries_its_detail",
+  "crates/kernel/tests/codec_vectors.rs::p_5_cbor_canonical_vectors_through_the_shared_decoder",
+  "crates/kernel/tests/cose.rs::p_6_esp256_and_es256_verify_with_low_s",
+  "crates/kernel/tests/cose.rs::p_7_high_s_ecdsa_on_a_work_record_is_rejected",
+  "crates/kernel/tests/cose.rs::p_7_non_canonical_ed25519_signatures_and_small_order_keys_are_rejected",
   "crates/kernel/tests/records.rs::p_7_cddl_list_and_map_bounds_reject_one_more_than_256",
   "crates/kernel/tests/records.rs::p_7_cddl_string_bounds_are_enforced",
   "xtask/src/supply_chain.rs::t_33_serde_json_with_unbounded_depth_is_rejected",
@@ -2950,7 +2967,9 @@ status = "frozen-technical"
 stage = 1
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/cose.rs::p_6_ed25519_record_signature_verifies_over_the_signed_record_bytes",
+]
 
 [[rule]]
 id = "P-10"
@@ -2973,7 +2992,10 @@ stage = 1
 acceptance = "to-fill"
 title = ""
 tests = [
+  "crates/kernel/src/envelope.rs::p_11_ingest_is_one_of_the_three_forms",
   "crates/kernel/src/reason.rs::p_11_every_reason_round_trips_through_its_wire_string",
+  "crates/kernel/tests/codec_vectors.rs::p_100_envelope_vectors_decode_and_chain_from_the_genesis",
+  "crates/kernel/tests/codec_vectors.rs::p_100_genesis_vectors_select_the_schema_by_position",
   "crates/kernel/tests/derivation.rs::p_11_ledger_order_violations_are_errors",
   "crates/kernel/tests/record_vectors.rs::p_11_accepted_record_vectors",
   "crates/ledger/src/envelope.rs::p_100_every_golden_envelope_is_sealed_from_its_slot",
@@ -3015,6 +3037,7 @@ status = "frozen-protocol"
 acceptance = "to-fill"
 title = ""
 tests = [
+  "crates/kernel/tests/codec_vectors.rs::p_100_genesis_vectors_select_the_schema_by_position",
   "crates/kernel/tests/records.rs::t_4_rule_set_is_selected_from_the_record_version_only",
 ]
 
@@ -3026,6 +3049,7 @@ stage = 1
 acceptance = "to-fill"
 title = ""
 tests = [
+  "crates/kernel/src/envelope.rs::p_11_ingest_is_one_of_the_three_forms",
   "crates/kernel/src/reason.rs::p_19_quarantine_reasons_are_exactly_the_two_that_never_reject",
   "crates/kernel/tests/derivation.rs::p_19_quarantined_record_has_no_effect",
   "crates/kernel/tests/derivation.rs::t_4_p_87_unknown_protocol_version_is_quarantined_in_derivation",
@@ -3046,7 +3070,9 @@ stage = 3
 acceptance = "to-fill"
 title = ""
 tests = [
+  "crates/kernel/src/envelope.rs::p_21_auth_context_assurance_is_one_to_64_bytes",
   "crates/kernel/src/verify.rs::p_21_only_humans_with_auth_context_may_be_unsigned",
+  "crates/kernel/tests/codec_vectors.rs::p_100_envelope_vectors_decode_and_chain_from_the_genesis",
 ]
 
 [[rule]]
@@ -3352,7 +3378,11 @@ stage = 1
 acceptance = "to-fill"
 title = ""
 tests = [
+  "crates/kernel/src/codec/mod.rs::p_101_digest_round_trips_and_body_commitment_uses_prefix_0x03",
   "crates/kernel/src/id.rs::p_67_party_ref_is_one_to_255_bytes",
+  "crates/kernel/tests/codec_vectors.rs::p_100_genesis_vectors_select_the_schema_by_position",
+  "crates/kernel/tests/codec_vectors.rs::p_101_leaf_hash_vector_uses_the_shared_prefix_0x00",
+  "crates/kernel/tests/codec_vectors.rs::p_67_digest_vectors_decode_encode_and_reject",
   "crates/ledger/src/genesis.rs::p_100_genesis_matches_the_golden_vector",
   "crates/store/src/id.rs::t_13_ledger_scope_is_the_lower_case_hex_of_the_digest",
   "sdks/bindings/core/tests/vectors.rs::p_67_digests_are_encoded_as_the_sha_256_label_and_32_bytes",
@@ -3367,6 +3397,7 @@ acceptance = "to-fill"
 title = ""
 tests = [
   "crates/kernel/src/record/parts.rs::p_68_part_names_are_lowercase_snake_case_up_to_64_bytes",
+  "crates/kernel/tests/codec_vectors.rs::p_101_body_commitment_vector_uses_the_shared_prefix_0x03",
 ]
 
 [[rule]]
@@ -3377,6 +3408,7 @@ stage = 1
 acceptance = "filled"
 title = ""
 tests = [
+  "crates/kernel/tests/cose.rs::p_6_headers_outside_the_profile_are_header_profile",
   "crates/kernel/tests/record_vectors.rs::p_19_quarantine_record_vectors",
   "crates/kernel/tests/record_vectors.rs::p_72_rejected_record_vectors",
   "crates/kernel/tests/records.rs::p_19_unknown_critical_extension_quarantines",
@@ -3421,8 +3453,11 @@ stage = 1
 acceptance = "filled"
 title = ""
 tests = [
+  "crates/kernel/src/envelope.rs::p_100_closed_maps_report_the_first_key_out_of_place",
   "crates/kernel/src/id.rs::p_72_party_refs_order_canonically",
   "crates/kernel/src/id.rs::p_72_text_orders_by_encoded_length_first",
+  "crates/kernel/tests/codec_vectors.rs::p_5_cbor_canonical_vectors_through_the_shared_decoder",
+  "crates/kernel/tests/cose.rs::p_6_only_a_tagged_attached_cose_sign1_is_a_record_container",
   "crates/kernel/tests/record_vectors.rs::p_72_rejected_record_vectors",
   "crates/kernel/tests/records.rs::p_72_author_ordered_lists_reject_repeated_entries",
   "crates/kernel/tests/records.rs::p_72_empty_optional_lists_are_rejected",
@@ -3469,6 +3504,7 @@ stage = 1
 acceptance = "to-fill"
 title = ""
 tests = [
+  "crates/kernel/tests/codec_vectors.rs::p_100_envelope_vectors_decode_and_chain_from_the_genesis",
   "crates/ledger/src/envelope.rs::p_100_every_golden_envelope_is_sealed_from_its_slot",
 ]
 
@@ -3516,6 +3552,7 @@ stage = 1
 acceptance = "filled"
 title = ""
 tests = [
+  "crates/kernel/tests/cose.rs::p_6_ed25519_record_signature_verifies_over_the_signed_record_bytes",
   "sdks/bindings/core/tests/vectors.rs::p_67_digests_are_encoded_as_the_sha_256_label_and_32_bytes",
 ]
 
@@ -3782,6 +3819,10 @@ stage = 2
 acceptance = "to-fill"
 title = ""
 tests = [
+  "crates/kernel/src/envelope.rs::p_100_closed_maps_report_the_first_key_out_of_place",
+  "crates/kernel/tests/codec_vectors.rs::p_100_envelope_vectors_decode_and_chain_from_the_genesis",
+  "crates/kernel/tests/codec_vectors.rs::p_100_genesis_vectors_select_the_schema_by_position",
+  "crates/kernel/tests/codec_vectors.rs::p_101_leaf_hash_vector_uses_the_shared_prefix_0x00",
   "crates/ledger/src/envelope.rs::p_100_every_golden_envelope_is_sealed_from_its_slot",
   "crates/ledger/src/genesis.rs::p_100_genesis_matches_the_golden_vector",
 ]
@@ -3794,9 +3835,44 @@ stage = 2
 acceptance = "to-fill"
 title = ""
 tests = [
+  "crates/kernel/src/codec/mod.rs::p_101_digest_round_trips_and_body_commitment_uses_prefix_0x03",
+  "crates/kernel/tests/codec_vectors.rs::p_101_body_commitment_vector_uses_the_shared_prefix_0x03",
+  "crates/kernel/tests/codec_vectors.rs::p_101_leaf_hash_vector_uses_the_shared_prefix_0x00",
   "crates/ledger/src/envelope.rs::p_100_every_golden_envelope_is_sealed_from_its_slot",
   "crates/ledger/src/genesis.rs::p_100_genesis_matches_the_golden_vector",
 ]
+
+[[rule]]
+id = "P-102"
+family = "P"
+status = "frozen-protocol"
+stage = 1
+acceptance = "to-fill"
+title = ""
+tests = [
+  "crates/kernel/tests/cose.rs::p_102_the_protected_header_carries_the_work_record_content_type",
+]
+
+[[rule]]
+id = "P-103"
+family = "P"
+status = "frozen-protocol"
+stage = 1
+acceptance = "to-fill"
+title = ""
+tests = [
+  "crates/kernel/src/codec/mod.rs::p_5_every_shared_decoder_error_has_a_work_code",
+  "crates/kernel/tests/codec_vectors.rs::p_5_cbor_canonical_vectors_through_the_shared_decoder",
+]
+
+[[rule]]
+id = "P-104"
+family = "P"
+status = "frozen-protocol"
+stage = 1
+acceptance = "to-fill"
+title = ""
+tests = []
 
 [[rule]]
 id = "PR-2"
@@ -4118,6 +4194,8 @@ tests = [
   "xtask/src/rules_files.rs::t_31_walk_skips_docs_target_and_hidden_dirs",
   "xtask/src/rules_kernel.rs::t_31_kernel_binds_suiss_crypto_without_default_features",
   "xtask/src/rules_kernel.rs::t_31_std_pulling_crate_in_kernel_tree_is_rejected",
+  "xtask/src/rules_kernel.rs::t_87_a_host_only_libc_edge_passes_and_a_target_edge_names_the_target",
+  "xtask/src/rules_kernel.rs::t_87_the_tree_is_resolved_for_each_distribution_target",
   "xtask/src/rules_source.rs::t_4_clock_in_kernel_is_rejected",
   "xtask/src/rules_source.rs::t_4_std_and_ffi_in_kernel_are_rejected_but_alloc_is_not",
   "xtask/src/supply_cooldown.rs::t_31_git_sources_in_the_lockfile_are_rejected",
@@ -4136,6 +4214,7 @@ tests = [
   "crates/dispatch/src/app.rs::t_32_publisher_refuses_an_invalid_configuration",
   "crates/dispatch/src/domain.rs::t_32_invalid_consumer_settings_are_rejected",
   "crates/dispatch/src/domain.rs::t_32_invalid_publisher_settings_are_rejected",
+  "crates/kernel/tests/codec_vectors.rs::p_100_genesis_vectors_select_the_schema_by_position",
   "crates/telemetry/tests/trace_export.rs::t_39_a_stalled_exporter_never_blocks_span_creation",
   "xtask/src/policy.rs::t_32_component_crate_without_layers_is_reported",
   "xtask/src/rules.rs::t_32_clippy_disallows_direct_clock_and_rng",
@@ -4260,6 +4339,7 @@ tests = [
   "sdks/bindings/core/tests/vectors.rs::t_5_t_37_inv_7_native_derivation_through_bindings_core",
   "sdks/bindings/core/tests/vectors.rs::t_5_t_37_inv_7_native_record_vectors_through_bindings_core",
   "sdks/bindings/core/tests/vectors.rs::t_5_t_37_kernel_derivation_errors_cross_the_binding",
+  "sdks/bindings/core/tests/vectors.rs::t_69_cbor_entry_point_answers_like_the_json_projection",
   "sdks/bindings/uniffi/tests/swift/main.swift::t_5_t_37_inv_7_swift_derivation_matches_native_bytes",
   "sdks/bindings/uniffi/tests/swift/main.swift::t_5_t_37_inv_7_swift_record_vectors_match",
   "sdks/bindings/uniffi/tests/swift/main.swift::t_5_t_37_swift_api_version_matches_shared_vectors",
@@ -4735,6 +4815,7 @@ tests = [
   "sdks/bindings/core/tests/vectors.rs::t_5_t_37_inv_7_native_derivation_through_bindings_core",
   "sdks/bindings/core/tests/vectors.rs::t_5_t_37_inv_7_native_record_vectors_through_bindings_core",
   "sdks/bindings/core/tests/vectors.rs::t_5_t_37_kernel_derivation_errors_cross_the_binding",
+  "sdks/bindings/core/tests/vectors.rs::t_69_cbor_entry_point_answers_like_the_json_projection",
 ]
 
 [[rule]]
@@ -4938,6 +5019,18 @@ tests = [
 ]
 
 [[rule]]
+id = "T-87"
+family = "T"
+status = "frozen-technical"
+stage = 1
+acceptance = "to-fill"
+title = ""
+tests = [
+  "xtask/src/rules_kernel.rs::t_87_a_host_only_libc_edge_passes_and_a_target_edge_names_the_target",
+  "xtask/src/rules_kernel.rs::t_87_the_tree_is_resolved_for_each_distribution_target",
+]
+
+[[rule]]
 id = "OP-2"
 family = "OP"
 status = "frozen-technical"
@@ -5119,7 +5212,10 @@ status = "frozen-technical"
 acceptance = "to-fill"
 pd = "unset"
 title = ""
-tests = []
+tests = [
+  "crates/ledger/src/group.rs::op_41_defaults_are_the_policy_defaults",
+  "crates/ledger/src/group.rs::op_41_values_outside_their_range_are_refused",
+]
 
 [[rule]]
 id = "OP-32"
@@ -5212,3 +5308,24 @@ tests = [
   "bins/work-server/src/config.rs::op_40_new_root_traces_are_sampled_at_one_in_ten_by_default",
   "crates/dispatch/src/domain.rs::op_40_consumer_defaults_are_the_policy_defaults",
 ]
+
+[[rule]]
+id = "OP-41"
+family = "OP"
+status = "policy-default"
+stage = 2
+pd = "set"
+title = ""
+tests = [
+  "crates/ledger/src/group.rs::op_41_defaults_are_the_policy_defaults",
+  "crates/ledger/src/group.rs::op_41_values_outside_their_range_are_refused",
+]
+
+[[rule]]
+id = "OP-42"
+family = "OP"
+status = "frozen-technical"
+stage = 2
+acceptance = "to-fill"
+title = ""
+tests = []
