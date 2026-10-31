@@ -14,10 +14,11 @@ suiss-crypto = { workspace = true, features = ["verify"] }
 work-store = { workspace = true }
 sha2 = { workspace = true }
 thiserror = { workspace = true, features = ["std"] }
+tokio = { workspace = true, features = ["rt", "sync"] }
 
 [dev-dependencies]
 serde_json = { workspace = true, features = ["std"] }
-tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "sync", "time"] }
 work-testkit = { workspace = true }
 
 [lints]

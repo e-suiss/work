@@ -2,7 +2,7 @@ use suiss_crypto::dcbor::{self, EncodeError, Limits, Value};
 use suiss_crypto::digest::{Digest, leaf_hash};
 use suiss_ledger::Hash;
 use suiss_ledger::sequencer::{Entry, Slot};
-use work_store::{ItemRef, LedgerId};
+use work_store::{CallerRef, IdempotencyKey, ItemRef, LedgerId};
 
 /// An admitted record waiting for its slot: what the sequencer needs to seal its
 /// `LedgerEnvelope` (P-11) and to write its item heads and outbox pointers in the same
@@ -25,6 +25,19 @@ pub struct PendingRecord {
     pub items: Vec<ItemChange>,
     /// The outbox pointers the record emits, one per affected item (T-81 item 2).
     pub outbox: Vec<EventPointer>,
+    /// The idempotency key of the request the record answers (OP-8).
+    pub idempotency: Option<KeyClaim>,
+}
+
+/// The idempotency key a fresh request carries, written with its record (OP-8, OP-36).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct KeyClaim {
+    /// The caller the key belongs to.
+    pub caller: CallerRef,
+    /// The key.
+    pub key: IdempotencyKey,
+    /// The digest of the request.
+    pub request_digest: [u8; 32],
 }
 
 impl std::fmt::Debug for PendingRecord {
@@ -184,6 +197,7 @@ mod tests {
                 ingest: v.get("ingest").unwrap().clone(),
                 items: vec![],
                 outbox: vec![],
+                idempotency: None,
             };
             let (leaf, sealed) = Bound {
                 ledger: &ledger,

@@ -33,6 +33,9 @@ pub enum StoreError {
     /// The item's stored version or last position is not the one the batch extends (P-29).
     #[error("item head conflict: {0:?}")]
     ItemConflict(ItemRef),
+    /// The caller's idempotency key is already stored in this month (OP-8, OP-36).
+    #[error("idempotency key already recorded")]
+    KeyReused,
 }
 
 /// How [`crate::SequencerPool::append`] failed: the two outcomes the ledger engine tells apart

@@ -1,7 +1,8 @@
 use sqlx::{AssertSqlSafe, Executor};
 use work_store::{
-    AppendBatch, AppendError, Cluster, Durability, Genesis, ItemHeadRow, ItemRef, LedgerId, LogRow,
-    NewHead, OutboxRow, SequencerPool, StoreError, StoredHead,
+    AppendBatch, AppendError, CallerRef, Cluster, Durability, Genesis, IdempotencyKey, ItemHeadRow,
+    ItemRef, KeyRow, LedgerId, LogRow, NewHead, OutboxRow, SequencerPool, StoreError, StoredHead,
+    StoredKey, StoredOutcome,
 };
 
 use crate::env::{Env, L, M, commit_fails, fails, hex, run, scalar, with_ledgers};
@@ -64,6 +65,7 @@ fn batch(epoch: u64, after: u64, version: u64) -> AppendBatch {
             item: ITEM,
             version,
         }],
+        keys: vec![],
         head: NewHead {
             pos,
             leaf,
@@ -332,4 +334,57 @@ async fn t_85_leadership_is_refused_when_the_head_diverges_from_the_log() {
         scalar(&env.canonical("work_app"), &hex(&L), epoch, false).await,
         0
     );
+}
+
+fn keyed(mut b: AppendBatch, key: &str) -> AppendBatch {
+    let pos = b.head.pos;
+    let record_id = b.records[0].record_id;
+    b.keys.push(KeyRow {
+        caller: CallerRef::new("caller-1").unwrap(),
+        key: IdempotencyKey::parse(key).unwrap(),
+        stored: StoredKey {
+            request_digest: [0x77; 32],
+            outcome: StoredOutcome::Recorded { pos, record_id },
+            created_at_ms: i64::try_from(b.head.recorded_at_ms).unwrap(),
+        },
+    });
+    b
+}
+
+// OP-8 OP-36 T-32 T-74
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs Docker"]
+async fn op_8_the_key_is_written_with_its_record_and_a_reused_key_is_refused() {
+    let (env, seq) = opened().await;
+    let ledger = LedgerId::from_bytes(L);
+    let head = seq.acquire(&ledger).await.unwrap();
+    let key = "0192f0a0-0000-7000-8000-000000000001";
+    seq.append(&ledger, &keyed(batch(head.epoch, 0, 1), key))
+        .await
+        .unwrap();
+    let mut tx = work_store::LedgerTx::begin(&env.canonical("work_app"), &ledger)
+        .await
+        .unwrap();
+    let stored = tx
+        .idempotency_key(
+            &CallerRef::new("caller-1").unwrap(),
+            &IdempotencyKey::parse(key).unwrap(),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+    tx.rollback().await.unwrap();
+    assert_eq!(
+        stored.outcome,
+        StoredOutcome::Recorded {
+            pos: 1,
+            record_id: record(1, GENESIS_LEAF, [0; 32], AT).record_id
+        }
+    );
+    assert!(matches!(
+        seq.append(&ledger, &keyed(batch(head.epoch, 1, 2), key))
+            .await,
+        Err(AppendError::Refused(StoreError::KeyReused))
+    ));
+    seq.append(&ledger, &batch(head.epoch, 1, 2)).await.unwrap();
 }

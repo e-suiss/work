@@ -10,11 +10,16 @@
     reason = "test code"
 )]
 
+use std::sync::Arc;
+use std::time::Duration;
+
 use suiss_crypto::dcbor::Value;
+use tokio::sync::Semaphore;
 use work_ledger::{
-    EventPointer, GenesisInput, ItemChange, Leader, LedgerError, PendingRecord, genesis,
+    Clock, ClockError, EventPointer, GenesisInput, GroupCommit, GroupConfig, ItemChange, Leader,
+    LedgerError, PendingRecord, SubmitError, genesis,
 };
-use work_store::{Cluster, Durability, ItemRef, Pool, SequencerPool, StoreError};
+use work_store::{Cluster, Durability, ItemRef, LedgerId, Pool, SequencerPool, StoreError};
 use work_testkit::Postgres;
 
 const PASSWORD: &str = "test-only-not-a-secret";
@@ -105,6 +110,7 @@ fn record(n: u8, item: ItemRef, version: u64) -> PendingRecord {
             item,
             version,
         }],
+        idempotency: None,
     }
 }
 
@@ -172,4 +178,173 @@ async fn t_85_a_leader_opens_commits_and_is_fenced_by_the_next() {
     assert_eq!(second.head().recorded_at, at);
     let third = Leader::acquire(pool, opened.ledger).await.unwrap();
     assert_eq!(third.head(), second.head());
+}
+
+/// A virtual ledger clock (T-32 rule 2): each reading takes one permit, so a test can hold the
+/// writer between batches.
+struct Gate {
+    permits: Arc<Semaphore>,
+    at: u64,
+}
+
+impl Clock for Gate {
+    async fn now(&mut self) -> Result<u64, ClockError> {
+        self.permits
+            .acquire()
+            .await
+            .map_err(|e| ClockError(e.to_string()))?
+            .forget();
+        self.at = self
+            .at
+            .checked_add(1)
+            .ok_or(ClockError("overflow".to_owned()))?;
+        Ok(self.at)
+    }
+}
+
+async fn opened(env: &Env) -> (SequencerPool, LedgerId) {
+    let pool = env.sequencer().await;
+    let g = genesis(
+        &GenesisInput {
+            recorded_at_ms: AT,
+            protocol: (1, 0),
+            schema: [0x5c; 32],
+            nonce: [0x3d; 32],
+        },
+        Durability::Quorum,
+    )
+    .unwrap();
+    Leader::open(&pool, &g).await.unwrap();
+    (pool, g.ledger)
+}
+
+fn work(n: u8) -> ItemRef {
+    let mut id = [0_u8; 16];
+    id[0] = n;
+    ItemRef::Work(id)
+}
+
+// OP-31 OP-5 OP-3 T-74
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs Docker"]
+async fn op_31_concurrent_requests_share_batches_and_get_contiguous_positions() {
+    let env = Env::start().await;
+    let (pool, ledger) = opened(&env).await;
+    let leader = Leader::acquire(pool.clone(), ledger).await.unwrap();
+    let permits = Arc::new(Semaphore::new(0));
+    let clock = Gate {
+        permits: permits.clone(),
+        at: AT,
+    };
+    let (group, task) = GroupCommit::spawn(leader, clock, GroupConfig::default());
+    let mut waiting = Vec::new();
+    for n in 1..=100_u8 {
+        let g = group.clone();
+        waiting.push(tokio::spawn(async move {
+            g.submit(record(n, work(n), 1)).await
+        }));
+    }
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    permits.add_permits(1000);
+    let mut positions = Vec::new();
+    for w in waiting {
+        positions.push(w.await.unwrap().unwrap().pos);
+    }
+    positions.sort_unstable();
+    assert_eq!(positions, (1..=100).collect::<Vec<u64>>());
+    drop(group);
+    task.await.unwrap().unwrap();
+    let head = Leader::acquire(pool, ledger).await.unwrap();
+    assert_eq!(head.head().pos, 100);
+    assert!(head.head().recorded_at <= AT.checked_add(100).unwrap());
+}
+
+// OP-41 OP-31
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs Docker"]
+async fn op_41_a_full_queue_answers_busy_at_once_and_writes_nothing() {
+    let env = Env::start().await;
+    let (pool, ledger) = opened(&env).await;
+    let leader = Leader::acquire(pool.clone(), ledger).await.unwrap();
+    let permits = Arc::new(Semaphore::new(0));
+    let clock = Gate {
+        permits: permits.clone(),
+        at: AT,
+    };
+    let config = GroupConfig::new(256, 1 << 20, 2, Duration::from_secs(1)).unwrap();
+    let (group, task) = GroupCommit::spawn(leader, clock, config);
+    let first = {
+        let g = group.clone();
+        tokio::spawn(async move { g.submit(record(1, work(1), 1)).await })
+    };
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let queued: Vec<_> = (2..=3_u8)
+        .map(|n| {
+            let g = group.clone();
+            tokio::spawn(async move { g.submit(record(n, work(n), 1)).await })
+        })
+        .collect();
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    assert!(matches!(
+        group.submit(record(4, work(4), 1)).await,
+        Err(SubmitError::Busy { retry_after }) if retry_after == Duration::from_secs(1)
+    ));
+    permits.add_permits(10);
+    assert_eq!(first.await.unwrap().unwrap().pos, 1);
+    for q in queued {
+        q.await.unwrap().unwrap();
+    }
+    drop(group);
+    task.await.unwrap().unwrap();
+    assert_eq!(Leader::acquire(pool, ledger).await.unwrap().head().pos, 3);
+}
+
+// OP-31 P-29 T-74
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs Docker"]
+async fn op_31_a_refused_record_does_not_sink_its_batch() {
+    let env = Env::start().await;
+    let (pool, ledger) = opened(&env).await;
+    let leader = Leader::acquire(pool.clone(), ledger).await.unwrap();
+    let permits = Arc::new(Semaphore::new(0));
+    let clock = Gate {
+        permits: permits.clone(),
+        at: AT,
+    };
+    let (group, task) = GroupCommit::spawn(leader, clock, GroupConfig::default());
+    let shared = work(9);
+    let mut waiting = Vec::new();
+    for (n, item, version) in [
+        (1, work(1), 1),
+        (2, shared, 1),
+        (3, shared, 1),
+        (4, work(4), 1),
+    ] {
+        let g = group.clone();
+        waiting.push(tokio::spawn(async move {
+            g.submit(record(n, item, version)).await
+        }));
+    }
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    permits.add_permits(100);
+    let results: Vec<_> = futures_join(waiting).await;
+    assert_eq!(
+        results
+            .iter()
+            .filter(|r| matches!(r, Err(SubmitError::Refused(StoreError::ItemConflict(_)))))
+            .count(),
+        1
+    );
+    assert_eq!(results.iter().filter(|r| r.is_ok()).count(), 3);
+    drop(group);
+    task.await.unwrap().unwrap();
+    assert_eq!(Leader::acquire(pool, ledger).await.unwrap().head().pos, 3);
+}
+
+async fn futures_join<T>(handles: Vec<tokio::task::JoinHandle<T>>) -> Vec<T> {
+    let mut out = Vec::new();
+    for h in handles {
+        out.push(h.await.unwrap());
+    }
+    out
 }

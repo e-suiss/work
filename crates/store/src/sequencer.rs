@@ -7,7 +7,9 @@
 use sqlx::PgPool;
 
 use crate::publisher::check_role;
-use crate::{AppendError, ItemRef, LedgerId, LedgerTx, StoreError};
+use crate::{
+    AppendError, CallerRef, IdempotencyKey, ItemRef, LedgerId, LedgerTx, StoreError, StoredKey,
+};
 
 /// The login role a [`SequencerPool`] must have.
 pub const SEQUENCER_ROLE: &str = "work_sequencer";
@@ -121,6 +123,17 @@ pub struct OutboxRow {
     pub version: u64,
 }
 
+/// An idempotency key written with the record it first produced (OP-8, OP-36 item 1).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct KeyRow {
+    /// The caller the key belongs to.
+    pub caller: CallerRef,
+    /// The key.
+    pub key: IdempotencyKey,
+    /// The request digest and its first result.
+    pub stored: StoredKey,
+}
+
 /// The new head of one work item (P-29): inserted at version 1, otherwise the stored row at
 /// `version - 1` is advanced.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -161,6 +174,8 @@ pub struct AppendBatch {
     pub items: Vec<ItemHeadRow>,
     /// Outbox pointers of the records.
     pub outbox: Vec<OutboxRow>,
+    /// Idempotency keys of the requests the records answer.
+    pub keys: Vec<KeyRow>,
     /// The head after the batch.
     pub head: NewHead,
 }
@@ -231,6 +246,23 @@ fn item_failure(e: sqlx::Error, item: ItemRef) -> AppendError {
         AppendError::Refused(StoreError::ItemConflict(item))
     } else {
         AppendError::Failed(StoreError::Db(e))
+    }
+}
+
+fn key_failure(e: StoreError) -> AppendError {
+    let reused = match &e {
+        StoreError::Db(db) => db_code(db).is_some_and(|(code, _, constraint)| {
+            code == "23505"
+                && constraint
+                    .as_deref()
+                    .is_some_and(|c| c.starts_with("idempotency_key"))
+        }),
+        _ => false,
+    };
+    if reused {
+        AppendError::Refused(StoreError::KeyReused)
+    } else {
+        AppendError::Failed(e)
     }
 }
 
@@ -509,7 +541,8 @@ impl SequencerPool {
     /// [`StoreError::ItemConflict`] and means nothing was written: an item at version 1
     /// already exists (`23505` on `item_head_pk`), an item to advance is not stored at
     /// `version - 1`, or the item guard rejects the step (`23514` with
-    /// `item_version_not_monotonic` or `item_position_not_monotonic`). Since the head row is
+    /// `item_version_not_monotonic` or `item_position_not_monotonic`); it carries
+    /// [`StoreError::KeyReused`] when an idempotency key is already stored in its month. Since the head row is
     /// locked and checked first, none of these is about leadership. Everything else is
     /// [`AppendError::Failed`]: [`StoreError::NotOpened`], [`StoreError::HeadMoved`] when the
     /// head is not at `b.after` under `b.epoch`, [`StoreError::Corrupt`] for a value beyond
@@ -539,6 +572,11 @@ impl SequencerPool {
         insert_records(&mut tx, epoch, &b.records).await?;
         write_items(&mut tx, &b.items).await?;
         insert_outbox(&mut tx, &b.outbox).await?;
+        for k in &b.keys {
+            tx.insert_idempotency_key(&k.caller, &k.key, &k.stored)
+                .await
+                .map_err(key_failure)?;
+        }
         let moved = sqlx::query(
             "UPDATE ledger.head SET pos = $2, head_leaf = $3, \
              head_recorded_at = pg_catalog.to_timestamp(0) \

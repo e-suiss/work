@@ -1,7 +1,8 @@
 use suiss_ledger::port::{AppendError, LogStore};
 use suiss_ledger::sequencer::Batch;
 use work_store::{
-    AppendBatch, ItemHeadRow, LedgerId, LogRow, NewHead, OutboxRow, SequencerPool, StoreError,
+    AppendBatch, ItemHeadRow, KeyRow, LedgerId, LogRow, NewHead, OutboxRow, SequencerPool,
+    StoreError, StoredKey, StoredOutcome,
 };
 
 use crate::SealedRecord;
@@ -39,6 +40,7 @@ pub(crate) fn rows(batch: &Batch<SealedRecord>) -> AppendBatch {
     let mut records = Vec::with_capacity(batch.records.len());
     let mut items = Vec::new();
     let mut outbox = Vec::new();
+    let mut keys = Vec::new();
     for sealed in &batch.records {
         let pos = sealed.slot.pos;
         let r = &sealed.record.record;
@@ -65,6 +67,20 @@ pub(crate) fn rows(batch: &Batch<SealedRecord>) -> AppendBatch {
             item: e.item,
             version: e.version,
         }));
+        if let Some(claim) = &r.idempotency {
+            keys.push(KeyRow {
+                caller: claim.caller.clone(),
+                key: claim.key,
+                stored: StoredKey {
+                    request_digest: claim.request_digest,
+                    outcome: StoredOutcome::Recorded {
+                        pos,
+                        record_id: r.record_id,
+                    },
+                    created_at_ms: i64::try_from(sealed.slot.recorded_at).unwrap_or(i64::MAX),
+                },
+            });
+        }
     }
     AppendBatch {
         epoch: batch.epoch,
@@ -72,6 +88,7 @@ pub(crate) fn rows(batch: &Batch<SealedRecord>) -> AppendBatch {
         records,
         items,
         outbox,
+        keys,
         head: NewHead {
             pos: batch.head.pos,
             leaf: batch.head.leaf,

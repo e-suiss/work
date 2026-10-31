@@ -32,8 +32,8 @@ pub use publisher::{
 };
 pub use scope::{Head, LedgerTx};
 pub use sequencer::{
-    AppendBatch, Durability, Genesis, ItemHeadRow, LogRow, NewHead, OutboxRow, SEQUENCER_ROLE,
-    SequencerPool, StoredHead,
+    AppendBatch, Durability, Genesis, ItemHeadRow, KeyRow, LogRow, NewHead, OutboxRow,
+    SEQUENCER_ROLE, SequencerPool, StoredHead,
 };
 pub use server::{connect, server_version_num};
 
