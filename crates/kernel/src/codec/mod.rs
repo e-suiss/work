@@ -197,7 +197,7 @@ mod tests {
         let d = Digest::sha256([7; 32]);
         assert_eq!(decode_digest(&encode_digest(&d)), Ok(d));
         let name = PartName::parse("terms").unwrap();
-        let salt = [1; 32];
+        let salt: [u8; 32] = core::array::from_fn(|i| u8::try_from(i).unwrap_or(u8::MAX));
         let commit = body_commitment(&salt, &name, "text/plain", b"x").unwrap();
         let mut part = alloc::vec![0x83, 0x65];
         part.extend_from_slice(b"terms");
