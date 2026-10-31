@@ -3,7 +3,7 @@ name: Semgrep
 
 on:
   push:
-    branches: [main]
+    branches: [main, "wip/**"]
   pull_request:
 
 permissions: {}
