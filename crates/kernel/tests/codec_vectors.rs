@@ -290,7 +290,7 @@ fn p_100_ledger_id_is_the_unprefixed_genesis_digest_named_by_every_envelope() {
 #[test]
 fn p_75_proof_commit_is_the_digest_of_the_cose_sign1_bytes_as_received() {
     let case = digest_case("digest/proof-commit");
-    let cose = hex_of(&case["cose_hex"]);
+    let message = hex_of(&case["cose_hex"]);
     let mut keys = KeySet {
         allowed: BTreeSet::from([Algorithm::Ed25519]),
         ..KeySet::default()
@@ -301,12 +301,12 @@ fn p_75_proof_commit_is_the_digest_of_the_cose_sign1_bytes_as_received() {
         PublicKey::Ed25519(public),
     )
     .unwrap();
-    let signed = verify_record_signature(&cose, &keys).unwrap();
+    let signed = verify_record_signature(&message, &keys).unwrap();
     assert_eq!(signed.payload, hex_of(&file(RECORDS)["records"][0]["hex"]));
     let record = record_id(&signed.payload);
     assert_eq!(record.0, digest_of(&case["record_id_hex"]));
-    assert_eq!(proof_commit(&cose), digest_of(&case["digest_hex"]));
-    assert_ne!(proof_commit(&cose), record.0);
+    assert_eq!(proof_commit(&message), digest_of(&case["digest_hex"]));
+    assert_ne!(proof_commit(&message), record.0);
 }
 
 // P-104 P-68 P-7 P-101
