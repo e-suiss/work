@@ -1,7 +1,7 @@
-//! Verification results that state only "the author signature is valid" and "present in the ledger at this position", never truth or authorisation (SEC-5, P-22); signature checking is a port the shared crypto crate fills (P-8).
+//! Verification results that state only "the author signature is valid" and "present in the ledger at this position", never truth or authorisation (SEC-5, P-22); signature checking is a port the shared crypto crate fills (P-8, [`crate::cose::AuthorKeys`]).
 
 use crate::id::{LedgerId, PartyRef, RecordId, Time};
-use crate::reason::{Reason, Signature};
+use crate::reason::Reason;
 use crate::validate::ActorType;
 
 /// How the author is bound to the record (P-20, P-21).
@@ -47,8 +47,8 @@ pub enum SignatureCheck {
         /// The signing Party.
         author: PartyRef,
     },
-    /// The signature is rejected.
-    Rejected(Signature),
+    /// The signature or its container is rejected: a `signature:*`, `schema:container` or CBOR reason (P-6, P-7).
+    Rejected(Reason),
 }
 
 /// The signature port: implemented over the shared crypto crate's `no_std` verification (P-8, T-64); the kernel holds no second implementation.
@@ -79,14 +79,14 @@ pub fn verify_signed<V: SignatureVerifier + ?Sized>(
             binding: AuthorBinding::SignatureValid,
             inclusion,
         }),
-        SignatureCheck::Rejected(detail) => VerifyOutcome::Rejected(Reason::Signature(detail)),
+        SignatureCheck::Rejected(reason) => VerifyOutcome::Rejected(reason),
     }
 }
 
 /// Inputs for a record that arrived without a `COSE_Sign1` signature (P-21).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct UnsignedRecord {
-    /// The record identifier, computed by the shared crate.
+    /// The record identifier ([`crate::codec::record_id`], P-79).
     pub record: RecordId,
     /// The author.
     pub author: PartyRef,
@@ -117,6 +117,7 @@ pub fn verify_unsigned(input: UnsignedRecord, inclusion: Option<LedgerInclusion>
 mod tests {
     use super::*;
     use crate::id::Digest;
+    use crate::reason::Signature;
 
     struct Port(SignatureCheck);
 
@@ -167,10 +168,11 @@ mod tests {
     // P-6 P-7
     #[test]
     fn p_6_rejected_signature_carries_its_detail() {
-        let port = Port(SignatureCheck::Rejected(Signature::HighS));
+        let reason = Reason::Signature(Signature::HighS);
+        let port = Port(SignatureCheck::Rejected(reason));
         assert_eq!(
             verify_signed(&port, &[], None),
-            VerifyOutcome::Rejected(Reason::Signature(Signature::HighS))
+            VerifyOutcome::Rejected(reason)
         );
     }
 

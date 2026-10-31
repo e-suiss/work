@@ -11,12 +11,14 @@ use std::collections::BTreeSet;
 
 use serde_json::Value as Json;
 use suiss_crypto::dcbor::{Limits, Value, encode};
-use work_kernel::codec::{Decoded, decode_record};
+use work_kernel::codec::{Decoded, decode_record, record_id};
 use work_kernel::cose::{
-    Algorithm, CONTENT_TYPE, KeySet, PublicKey, SignedPayload, signature_detail,
+    Algorithm, AuthorKeys, CONTENT_TYPE, KeySet, PublicKey, SignedPayload, signature_detail,
     verify_record_signature,
 };
+use work_kernel::id::PartyRef;
 use work_kernel::reason::{Reason, Schema, Signature};
+use work_kernel::verify::{AuthorBinding, VerifyOutcome, verify_signed};
 
 const RECORDS: &str = include_str!("../../../conformance/vectors/records/records.json");
 const ED25519_PUBLIC: &str = "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a";
@@ -321,4 +323,31 @@ fn p_102_the_protected_header_carries_the_work_record_content_type() {
             rejected(Signature::HeaderProfile)
         );
     }
+}
+
+// P-8 P-79 P-21 SEC-5 T-87
+#[test]
+fn p_8_the_shared_verifier_fills_the_signature_port_and_names_the_record_by_its_payload() {
+    let author = PartyRef::new("party:acme:agent-procure-7").unwrap();
+    let keys = all();
+    let port = AuthorKeys {
+        author: &author,
+        keys: &keys,
+    };
+    let VerifyOutcome::Verified(verified) = verify_signed(&port, &ed25519_message(), None) else {
+        panic!("expected verified");
+    };
+    assert_eq!(verified.record, record_id(&payload()));
+    assert_eq!(verified.author, author);
+    assert_eq!(verified.binding, AuthorBinding::SignatureValid);
+    let unbound = sign1(&profile(-19, &[0x33; 32]), ED25519_SIGNATURE);
+    assert_eq!(
+        verify_signed(&port, &unbound, None),
+        VerifyOutcome::Rejected(Reason::Signature(Signature::KidUnknown))
+    );
+    let untagged = ed25519_message()[1..].to_vec();
+    assert_eq!(
+        verify_signed(&port, &untagged, None),
+        VerifyOutcome::Rejected(Reason::Schema(Schema::Container))
+    );
 }

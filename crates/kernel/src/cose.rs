@@ -1,4 +1,4 @@
-//! `COSE_Sign1` author signatures of Work records through the shared crate's parser and verifier with its pure backend (P-6, P-7, P-8, P-102, Access CR-9): the protected header is exactly `{1: alg, 3: "application/work-record+cbor", 4: kid}` of the normative CDDL, the algorithm must be in the caller's policy, and a Work record's ECDSA signature must be low-S.
+//! `COSE_Sign1` author signatures of Work records through the shared crate's parser and verifier with its pure backend (P-6, P-7, P-8, P-79, P-102, Access CR-9): the protected header is exactly `{1: alg, 3: "application/work-record+cbor", 4: kid}` of the normative CDDL, the algorithm must be in the caller's policy, a Work record's ECDSA signature must be low-S, and a verified record is named by the unprefixed digest of its payload.
 
 use alloc::vec::Vec;
 
@@ -8,8 +8,10 @@ use suiss_crypto::sig::{PureBackend, SignatureError};
 
 pub use suiss_crypto::cose::{Algorithm, KeySet, PublicKey, Sign1};
 
-use crate::codec::cbor_reason;
+use crate::codec::{cbor_reason, record_id};
+use crate::id::PartyRef;
 use crate::reason::{Reason, Schema, Signature};
+use crate::verify::{SignatureCheck, SignatureVerifier};
 
 /// A verified record signature: the author key and the `SignedRecord` bytes it covers (P-6).
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -90,4 +92,25 @@ pub fn verify_record_signature(bytes: &[u8], keys: &KeySet) -> Result<SignedPayl
         kid: verified.kid,
         payload: verified.payload,
     })
+}
+
+/// The signature port over the shared verifier for one author: `keys` holds the keys Access binds to `author` and the algorithms the caller's policy allows, so a `kid` that is not bound to `author` is `signature:kid_unknown` (P-6, P-8, P-21 item 1, P-79).
+#[derive(Clone, Copy, Debug)]
+pub struct AuthorKeys<'a> {
+    /// The Party the keys are bound to.
+    pub author: &'a PartyRef,
+    /// The author's keys and the allowed algorithms.
+    pub keys: &'a KeySet,
+}
+
+impl SignatureVerifier for AuthorKeys<'_> {
+    fn check(&self, cose_sign1: &[u8]) -> SignatureCheck {
+        match verify_record_signature(cose_sign1, self.keys) {
+            Ok(signed) => SignatureCheck::Valid {
+                record: record_id(&signed.payload),
+                author: self.author.clone(),
+            },
+            Err(reason) => SignatureCheck::Rejected(reason),
+        }
+    }
 }

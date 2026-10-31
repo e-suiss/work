@@ -1,4 +1,4 @@
-//! Deterministic CBOR with the Access profile and algorithm-tagged digests, both from `suiss-crypto` (P-5, P-7, P-8, P-67, P-101, Access CR-10): the shared strict decoder under the shared structural limits, its errors mapped onto Work reason codes, the shared digest form and the shared leaf and body commitment hashes; the kernel holds no second encoder, decoder or hash.
+//! Deterministic CBOR with the Access profile and algorithm-tagged digests, both from `suiss-crypto` (P-5, P-7, P-8, P-67, P-101, T-87, Access CR-10): the shared strict decoder under the shared structural limits, its errors mapped onto Work reason codes, the shared digest form, the shared leaf and body commitment hashes and the shared plain SHA-256 behind the unprefixed record identifier, `LedgerID`, `proof_commit` and large part digest; the kernel holds no second encoder, decoder or hash.
 
 mod read;
 mod record;
@@ -16,7 +16,7 @@ pub(crate) use read::{
     versions,
 };
 
-use crate::id::Digest;
+use crate::id::{Digest, LedgerId, RecordId};
 use crate::reason::{Limit, MalformedCbor, NonCanonicalCbor, Reason, Schema};
 use crate::record::PartName;
 
@@ -99,21 +99,59 @@ pub fn leaf_hash(envelope: &[u8]) -> Digest {
     Digest::sha256(digest::leaf_hash(envelope))
 }
 
-/// The salted commitment `SHA-256(0x03 ‖ salt ‖ det-CBOR([name, media_type, content]))` of one body part (P-17, P-68, P-101).
+/// The unprefixed SHA-256 of `bytes` as a `Digest` (P-67, P-101, T-87).
+#[must_use]
+pub fn plain_digest(bytes: &[u8]) -> Digest {
+    Digest::sha256(digest::sha256(bytes))
+}
+
+/// The record identifier `SHA-256(det-CBOR(SignedRecord))`: the unprefixed digest of the `COSE_Sign1` payload bytes as received (P-6 item 4, P-79, P-101).
+#[must_use]
+pub fn record_id(signed_record: &[u8]) -> RecordId {
+    RecordId(plain_digest(signed_record))
+}
+
+/// The `LedgerID` `SHA-256(det-CBOR(GenesisEnvelope))`: the unprefixed digest of the genesis bytes as written (P-67, P-100 item 3, P-101).
+#[must_use]
+pub fn ledger_id(genesis: &[u8]) -> LedgerId {
+    LedgerId(plain_digest(genesis))
+}
+
+/// The envelope `proof_commit`: the unprefixed digest of the full tagged `COSE_Sign1` bytes as received (P-75, P-76 item 4).
+#[must_use]
+pub fn proof_commit(cose_sign1: &[u8]) -> Digest {
+    plain_digest(cose_sign1)
+}
+
+/// The genesis `versions.schema`: the unprefixed digest of the normative CDDL bytes of the protocol version a ledger opens with (P-100 item 7).
+#[must_use]
+pub fn schema_digest(cddl: &[u8]) -> Digest {
+    plain_digest(cddl)
+}
+
+/// The content length above which a body part is committed by the digest of its content: the shared decoder's default single string bound, a protocol constant that no narrowing changes (P-104 item 3, Access CR-10).
+pub const LARGE_PART: usize = 65_536;
+
+/// The salted commitment `SHA-256(0x03 ‖ salt ‖ det-CBOR([name, media_type, content]))` of one body part, where content longer than [`LARGE_PART`] bytes is replaced by its unprefixed `Digest` (P-17, P-68, P-101, P-104).
 ///
 /// # Errors
 ///
-/// `limit_exceeded:string` when a part does not fit the shared structural limits.
+/// `limit_exceeded:string` when the name or media type does not fit the shared structural limits.
 pub fn body_commitment(
     salt: &[u8; 32],
     name: &PartName,
     media_type: &str,
     content: &[u8],
 ) -> Result<Digest, Reason> {
+    let committed = if content.len() > LARGE_PART {
+        digest_to_value(&plain_digest(content))
+    } else {
+        Value::Bytes(content.to_vec())
+    };
     let part = Value::Array(alloc::vec![
         Value::text(name.as_str()),
         Value::text(media_type),
-        Value::Bytes(content.to_vec()),
+        committed,
     ]);
     let encoded =
         dcbor::encode(&part, Limits::CEILING).map_err(|_| Reason::LimitExceeded(Limit::String))?;
@@ -207,13 +245,43 @@ mod tests {
         assert_eq!(commit.as_bytes(), &digest::body_commit(&salt, &part));
         assert_ne!(commit.as_bytes(), &digest::field_commit(&salt, &part));
         assert_eq!(
-            body_commitment(
-                &salt,
-                &name,
-                "text/plain",
-                &alloc::vec![0; Limits::MAX_STRING + 1]
-            ),
+            body_commitment(&salt, &name, &"a".repeat(Limits::MAX_STRING + 1), b"x"),
             Err(Reason::LimitExceeded(Limit::String))
         );
+    }
+
+    // P-79 P-100 P-75 P-101 T-87
+    #[test]
+    fn p_79_record_id_ledger_id_and_proof_commit_are_unprefixed_sha_256() {
+        let bytes = [0xa1, 0x61, b'a', 0x00];
+        let plain = digest::sha256(&bytes);
+        assert_eq!(record_id(&bytes).0.as_bytes(), &plain);
+        assert_eq!(ledger_id(&bytes).0.as_bytes(), &plain);
+        assert_eq!(proof_commit(&bytes).as_bytes(), &plain);
+        assert_eq!(schema_digest(&bytes).as_bytes(), &plain);
+        assert_ne!(record_id(&bytes).0, leaf_hash(&bytes));
+    }
+
+    const MEDIA: &str = "application/octet-stream";
+
+    fn part(third: Value) -> Vec<u8> {
+        let fields = alloc::vec![Value::text("file"), Value::text(MEDIA), third];
+        dcbor::encode(&Value::Array(fields), Limits::CEILING).unwrap()
+    }
+
+    // P-104 P-68 P-101 Access CR-10
+    #[test]
+    fn p_104_a_part_above_64_kib_commits_to_the_digest_of_its_content() {
+        assert_eq!(LARGE_PART, Limits::MAX_STRING);
+        let name = PartName::parse("file").unwrap();
+        let salt: [u8; 32] = core::array::from_fn(|i| u8::try_from(i).unwrap_or(u8::MAX));
+        let at_bound = alloc::vec![0x61; LARGE_PART];
+        let small = body_commitment(&salt, &name, MEDIA, &at_bound).unwrap();
+        let by_content = part(Value::Bytes(at_bound));
+        assert_eq!(small.as_bytes(), &digest::body_commit(&salt, &by_content));
+        let above = alloc::vec![0x61; LARGE_PART + 1];
+        let large = body_commitment(&salt, &name, MEDIA, &above).unwrap();
+        let by_digest = part(digest_to_value(&plain_digest(&above)));
+        assert_eq!(large.as_bytes(), &digest::body_commit(&salt, &by_digest));
     }
 }

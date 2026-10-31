@@ -1,4 +1,4 @@
-//! The deterministic CBOR, digest, genesis and envelope vectors in `conformance/vectors/records` natively through the kernel's codec over the shared crate (P-5, P-7, P-67, P-100, P-101, Access CR-10).
+//! The deterministic CBOR, digest, genesis and envelope vectors in `conformance/vectors/records` natively through the kernel's codec over the shared crate (P-5, P-7, P-67, P-75, P-79, P-100, P-101, P-104, Access CR-10).
 
 #![allow(
     clippy::unwrap_used,
@@ -7,11 +7,14 @@
     reason = "test code"
 )]
 
+use std::collections::BTreeSet;
+
 use serde_json::Value;
 use work_kernel::codec::{
-    Limits, TagAllowlist, body_commitment, decode_digest, decode_with, encode_digest, leaf_hash,
+    LARGE_PART, Limits, TagAllowlist, body_commitment, decode_digest, decode_with, encode_digest,
+    leaf_hash, ledger_id, proof_commit, record_id, schema_digest,
 };
-use work_kernel::cose::parse_container;
+use work_kernel::cose::{Algorithm, KeySet, PublicKey, parse_container, verify_record_signature};
 use work_kernel::envelope::{Envelope, EnvelopeIngest, decode_envelope};
 use work_kernel::id::Digest;
 use work_kernel::reason::QuarantineReason;
@@ -23,6 +26,7 @@ const GENESIS: &str = include_str!("../../../conformance/vectors/records/genesis
 const RECORDS: &str = include_str!("../../../conformance/vectors/records/records.json");
 const QUARANTINE: &str =
     include_str!("../../../conformance/vectors/records/records-quarantine.json");
+const CDDL: &[u8] = include_bytes!("../../../conformance/cddl/work-record.cddl");
 
 const COSE_SIGN1: u64 = 18;
 
@@ -221,4 +225,121 @@ fn p_100_envelope_vectors_decode_and_chain_from_the_genesis() {
         prev = leaf;
     }
     assert_eq!(position, 16);
+}
+
+fn count(v: &Value) -> usize {
+    usize::try_from(v.as_u64().unwrap()).unwrap()
+}
+
+fn content(spec: &Value) -> Vec<u8> {
+    hex_of(&spec["fill_hex"]).repeat(count(&spec["fill_count"]))
+}
+
+// P-79 P-6 P-101 T-87
+#[test]
+fn p_79_record_ids_are_the_unprefixed_digest_of_the_signed_record_bytes() {
+    let records = file(RECORDS);
+    let quarantine = file(QUARANTINE);
+    let cases = records["records"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .chain(quarantine["cases"].as_array().unwrap());
+    let mut checked = 0;
+    for record in cases {
+        let id = record_id(&hex_of(&record["hex"]));
+        assert_eq!(
+            encode_digest(&id.0),
+            hex_of(&record["record_digest"]),
+            "{}",
+            record["id"]
+        );
+        checked += 1;
+    }
+    assert_eq!(checked, 16);
+    let first = record_id(&hex_of(&records["records"][0]["hex"]));
+    let case = digest_case("digest/record-id");
+    assert_eq!(first.0, digest_of(&case["digest_hex"]));
+}
+
+// P-100 P-67 P-101 T-87
+#[test]
+fn p_100_ledger_id_is_the_unprefixed_genesis_digest_named_by_every_envelope() {
+    let genesis = &file(GENESIS)["cases"][0];
+    let bytes = hex_of(&genesis["hex"]);
+    let id = ledger_id(&bytes);
+    assert_eq!(id.0, digest_of(&genesis["ledger_id"]["digest_hex"]));
+    assert_eq!(
+        encode_digest(&id.0),
+        hex_of(&genesis["ledger_id"]["encoded_digest_hex"])
+    );
+    assert_ne!(id.0, leaf_hash(&bytes));
+    let Ok(Envelope::Genesis(g)) = decode_envelope(&bytes) else {
+        panic!("not a genesis");
+    };
+    assert_eq!(g.versions.schema, schema_digest(CDDL));
+    for envelope in file(RECORDS)["envelopes"].as_array().unwrap() {
+        let Ok(Envelope::Ledger(e)) = decode_envelope(&hex_of(&envelope["hex"])) else {
+            panic!("not a ledger envelope");
+        };
+        assert_eq!(e.ledger, id);
+    }
+}
+
+// P-75 P-76 P-79 P-6 T-87
+#[test]
+fn p_75_proof_commit_is_the_digest_of_the_cose_sign1_bytes_as_received() {
+    let case = digest_case("digest/proof-commit");
+    let cose = hex_of(&case["cose_hex"]);
+    let mut keys = KeySet {
+        allowed: BTreeSet::from([Algorithm::Ed25519]),
+        ..KeySet::default()
+    };
+    let public = hex_of(&case["public_key_hex"]).try_into().unwrap();
+    keys.insert(
+        hex_of(&case["kid_hex"]).try_into().unwrap(),
+        PublicKey::Ed25519(public),
+    )
+    .unwrap();
+    let signed = verify_record_signature(&cose, &keys).unwrap();
+    assert_eq!(signed.payload, hex_of(&file(RECORDS)["records"][0]["hex"]));
+    let record = record_id(&signed.payload);
+    assert_eq!(record.0, digest_of(&case["record_id_hex"]));
+    assert_eq!(proof_commit(&cose), digest_of(&case["digest_hex"]));
+    assert_ne!(proof_commit(&cose), record.0);
+}
+
+// P-104 P-68 P-7 P-101
+#[test]
+fn p_104_large_part_vectors_commit_to_the_digest_of_their_content() {
+    let mut checked = 0;
+    for case in digest_cases() {
+        let Some(form) = case.get("content_form") else {
+            continue;
+        };
+        let part = &case["part"];
+        let data = content(&part["content"]);
+        assert_eq!(form == "digest", data.len() > LARGE_PART, "{}", case["id"]);
+        let got = body_commitment(
+            &hex_of(&case["salt_hex"]).try_into().unwrap(),
+            &PartName::parse(part["name"].as_str().unwrap()).unwrap(),
+            part["media_type"].as_str().unwrap(),
+            &data,
+        );
+        assert_eq!(got, Ok(digest_of(&case["digest_hex"])), "{}", case["id"]);
+        if let Some(same) = case.get("same_as") {
+            let string = count(&case["context"]["string_limit"]);
+            let limits = Limits::tightened(Limits::MAX_DEPTH, Limits::MAX_ITEMS, string);
+            assert!(limits.is_some() && string < LARGE_PART);
+            assert_eq!(
+                case["digest_hex"],
+                digest_case(same.as_str().unwrap())["digest_hex"]
+            );
+        }
+        checked += 1;
+    }
+    assert_eq!(checked, 4);
+    let large = digest_case("digest/body-commit-64kib-plus-1");
+    let other = digest_case("digest/body-commit-64kib-plus-1-second-salt");
+    assert_ne!(large["digest_hex"], other["digest_hex"]);
 }
