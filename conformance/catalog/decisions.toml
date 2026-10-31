@@ -2930,6 +2930,8 @@ acceptance = "to-fill"
 title = ""
 tests = [
   "crates/kernel/src/verify.rs::p_6_rejected_signature_carries_its_detail",
+  "crates/kernel/tests/codec_vectors.rs::p_75_proof_commit_is_the_digest_of_the_cose_sign1_bytes_as_received",
+  "crates/kernel/tests/codec_vectors.rs::p_79_record_ids_are_the_unprefixed_digest_of_the_signed_record_bytes",
   "crates/kernel/tests/cose.rs::p_102_the_protected_header_carries_the_work_record_content_type",
   "crates/kernel/tests/cose.rs::p_6_a_changed_payload_or_signature_is_invalid",
   "crates/kernel/tests/cose.rs::p_6_a_kid_without_a_bound_key_is_kid_unknown",
@@ -2951,6 +2953,7 @@ title = ""
 tests = [
   "crates/kernel/src/codec/mod.rs::p_7_structural_limits_only_narrow",
   "crates/kernel/src/verify.rs::p_6_rejected_signature_carries_its_detail",
+  "crates/kernel/tests/codec_vectors.rs::p_104_large_part_vectors_commit_to_the_digest_of_their_content",
   "crates/kernel/tests/codec_vectors.rs::p_5_cbor_canonical_vectors_through_the_shared_decoder",
   "crates/kernel/tests/cose.rs::p_6_esp256_and_es256_verify_with_low_s",
   "crates/kernel/tests/cose.rs::p_7_high_s_ecdsa_on_a_work_record_is_rejected",
@@ -2969,6 +2972,7 @@ acceptance = "to-fill"
 title = ""
 tests = [
   "crates/kernel/tests/cose.rs::p_6_ed25519_record_signature_verifies_over_the_signed_record_bytes",
+  "crates/kernel/tests/cose.rs::p_8_the_shared_verifier_fills_the_signature_port_and_names_the_record_by_its_payload",
 ]
 
 [[rule]]
@@ -3073,6 +3077,7 @@ tests = [
   "crates/kernel/src/envelope.rs::p_21_auth_context_assurance_is_one_to_64_bytes",
   "crates/kernel/src/verify.rs::p_21_only_humans_with_auth_context_may_be_unsigned",
   "crates/kernel/tests/codec_vectors.rs::p_100_envelope_vectors_decode_and_chain_from_the_genesis",
+  "crates/kernel/tests/cose.rs::p_8_the_shared_verifier_fills_the_signature_port_and_names_the_record_by_its_payload",
 ]
 
 [[rule]]
@@ -3381,6 +3386,7 @@ tests = [
   "crates/kernel/src/codec/mod.rs::p_101_digest_round_trips_and_body_commitment_uses_prefix_0x03",
   "crates/kernel/src/id.rs::p_67_party_ref_is_one_to_255_bytes",
   "crates/kernel/tests/codec_vectors.rs::p_100_genesis_vectors_select_the_schema_by_position",
+  "crates/kernel/tests/codec_vectors.rs::p_100_ledger_id_is_the_unprefixed_genesis_digest_named_by_every_envelope",
   "crates/kernel/tests/codec_vectors.rs::p_101_leaf_hash_vector_uses_the_shared_prefix_0x00",
   "crates/kernel/tests/codec_vectors.rs::p_67_digest_vectors_decode_encode_and_reject",
   "crates/ledger/src/genesis.rs::p_100_genesis_matches_the_golden_vector",
@@ -3396,8 +3402,10 @@ stage = 1
 acceptance = "to-fill"
 title = ""
 tests = [
+  "crates/kernel/src/codec/mod.rs::p_104_a_part_above_64_kib_commits_to_the_digest_of_its_content",
   "crates/kernel/src/record/parts.rs::p_68_part_names_are_lowercase_snake_case_up_to_64_bytes",
   "crates/kernel/tests/codec_vectors.rs::p_101_body_commitment_vector_uses_the_shared_prefix_0x03",
+  "crates/kernel/tests/codec_vectors.rs::p_104_large_part_vectors_commit_to_the_digest_of_their_content",
 ]
 
 [[rule]]
@@ -3504,7 +3512,9 @@ stage = 1
 acceptance = "to-fill"
 title = ""
 tests = [
+  "crates/kernel/src/codec/mod.rs::p_79_record_id_ledger_id_and_proof_commit_are_unprefixed_sha_256",
   "crates/kernel/tests/codec_vectors.rs::p_100_envelope_vectors_decode_and_chain_from_the_genesis",
+  "crates/kernel/tests/codec_vectors.rs::p_75_proof_commit_is_the_digest_of_the_cose_sign1_bytes_as_received",
   "crates/ledger/src/envelope.rs::p_100_every_golden_envelope_is_sealed_from_its_slot",
 ]
 
@@ -3515,7 +3525,9 @@ status = "frozen-protocol"
 stage = 1
 acceptance = "filled"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/codec_vectors.rs::p_75_proof_commit_is_the_digest_of_the_cose_sign1_bytes_as_received",
+]
 
 [[rule]]
 id = "P-77"
@@ -3552,7 +3564,11 @@ stage = 1
 acceptance = "filled"
 title = ""
 tests = [
+  "crates/kernel/src/codec/mod.rs::p_79_record_id_ledger_id_and_proof_commit_are_unprefixed_sha_256",
+  "crates/kernel/tests/codec_vectors.rs::p_75_proof_commit_is_the_digest_of_the_cose_sign1_bytes_as_received",
+  "crates/kernel/tests/codec_vectors.rs::p_79_record_ids_are_the_unprefixed_digest_of_the_signed_record_bytes",
   "crates/kernel/tests/cose.rs::p_6_ed25519_record_signature_verifies_over_the_signed_record_bytes",
+  "crates/kernel/tests/cose.rs::p_8_the_shared_verifier_fills_the_signature_port_and_names_the_record_by_its_payload",
   "sdks/bindings/core/tests/vectors.rs::p_67_digests_are_encoded_as_the_sha_256_label_and_32_bytes",
 ]
 
@@ -3819,9 +3835,11 @@ stage = 2
 acceptance = "to-fill"
 title = ""
 tests = [
+  "crates/kernel/src/codec/mod.rs::p_79_record_id_ledger_id_and_proof_commit_are_unprefixed_sha_256",
   "crates/kernel/src/envelope.rs::p_100_closed_maps_report_the_first_key_out_of_place",
   "crates/kernel/tests/codec_vectors.rs::p_100_envelope_vectors_decode_and_chain_from_the_genesis",
   "crates/kernel/tests/codec_vectors.rs::p_100_genesis_vectors_select_the_schema_by_position",
+  "crates/kernel/tests/codec_vectors.rs::p_100_ledger_id_is_the_unprefixed_genesis_digest_named_by_every_envelope",
   "crates/kernel/tests/codec_vectors.rs::p_101_leaf_hash_vector_uses_the_shared_prefix_0x00",
   "crates/ledger/src/envelope.rs::p_100_every_golden_envelope_is_sealed_from_its_slot",
   "crates/ledger/src/genesis.rs::p_100_genesis_matches_the_golden_vector",
@@ -3836,8 +3854,13 @@ acceptance = "to-fill"
 title = ""
 tests = [
   "crates/kernel/src/codec/mod.rs::p_101_digest_round_trips_and_body_commitment_uses_prefix_0x03",
+  "crates/kernel/src/codec/mod.rs::p_104_a_part_above_64_kib_commits_to_the_digest_of_its_content",
+  "crates/kernel/src/codec/mod.rs::p_79_record_id_ledger_id_and_proof_commit_are_unprefixed_sha_256",
+  "crates/kernel/tests/codec_vectors.rs::p_100_ledger_id_is_the_unprefixed_genesis_digest_named_by_every_envelope",
   "crates/kernel/tests/codec_vectors.rs::p_101_body_commitment_vector_uses_the_shared_prefix_0x03",
   "crates/kernel/tests/codec_vectors.rs::p_101_leaf_hash_vector_uses_the_shared_prefix_0x00",
+  "crates/kernel/tests/codec_vectors.rs::p_104_large_part_vectors_commit_to_the_digest_of_their_content",
+  "crates/kernel/tests/codec_vectors.rs::p_79_record_ids_are_the_unprefixed_digest_of_the_signed_record_bytes",
   "crates/ledger/src/envelope.rs::p_100_every_golden_envelope_is_sealed_from_its_slot",
   "crates/ledger/src/genesis.rs::p_100_genesis_matches_the_golden_vector",
 ]
@@ -3872,7 +3895,10 @@ status = "frozen-protocol"
 stage = 1
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/src/codec/mod.rs::p_104_a_part_above_64_kib_commits_to_the_digest_of_its_content",
+  "crates/kernel/tests/codec_vectors.rs::p_104_large_part_vectors_commit_to_the_digest_of_their_content",
+]
 
 [[rule]]
 id = "PR-2"
@@ -5026,6 +5052,11 @@ stage = 1
 acceptance = "to-fill"
 title = ""
 tests = [
+  "crates/kernel/src/codec/mod.rs::p_79_record_id_ledger_id_and_proof_commit_are_unprefixed_sha_256",
+  "crates/kernel/tests/codec_vectors.rs::p_100_ledger_id_is_the_unprefixed_genesis_digest_named_by_every_envelope",
+  "crates/kernel/tests/codec_vectors.rs::p_75_proof_commit_is_the_digest_of_the_cose_sign1_bytes_as_received",
+  "crates/kernel/tests/codec_vectors.rs::p_79_record_ids_are_the_unprefixed_digest_of_the_signed_record_bytes",
+  "crates/kernel/tests/cose.rs::p_8_the_shared_verifier_fills_the_signature_port_and_names_the_record_by_its_payload",
   "xtask/src/rules_kernel.rs::t_87_a_host_only_libc_edge_passes_and_a_target_edge_names_the_target",
   "xtask/src/rules_kernel.rs::t_87_the_tree_is_resolved_for_each_distribution_target",
 ]

@@ -1405,6 +1405,7 @@ stage = 1
 title = ""
 tests = [
   "crates/kernel/src/verify.rs::sec_5_p_22_verification_states_only_authorship_and_inclusion",
+  "crates/kernel/tests/cose.rs::p_8_the_shared_verifier_fills_the_signature_port_and_names_the_record_by_its_payload",
 ]
 
 [[rule]]
