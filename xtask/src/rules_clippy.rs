@@ -14,10 +14,16 @@ const RULE: &str = "disallowed-suppression";
 const LINTS: &[&str] = &["disallowed_methods", "disallowed_types"];
 
 /// Clock and Rng adapters that may suppress the lints: (path, reason).
-pub(crate) const ADAPTERS: &[(&str, &str)] = &[(
-    "xtask/src/supply_cooldown.rs",
-    "the developer tool is its own clock adapter for dependency ages",
-)];
+pub(crate) const ADAPTERS: &[(&str, &str)] = &[
+    (
+        "xtask/src/supply_cooldown.rs",
+        "the developer tool is its own clock adapter for dependency ages",
+    ),
+    (
+        "crates/ledger/src/time/adapters/mono.rs",
+        "the monotonic clock of the ledger time driver (OP-32)",
+    ),
+];
 
 fn v(path: String, message: String) -> Violation {
     Violation {

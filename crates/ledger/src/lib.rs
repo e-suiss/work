@@ -2,8 +2,9 @@
 //! ledger, the `LedgerEnvelope` the sequencer seals for each record, the [`suiss_ledger`] storage
 //! port over the store's `work_sequencer` pool, and the leader that takes a ledger under a new
 //! epoch and commits batches behind the head compare-and-set and the durability fence, fed by
-//! an adaptive group commit with a bounded queue (OP-31, OP-41) and the `Clock` port. The
-//! engine and the encoding come from the shared crates; nothing here re-implements them (T-31).
+//! an adaptive group commit with a bounded queue (OP-31, OP-41) and the `Clock` port, and the
+//! ledger time adapter behind that port (OP-32, OP-42, OP-43). The engine, the time combiner and
+//! the encoding come from the shared crates; nothing here re-implements them (T-31).
 
 mod envelope;
 mod error;
@@ -11,6 +12,7 @@ mod genesis;
 mod group;
 mod leader;
 mod log;
+pub mod time;
 
 pub use envelope::{EventPointer, ItemChange, KeyClaim, PendingRecord, SealedRecord};
 pub use error::LedgerError;
