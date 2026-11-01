@@ -5270,6 +5270,14 @@ acceptance = "to-fill"
 pd = "set"
 title = ""
 tests = [
+  "bins/work-server/src/config.rs::op_43_fewer_than_two_nts_or_three_roughtime_servers_stop_the_process",
+  "crates/ledger/src/time/adapters/nts.rs::op_32_the_local_timescale_is_the_anchor_plus_monotonic_time",
+  "crates/ledger/src/time/adapters/nts.rs::op_42_polls_every_64_s_through_the_ntp_source_state_machine",
+  "crates/ledger/src/time/app/tests.rs::op_32_the_clock_port_carries_samples_forward_and_stops_without_two_sources",
+  "crates/ledger/src/time/app/tests.rs::op_43_fewer_than_three_roughtime_or_two_nts_servers_do_not_start",
+  "crates/ledger/src/time/domain.rs::op_32_a_sample_older_than_its_lifetime_is_not_used",
+  "crates/ledger/src/time/domain.rs::op_32_ledger_time_is_the_last_sample_plus_the_monotonic_delta",
+  "crates/ledger/src/time/domain.rs::op_32_sources_that_differ_by_more_than_u_stop_commits",
   "crates/store/src/idempotency.rs::op_38_admission_follows_the_hot_window_and_the_clock_uncertainty",
 ]
 
@@ -5373,4 +5381,33 @@ status = "frozen-technical"
 stage = 2
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "bins/work-server/src/config.rs::op_42_roughtime_servers_name_a_32_byte_key_and_a_known_version",
+  "crates/ledger/src/time/adapters/nts.rs::op_42_polls_every_64_s_through_the_ntp_source_state_machine",
+  "crates/ledger/src/time/domain.rs::op_42_ledger_time_outside_the_bound_stops_commits_and_an_empty_round_lifts_it",
+  "crates/ledger/src/time/domain.rs::op_42_the_interval_is_the_midpoint_widened_by_radius_and_round_trip",
+  "crates/ledger/src/time/wire/tests.rs::op_42_a_changed_answer_another_key_or_another_nonce_is_refused",
+  "crates/ledger/src/time/wire/tests.rs::op_42_a_draft_11_answer_from_cloudflare_verifies",
+  "crates/ledger/src/time/wire/tests.rs::op_42_requests_are_1024_bytes_and_carry_the_version_nonce_and_server_key",
+  "crates/ledger/src/time/wire/tests.rs::op_42_rfc_and_draft_11_answers_verify_through_the_same_driver",
+  "crates/ledger/src/time/wire/tests.rs::op_42_the_context_strings_of_one_version_do_not_verify_the_other",
+]
+
+[[rule]]
+id = "OP-43"
+family = "OP"
+status = "frozen-technical"
+stage = 2
+acceptance = "to-fill"
+pd = "set"
+title = ""
+tests = [
+  "bins/work-server/src/config.rs::op_42_roughtime_servers_name_a_32_byte_key_and_a_known_version",
+  "bins/work-server/src/config.rs::op_43_fewer_than_two_nts_or_three_roughtime_servers_stop_the_process",
+  "crates/ledger/src/time/app/tests.rs::op_43_a_single_outlier_does_not_stop_commits_and_the_majority_does",
+  "crates/ledger/src/time/app/tests.rs::op_43_fewer_than_three_roughtime_or_two_nts_servers_do_not_start",
+  "crates/ledger/src/time/app/tests.rs::op_43_no_answer_raises_a_warning_and_commits_continue_on_nts",
+  "crates/ledger/src/time/app/tests.rs::op_43_rounds_run_at_start_up_and_every_3600_s_and_a_failed_first_round_does_not_block",
+  "crates/ledger/src/time/domain.rs::op_42_ledger_time_outside_the_bound_stops_commits_and_an_empty_round_lifts_it",
+  "crates/ledger/src/time/domain.rs::op_43_the_majority_of_the_answers_decides",
+]
