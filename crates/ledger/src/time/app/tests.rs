@@ -148,8 +148,8 @@ async fn op_43_a_single_outlier_does_not_stop_commits_and_the_majority_does() {
 async fn op_44_a_two_server_tie_fails_the_check() {
     let mono = VirtualMono::new();
     let time = sampled(&mono);
-    let tie = Script::new(&mono, vec![vec![Some(0)], vec![Some(FAR)], vec![None]]);
-    assert_eq!(time.round(&tie).await, Round::Answered(2));
+    let even = Script::new(&mono, vec![vec![Some(0)], vec![Some(FAR)], vec![None]]);
+    assert_eq!(time.round(&even).await, Round::Answered(2));
     assert_eq!(time.read(), Err(TimeFault::OutsideRoughtime));
     let reversed = Script::new(&mono, vec![vec![None], vec![Some(FAR)], vec![Some(0)]]);
     assert_eq!(time.round(&reversed).await, Round::Answered(2));
