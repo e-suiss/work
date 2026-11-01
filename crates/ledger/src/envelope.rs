@@ -1,5 +1,5 @@
 use suiss_crypto::dcbor::{self, EncodeError, Limits, Value};
-use suiss_crypto::digest::{Digest, leaf_hash};
+use suiss_crypto::digest::{Digest, leaf_hash, sha256};
 use suiss_ledger::Hash;
 use suiss_ledger::sequencer::{Entry, Slot};
 use work_store::{CallerRef, IdempotencyKey, ItemRef, LedgerId};
@@ -9,9 +9,7 @@ use work_store::{CallerRef, IdempotencyKey, ItemRef, LedgerId};
 /// transaction (T-81).
 #[derive(Clone, PartialEq, Eq)]
 pub struct PendingRecord {
-    /// The record id, the unprefixed SHA-256 of the `SignedRecord` bytes (P-79).
-    pub record_id: [u8; 32],
-    /// The record bytes stored in the log.
+    /// The `SignedRecord` bytes stored in the log; the record id is computed from them.
     pub record_bytes: Vec<u8>,
     /// The envelope `actor_type` annotation, as det-CBOR value (P-12).
     pub actor_type: Value,
@@ -38,6 +36,14 @@ pub struct KeyClaim {
     pub key: IdempotencyKey,
     /// The digest of the request.
     pub request_digest: [u8; 32],
+}
+
+impl PendingRecord {
+    /// The record id, the unprefixed SHA-256 of the `SignedRecord` bytes, recomputed and never taken from the caller (P-79, T-10).
+    #[must_use]
+    pub fn record_id(&self) -> [u8; 32] {
+        sha256(&self.record_bytes)
+    }
 }
 
 impl std::fmt::Debug for PendingRecord {
@@ -107,7 +113,7 @@ fn digest(bytes: &[u8; 32]) -> Value {
 /// The `LedgerEnvelope` of `record` at `slot` (P-11, P-75, P-100 item 4).
 pub(crate) fn envelope(ledger: &LedgerId, record: &PendingRecord, slot: &Slot) -> Value {
     let mut entries = vec![
-        (Value::text("record"), digest(&record.record_id)),
+        (Value::text("record"), digest(&record.record_id())),
         (Value::text("ledger"), digest(ledger.as_bytes())),
         (Value::text("pos"), Value::Unsigned(slot.pos)),
         (
@@ -173,7 +179,9 @@ mod tests {
     #[test]
     fn p_100_every_golden_envelope_is_sealed_from_its_slot() {
         let file: serde_json::Value = serde_json::from_str(RECORDS).unwrap();
-        for case in file["envelopes"].as_array().unwrap() {
+        let signed_cases = file["records"].as_array().unwrap();
+        let envelopes = file["envelopes"].as_array().unwrap();
+        for (signed, case) in signed_cases.iter().zip(envelopes) {
             let bytes = hex(case["hex"].as_str().unwrap());
             let v = decode(&bytes, Limits::CEILING).unwrap();
             let Value::Unsigned(pos) = v.get("pos").unwrap() else {
@@ -189,8 +197,7 @@ mod tests {
             };
             let ledger = LedgerId::from_bytes(digest32(v.get("ledger")));
             let record = PendingRecord {
-                record_id: digest32(v.get("record")),
-                record_bytes: vec![0xa0],
+                record_bytes: hex(signed["hex"].as_str().unwrap()),
                 actor_type: v.get("actor_type").unwrap().clone(),
                 proof_commit: v.get("proof_commit").map(|p| digest32(Some(p))),
                 auth_context: v.get("auth_context").cloned(),
@@ -208,5 +215,29 @@ mod tests {
             assert_eq!(sealed.envelope, bytes, "{}", case["id"]);
             assert_eq!(leaf.to_vec(), hex(case["leaf_hash"].as_str().unwrap()));
         }
+    }
+
+    // P-79 T-10
+    #[test]
+    fn t_10_the_pending_record_id_is_recomputed_from_its_bytes() {
+        let file: serde_json::Value = serde_json::from_str(RECORDS).unwrap();
+        let signed = &file["records"][0];
+        let mut record = PendingRecord {
+            record_bytes: hex(signed["hex"].as_str().unwrap()),
+            actor_type: Value::Map(vec![]),
+            proof_commit: None,
+            auth_context: None,
+            ingest: Value::text("admitted"),
+            items: vec![],
+            outbox: vec![],
+            idempotency: None,
+        };
+        let expected = decode(
+            &hex(signed["record_digest"].as_str().unwrap()),
+            Limits::CEILING,
+        );
+        assert_eq!(record.record_id(), digest32(expected.as_ref().ok()));
+        record.record_bytes.push(0);
+        assert_ne!(record.record_id(), digest32(expected.as_ref().ok()));
     }
 }

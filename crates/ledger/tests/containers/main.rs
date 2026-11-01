@@ -86,7 +86,6 @@ impl Env {
 
 fn record(n: u8, item: ItemRef, version: u64) -> PendingRecord {
     PendingRecord {
-        record_id: [n; 32],
         record_bytes: vec![0xa1, 0x01, n],
         actor_type: Value::Map(vec![(
             Value::text("author"),

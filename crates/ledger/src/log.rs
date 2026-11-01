@@ -46,7 +46,7 @@ pub(crate) fn rows(batch: &Batch<SealedRecord>) -> AppendBatch {
         let r = &sealed.record.record;
         records.push(LogRow {
             pos,
-            record_id: r.record_id,
+            record_id: r.record_id(),
             recorded_at_ms: sealed.slot.recorded_at,
             prev: sealed.slot.prev,
             leaf: sealed.leaf,
@@ -75,7 +75,7 @@ pub(crate) fn rows(batch: &Batch<SealedRecord>) -> AppendBatch {
                     request_digest: claim.request_digest,
                     outcome: StoredOutcome::Recorded {
                         pos,
-                        record_id: r.record_id,
+                        record_id: r.record_id(),
                     },
                     created_at_ms: i64::try_from(sealed.slot.recorded_at).unwrap_or(i64::MAX),
                 },
