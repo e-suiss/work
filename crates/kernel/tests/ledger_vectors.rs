@@ -15,8 +15,8 @@ use work_kernel::cose::{Algorithm, AuthorKeys, KeySet, PublicKey, verify_record_
 use work_kernel::derive::{AuthorityIssuer, Entry, Restriction};
 use work_kernel::id::{Digest, LedgerId, PartyRef};
 use work_kernel::proof::{
-    NoteError, ProofError, Verifier, node_hash, root, verify_checkpoint, verify_consistency,
-    verify_inclusion,
+    Accepted, NoteError, ProofError, Verifier, node_hash, root, verify_checkpoint,
+    verify_consistency, verify_inclusion,
 };
 use work_kernel::reason::Reason;
 use work_kernel::verify::{
@@ -64,8 +64,11 @@ fn outcome(result: Result<(), ProofError>) -> Value {
     }
 }
 
-/// The record bytes, envelope bytes and, when signed, `COSE_Sign1` bytes of every stored entry after the genesis, in ledger order.
-fn stored() -> Vec<(Vec<u8>, Vec<u8>, Option<Vec<u8>>)> {
+/// The record bytes, envelope bytes and, when signed, `COSE_Sign1` bytes of one stored entry.
+type Stored = (Vec<u8>, Vec<u8>, Option<Vec<u8>>);
+
+/// Every stored entry after the genesis, in ledger order.
+fn stored() -> Vec<Stored> {
     let mut cose = BTreeMap::new();
     for case in file(COSE)["cases"].as_array().unwrap() {
         if let Some(envelope) = case.get("envelope") {
@@ -395,7 +398,7 @@ fn t_4_every_entry_is_included_in_the_cosigned_checkpoint() {
         &[],
     )
     .unwrap();
-    assert!(older.cosignatures.is_empty());
+    assert_eq!(older.cosignatures, Vec::<Accepted>::new());
     assert_eq!(older.extends_to(&signed, &[]), Ok(()));
     let text = note["note"].as_str().unwrap();
     let (body, _) = text.split_once("\n\n").unwrap();
