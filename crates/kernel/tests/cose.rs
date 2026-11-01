@@ -361,8 +361,10 @@ fn other_author_payload() -> Vec<u8> {
         .windows(AUTHOR.len())
         .position(|w| w == AUTHOR.as_bytes())
         .unwrap();
-    let mut out = original;
-    out[at..at + AUTHOR.len()].copy_from_slice(OTHER_AUTHOR.as_bytes());
+    let (head, tail) = original.split_at(at);
+    let mut out = head.to_vec();
+    out.extend_from_slice(OTHER_AUTHOR.as_bytes());
+    out.extend_from_slice(&tail[AUTHOR.len()..]);
     out
 }
 
