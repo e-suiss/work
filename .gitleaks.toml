@@ -22,3 +22,10 @@ paths = [
     '''^crates/parse/vendor/gitleaks-[0-9.]+/gitleaks\.toml$''',
     '''^crates/parse/rules/work-secrets\.toml$''',
 ]
+
+[[allowlists]]
+description = "Test-only keys of the local NTS and Roughtime servers"
+paths = [
+    '''^deploy/compose/nts/pki/server-test-only\.key$''',
+    '''^deploy/compose/roughtime/seeds/[a-c]-test-only\.seed$''',
+]

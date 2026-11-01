@@ -27,6 +27,10 @@ test-full:
 test-containers:
     cargo nextest run --workspace --locked --no-tests=fail --run-ignored only -E 'binary(=containers)'
 
+# OP-32, OP-42, OP-43, T-41
+test-compose:
+    cargo nextest run --workspace --locked --no-tests=fail --run-ignored only -E 'binary(=compose)'
+
 fmt:
     cargo fmt --all
 

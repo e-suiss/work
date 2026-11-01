@@ -1,4 +1,4 @@
-# T-41, T-51, T-56, T-57, T-32
+# T-41, T-51, T-56, T-57, T-32, OP-32, OP-43
 
 name: work-dev
 
@@ -76,6 +76,89 @@ services:
       interval: 2s
       timeout: 5s
       retries: 30
+
+  # OP-32, T-41
+  nts-a:
+    <<: *hardening
+    build: ./nts
+    image: work-dev/nts:local
+    read_only: true
+    command:
+      - port 11123
+      - ntsport 14460
+      - ntsserverkey /etc/chrony/nts/server.key
+      - ntsservercert /etc/chrony/nts/server.pem
+      - local stratum 1
+      - allow
+      - cmdport 0
+      - bindcmdaddress /
+      - pidfile /
+    ports:
+      - "127.0.0.1:11123:11123/udp"
+      - "127.0.0.1:14460:14460"
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/14460"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  nts-b:
+    <<: *hardening
+    build: ./nts
+    image: work-dev/nts:local
+    read_only: true
+    command:
+      - port 11124
+      - ntsport 14461
+      - ntsserverkey /etc/chrony/nts/server.key
+      - ntsservercert /etc/chrony/nts/server.pem
+      - local stratum 1
+      - allow
+      - cmdport 0
+      - bindcmdaddress /
+      - pidfile /
+    ports:
+      - "127.0.0.1:11124:11124/udp"
+      - "127.0.0.1:14461:14461"
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/14461"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  # OP-42, OP-43, T-41
+  roughtime-a:
+    <<: *hardening
+    build: ./roughtime
+    image: work-dev/roughtime:local
+    read_only: true
+    environment:
+      ROUGHENOUGH_SEED_FILE: /etc/roughenough/a-test-only.seed
+      ROUGHENOUGH_NUM_THREADS: "1"
+    ports:
+      - "127.0.0.1:${WORK_DEV_ROUGHTIME_A_PORT:-15319}:5319/udp"
+
+  roughtime-b:
+    <<: *hardening
+    build: ./roughtime
+    image: work-dev/roughtime:local
+    read_only: true
+    environment:
+      ROUGHENOUGH_SEED_FILE: /etc/roughenough/b-test-only.seed
+      ROUGHENOUGH_NUM_THREADS: "1"
+    ports:
+      - "127.0.0.1:${WORK_DEV_ROUGHTIME_B_PORT:-15320}:5319/udp"
+
+  roughtime-c:
+    <<: *hardening
+    build: ./roughtime
+    image: work-dev/roughtime:local
+    read_only: true
+    environment:
+      ROUGHENOUGH_SEED_FILE: /etc/roughenough/c-test-only.seed
+      ROUGHENOUGH_NUM_THREADS: "1"
+    ports:
+      - "127.0.0.1:${WORK_DEV_ROUGHTIME_C_PORT:-15321}:5319/udp"
 
   # T-57, SEC-35
   otel-collector:

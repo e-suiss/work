@@ -1,0 +1,13 @@
+# OP-32, OP-42, OP-43, T-41
+
+[ledger_time]
+nts_roots = "deploy/compose/nts/pki/root.pem"
+nts = [
+  { host = "127.0.0.1", port = 14460 },
+  { host = "127.0.0.1", port = 14461 },
+]
+roughtime = [
+  { address = "127.0.0.1:15319", public_key = "ZPbtnLTku4KBCF8B1YIhFSsDdpYs6CW/35mPsv5ZgvM=", version = "rfc" },
+  { address = "127.0.0.1:15320", public_key = "RW6UPuZR++RA8vjZRifiCkVfPCvAggemi7RlkQRLdrk=", version = "rfc" },
+  { address = "127.0.0.1:15321", public_key = "yFLhuJSAjDrmKPwqy0zrWYZcHfiuvQfW+iCgHsufKWU=", version = "rfc" },
+]
