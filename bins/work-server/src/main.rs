@@ -7,7 +7,7 @@ mod startup;
 use std::process::ExitCode;
 
 use config::Config;
-use startup::Infrastructure;
+use startup::{Infrastructure, TimeDriver};
 
 fn main() -> ExitCode {
     let config = match Config::load() {
@@ -66,7 +66,16 @@ async fn run(config: &Config) -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
+    let time = match TimeDriver::start(config) {
+        Ok(time) => time,
+        Err(error) => {
+            tracing::error!(event = "server.start_refused", %error, "ledger time does not start");
+            infrastructure.close(config.startup_timeout()).await;
+            return ExitCode::FAILURE;
+        }
+    };
     let served = serve(config).await;
+    time.stop();
     infrastructure.close(config.startup_timeout()).await;
     match served {
         Ok(()) => ExitCode::SUCCESS,

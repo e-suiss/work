@@ -1,11 +1,17 @@
 //! Typed process configuration, validated at start-up (T-32 rule 8).
 
 use std::net::{Ipv4Addr, SocketAddr};
+use std::path::PathBuf;
 use std::time::Duration;
 
+use base64::Engine as _;
+use base64::engine::general_purpose::STANDARD;
 use figment::Figment;
 use figment::providers::{Env, Format, Serialized, Toml};
 use serde::{Deserialize, Serialize};
+use work_ledger::time::{
+    NTS_KE_PORT, NtsServer, RoughtimeServer, RoughtimeVersion, TimeConfigError, check_sources,
+};
 use work_telemetry::{DEFAULT_MAX_QUEUE_SIZE, InvalidSampleRatio, SampleRatio, TraceConfig};
 
 /// Validated process configuration.
@@ -24,6 +30,59 @@ pub(crate) struct Config {
     pub(crate) trace: Trace,
     /// Upper bound on each external call made at start-up, in milliseconds.
     pub(crate) startup_timeout_ms: u64,
+    /// The ledger time sources (OP-32, OP-42, OP-43).
+    pub(crate) ledger_time: LedgerTime,
+}
+
+/// Ledger time sources; none by default, so an installation names its own (OP-32 item 4,
+/// OP-43 item 3).
+#[derive(Debug, Default, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct LedgerTime {
+    /// NTS servers run by different operators, at least two (OP-32).
+    pub(crate) nts: Vec<Nts>,
+    /// Roughtime servers, at least three (OP-43).
+    pub(crate) roughtime: Vec<Roughtime>,
+    /// A PEM file of trust roots NTS-KE accepts besides the platform's.
+    pub(crate) nts_roots: Option<PathBuf>,
+}
+
+/// An NTS server: its NTS-KE host and port.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Nts {
+    /// Host name or address, also the TLS server name.
+    pub(crate) host: String,
+    /// NTS-KE port.
+    #[serde(default = "nts_ke_port")]
+    pub(crate) port: u16,
+}
+
+const fn nts_ke_port() -> u16 {
+    NTS_KE_PORT
+}
+
+/// A Roughtime server.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Roughtime {
+    /// `host:port`.
+    pub(crate) address: String,
+    /// The long-term Ed25519 public key, base64.
+    pub(crate) public_key: String,
+    /// The version it speaks.
+    pub(crate) version: RoughtimeWire,
+}
+
+/// The Roughtime versions the driver speaks (OP-42 item 3).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+pub(crate) enum RoughtimeWire {
+    /// RFC 10049.
+    #[serde(rename = "rfc")]
+    Rfc,
+    /// draft-ietf-ntp-roughtime-11.
+    #[serde(rename = "draft-11")]
+    Draft11,
 }
 
 /// PostgreSQL connection URLs; passwords come from the libpq environment, never from here.
@@ -72,6 +131,7 @@ impl Default for Config {
             },
             // OP-40
             startup_timeout_ms: 5_000,
+            ledger_time: LedgerTime::default(),
         }
     }
 }
@@ -89,6 +149,10 @@ pub(crate) enum ConfigError {
     ZeroTimeout,
     #[error("trace.sample_ratio: {0}")]
     SampleRatio(#[from] InvalidSampleRatio),
+    #[error("ledger_time: {0}")]
+    TimeSources(#[from] TimeConfigError),
+    #[error("ledger_time.roughtime[{0}].public_key is not 32 bytes of base64")]
+    RoughtimeKey(usize),
 }
 
 impl Config {
@@ -126,7 +190,45 @@ impl Config {
             return Err(ConfigError::ZeroTimeout);
         }
         SampleRatio::new(self.trace.sample_ratio)?;
+        check_sources(self.ledger_time.nts.len(), self.ledger_time.roughtime.len())?;
+        self.roughtime_servers()?;
         Ok(())
+    }
+
+    /// The configured NTS servers (OP-32).
+    pub(crate) fn nts_servers(&self) -> Vec<NtsServer> {
+        self.ledger_time
+            .nts
+            .iter()
+            .map(|n| NtsServer {
+                host: n.host.clone(),
+                port: n.port,
+            })
+            .collect()
+    }
+
+    /// The configured Roughtime servers with their decoded keys (OP-43).
+    pub(crate) fn roughtime_servers(&self) -> Result<Vec<RoughtimeServer>, ConfigError> {
+        self.ledger_time
+            .roughtime
+            .iter()
+            .enumerate()
+            .map(|(i, r)| {
+                let public_key: [u8; 32] = STANDARD
+                    .decode(r.public_key.trim())
+                    .ok()
+                    .and_then(|k| k.try_into().ok())
+                    .ok_or(ConfigError::RoughtimeKey(i))?;
+                Ok(RoughtimeServer {
+                    address: r.address.clone(),
+                    public_key,
+                    version: match r.version {
+                        RoughtimeWire::Rfc => RoughtimeVersion::Rfc,
+                        RoughtimeWire::Draft11 => RoughtimeVersion::Draft11,
+                    },
+                })
+            })
+            .collect()
     }
 
     /// The trace export settings of this process.
@@ -157,9 +259,31 @@ fn has_password(url: &str) -> bool {
 mod tests {
     use super::*;
 
+    const KEY: &str = "0GD7c3yP8xEc4Zl2zeuN2SlLvDVVocjsPSL8/Rl/7zg=";
+
+    fn time_sources(nts: usize, roughtime: usize) -> String {
+        let nts: Vec<String> = (0..nts)
+            .map(|i| format!("{{ host = \"nts-{i}.example\" }}"))
+            .collect();
+        let roughtime: Vec<String> = (0..roughtime)
+            .map(|i| {
+                format!(
+                    "{{ address = \"rt-{i}.example:2002\", public_key = \"{KEY}\", version = \"rfc\" }}"
+                )
+            })
+            .collect();
+        format!(
+            "[ledger_time]\nnts = [{}]\nroughtime = [{}]\n",
+            nts.join(", "),
+            roughtime.join(", ")
+        )
+    }
+
     fn with(toml: &str) -> Result<Config, ConfigError> {
         Config::from_figment(
-            &Figment::from(Serialized::defaults(Config::default())).merge(Toml::string(toml)),
+            &Figment::from(Serialized::defaults(Config::default()))
+                .merge(Toml::string(&time_sources(2, 3)))
+                .merge(Toml::string(toml)),
         )
     }
 
@@ -169,8 +293,69 @@ mod tests {
     }
 
     #[test]
-    fn defaults_are_valid() {
-        assert!(Config::default().validate().is_ok());
+    fn defaults_with_time_sources_are_valid() {
+        assert!(with("").is_ok());
+    }
+
+    // OP-32 OP-43
+    #[test]
+    fn op_43_fewer_than_two_nts_or_three_roughtime_servers_stop_the_process() {
+        assert!(matches!(
+            Config::default().validate(),
+            Err(ConfigError::TimeSources(TimeConfigError::TooFewNts {
+                found: 0
+            }))
+        ));
+        assert!(matches!(
+            with(&time_sources(1, 3)),
+            Err(ConfigError::TimeSources(TimeConfigError::TooFewNts {
+                found: 1
+            }))
+        ));
+        assert!(matches!(
+            with(&time_sources(2, 2)),
+            Err(ConfigError::TimeSources(TimeConfigError::TooFewRoughtime {
+                found: 2
+            }))
+        ));
+        let config = with(&time_sources(2, 3)).unwrap();
+        assert_eq!(config.nts_servers().len(), 2);
+        assert!(config.nts_servers().iter().all(|n| n.port == 4460));
+        let servers = config.roughtime_servers().unwrap();
+        assert_eq!(servers.len(), 3);
+        assert_eq!(servers[0].public_key[0], 208);
+        assert_eq!(servers[0].version, RoughtimeVersion::Rfc);
+    }
+
+    // OP-42 OP-43
+    #[test]
+    fn op_42_roughtime_servers_name_a_32_byte_key_and_a_known_version() {
+        let entry = |address: &str, key: &str, version: &str| {
+            format!(
+                "{{ address = \"{address}\", public_key = \"{key}\", version = \"{version}\" }}"
+            )
+        };
+        let toml = |last_key: &str, first_version: &str| {
+            format!(
+                "[ledger_time]\nroughtime = [{}, {}, {}]",
+                entry("a:2003", KEY, first_version),
+                entry("b:2002", KEY, "rfc"),
+                entry("c:2002", last_key, "rfc")
+            )
+        };
+        assert!(matches!(
+            with(&toml("AAAA", "draft-11")),
+            Err(ConfigError::RoughtimeKey(2))
+        ));
+        let config = with(&toml(KEY, "draft-11")).unwrap();
+        assert_eq!(
+            config.roughtime_servers().unwrap()[0].version,
+            RoughtimeVersion::Draft11
+        );
+        assert!(matches!(
+            with(&toml(KEY, "draft-08")),
+            Err(ConfigError::Parse(_))
+        ));
     }
 
     // T-32 T-41

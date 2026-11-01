@@ -2,11 +2,20 @@
 //! databases answer and run major version 18 or later, and NATS answers with JetStream enabled
 //! within the start-up timeout; otherwise the process does not start. Migrations are not run
 //! here (OP-28). Once running, losing NATS is only a delay (T-21, T-28, T-84): the client
-//! reconnects in the background and the loss is logged.
+//! reconnects in the background and the loss is logged. The ledger time driver starts here
+//! too: its sources are configured and counted at load (OP-32 item 4, OP-43 item 3), and a source
+//! that does not answer yet never blocks start-up (OP-43 item 2).
 
 use std::future::Future;
+use std::io::BufReader;
+use std::sync::Arc;
 use std::time::Duration;
 
+use tokio::sync::mpsc;
+use tokio::task::JoinHandle;
+use work_ledger::time::{
+    LedgerTime, NTS_EVENT_QUEUE, ProcessMonotonic, RoughtimeUdp, read_roots, spawn_nts,
+};
 use work_store::{Pool, StoreError};
 
 use crate::config::Config;
@@ -42,6 +51,58 @@ pub(crate) enum StartupError {
     Nats(#[from] async_nats::ConnectError),
     #[error("nats: JetStream is not available: {0}")]
     JetStream(#[from] async_nats::jetstream::context::AccountError),
+    #[error("ledger_time.nts_roots: {0}")]
+    NtsRoots(std::io::Error),
+    #[error("ledger time: {0}")]
+    LedgerTime(String),
+}
+
+/// The running ledger time driver: one task per NTS server, the NTS event follower and the
+/// Roughtime rounds (OP-32, OP-43).
+#[derive(Debug)]
+pub(crate) struct TimeDriver {
+    tasks: Vec<JoinHandle<()>>,
+}
+
+impl TimeDriver {
+    /// Starts the driver on the configured sources.
+    pub(crate) fn start(config: &Config) -> Result<Self, StartupError> {
+        let roots = match &config.ledger_time.nts_roots {
+            Some(path) => {
+                let file = std::fs::File::open(path).map_err(StartupError::NtsRoots)?;
+                read_roots(&mut BufReader::new(file)).map_err(StartupError::NtsRoots)?
+            }
+            None => Vec::new(),
+        };
+        let nts = config.nts_servers();
+        let roughtime = config
+            .roughtime_servers()
+            .map_err(|e| StartupError::LedgerTime(e.to_string()))?;
+        let mono = Arc::new(ProcessMonotonic::start());
+        let time = LedgerTime::new(nts.len(), roughtime.len(), Arc::clone(&mono))
+            .map_err(|e| StartupError::LedgerTime(e.to_string()))?;
+        let (events, received) = mpsc::channel(NTS_EVENT_QUEUE);
+        let mut tasks = spawn_nts(nts, roots, &mono, &events)
+            .map_err(|e| StartupError::LedgerTime(e.to_string()))?;
+        tasks.push(tokio::spawn(time.clone().follow_nts(received)));
+        tasks.push(tokio::spawn(
+            time.run_roughtime(RoughtimeUdp::new(roughtime, mono)),
+        ));
+        tracing::info!(
+            event = "ledger_time.started",
+            nts = config.ledger_time.nts.len(),
+            roughtime = config.ledger_time.roughtime.len(),
+            "ledger time driver started"
+        );
+        Ok(Self { tasks })
+    }
+
+    /// Stops every task of the driver.
+    pub(crate) fn stop(self) {
+        for task in self.tasks {
+            task.abort();
+        }
+    }
 }
 
 /// Accepts PostgreSQL 18 or later (T-20).

@@ -84,13 +84,25 @@ fn free_address() -> SocketAddr {
         .unwrap()
 }
 
+const UNANSWERED_TIME_SOURCES: &str = r#"[ledger_time]
+nts = [{ host = "127.0.0.1", port = 9 }, { host = "127.0.0.1", port = 9 }]
+roughtime = [
+  { address = "127.0.0.1:9", public_key = "0GD7c3yP8xEc4Zl2zeuN2SlLvDVVocjsPSL8/Rl/7zg=", version = "rfc" },
+  { address = "127.0.0.1:9", public_key = "0GD7c3yP8xEc4Zl2zeuN2SlLvDVVocjsPSL8/Rl/7zg=", version = "rfc" },
+  { address = "127.0.0.1:9", public_key = "0GD7c3yP8xEc4Zl2zeuN2SlLvDVVocjsPSL8/Rl/7zg=", version = "draft-11" },
+]
+"#;
+
 fn server(dbs: &Databases, nats_url: &str, listen: SocketAddr, stdout: Stdio) -> Child {
+    let config = format!(
+        "{}/time-sources-{}.toml",
+        env!("CARGO_TARGET_TMPDIR"),
+        listen.port()
+    );
+    std::fs::write(&config, UNANSWERED_TIME_SOURCES).unwrap();
     Command::new(env!("CARGO_BIN_EXE_work-server"))
         .env_clear()
-        .env(
-            "WORK_CONFIG",
-            format!("{}/absent-work.toml", env!("CARGO_TARGET_TMPDIR")),
-        )
+        .env("WORK_CONFIG", config)
         .env("WORK_LISTEN", listen.to_string())
         .env("WORK_POSTGRES__CANONICAL", dbs.url(&dbs.canonical))
         .env("WORK_POSTGRES__DERIVED", dbs.url(&dbs.derived))
