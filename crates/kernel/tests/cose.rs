@@ -1,4 +1,4 @@
-//! Record signatures through the kernel's `COSE_Sign1` profile over the shared crate (P-6, P-7, P-102, P-105, P-106, Access CR-9): the signed payload is the first `records.json` record, that record with its `author` replaced by a Party of the same length, that record also carrying protocol 2.0, or the CBOR text `"hello"`; the Ed25519 key is the RFC 8032 test 1 key and the P-256 key the RFC 6979 A.2.5 key, both signing deterministically.
+//! Record signatures through the kernel's `COSE_Sign1` profile over the shared crate (P-6, P-7, P-102, P-103, P-105, P-106, Access CR-9): the signed payload is the first `records.json` record, that record with its `author` replaced by a Party of the same length, that record also carrying protocol 2.0, or the CBOR text `"hello"`; the Ed25519 key is the RFC 8032 test 1 key and the P-256 key the RFC 6979 A.2.5 key, both signing deterministically.
 
 #![allow(
     clippy::unwrap_used,
@@ -11,7 +11,8 @@ use std::collections::BTreeSet;
 
 use serde_json::Value as Json;
 use suiss_crypto::dcbor::{Limits, Value, encode};
-use work_kernel::codec::{Decoded, decode_record, record_id};
+use suiss_crypto::sig::{P256_N, SignatureError};
+use work_kernel::codec::{Decoded, decode_record, proof_commit, record_id};
 use work_kernel::cose::{
     Algorithm, AuthorKeys, CONTENT_TYPE, KeySet, PublicKey, SignedPayload, signature_detail,
     verify_record_signature,
@@ -309,6 +310,78 @@ fn p_7_non_canonical_ed25519_signatures_and_small_order_keys_are_rejected() {
         .insert([0; 32], PublicKey::Ed25519(identity))
         .unwrap_err();
     assert_eq!(signature_detail(error), Signature::SmallOrderKey);
+}
+
+fn with_signature(alg: i64, kid: &[u8], sig: &[u8]) -> Vec<u8> {
+    framed(
+        &profile(alg, kid),
+        &Value::Map(Vec::new()),
+        Some(&payload()),
+        sig,
+    )
+}
+
+// P-103 P-7 Access CR-9
+#[test]
+fn p_103_a_small_order_r_and_an_out_of_range_ecdsa_scalar_are_invalid() {
+    let mut small_order_r = [0_u8; 64];
+    small_order_r[0] = 1;
+    let got = verify_record_signature(&with_signature(-19, &ED_KID, &small_order_r), &all());
+    assert_eq!(got, rejected(Signature::Invalid));
+    let low_s = hex(ESP256_LOW_S);
+    let (r, s) = low_s.split_at(32);
+    let zero = [0_u8; 32];
+    let out_of_range = [
+        [zero.as_slice(), s].concat(),
+        [P256_N.as_slice(), s].concat(),
+        [r, zero.as_slice()].concat(),
+        [r, P256_N.as_slice()].concat(),
+    ];
+    for sig in out_of_range {
+        let got = verify_record_signature(&with_signature(-9, &P256_KID, &sig), &all());
+        assert_eq!(got, rejected(Signature::Invalid));
+    }
+    for error in [SignatureError::SmallOrderR, SignatureError::ScalarRange] {
+        assert_eq!(signature_detail(error), Signature::Invalid);
+    }
+}
+
+// P-7 Access CR-9 Access CR-53
+#[test]
+fn p_7_a_non_canonical_r_or_key_is_non_canonical_ed25519() {
+    let mut non_canonical = [0xff_u8; 32];
+    non_canonical[0] = 0xee;
+    non_canonical[31] = 0x7f;
+    let sig = hex(ED25519_SIGNATURE);
+    let (_, s) = sig.split_at(32);
+    let message = with_signature(-19, &ED_KID, &[non_canonical.as_slice(), s].concat());
+    let got = verify_record_signature(&message, &all());
+    assert_eq!(got, rejected(Signature::NonCanonicalEd25519));
+    let error = KeySet::default()
+        .insert([0; 32], PublicKey::Ed25519(non_canonical))
+        .unwrap_err();
+    assert_eq!(error, SignatureError::NonCanonicalKey);
+    assert_eq!(signature_detail(error), Signature::NonCanonicalEd25519);
+    assert_eq!(
+        signature_detail(SignatureError::NonCanonicalR),
+        Signature::NonCanonicalEd25519
+    );
+}
+
+// P-6 P-75 P-79
+#[test]
+fn p_6_two_containers_of_one_record_name_one_record() {
+    let es256_message = sign1(&profile(-7, &P256_KID), ES256_LOW_S);
+    let first = verify_record_signature(&ed25519_message(), &all()).unwrap();
+    let second = verify_record_signature(&es256_message, &all()).unwrap();
+    assert_eq!(first.algorithm, Algorithm::Ed25519);
+    assert_eq!(second.algorithm, Algorithm::Es256);
+    assert_eq!(record_id(&first.payload), record_id(&second.payload));
+    assert_eq!(record_id(&second.payload), record_id(&payload()));
+    assert_ne!(
+        proof_commit(&ed25519_message()),
+        proof_commit(&es256_message)
+    );
 }
 
 // P-102 P-6 Access CR-5

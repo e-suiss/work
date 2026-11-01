@@ -4,10 +4,13 @@ use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
 
 use crate::catalog::DeclarationSubtype;
+use crate::codec::Decoded;
+use crate::envelope::EnvelopeIngest;
 use crate::id::{PartyRef, RecordId, Time};
 use crate::reason::{QuarantineReason, Reason};
 use crate::record::{Kind, PracticePin, ProtocolVersion, Record};
 use crate::rules::RuleSet;
+use crate::verify::VerifiedEntry;
 
 /// The result of the shared restriction engine for one record, supplied as input (T-4 rule 5, T-23).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -55,6 +58,35 @@ pub struct Entry<'a> {
     pub restriction: Restriction,
     /// The issuer of the authority proof.
     pub issuer: AuthorityIssuer,
+}
+
+impl<'a> Entry<'a> {
+    /// The entry of a stored ledger entry the kernel verified: the record ID, record, position, time and ingest come from the verified bytes, never from the caller (T-10, P-79); `None` for a record of a protocol version without a rule set or an envelope whose ingest is a rejection.
+    #[must_use]
+    pub fn verified(
+        entry: &'a VerifiedEntry,
+        restriction: Restriction,
+        issuer: AuthorityIssuer,
+    ) -> Option<Self> {
+        let Decoded::Record(record) = entry.record() else {
+            return None;
+        };
+        let envelope = entry.envelope();
+        let ingest = match envelope.ingest {
+            EnvelopeIngest::Admitted => Ingest::Admitted,
+            EnvelopeIngest::Quarantined(reason) => Ingest::Quarantined(reason),
+            EnvelopeIngest::Rejected(_) => return None,
+        };
+        Some(Self {
+            id: entry.verification().record,
+            record,
+            position: envelope.position,
+            recorded_at: envelope.recorded_at,
+            ingest,
+            restriction,
+            issuer,
+        })
+    }
 }
 
 /// The business calendar input (T-6); only continuous time exists until time Conditions arrive.
