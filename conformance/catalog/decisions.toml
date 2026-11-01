@@ -2933,6 +2933,7 @@ tests = [
   "crates/kernel/tests/codec_vectors.rs::p_75_proof_commit_is_the_digest_of_the_cose_sign1_bytes_as_received",
   "crates/kernel/tests/codec_vectors.rs::p_79_record_ids_are_the_unprefixed_digest_of_the_signed_record_bytes",
   "crates/kernel/tests/cose.rs::p_102_the_protected_header_carries_the_work_record_content_type",
+  "crates/kernel/tests/cose.rs::p_105_a_record_whose_author_is_not_the_key_owner_is_kid_unknown",
   "crates/kernel/tests/cose.rs::p_6_a_changed_payload_or_signature_is_invalid",
   "crates/kernel/tests/cose.rs::p_6_a_kid_without_a_bound_key_is_kid_unknown",
   "crates/kernel/tests/cose.rs::p_6_ed25519_record_signature_verifies_over_the_signed_record_bytes",
@@ -2971,6 +2972,7 @@ stage = 1
 acceptance = "to-fill"
 title = ""
 tests = [
+  "crates/kernel/tests/cose.rs::p_105_a_record_whose_author_is_not_the_key_owner_is_kid_unknown",
   "crates/kernel/tests/cose.rs::p_6_ed25519_record_signature_verifies_over_the_signed_record_bytes",
   "crates/kernel/tests/cose.rs::p_8_the_shared_verifier_fills_the_signature_port_and_names_the_record_by_its_payload",
 ]
@@ -3077,6 +3079,7 @@ tests = [
   "crates/kernel/src/envelope.rs::p_21_auth_context_assurance_is_one_to_64_bytes",
   "crates/kernel/src/verify.rs::p_21_only_humans_with_auth_context_may_be_unsigned",
   "crates/kernel/tests/codec_vectors.rs::p_100_envelope_vectors_decode_and_chain_from_the_genesis",
+  "crates/kernel/tests/cose.rs::p_105_a_record_whose_author_is_not_the_key_owner_is_kid_unknown",
   "crates/kernel/tests/cose.rs::p_8_the_shared_verifier_fills_the_signature_port_and_names_the_record_by_its_payload",
 ]
 
@@ -3898,6 +3901,17 @@ title = ""
 tests = [
   "crates/kernel/src/codec/mod.rs::p_104_a_part_above_64_kib_commits_to_the_digest_of_its_content",
   "crates/kernel/tests/codec_vectors.rs::p_104_large_part_vectors_commit_to_the_digest_of_their_content",
+]
+
+[[rule]]
+id = "P-105"
+family = "P"
+status = "frozen-protocol"
+stage = 1
+acceptance = "filled"
+title = ""
+tests = [
+  "crates/kernel/tests/cose.rs::p_105_a_record_whose_author_is_not_the_key_owner_is_kid_unknown",
 ]
 
 [[rule]]
