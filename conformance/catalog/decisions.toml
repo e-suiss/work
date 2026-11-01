@@ -3908,7 +3908,7 @@ id = "P-105"
 family = "P"
 status = "frozen-protocol"
 stage = 1
-acceptance = "filled"
+acceptance = "to-fill"
 title = ""
 tests = [
   "crates/kernel/tests/cose.rs::p_105_a_record_whose_author_is_not_the_key_owner_is_kid_unknown",
