@@ -76,8 +76,8 @@ async fn ledger_time(
     let time = LedgerTime::new(2, 3, Arc::clone(mono)).unwrap();
     let (events, received) = mpsc::channel(NTS_EVENT_QUEUE);
     let roots = read_roots(&mut ROOT.as_bytes()).unwrap();
-    let mut tasks = spawn_nts(nts(), roots, mono, &events).unwrap();
-    tasks.push(tokio::spawn(time.clone().follow_nts(received)));
+    let mut handles = spawn_nts(nts(), roots, mono, &events).unwrap();
+    handles.push(tokio::spawn(time.clone().follow_nts(received)));
     let ready = tokio::time::timeout(DEADLINE, async {
         while time.read().is_err() {
             tokio::time::sleep(Duration::from_millis(500)).await;
@@ -85,7 +85,7 @@ async fn ledger_time(
     })
     .await;
     assert!(ready.is_ok(), "no NTS ledger time within {DEADLINE:?}");
-    (time, tasks)
+    (time, handles)
 }
 
 // OP-42
@@ -118,14 +118,14 @@ async fn op_42_another_key_or_version_gives_no_answer() {
 #[ignore = "needs the local environment"]
 async fn op_32_two_compose_nts_servers_give_ledger_time_that_follows_the_monotonic_clock() {
     let mono = Arc::new(ProcessMonotonic::start());
-    let (time, tasks) = ledger_time(&mono).await;
+    let (time, handles) = ledger_time(&mono).await;
     let first = time.read().unwrap();
     tokio::time::sleep(Duration::from_secs(2)).await;
     let second = time.read().unwrap();
     let advanced = second - first;
     assert!((1_750..=2_250).contains(&advanced), "{advanced} ms");
-    for task in tasks {
-        task.abort();
+    for handle in handles {
+        handle.abort();
     }
 }
 
@@ -134,7 +134,7 @@ async fn op_32_two_compose_nts_servers_give_ledger_time_that_follows_the_monoton
 #[ignore = "needs the local environment"]
 async fn op_43_the_three_compose_servers_bound_ledger_time_and_a_silent_round_keeps_nts() {
     let mono = Arc::new(ProcessMonotonic::start());
-    let (time, tasks) = ledger_time(&mono).await;
+    let (time, handles) = ledger_time(&mono).await;
     let q = RoughtimeUdp::new(roughtime(), Arc::clone(&mono));
     assert_eq!(time.round(&q).await, Round::Answered(3));
     assert!(time.read().is_ok());
@@ -145,7 +145,7 @@ async fn op_43_the_three_compose_servers_bound_ledger_time_and_a_silent_round_ke
     let silent = RoughtimeUdp::new(silent, Arc::clone(&mono));
     assert_eq!(time.round(&silent).await, Round::Unanswered);
     assert!(time.read().is_ok());
-    for task in tasks {
-        task.abort();
+    for handle in handles {
+        handle.abort();
     }
 }

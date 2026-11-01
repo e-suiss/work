@@ -57,11 +57,11 @@ pub(crate) enum StartupError {
     LedgerTime(String),
 }
 
-/// The running ledger time driver: one task per NTS server, the NTS event follower and the
+/// The running ledger time driver: one per NTS server, the NTS event follower and the
 /// Roughtime rounds (OP-32, OP-43).
 #[derive(Debug)]
 pub(crate) struct TimeDriver {
-    tasks: Vec<JoinHandle<()>>,
+    handles: Vec<JoinHandle<()>>,
 }
 
 impl TimeDriver {
@@ -82,10 +82,10 @@ impl TimeDriver {
         let time = LedgerTime::new(nts.len(), roughtime.len(), Arc::clone(&mono))
             .map_err(|e| StartupError::LedgerTime(e.to_string()))?;
         let (events, received) = mpsc::channel(NTS_EVENT_QUEUE);
-        let mut tasks = spawn_nts(nts, roots, &mono, &events)
+        let mut handles = spawn_nts(nts, roots, &mono, &events)
             .map_err(|e| StartupError::LedgerTime(e.to_string()))?;
-        tasks.push(tokio::spawn(time.clone().follow_nts(received)));
-        tasks.push(tokio::spawn(
+        handles.push(tokio::spawn(time.clone().follow_nts(received)));
+        handles.push(tokio::spawn(
             time.run_roughtime(RoughtimeUdp::new(roughtime, mono)),
         ));
         tracing::info!(
@@ -94,13 +94,13 @@ impl TimeDriver {
             roughtime = config.ledger_time.roughtime.len(),
             "ledger time driver started"
         );
-        Ok(Self { tasks })
+        Ok(Self { handles })
     }
 
-    /// Stops every task of the driver.
+    /// Stops every part of the driver.
     pub(crate) fn stop(self) {
-        for task in self.tasks {
-            task.abort();
+        for handle in self.handles {
+            handle.abort();
         }
     }
 }
