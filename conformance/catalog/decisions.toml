@@ -2956,6 +2956,7 @@ tests = [
   "crates/kernel/src/verify.rs::p_6_rejected_signature_carries_its_detail",
   "crates/kernel/tests/codec_vectors.rs::p_104_large_part_vectors_commit_to_the_digest_of_their_content",
   "crates/kernel/tests/codec_vectors.rs::p_5_cbor_canonical_vectors_through_the_shared_decoder",
+  "crates/kernel/tests/cose.rs::p_106_a_signed_payload_that_is_not_a_record_keeps_its_decoding_reason",
   "crates/kernel/tests/cose.rs::p_6_esp256_and_es256_verify_with_low_s",
   "crates/kernel/tests/cose.rs::p_7_high_s_ecdsa_on_a_work_record_is_rejected",
   "crates/kernel/tests/cose.rs::p_7_non_canonical_ed25519_signatures_and_small_order_keys_are_rejected",
@@ -3770,7 +3771,9 @@ class = "BS"
 stage = 1
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/cose.rs::p_106_an_unknown_protocol_record_is_valid_without_reading_its_author",
+]
 
 [[rule]]
 id = "P-95"
@@ -3912,6 +3915,18 @@ acceptance = "to-fill"
 title = ""
 tests = [
   "crates/kernel/tests/cose.rs::p_105_a_record_whose_author_is_not_the_key_owner_is_kid_unknown",
+]
+
+[[rule]]
+id = "P-106"
+family = "P"
+status = "frozen-protocol"
+stage = 1
+acceptance = "to-fill"
+title = ""
+tests = [
+  "crates/kernel/tests/cose.rs::p_106_a_signed_payload_that_is_not_a_record_keeps_its_decoding_reason",
+  "crates/kernel/tests/cose.rs::p_106_an_unknown_protocol_record_is_valid_without_reading_its_author",
 ]
 
 [[rule]]
@@ -5409,5 +5424,20 @@ tests = [
   "crates/ledger/src/time/app/tests.rs::op_43_no_answer_raises_a_warning_and_commits_continue_on_nts",
   "crates/ledger/src/time/app/tests.rs::op_43_rounds_run_at_start_up_and_every_3600_s_and_a_failed_first_round_does_not_block",
   "crates/ledger/src/time/domain.rs::op_42_ledger_time_outside_the_bound_stops_commits_and_an_empty_round_lifts_it",
+  "crates/ledger/src/time/domain.rs::op_43_the_majority_of_the_answers_decides",
+]
+
+[[rule]]
+id = "OP-44"
+family = "OP"
+status = "frozen-technical"
+stage = 2
+acceptance = "to-fill"
+pd = "set"
+title = ""
+tests = [
+  "crates/ledger/src/time/app/tests.rs::op_44_a_two_server_tie_fails_the_check",
+  "crates/ledger/src/time/domain.rs::op_32_a_sample_older_than_its_lifetime_is_not_used",
+  "crates/ledger/src/time/domain.rs::op_42_the_interval_is_the_midpoint_widened_by_radius_and_round_trip",
   "crates/ledger/src/time/domain.rs::op_43_the_majority_of_the_answers_decides",
 ]
