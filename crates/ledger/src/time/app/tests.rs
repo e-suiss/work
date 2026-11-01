@@ -58,17 +58,22 @@ impl RoughtimeQuery for Arc<Script> {
         self.answers.lock().unwrap().len()
     }
 
-    async fn query(&self, server: usize) -> Result<RoughtimeAnswer, QueryError> {
+    fn query(
+        &self,
+        server: usize,
+    ) -> impl Future<Output = Result<RoughtimeAnswer, QueryError>> + Send {
         let mono_ms = self.mono.now_ms();
         self.asked.lock().unwrap().push((mono_ms, server));
         let next = self.answers.lock().unwrap()[server].pop_front().flatten();
-        next.map(|offset| RoughtimeAnswer {
-            midpoint_ms: T + offset + mono_ms,
-            radius_ms: 1_000,
-            rtt_ms: 20,
-            mono_ms,
-        })
-        .ok_or_else(|| QueryError("no answer".to_owned()))
+        std::future::ready(
+            next.map(|offset| RoughtimeAnswer {
+                midpoint_ms: T + offset + mono_ms,
+                radius_ms: 1_000,
+                rtt_ms: 20,
+                mono_ms,
+            })
+            .ok_or_else(|| QueryError("no answer".to_owned())),
+        )
     }
 }
 

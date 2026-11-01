@@ -179,8 +179,8 @@ impl<M: Monotonic> LedgerTime<M> {
 }
 
 impl<M: Monotonic> Clock for LedgerTime<M> {
-    async fn now(&mut self) -> Result<u64, ClockError> {
-        self.read().map_err(|fault| ClockError(fault.to_string()))
+    fn now(&mut self) -> impl Future<Output = Result<u64, ClockError>> + Send {
+        std::future::ready(self.read().map_err(|fault| ClockError(fault.to_string())))
     }
 }
 

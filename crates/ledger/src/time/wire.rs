@@ -189,12 +189,13 @@ fn verify_signature(
 }
 
 fn merkle_root(nonce: &[u8; 32], index: u32, path: &[u8]) -> Result<[u8; 32], WireError> {
-    if !path.len().is_multiple_of(32) {
+    let (nodes, rest) = path.as_chunks::<32>();
+    if !rest.is_empty() {
         return Err(WireError::Malformed("PATH length"));
     }
     let mut hash = h(&[&[0x00], nonce]);
     let mut index = index;
-    for node in path.chunks_exact(32) {
+    for node in nodes {
         hash = if index & 1 == 0 {
             h(&[&[0x01], &hash, node])
         } else {

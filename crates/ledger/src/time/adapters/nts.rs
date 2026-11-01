@@ -1,5 +1,5 @@
 //! The NTS client (OP-32 item 1, OP-42 item 4) on `ntp-proto`'s `NtpSource` state machine: per
-//! server an NTS-KE session over TLS, then authenticated NTPv4 polls every 64 s; each measurement
+//! server an NTS-KE session over TLS, then authenticated `NTPv4` polls every 64 s; each measurement
 //! becomes a sample of the server's time against the process monotonic clock. The system clock
 //! is neither read nor set: the local NTP timescale is a fixed anchor plus monotonic time.
 
