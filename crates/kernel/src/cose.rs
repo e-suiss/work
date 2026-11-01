@@ -1,4 +1,4 @@
-//! `COSE_Sign1` author signatures of Work records through the shared crate's parser and verifier with its pure backend (P-6, P-7, P-8, P-79, P-102, Access CR-9): the protected header is exactly `{1: alg, 3: "application/work-record+cbor", 4: kid}` of the normative CDDL, the algorithm must be in the caller's policy, a Work record's ECDSA signature must be low-S, and a verified record is named by the unprefixed digest of its payload.
+//! `COSE_Sign1` author signatures of Work records through the shared crate's parser and verifier with its pure backend (P-6, P-7, P-8, P-79, P-102, P-105, Access CR-9): the protected header is exactly `{1: alg, 3: "application/work-record+cbor", 4: kid}` of the normative CDDL, the algorithm must be in the caller's policy, a Work record's ECDSA signature must be low-S, a verified record is named by the unprefixed digest of its payload, and its own `author` must be the Party the keys are bound to.
 
 use alloc::vec::Vec;
 
@@ -8,7 +8,7 @@ use suiss_crypto::sig::{PureBackend, SignatureError};
 
 pub use suiss_crypto::cose::{Algorithm, KeySet, PublicKey, Sign1};
 
-use crate::codec::{cbor_reason, record_id};
+use crate::codec::{Decoded, cbor_reason, decode_record, record_id};
 use crate::id::PartyRef;
 use crate::reason::{Reason, Schema, Signature};
 use crate::verify::{SignatureCheck, SignatureVerifier};
@@ -94,7 +94,7 @@ pub fn verify_record_signature(bytes: &[u8], keys: &KeySet) -> Result<SignedPayl
     })
 }
 
-/// The signature port over the shared verifier for one author: `keys` holds the keys Access binds to `author` and the algorithms the caller's policy allows, so a `kid` that is not bound to `author` is `signature:kid_unknown` (P-6, P-8, P-21 item 1, P-79).
+/// The signature port over the shared verifier for one author: `keys` holds the keys Access binds to `author` and the algorithms the caller's policy allows, so a `kid` that is not bound to `author`, or a protocol 1.0 record whose own `author` is another Party, is `signature:kid_unknown`; a payload that does not decode is rejected with its decoding reason, and a record of a protocol version without a rule set is not read further (P-6, P-8, P-21 item 1, P-79, P-94, P-105).
 #[derive(Clone, Copy, Debug)]
 pub struct AuthorKeys<'a> {
     /// The Party the keys are bound to.
@@ -105,8 +105,16 @@ pub struct AuthorKeys<'a> {
 
 impl SignatureVerifier for AuthorKeys<'_> {
     fn check(&self, cose_sign1: &[u8]) -> SignatureCheck {
-        match verify_record_signature(cose_sign1, self.keys) {
-            Ok(signed) => SignatureCheck::Valid {
+        let signed = match verify_record_signature(cose_sign1, self.keys) {
+            Ok(signed) => signed,
+            Err(reason) => return SignatureCheck::Rejected(reason),
+        };
+        match decode_record(&signed.payload) {
+            // P-105
+            Ok(Decoded::Record(record)) if record.core().author != *self.author => {
+                SignatureCheck::Rejected(signature(Signature::KidUnknown))
+            }
+            Ok(_) => SignatureCheck::Valid {
                 record: record_id(&signed.payload),
                 author: self.author.clone(),
             },

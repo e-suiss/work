@@ -1,4 +1,4 @@
-//! Record signatures through the kernel's `COSE_Sign1` profile over the shared crate (P-6, P-7, P-102, Access CR-9): the signed payload is the first `records.json` record; the Ed25519 key is the RFC 8032 test 1 key and the P-256 key the RFC 6979 A.2.5 key, both signing deterministically.
+//! Record signatures through the kernel's `COSE_Sign1` profile over the shared crate (P-6, P-7, P-102, P-105, Access CR-9): the signed payload is the first `records.json` record, or that record with its `author` replaced by a Party of the same length; the Ed25519 key is the RFC 8032 test 1 key and the P-256 key the RFC 6979 A.2.5 key, both signing deterministically.
 
 #![allow(
     clippy::unwrap_used,
@@ -23,6 +23,9 @@ use work_kernel::verify::{AuthorBinding, VerifyOutcome, verify_signed};
 const RECORDS: &str = include_str!("../../../conformance/vectors/records/records.json");
 const ED25519_PUBLIC: &str = "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a";
 const ED25519_SIGNATURE: &str = "e0000f0e3c44364b7848ba4e4df7c3089e045c6f64fd9c7187360159389b2e03003419507ae86bfcecab3570822220fb769b2f054e1cd21e044053f8f71e5e06";
+const ED25519_OTHER_AUTHOR_SIGNATURE: &str = "f084ec7e58875d9ae13c13f17fa90e88a987ca68217d8ffc4ccb76713fca9ea27085c827066ea000797c62b4562c1244246697ea1353fd9043e5890c3d7bd904";
+const AUTHOR: &str = "party:acme:agent-procure-7";
+const OTHER_AUTHOR: &str = "party:acme:agent-procure-8";
 const P256_PUBLIC: &str = "0460fed4ba255a9d31c961eb74c6356d68c049b8923b61fa6ce669622e60f29fb67903fe1008b8bc99a41ae9e95628bc64f2f1b20c2d7e9f5177a3c294d4462299";
 const ESP256_LOW_S: &str = "6feff64a6bbe55e7cf4120a75c1b21d20c63672ac2031cebe2bcbba7e1671c7565cdbc725467c5a064ff31a1bd2d38a3c8e784d2c0e59a7c098b729cf0706d3f";
 const ESP256_HIGH_S: &str = "6feff64a6bbe55e7cf4120a75c1b21d20c63672ac2031cebe2bcbba7e1671c759a32438cab983a609b00ce5e42d2c75bf3ff75dae6320408ea2e58260bf2b812";
@@ -328,7 +331,7 @@ fn p_102_the_protected_header_carries_the_work_record_content_type() {
 // P-8 P-79 P-21 SEC-5 T-87
 #[test]
 fn p_8_the_shared_verifier_fills_the_signature_port_and_names_the_record_by_its_payload() {
-    let author = PartyRef::new("party:acme:agent-procure-7").unwrap();
+    let author = PartyRef::new(AUTHOR).unwrap();
     let keys = all();
     let port = AuthorKeys {
         author: &author,
@@ -350,4 +353,59 @@ fn p_8_the_shared_verifier_fills_the_signature_port_and_names_the_record_by_its_
         verify_signed(&port, &untagged, None),
         VerifyOutcome::Rejected(Reason::Schema(Schema::Container))
     );
+}
+
+fn other_author_payload() -> Vec<u8> {
+    let original = payload();
+    let at = original
+        .windows(AUTHOR.len())
+        .position(|w| w == AUTHOR.as_bytes())
+        .unwrap();
+    let mut out = original;
+    out[at..at + AUTHOR.len()].copy_from_slice(OTHER_AUTHOR.as_bytes());
+    out
+}
+
+// P-105 P-6 P-8 P-21
+#[test]
+fn p_105_a_record_whose_author_is_not_the_key_owner_is_kid_unknown() {
+    let party_a = PartyRef::new(AUTHOR).unwrap();
+    let party_b = PartyRef::new(OTHER_AUTHOR).unwrap();
+    let keys = all();
+    let port_a = AuthorKeys {
+        author: &party_a,
+        keys: &keys,
+    };
+    let port_b = AuthorKeys {
+        author: &party_b,
+        keys: &keys,
+    };
+    let authored_by_b = framed(
+        &profile(-19, &ED_KID),
+        &Value::Map(Vec::new()),
+        Some(&other_author_payload()),
+        &hex(ED25519_OTHER_AUTHOR_SIGNATURE),
+    );
+    let Ok(Decoded::Record(record)) = decode_record(&other_author_payload()) else {
+        panic!("expected a record");
+    };
+    assert_eq!(record.core().author, party_b);
+    assert!(verify_record_signature(&authored_by_b, &keys).is_ok());
+    assert_eq!(
+        verify_signed(&port_a, &authored_by_b, None),
+        VerifyOutcome::Rejected(Reason::Signature(Signature::KidUnknown))
+    );
+    let VerifyOutcome::Verified(verified) = verify_signed(&port_a, &ed25519_message(), None) else {
+        panic!("expected verified");
+    };
+    assert_eq!(verified.author, party_a);
+    assert_eq!(
+        verify_signed(&port_b, &ed25519_message(), None),
+        VerifyOutcome::Rejected(Reason::Signature(Signature::KidUnknown))
+    );
+    let VerifyOutcome::Verified(verified) = verify_signed(&port_b, &authored_by_b, None) else {
+        panic!("expected verified");
+    };
+    assert_eq!(verified.author, party_b);
+    assert_eq!(verified.record, record_id(&other_author_payload()));
 }
