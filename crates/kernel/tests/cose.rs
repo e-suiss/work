@@ -438,7 +438,10 @@ fn p_106_an_unknown_protocol_record_is_valid_without_reading_its_author() {
     let unknown = unknown_protocol_payload();
     assert_eq!(
         decode_record(&unknown),
-        Ok(Decoded::UnknownProtocol(ProtocolVersion { major: 2, minor: 0 }))
+        Ok(Decoded::UnknownProtocol(ProtocolVersion {
+            major: 2,
+            minor: 0
+        }))
     );
     let message = framed(
         &profile(-19, &ED_KID),
