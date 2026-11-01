@@ -9,9 +9,11 @@ repository.workspace = true
 publish = false
 
 [dependencies]
+work-ledger = { workspace = true }
 work-store = { workspace = true }
 work-telemetry = { workspace = true }
 async-nats = { workspace = true, features = ["jetstream"] }
+base64 = { workspace = true, features = ["alloc"] }
 axum = { workspace = true, features = ["http1", "http2", "tokio"] }
 figment = { workspace = true, features = ["env", "toml"] }
 serde = { workspace = true, features = ["derive", "std"] }

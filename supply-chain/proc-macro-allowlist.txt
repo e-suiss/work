@@ -10,6 +10,7 @@ divan-macros
 futures-macro
 gungraun-macros
 jiff-static
+jni-sys-macros
 parse-display-derive
 pastey
 pear_codegen

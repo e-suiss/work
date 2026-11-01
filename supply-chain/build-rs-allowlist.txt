@@ -21,6 +21,7 @@ iana-time-zone-haiku
 icu_normalizer_data
 icu_properties_data
 indexmap
+jni-sys
 libc
 libsqlite3-sys
 num-traits

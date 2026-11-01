@@ -36,6 +36,11 @@ unused-allowed-license = "allow"
 crate = "webpki-roots"
 allow = ["CDLA-Permissive-2.0"]
 
+# OP-42
+[[licenses.exceptions]]
+crate = "webpki-root-certs"
+allow = ["CDLA-Permissive-2.0"]
+
 # T-67
 [[licenses.exceptions]]
 crate = "uniffi"

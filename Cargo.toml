@@ -59,6 +59,12 @@ sha2 = { version = "=0.11.1", default-features = false }
 # T-44
 divan = { version = "0.1.21", default-features = false }
 gungraun = { version = "=0.20.0", default-features = false }
+# OP-32, OP-42
+ntp-proto = { version = "=1.9.0", default-features = false, features = ["aws-lc", "rustcrypto", "__internal-api"] }
+roughenough-protocol = { version = "=2.2.0", default-features = false }
+rustls = { version = "=0.23.46", default-features = false }
+base64 = { version = "=0.22.1", default-features = false }
+ed25519-dalek = { version = "=3.0.0", default-features = false }
 # T-5, T-58
 wasm-bindgen = { version = "=0.2.129", default-features = false }
 uniffi = { version = "=0.32.2", default-features = false }
