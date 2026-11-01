@@ -1,5 +1,7 @@
 # P-5 P-11 P-67 P-72
+import base64
 import hashlib
+import hmac
 import json
 import os
 import sys
@@ -259,6 +261,83 @@ def ed25519(seed, message):
     big_r = _ed_point(_ed_mul(r, _ed_base()))
     k = int.from_bytes(hashlib.sha512(big_r + public + message).digest(), "little") % ED_L
     return public, big_r + ((r + k * a) % ED_L).to_bytes(32, "little")
+
+
+# P-6 P-7 Access CR-9
+P256_P = 2 ** 256 - 2 ** 224 + 2 ** 192 + 2 ** 96 - 1
+P256_N = 0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551
+P256_G = (0x6b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c296,
+          0x4fe342e2fe1a7f9b8ee7eb4a7c0f9e162bce33576b315ececbb6406837bf51f5)
+
+
+def _p256_add(a, b):
+    if a is None:
+        return b
+    if b is None:
+        return a
+    (x1, y1), (x2, y2) = a, b
+    if x1 == x2 and (y1 + y2) % P256_P == 0:
+        return None
+    if a == b:
+        m = (3 * x1 * x1 - 3) * pow(2 * y1, P256_P - 2, P256_P) % P256_P
+    else:
+        m = (y2 - y1) * pow(x2 - x1, P256_P - 2, P256_P) % P256_P
+    x3 = (m * m - x1 - x2) % P256_P
+    return (x3, (m * (x1 - x3) - y1) % P256_P)
+
+
+def _p256_mul(n, point):
+    out = None
+    while n:
+        if n & 1:
+            out = _p256_add(out, point)
+        point = _p256_add(point, point)
+        n >>= 1
+    return out
+
+
+def p256_public(x):
+    px, py = _p256_mul(x, P256_G)
+    return b"\x04" + px.to_bytes(32, "big") + py.to_bytes(32, "big")
+
+
+def _rfc6979_k(x, h1):
+    xo = x.to_bytes(32, "big")
+    ho = (int.from_bytes(h1, "big") % P256_N).to_bytes(32, "big")
+    v, k = b"\x01" * 32, b"\x00" * 32
+    k = hmac.new(k, v + b"\x00" + xo + ho, hashlib.sha256).digest()
+    v = hmac.new(k, v, hashlib.sha256).digest()
+    k = hmac.new(k, v + b"\x01" + xo + ho, hashlib.sha256).digest()
+    v = hmac.new(k, v, hashlib.sha256).digest()
+    while True:
+        v = hmac.new(k, v, hashlib.sha256).digest()
+        t = int.from_bytes(v, "big")
+        if 1 <= t < P256_N:
+            return t
+        k = hmac.new(k, v + b"\x00", hashlib.sha256).digest()
+        v = hmac.new(k, v, hashlib.sha256).digest()
+
+
+def p256_sign(x, message, low_s=True):
+    h1 = hashlib.sha256(message).digest()
+    e = int.from_bytes(h1, "big")
+    k = _rfc6979_k(x, h1)
+    r = _p256_mul(k, P256_G)[0] % P256_N
+    s = pow(k, P256_N - 2, P256_N) * (e + r * x) % P256_N
+    if low_s and s > P256_N // 2:
+        s = P256_N - s
+    return r.to_bytes(32, "big") + s.to_bytes(32, "big")
+
+
+RFC6979_X = 0xC9AFA9D845BA75166B5C215767B1D6934E50C3DB36E89B127B8A622B120F6721
+assert p256_public(RFC6979_X).hex() == ("0460fed4ba255a9d31c961eb74c6356d68c049b8923b61fa6ce669622e60f29fb6"
+                                        "7903fe1008b8bc99a41ae9e95628bc64f2f1b20c2d7e9f5177a3c294d4462299")
+assert p256_sign(RFC6979_X, b"sample", low_s=False).hex() == (
+    "efd48b2aacb6a8fd1140dd9cd45e81d69d2c877b56aaf991c34d0ea84eaf3716"
+    "f7cb1c942d657c41d436c7a1b6e29f65f3e900dbb9aff4064dc4ab2f843acda8")
+assert p256_sign(RFC6979_X, b"test", low_s=False).hex() == (
+    "f1abb023518351cd71d881567b1ea663ed3efcf6c5132b354f28d3b0b7d38367"
+    "019f4113742a2b14bd25926b49c649155f267e60d3814b4c0cc84250e46f0083")
 
 
 def write_json(name, obj):
@@ -850,10 +929,55 @@ records = [
      "Practice Claim whose params carry a digest scalar written as [-16, bytes] and a list of text scalars, with a Practice qualifier on references under the pinned namespace."),
 ]
 
+# P-6 P-7 P-75 P-76 P-102 P-105
+RFC8032_SEEDS = (bytes.fromhex("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60"),
+                 bytes.fromhex("4ccd089b28ff96da9db6c346ec114e0f5b8a319f35aba624da8cf6ed4fb8a6fb"),
+                 bytes.fromhex("c5aa8df43f9f837bedb7442f31dcb7b166d38535076f094b85ce3a2e0b4458f7"))
+RECORD_CONTENT_TYPE = "application/work-record+cbor"
+SIGNERS = {
+    AGENT: {"id": "agent-ed25519", "alg": -19, "kid": b"\x11" * 32, "seed": RFC8032_SEEDS[0],
+            "source": "RFC 8032 section 7.1 test 1"},
+    SYS: {"id": "system-ed25519", "alg": -19, "kid": b"\x12" * 32, "seed": RFC8032_SEEDS[1],
+          "source": "RFC 8032 section 7.1 test 2"},
+    SUPPLIER: {"id": "supplier-esp256", "alg": -9, "kid": b"\x22" * 32, "x": RFC6979_X,
+               "source": "RFC 6979 appendix A.2.5"},
+}
+
+
+def public_key(signer):
+    if signer["alg"] == -19:
+        return ed25519(signer["seed"], b"")[0]
+    return p256_public(signer["x"])
+
+
+def protected_header(alg, kid):
+    return enc({1: alg, 3: RECORD_CONTENT_TYPE, 4: kid})
+
+
+def sig_structure(protected, payload):
+    return enc(["Signature1", protected, b"", payload])
+
+
+def raw_sign(signer, message):
+    if signer["alg"] == -19:
+        return ed25519(signer["seed"], message)[1]
+    return p256_sign(signer["x"], message)
+
+
+def sign1(signer, payload, alg=None):
+    protected = protected_header(alg or signer["alg"], signer["kid"])
+    return protected, raw_sign(signer, sig_structure(protected, payload))
+
+
+def cose_bytes(protected, payload, signature):
+    return enc(Tag(18, [protected, {}, payload, signature]))
+
+
+signed_records = []
 envelope_state = {"prev": [-16, GENESIS_LEAF], "pos": 1, "recorded_at": 1792109100000}
 
 
-def envelope(rec, c, rid, ingest):
+def envelope(rec, c, rid, ingest, name):
     s = envelope_state
     env = {
         "record": rid,
@@ -867,7 +991,13 @@ def envelope(rec, c, rid, ingest):
     if c["actor_type"]["author"][0] == "human":
         env["auth_context"] = {"ref": label("access:auth-context:alice"), "assurance": "aal2", "step_up": False}
     else:
-        env["proof_commit"] = label("cose-sign1:record:%d" % s["pos"])
+        payload = enc(rec)
+        protected, signature = sign1(SIGNERS[rec["author"]], payload)
+        cose = cose_bytes(protected, payload, signature)
+        check(cose, allowed_tags=(18,))
+        signed_records.append({"name": name, "author": rec["author"], "payload": payload, "protected": protected,
+                               "signature": signature, "cose": cose})
+        env["proof_commit"] = [-16, sha(cose)]
     eb = enc(env)
     check(eb)
     leaf = sha(b"\x00" + eb)
@@ -896,7 +1026,7 @@ for name, rec, kw, rules, purpose in records:
                      "diag": diag(rec), "hex": b.hex(), "decoded": decoded(b), "context": c,
                      "record_digest": enc(rid).hex(), "cddl": "pass",
                      "expect": {"outcome": "accept"}})
-    env, eb, leaf = envelope(rec, c, rid, "admitted")
+    env, eb, leaf = envelope(rec, c, rid, "admitted", "record/" + name)
     write_cbor("LedgerEnvelope", "envelope-" + name, eb, "pass")
     out_envs.append({"id": "envelope/" + name, "rules": ENVELOPE_RULES,
                      "diag": diag(env), "hex": eb.hex(), "decoded": decoded(eb), "leaf_hash": leaf.hex(),
@@ -906,7 +1036,7 @@ write_json("records.json", {
     "file": "records.json",
     "notes": ["record_digest = det-CBOR(Digest) of SHA-256(det-CBOR(SignedRecord)), no prefix",
               "leaf_hash = SHA-256(0x00 || det-CBOR(LedgerEnvelope))",
-              "proof_commit = SHA-256 of the full tagged WorkRecordCose bytes as received; these vectors carry no signatures, so proof_commit values are placeholders",
+              "proof_commit = SHA-256 of the full tagged WorkRecordCose bytes as received; cose-sign1.json holds those bytes for every envelope that carries proof_commit",
               "Digest values labelled work-vector:* are SHA-256 of ASCII placeholder strings, not real objects",
               "context holds verifier inputs that are not record bytes: origin, actor_type exactly as the envelope ActorTypeAnnotation (author and one entry per on_behalf_of party), understood_extensions, and recorded_at when the record carries params.effective_at",
               "ledger is the LedgerID of genesis.json genesis/accept; the first envelope is at pos 1 and its prev is the genesis leaf hash (P-100)",
@@ -943,6 +1073,7 @@ proof_payload = bytes.fromhex(out_recs[0]["hex"])
 proof_protected = enc({1: -19, 3: "application/work-record+cbor", 4: PROOF_KID})
 proof_public, proof_signature = ed25519(PROOF_SEED, enc(["Signature1", proof_protected, b"", proof_payload]))
 proof_cose = enc(Tag(18, [proof_protected, {}, proof_payload, proof_signature]))
+assert proof_cose == signed_records[0]["cose"]
 body_content = enc({"obligee": BUYER, "due": 1793318400000})
 body_input = enc(["terms", "application/cbor", body_content])
 digest_cases = [
@@ -1428,7 +1559,7 @@ for name, rec, kw, rules, purpose, reason in quarantine:
     rid = [-16, sha(b)]
     cddl = "pass" if rec["versions"]["protocol"] in KNOWN_PROTOCOLS else "fail"
     write_cbor("SignedRecord", "quarantine-" + name, b, cddl)
-    env, eb, leaf = envelope(rec, c, rid, ["quarantined", reason])
+    env, eb, leaf = envelope(rec, c, rid, ["quarantined", reason], "record-quarantine/" + name)
     write_cbor("LedgerEnvelope", "quarantine-envelope-" + name, eb, "pass")
     out_q.append({"id": "record-quarantine/" + name, "rules": rules, "purpose": purpose,
                   "hex": b.hex(), "decoded": decoded(b), "context": c, "record_digest": enc(rid).hex(),
@@ -1441,6 +1572,346 @@ write_json("records-quarantine.json", {
     "file": "records-quarantine.json",
     "notes": ["a quarantined record is still written to the ledger; its envelope carries ingest [\"quarantined\", reason] and continues the records.json chain"],
     "cases": out_q})
+
+# P-6 P-7 P-32 P-102 P-103 P-105 P-106 Access CR-9
+AGENT_ES256 = {"id": "agent-es256", "alg": -7, "kid": b"\x21" * 32, "x": RFC6979_X,
+               "source": "RFC 6979 appendix A.2.5"}
+COSE_KEYS = [(AGENT, SIGNERS[AGENT]), (AGENT, AGENT_ES256), (SYS, SIGNERS[SYS]), (SUPPLIER, SIGNERS[SUPPLIER])]
+
+
+def key_entry(party, signer):
+    return {"id": signer["id"], "party": party, "alg": signer["alg"], "kid_hex": signer["kid"].hex(),
+            "public_key_hex": public_key(signer).hex(), "source": signer["source"]}
+
+
+def cose_case(case_id, rules, author, cose, expect, **extra):
+    check(cose, allowed_tags=(18,))
+    case = {"id": case_id, "rules": rules, "author": author}
+    case.update(extra)
+    case.update({"cose_hex": cose.hex(), "expect": expect})
+    return case
+
+
+SIGNED_ENVELOPES = {e["id"].split("/", 1)[1]: e for e in out_envs}
+cose_cases = []
+for sr in signed_records:
+    family, name = sr["name"].split("/", 1)
+    rid = sha(sr["payload"]).hex()
+    extra = {"payload": sr["name"] + " hex", "key": SIGNERS[sr["author"]]["id"],
+             "protected_hex": sr["protected"].hex(), "signature_hex": sr["signature"].hex(),
+             "record_id_hex": rid, "proof_commit_hex": sha(sr["cose"]).hex()}
+    if family == "record":
+        extra["envelope"] = "records.json envelope/" + name
+        rules = ["P-6", "P-75", "P-76", "P-79", "P-102", "P-105"]
+    else:
+        extra["envelope"] = "records-quarantine.json " + sr["name"] + " envelope"
+        rules = ["P-6", "P-75", "P-79", "P-102", "P-106"]
+    cose_cases.append(cose_case("cose-sign1/" + ("" if family == "record" else "quarantine-") + name, rules,
+                                sr["author"], sr["cose"], {"outcome": "accept"}, **extra))
+
+first_signed = signed_records[0]
+first_payload = first_signed["payload"]
+es256_protected, es256_signature = sign1(AGENT_ES256, first_payload)
+es256_cose = cose_bytes(es256_protected, first_payload, es256_signature)
+cose_cases.append(cose_case(
+    "cose-sign1/container-es256", ["P-6", "P-7", "P-79", "Access CR-9"], AGENT, es256_cose, {"outcome": "accept"},
+    purpose="The first records.json record in a second container: ES256 under the agent's second key instead of Ed25519. The container is not semantic: the record ID is the same, only proof_commit differs (P-6 item 4).",
+    payload=first_signed["name"] + " hex", key=AGENT_ES256["id"], protected_hex=es256_protected.hex(),
+    signature_hex=es256_signature.hex(), record_id_hex=sha(first_payload).hex(),
+    proof_commit_hex=sha(es256_cose).hex(), same_record_as="cose-sign1/declaration-promise-for-principal"))
+
+supplier_signed = next(sr for sr in signed_records if sr["author"] == SUPPLIER)
+s_payload, s_protected = supplier_signed["payload"], supplier_signed["protected"]
+s_r, s_s = supplier_signed["signature"][:32], int.from_bytes(supplier_signed["signature"][32:], "big")
+ed_protected, ed_signature = first_signed["protected"], first_signed["signature"]
+ed_s = int.from_bytes(ed_signature[32:], "little")
+NON_CANONICAL_ONE = (ED_P + 1).to_bytes(32, "little")
+IDENTITY = (1).to_bytes(32, "little")
+tampered = first_payload[:-1] + bytes([first_payload[-1] ^ 1])
+foreign_protected, foreign_signature = sign1(SIGNERS[AGENT], s_payload)
+wrong_type = enc({1: -19, 3: "application/cbor", 4: SIGNERS[AGENT]["kid"]})
+unknown_kid = protected_header(-19, b"\x33" * 32)
+ed_on_p256 = protected_header(-19, SIGNERS[SUPPLIER]["kid"])
+P_103 = ["P-7", "P-103", "Access CR-9"]
+cose_rejects = [
+    ("ed25519-small-order-r", P_103, AGENT, cose_bytes(ed_protected, first_payload, IDENTITY + bytes(32)),
+     "signature:invalid", "R is the identity point, of small order; S is zero and reduced."),
+    ("ed25519-non-canonical-r", ["P-7", "Access CR-9"], AGENT,
+     cose_bytes(ed_protected, first_payload, NON_CANONICAL_ONE + ed_signature[32:]),
+     "signature:non_canonical_ed25519", "R encodes y = p + 1, a non-canonical encoding of the identity."),
+    ("ed25519-unreduced-s", ["P-7", "Access CR-9"], AGENT,
+     cose_bytes(ed_protected, first_payload, ed_signature[:32] + (ed_s + ED_L).to_bytes(32, "little")),
+     "signature:non_canonical_ed25519", "S + L in place of S: the same equation, an unreduced scalar."),
+    ("ed25519-short-signature", P_103, AGENT, cose_bytes(ed_protected, first_payload, ed_signature[:63]),
+     "signature:invalid", "A 63-byte Ed25519 signature."),
+    ("ed25519-changed-payload", ["P-6"], AGENT, cose_bytes(ed_protected, tampered, ed_signature),
+     "signature:invalid", "The last payload byte flipped under the original signature."),
+    ("esp256-high-s", ["P-7", "Access CR-9"], SUPPLIER,
+     cose_bytes(s_protected, s_payload, s_r + (P256_N - s_s).to_bytes(32, "big")),
+     "signature:high_s", "n - s in place of the low s: valid ECDSA, but high-S on a Work record."),
+    ("esp256-r-zero", P_103, SUPPLIER, cose_bytes(s_protected, s_payload, bytes(32) + s_s.to_bytes(32, "big")),
+     "signature:invalid", "ECDSA r = 0, outside 1..n-1."),
+    ("esp256-r-equals-n", P_103, SUPPLIER,
+     cose_bytes(s_protected, s_payload, P256_N.to_bytes(32, "big") + s_s.to_bytes(32, "big")),
+     "signature:invalid", "ECDSA r = n, outside 1..n-1."),
+    ("esp256-s-zero", P_103, SUPPLIER, cose_bytes(s_protected, s_payload, s_r + bytes(32)),
+     "signature:invalid", "ECDSA s = 0, outside 1..n-1."),
+    ("kid-unknown", ["P-6", "Access CR-55"], AGENT,
+     cose_bytes(unknown_kid, first_payload, raw_sign(SIGNERS[AGENT], sig_structure(unknown_kid, first_payload))),
+     "signature:kid_unknown", "A kid with no key bound to the author."),
+    ("alg-key-mismatch", ["P-6", "Access CR-7"], SUPPLIER,
+     cose_bytes(ed_on_p256, s_payload, raw_sign(SIGNERS[AGENT], sig_structure(ed_on_p256, s_payload))),
+     "signature:alg_not_allowed", "Ed25519 in the header with the kid of a P-256 key."),
+    ("content-type-outside-profile", ["P-102", "P-6"], AGENT,
+     cose_bytes(wrong_type, first_payload, raw_sign(SIGNERS[AGENT], sig_structure(wrong_type, first_payload))),
+     "signature:header_profile", "Content type application/cbor instead of application/work-record+cbor."),
+    ("author-not-key-owner", ["P-105", "P-6"], AGENT, cose_bytes(foreign_protected, s_payload, foreign_signature),
+     "signature:kid_unknown", "The supplier's record signed with the agent's key and checked against the agent's keys: the record's author is not the key owner."),
+    ("untagged", ["P-6", "P-72"], AGENT, cose_bytes(ed_protected, first_payload, ed_signature)[1:],
+     "schema:container", "The first records.json container without tag 18."),
+]
+for name, rules, author, cose, reason, purpose in cose_rejects:
+    if name == "untagged":
+        case = {"id": "cose-sign1-reject/" + name, "rules": rules, "author": author, "purpose": purpose,
+                "cose_hex": cose.hex(), "expect": {"outcome": "reject", "reason": reason}}
+    else:
+        case = cose_case("cose-sign1-reject/" + name, rules, author, cose,
+                         {"outcome": "reject", "reason": reason}, purpose=purpose)
+    cose_cases.append(case)
+key_rejects = [
+    {"id": "key-reject/ed25519-non-canonical", "rules": ["P-7", "Access CR-9"], "alg": -19,
+     "public_key_hex": NON_CANONICAL_ONE.hex(), "expect": {"outcome": "reject", "reason": "signature:non_canonical_ed25519"}},
+    {"id": "key-reject/ed25519-identity", "rules": ["P-7", "Access CR-9", "Access CR-53"], "alg": -19,
+     "public_key_hex": IDENTITY.hex(), "expect": {"outcome": "reject", "reason": "signature:small_order_key"}},
+]
+write_json("cose-sign1.json", {
+    "file": "cose-sign1.json",
+    "notes": ["cose_hex is the full tagged WorkRecordCose; protected header {1: alg, 3: \"application/work-record+cbor\", 4: kid}, unprotected header empty (P-102)",
+              "a case is checked against the keys whose party is the case author, with Ed25519, ESP256 and ES256 allowed by policy; a valid signature names the record by record_id_hex = SHA-256(payload) and its envelope carries proof_commit_hex = SHA-256(cose_hex) (P-75, P-79)",
+              "Ed25519 signatures follow RFC 8032; ECDSA P-256 signatures are RFC 6979 deterministic with SHA-256 and low-S, as Work produces them (P-7)",
+              "the signed payloads are the records.json and records-quarantine.json records; a protocol 2.0 record's signature is valid and its author is not read (P-106)",
+              "key IDs are placeholders until Access fixes the kid derivation; COSE code points -19 and -9 follow Access (OQ-34)"],
+    "keys": [key_entry(party, signer) for party, signer in COSE_KEYS],
+    "cases": cose_cases,
+    "key_cases": key_rejects})
+
+
+# P-11 P-100 P-101 T-4 T-64
+def merkle_root(leaves):
+    if not leaves:
+        return sha(b"")
+    if len(leaves) == 1:
+        return sha(b"\x00" + leaves[0])
+    k = 1
+    while k * 2 < len(leaves):
+        k *= 2
+    return sha(b"\x01" + merkle_root(leaves[:k]) + merkle_root(leaves[k:]))
+
+
+def merkle_split(n):
+    k = 1
+    while k * 2 < n:
+        k *= 2
+    return k
+
+
+def inclusion_path(m, leaves):
+    if len(leaves) <= 1:
+        return []
+    k = merkle_split(len(leaves))
+    if m < k:
+        return inclusion_path(m, leaves[:k]) + [merkle_root(leaves[k:])]
+    return inclusion_path(m - k, leaves[k:]) + [merkle_root(leaves[:k])]
+
+
+def consistency_path(m, leaves, whole=True):
+    n = len(leaves)
+    if m == 0:
+        return []
+    if m == n:
+        return [] if whole else [merkle_root(leaves)]
+    k = merkle_split(n)
+    if m <= k:
+        return consistency_path(m, leaves[:k], whole) + [merkle_root(leaves[k:])]
+    return consistency_path(m - k, leaves[k:], False) + [merkle_root(leaves[:k])]
+
+
+log_leaves = [GENESIS_BYTES] + [bytes.fromhex(e["hex"]) for e in out_envs] + \
+    [bytes.fromhex(q["envelope"]["hex"]) for q in out_q]
+LOG_SIZE = len(log_leaves)
+leaf_hashes = [sha(b"\x00" + leaf) for leaf in log_leaves]
+assert leaf_hashes[0] == GENESIS_LEAF and [h.hex() for h in leaf_hashes[1:12]] == [e["leaf_hash"] for e in out_envs]
+roots = {n: merkle_root(log_leaves[:n]) for n in range(LOG_SIZE + 1)}
+MERKLE_RULES = ["P-11", "P-100", "P-101", "T-4"]
+
+
+def inclusion_case(m, n, path=None, root=None, expect=None, case_id=None):
+    return {"id": case_id or "inclusion/%d-of-%d" % (m, n), "rules": MERKLE_RULES, "index": m, "size": n,
+            "leaf_hash_hex": leaf_hashes[min(m, LOG_SIZE - 1)].hex(),
+            "path_hex": [h.hex() for h in (inclusion_path(m, log_leaves[:n]) if path is None else path)],
+            "root_hex": (roots[n] if root is None else root).hex(), "expect": expect or {"outcome": "accept"}}
+
+
+def consistency_case(m, n, path=None, second=None, expect=None, case_id=None):
+    return {"id": case_id or "consistency/%d-to-%d" % (m, n), "rules": MERKLE_RULES, "first": m, "second": n,
+            "first_root_hex": roots[min(m, LOG_SIZE)].hex(),
+            "second_root_hex": (roots[min(n, LOG_SIZE)] if second is None else second).hex(),
+            "path_hex": [h.hex() for h in (consistency_path(m, log_leaves[:n]) if path is None else path)],
+            "expect": expect or {"outcome": "accept"}}
+
+
+def proof_reject(code):
+    return {"outcome": "reject", "reason": code}
+
+
+inclusion_cases = [inclusion_case(m, LOG_SIZE) for m in range(LOG_SIZE)] + [inclusion_case(0, 1), inclusion_case(5, 8)]
+full_path = inclusion_path(5, log_leaves)
+inclusion_cases += [
+    inclusion_case(16, LOG_SIZE, root=roots[16], expect=proof_reject("proof-mismatch"), case_id="inclusion-reject/root-of-another-size"),
+    inclusion_case(LOG_SIZE, LOG_SIZE, path=[], expect=proof_reject("proof-range"), case_id="inclusion-reject/index-at-size"),
+    inclusion_case(5, LOG_SIZE, path=full_path[:-1], expect=proof_reject("proof-length"), case_id="inclusion-reject/path-too-short"),
+    inclusion_case(5, LOG_SIZE, path=full_path + [roots[1]], expect=proof_reject("proof-length"), case_id="inclusion-reject/path-too-long"),
+]
+consistency_cases = [consistency_case(m, LOG_SIZE) for m in (0, 1, 5, 8, 12, 16, 17)] + [consistency_case(3, 7)]
+consistency_cases += [
+    consistency_case(5, LOG_SIZE, second=roots[16], expect=proof_reject("proof-mismatch"), case_id="consistency-reject/wrong-second-root"),
+    consistency_case(LOG_SIZE, 16, path=[], expect=proof_reject("proof-range"), case_id="consistency-reject/first-above-second"),
+    consistency_case(8, LOG_SIZE, path=consistency_path(8, log_leaves) + [roots[1]], expect=proof_reject("proof-length"), case_id="consistency-reject/path-too-long"),
+]
+
+
+def note_key_id(name, kind, key):
+    return sha(name.encode() + bytes([0x0a, kind]) + key)[:4]
+
+
+def b64(b):
+    return base64.b64encode(b).decode()
+
+
+def vkey(name, kind, key):
+    return "%s+%s+%s" % (name, note_key_id(name, kind, key).hex(), b64(bytes([kind]) + key))
+
+
+def note_line(name, raw):
+    return "— %s %s\n" % (name, b64(raw))
+
+
+ORIGIN = "work.example/ledger/" + LEDGER[1].hex()
+LOG_SEED = RFC8032_SEEDS[2]
+WITNESS = "witness.example/w1"
+WITNESS_SEED = sha(b"work-vector:witness-seed:w1")
+log_public = ed25519(LOG_SEED, b"")[0]
+witness_public = ed25519(WITNESS_SEED, b"")[0]
+COSIGNED_AT = 1792109120
+
+
+def checkpoint_body(size, root):
+    return "%s\n%d\n%s\n" % (ORIGIN, size, b64(root))
+
+
+def log_signature(body):
+    return note_line(ORIGIN, note_key_id(ORIGIN, 0x01, log_public) + ed25519(LOG_SEED, body.encode())[1])
+
+
+def cosignature(body, at, signed_at=None):
+    message = ("cosignature/v1\ntime %d\n%s" % (at if signed_at is None else signed_at, body)).encode()
+    raw = note_key_id(WITNESS, 0x04, witness_public) + at.to_bytes(8, "big") + ed25519(WITNESS_SEED, message)[1]
+    return note_line(WITNESS, raw)
+
+
+body = checkpoint_body(LOG_SIZE, roots[LOG_SIZE])
+signed_note = body + "\n" + log_signature(body) + cosignature(body, COSIGNED_AT)
+checkpoint_cases = [
+    {"id": "checkpoint/log-and-witness", "rules": ["P-11", "P-20", "T-4", "T-64", "OP-33"], "origin": ORIGIN,
+     "note": signed_note,
+     "expect": {"outcome": "accept", "size": LOG_SIZE, "root_hex": roots[LOG_SIZE].hex(),
+                "cosignatures": [{"name": WITNESS, "timestamp": COSIGNED_AT}]}},
+    {"id": "checkpoint/log-only", "rules": ["P-11", "T-4", "T-64"], "origin": ORIGIN,
+     "note": body + "\n" + log_signature(body),
+     "expect": {"outcome": "accept", "size": LOG_SIZE, "root_hex": roots[LOG_SIZE].hex(), "cosignatures": []}},
+    {"id": "checkpoint-reject/size-changed", "rules": ["P-11", "T-4", "T-64"], "origin": ORIGIN,
+     "note": checkpoint_body(16, roots[LOG_SIZE]) + "\n" + log_signature(body) + cosignature(body, COSIGNED_AT),
+     "expect": {"outcome": "reject", "reason": "signature-invalid"}},
+    {"id": "checkpoint-reject/other-origin", "rules": ["P-11", "T-4", "T-64"], "origin": "work.example/ledger/other",
+     "note": signed_note, "expect": {"outcome": "reject", "reason": "checkpoint-malformed"}},
+    {"id": "checkpoint-reject/witness-only", "rules": ["P-20", "T-4", "T-64"], "origin": ORIGIN,
+     "note": body + "\n" + cosignature(body, COSIGNED_AT), "expect": {"outcome": "reject", "reason": "note-unverified"}},
+    {"id": "checkpoint-reject/cosignature-time-changed", "rules": ["P-20", "T-4", "T-64", "OP-33"], "origin": ORIGIN,
+     "note": body + "\n" + log_signature(body) + cosignature(body, COSIGNED_AT + 1, signed_at=COSIGNED_AT),
+     "expect": {"outcome": "reject", "reason": "signature-invalid"}},
+]
+write_json("merkle.json", {
+    "file": "merkle.json",
+    "notes": ["the leaves are the envelope bytes in ledger order: genesis.json genesis/accept at index 0, the records.json envelopes at 1 to 11 and the records-quarantine.json envelopes at 12 to 16; a record at pos p is leaf p",
+              "leaf hash = SHA-256(0x00 || envelope), node = SHA-256(0x01 || left || right), the empty tree is SHA-256(\"\") (RFC 9162 section 2.1, P-101)",
+              "inclusion and consistency proofs are RFC 9162 section 2.1.3 and 2.1.4 audit paths; reject codes are the suiss-crypto ProofError and NoteError codes",
+              "checkpoints are C2SP tlog-checkpoint bodies in C2SP signed notes, signed by the log key and cosigned with tlog-cosignature/v1; the log key is the RFC 8032 section 7.1 test 3 Ed25519 key, the witness key a work-vector seed",
+              "the origin line is a placeholder until the Work ledger origin name is fixed"],
+    "nodes": [{"id": "node/genesis-and-first", "rules": ["P-101"], "left_hex": leaf_hashes[0].hex(),
+               "right_hex": leaf_hashes[1].hex(), "prefix_hex": "01",
+               "digest_hex": sha(b"\x01" + leaf_hashes[0] + leaf_hashes[1]).hex()}],
+    "roots": [{"size": n, "root_hex": roots[n].hex()} for n in range(LOG_SIZE + 1)],
+    "inclusion": inclusion_cases,
+    "consistency": consistency_cases,
+    "keys": {"log": vkey(ORIGIN, 0x01, log_public), "witnesses": [vkey(WITNESS, 0x04, witness_public)]},
+    "checkpoints": checkpoint_cases})
+
+
+# EV-3 EV-4 EV-8 P-6 P-102
+statement = variant(rec_act["evidence"][0], signature=None)
+statement_bytes = enc(statement)
+presenter = SIGNERS[SUPPLIER]
+ev_protected, ev_signature = sign1(presenter, statement_bytes)
+ev_cose = cose_bytes(ev_protected, statement_bytes, ev_signature)
+check(ev_cose, allowed_tags=(18,))
+foreign_ev_protected, foreign_ev_signature = sign1(SIGNERS[AGENT], statement_bytes)
+foreign_ev_cose = cose_bytes(foreign_ev_protected, statement_bytes, foreign_ev_signature)
+
+
+def with_evidence(**changes):
+    return variant(rec_act, evidence=[variant(rec_act["evidence"][0], **changes)])
+
+
+EV_RULES = ["EV-3", "EV-8", "P-6", "P-102"]
+evidence_signed = [
+    ("presenter-signed", with_evidence(signature=[-16, sha(ev_cose)]), SUPPLIER, ev_cose,
+     {"outcome": "accept"}, "The records.json Act with its evidence reference signed by the presenting supplier over the statement."),
+    ("statement-changed", with_evidence(claimed_at=1792108700001, signature=[-16, sha(ev_cose)]), SUPPLIER, ev_cose,
+     {"outcome": "reject", "reason": "signature:invalid"}, "The record's statement has another claimed_at than the statement the presenter signed."),
+    ("signature-digest-mismatch", with_evidence(), SUPPLIER, ev_cose,
+     {"outcome": "reject", "reason": "signature:invalid"}, "The reference names another COSE_Sign1 than the one presented."),
+    ("presenter-not-key-owner", with_evidence(signature=[-16, sha(foreign_ev_cose)]), AGENT, foreign_ev_cose,
+     {"outcome": "reject", "reason": "signature:kid_unknown"}, "The agent signs a statement whose presenter is the supplier."),
+]
+evidence_cases = []
+for name, rec, party, cose, expect, purpose in evidence_signed:
+    b = enc(rec)
+    assert semantic(rec, ctx(rec)) == ("accept", None), name
+    write_cbor("SignedRecord", "evidence-" + name, b, "pass")
+    evidence_cases.append({"id": "evidence/" + name, "rules": EV_RULES, "purpose": purpose, "hex": b.hex(),
+                           "decoded": decoded(b), "record_digest": enc([-16, sha(b)]).hex(), "evidence_index": 0,
+                           "statement_hex": statement_bytes.hex(), "presenter": party, "cose_hex": cose.hex(),
+                           "cddl": "pass", "expect": expect})
+evidence_missing = [
+    ("subject-missing", with_evidence(subject=None)),
+    ("type-missing", with_evidence(type=None)),
+    ("presenter-missing", with_evidence(presenter=None)),
+    ("signature-missing", with_evidence(signature=None)),
+    ("subject-not-digest-or-id", with_evidence(subject=7)),
+]
+for name, rec in evidence_missing:
+    b = enc(rec)
+    check(b)
+    write_cbor("SignedRecord", "evidence-reject-" + name, b, "fail")
+    evidence_cases.append({"id": "evidence-reject/" + name, "rules": ["EV-3", "P-10", "P-11"], "hex": b.hex(),
+                           "decoded": decoded(b, rec), "cddl": "fail",
+                           "expect": {"outcome": "reject", "reason": "schema:required_field"}})
+write_json("evidence.json", {
+    "file": "evidence.json",
+    "notes": ["the presenter signs the EvidenceStatement: the det-CBOR of the evidence reference without its signature field, statement_hex; signature in the reference is SHA-256 of the presenter's full tagged COSE_Sign1 bytes, cose_hex",
+              "the presenter's COSE_Sign1 uses the Work record profile of P-102, protected header {1: alg, 3: \"application/work-record+cbor\", 4: kid}; the keys are those of cose-sign1.json",
+              "a signed case is checked against the keys of its presenter party with Ed25519, ESP256 and ES256 allowed; evidence-reject cases are records the decoder rejects"],
+    "cases": evidence_cases})
 
 if CBOR_OUT is not None:
     with open(os.path.join(CBOR_OUT, "manifest"), "w") as f:

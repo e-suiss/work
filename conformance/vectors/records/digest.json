@@ -32,7 +32,7 @@
       ],
       "input": "records.json envelope/declaration-promise-for-principal hex",
       "prefix_hex": "00",
-      "digest_hex": "61361943266af03fb142777a3434cd3903729fbddc639a145733054c49650dc2"
+      "digest_hex": "a84f865c1be145527f9522de54cd057370c3093b9d43f6781afd71d896f6ff55"
     },
     {
       "id": "digest/body-commit-0x03",
