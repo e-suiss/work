@@ -46,12 +46,12 @@ impl RoughtimeUdp {
 
     async fn exchange(&self, server: &RoughtimeServer) -> Result<RoughtimeAnswer, QueryError> {
         let fail = |what: &str, e: &dyn std::fmt::Display| QueryError(format!("{what}: {e}"));
-        let mut nonce = [0_u8; 32];
+        let mut challenge = [0_u8; 32];
         rustls::crypto::aws_lc_rs::default_provider()
             .secure_random
-            .fill(&mut nonce)
+            .fill(&mut challenge)
             .map_err(|_| QueryError("nonce: no randomness".to_owned()))?;
-        let request = wire::request(server.version, &nonce, &server.public_key)
+        let request = wire::request(server.version, &challenge, &server.public_key)
             .map_err(|e| fail("request", &e))?;
         let peer = tokio::net::lookup_host(server.address.as_str())
             .await
@@ -77,7 +77,7 @@ impl RoughtimeUdp {
             .map_err(|e| fail("receive", &e))?;
         let received = self.mono.now_ms();
         let packet = buf.get(..n).unwrap_or_default();
-        let verified = wire::verify(server.version, &server.public_key, &nonce, packet)
+        let verified = wire::verify(server.version, &server.public_key, &request, packet)
             .map_err(|e| fail("verify", &e))?;
         Ok(RoughtimeAnswer {
             midpoint_ms: verified.midpoint_s.saturating_mul(1_000),

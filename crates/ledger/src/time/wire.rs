@@ -1,7 +1,8 @@
 //! Roughtime requests and response verification for the RFC version and draft-11 (OP-42 item 3),
 //! on `roughenough-protocol`: framing, the tag header, nested value lookup and the RFC request
 //! come from it; draft-11 differs in its signature context strings, its top-level `VER` and the
-//! absent `TYPE`, so one verifier serves both with the version's parameters.
+//! absent `TYPE`, and RFC hashes the whole request into the Merkle tree where draft-11 hashes
+//! the nonce, so one verifier serves both with the version's parameters.
 
 use roughenough_protocol::header::{RawHeader, find_value_range};
 use roughenough_protocol::request::Request;
@@ -99,29 +100,30 @@ pub(crate) fn srv(public_key: &[u8; 32]) -> [u8; 32] {
     h(&[&[0xff], public_key])
 }
 
-/// The framed 1024-byte request for `version` carrying `nonce` and the `SRV` of `public_key`.
+/// The framed 1024-byte request for `version` carrying the nonce `challenge` and the `SRV` of
+/// `public_key`.
 ///
 /// # Errors
 /// [`WireError::Encode`] when the RFC request does not encode.
 pub(crate) fn request(
     version: Version,
-    nonce: &[u8; 32],
+    challenge: &[u8; 32],
     public_key: &[u8; 32],
 ) -> Result<Vec<u8>, WireError> {
     let commitment = srv(public_key);
     match version {
         Version::Rfc => Request::new_with_server_and_versions(
-            &Nonce::from(*nonce),
+            &Nonce::from(*challenge),
             &SrvCommitment::from(commitment),
             &[ProtocolVersion::RFC],
         )
         .as_frame_bytes()
         .map_err(WireError::Encode),
-        Version::Draft11 => Ok(draft_11_request(nonce, &commitment)),
+        Version::Draft11 => Ok(draft_11_request(challenge, &commitment)),
     }
 }
 
-fn draft_11_request(nonce: &[u8; 32], commitment: &[u8; 32]) -> Vec<u8> {
+fn draft_11_request(challenge: &[u8; 32], commitment: &[u8; 32]) -> Vec<u8> {
     let tags: [&[u8; 4]; 4] = [b"VER\0", b"SRV\0", b"NONC", b"ZZZZ"];
     let mut out = Vec::with_capacity(REQUEST_SIZE);
     out.extend_from_slice(&FRAME_MAGIC.to_be_bytes());
@@ -135,7 +137,7 @@ fn draft_11_request(nonce: &[u8; 32], commitment: &[u8; 32]) -> Vec<u8> {
     }
     out.extend_from_slice(&DRAFT_11.to_le_bytes());
     out.extend_from_slice(commitment);
-    out.extend_from_slice(nonce);
+    out.extend_from_slice(challenge);
     out.resize(REQUEST_SIZE, 0);
     out
 }
@@ -188,12 +190,12 @@ fn verify_signature(
     ed25519(&PureBackend, key, &msg, signature).map_err(|e| WireError::Signature(which, e))
 }
 
-fn merkle_root(nonce: &[u8; 32], index: u32, path: &[u8]) -> Result<[u8; 32], WireError> {
+fn merkle_root(leaf: &[u8], index: u32, path: &[u8]) -> Result<[u8; 32], WireError> {
     let (nodes, rest) = path.as_chunks::<32>();
     if !rest.is_empty() {
         return Err(WireError::Malformed("PATH length"));
     }
-    let mut hash = h(&[&[0x00], nonce]);
+    let mut hash = h(&[&[0x00], leaf]);
     let mut index = index;
     for node in nodes {
         hash = if index & 1 == 0 {
@@ -209,18 +211,21 @@ fn merkle_root(nonce: &[u8; 32], index: u32, path: &[u8]) -> Result<[u8; 32], Wi
     Ok(hash)
 }
 
-/// Verifies `packet` as `version`'s answer to `nonce` from the server whose long-term key is
-/// `public_key`: the delegation signed by the long-term key, the signed response signed by the
-/// delegated key, the nonce in the signed Merkle tree and the midpoint inside the delegation.
+/// Verifies `packet` as `version`'s answer to the framed `request` from the server whose
+/// long-term key is `public_key`: the delegation signed by the long-term key, the signed response
+/// signed by the delegated key, the request (RFC) or its nonce (draft-11) in the signed Merkle
+/// tree and the midpoint inside the delegation.
 ///
 /// # Errors
 /// [`WireError`] naming the first check that failed.
 pub(crate) fn verify(
     version: Version,
     public_key: &[u8; 32],
-    nonce: &[u8; 32],
+    request: &[u8],
     packet: &[u8],
 ) -> Result<Verified, WireError> {
+    let asked = message(request)?;
+    let nonce = value(asked, &[Tag::NONC])?;
     let msg = message(packet)?;
     match version {
         Version::Rfc => {
@@ -264,7 +269,11 @@ pub(crate) fn verify(
     )?;
     let root: [u8; 32] = fixed(value(srep, &[Tag::ROOT])?, "ROOT")?;
     let index = u32_of(msg, &[Tag::INDX], "INDX")?;
-    if merkle_root(nonce, index, value(msg, &[Tag::PATH])?)? != root {
+    let leaf = match version {
+        Version::Rfc => request,
+        Version::Draft11 => nonce,
+    };
+    if merkle_root(leaf, index, value(msg, &[Tag::PATH])?)? != root {
         return Err(WireError::Merkle);
     }
     let midpoint_s = u64_of(srep, &[Tag::MIDP], "MIDP")?;
