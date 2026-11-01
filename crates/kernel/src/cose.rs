@@ -1,4 +1,4 @@
-//! `COSE_Sign1` author signatures of Work records through the shared crate's parser and verifier with its pure backend (P-6, P-7, P-8, P-79, P-102, P-105, Access CR-9): the protected header is exactly `{1: alg, 3: "application/work-record+cbor", 4: kid}` of the normative CDDL, the algorithm must be in the caller's policy, a Work record's ECDSA signature must be low-S, a verified record is named by the unprefixed digest of its payload, and its own `author` must be the Party the keys are bound to.
+//! `COSE_Sign1` author signatures of Work records through the shared crate's parser and verifier with its pure backend (P-6, P-7, P-8, P-79, P-102, P-105, P-106, Access CR-9): the protected header is exactly `{1: alg, 3: "application/work-record+cbor", 4: kid}` of the normative CDDL, the algorithm must be in the caller's policy, a Work record's ECDSA signature must be low-S, a verified record is named by the unprefixed digest of its payload, and a protocol 1.0 record's own `author` must be the Party the keys are bound to.
 
 use alloc::vec::Vec;
 
@@ -94,7 +94,7 @@ pub fn verify_record_signature(bytes: &[u8], keys: &KeySet) -> Result<SignedPayl
     })
 }
 
-/// The signature port over the shared verifier for one author: `keys` holds the keys Access binds to `author` and the algorithms the caller's policy allows, so a `kid` that is not bound to `author`, or a protocol 1.0 record whose own `author` is another Party, is `signature:kid_unknown`; a payload that does not decode is rejected with its decoding reason, and a record of a protocol version without a rule set is not read further (P-6, P-8, P-21 item 1, P-79, P-94, P-105).
+/// The signature port over the shared verifier for one author: `keys` holds the keys Access binds to `author` and the algorithms the caller's policy allows, so a `kid` that is not bound to `author`, or a protocol 1.0 record whose own `author` is another Party, is `signature:kid_unknown`; a payload that does not decode as a record is rejected with its decoding reason, and a record of a protocol version without a rule set is valid with its author not read (P-6, P-8, P-21 item 1, P-79, P-94, P-105, P-106).
 #[derive(Clone, Copy, Debug)]
 pub struct AuthorKeys<'a> {
     /// The Party the keys are bound to.
@@ -114,10 +114,12 @@ impl SignatureVerifier for AuthorKeys<'_> {
             Ok(Decoded::Record(record)) if record.core().author != *self.author => {
                 SignatureCheck::Rejected(signature(Signature::KidUnknown))
             }
+            // P-106
             Ok(_) => SignatureCheck::Valid {
                 record: record_id(&signed.payload),
                 author: self.author.clone(),
             },
+            // P-106
             Err(reason) => SignatureCheck::Rejected(reason),
         }
     }

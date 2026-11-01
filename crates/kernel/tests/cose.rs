@@ -1,4 +1,4 @@
-//! Record signatures through the kernel's `COSE_Sign1` profile over the shared crate (P-6, P-7, P-102, P-105, Access CR-9): the signed payload is the first `records.json` record, or that record with its `author` replaced by a Party of the same length; the Ed25519 key is the RFC 8032 test 1 key and the P-256 key the RFC 6979 A.2.5 key, both signing deterministically.
+//! Record signatures through the kernel's `COSE_Sign1` profile over the shared crate (P-6, P-7, P-102, P-105, P-106, Access CR-9): the signed payload is the first `records.json` record, that record with its `author` replaced by a Party of the same length, that record also carrying protocol 2.0, or the CBOR text `"hello"`; the Ed25519 key is the RFC 8032 test 1 key and the P-256 key the RFC 6979 A.2.5 key, both signing deterministically.
 
 #![allow(
     clippy::unwrap_used,
@@ -18,7 +18,10 @@ use work_kernel::cose::{
 };
 use work_kernel::id::PartyRef;
 use work_kernel::reason::{Reason, Schema, Signature};
-use work_kernel::verify::{AuthorBinding, VerifyOutcome, verify_signed};
+use work_kernel::record::ProtocolVersion;
+use work_kernel::verify::{
+    AuthorBinding, SignatureCheck, SignatureVerifier, VerifyOutcome, verify_signed,
+};
 
 const RECORDS: &str = include_str!("../../../conformance/vectors/records/records.json");
 const ED25519_PUBLIC: &str = "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a";
@@ -26,6 +29,10 @@ const ED25519_SIGNATURE: &str = "e0000f0e3c44364b7848ba4e4df7c3089e045c6f64fd9c7
 const ED25519_OTHER_AUTHOR_SIGNATURE: &str = "f084ec7e58875d9ae13c13f17fa90e88a987ca68217d8ffc4ccb76713fca9ea27085c827066ea000797c62b4562c1244246697ea1353fd9043e5890c3d7bd904";
 const AUTHOR: &str = "party:acme:agent-procure-7";
 const OTHER_AUTHOR: &str = "party:acme:agent-procure-8";
+const ED25519_UNKNOWN_PROTOCOL_SIGNATURE: &str = "21aae3c83ddf8ff8c681e28365523da6ec01973b145cab0ec3041abbe9ef2584cb7e4e15d5c7829cd0b7f89a77b9fd0add06819ca24bc5fa853221d91632a303";
+const ED25519_TEXT_SIGNATURE: &str = "364827975ea7eac8d021523721ff52640a09c4575ca513162fc31b034087a47cd4712822d917c9f9272a174e80c39bdd67aa0e9967c7f29095f3d9502550880e";
+const PROTOCOL_1_0: &[u8] = b"protocol\x82\x01\x00";
+const PROTOCOL_2_0: &[u8] = b"protocol\x82\x02\x00";
 const P256_PUBLIC: &str = "0460fed4ba255a9d31c961eb74c6356d68c049b8923b61fa6ce669622e60f29fb67903fe1008b8bc99a41ae9e95628bc64f2f1b20c2d7e9f5177a3c294d4462299";
 const ESP256_LOW_S: &str = "6feff64a6bbe55e7cf4120a75c1b21d20c63672ac2031cebe2bcbba7e1671c7565cdbc725467c5a064ff31a1bd2d38a3c8e784d2c0e59a7c098b729cf0706d3f";
 const ESP256_HIGH_S: &str = "6feff64a6bbe55e7cf4120a75c1b21d20c63672ac2031cebe2bcbba7e1671c759a32438cab983a609b00ce5e42d2c75bf3ff75dae6320408ea2e58260bf2b812";
@@ -355,17 +362,24 @@ fn p_8_the_shared_verifier_fills_the_signature_port_and_names_the_record_by_its_
     );
 }
 
-fn other_author_payload() -> Vec<u8> {
-    let original = payload();
+fn spliced(original: &[u8], from: &[u8], to: &[u8]) -> Vec<u8> {
     let at = original
-        .windows(AUTHOR.len())
-        .position(|w| w == AUTHOR.as_bytes())
+        .windows(from.len())
+        .position(|w| w == from)
         .unwrap();
     let (head, tail) = original.split_at(at);
     let mut out = head.to_vec();
-    out.extend_from_slice(OTHER_AUTHOR.as_bytes());
-    out.extend_from_slice(&tail[AUTHOR.len()..]);
+    out.extend_from_slice(to);
+    out.extend_from_slice(tail.strip_prefix(from).unwrap());
     out
+}
+
+fn other_author_payload() -> Vec<u8> {
+    spliced(&payload(), AUTHOR.as_bytes(), OTHER_AUTHOR.as_bytes())
+}
+
+fn unknown_protocol_payload() -> Vec<u8> {
+    spliced(&other_author_payload(), PROTOCOL_1_0, PROTOCOL_2_0)
 }
 
 // P-105 P-6 P-8 P-21
@@ -410,4 +424,56 @@ fn p_105_a_record_whose_author_is_not_the_key_owner_is_kid_unknown() {
     };
     assert_eq!(verified.author, party_b);
     assert_eq!(verified.record, record_id(&other_author_payload()));
+}
+
+// P-106 P-94
+#[test]
+fn p_106_an_unknown_protocol_record_is_valid_without_reading_its_author() {
+    let party_a = PartyRef::new(AUTHOR).unwrap();
+    let keys = all();
+    let port_a = AuthorKeys {
+        author: &party_a,
+        keys: &keys,
+    };
+    let unknown = unknown_protocol_payload();
+    assert_eq!(
+        decode_record(&unknown),
+        Ok(Decoded::UnknownProtocol(ProtocolVersion { major: 2, minor: 0 }))
+    );
+    let message = framed(
+        &profile(-19, &ED_KID),
+        &Value::Map(Vec::new()),
+        Some(&unknown),
+        &hex(ED25519_UNKNOWN_PROTOCOL_SIGNATURE),
+    );
+    assert_eq!(
+        port_a.check(&message),
+        SignatureCheck::Valid {
+            record: record_id(&unknown),
+            author: party_a,
+        }
+    );
+}
+
+// P-106 P-7
+#[test]
+fn p_106_a_signed_payload_that_is_not_a_record_keeps_its_decoding_reason() {
+    let author = PartyRef::new(AUTHOR).unwrap();
+    let keys = all();
+    let port = AuthorKeys {
+        author: &author,
+        keys: &keys,
+    };
+    let text = cbor(&Value::text("hello"));
+    let message = framed(
+        &profile(-19, &ED_KID),
+        &Value::Map(Vec::new()),
+        Some(&text),
+        &hex(ED25519_TEXT_SIGNATURE),
+    );
+    assert!(verify_record_signature(&message, &keys).is_ok());
+    assert_eq!(
+        port.check(&message),
+        SignatureCheck::Rejected(Reason::Schema(Schema::RequiredField))
+    );
 }
