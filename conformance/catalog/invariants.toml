@@ -1704,7 +1704,10 @@ family = "P"
 status = "canonical-invariant"
 stage = 2
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/ledger_vectors.rs::t_4_checkpoint_and_cosignature_vectors_through_the_kernel_verifier",
+  "crates/kernel/tests/ledger_vectors.rs::t_4_every_entry_is_included_in_the_cosigned_checkpoint",
+]
 
 [[rule]]
 id = "P-22"
@@ -1931,6 +1934,10 @@ tests = [
   "crates/kernel/tests/derivation.rs::t_4_p_87_record_newer_than_the_active_protocol_has_no_effect",
   "crates/kernel/tests/derivation.rs::t_4_p_87_unknown_protocol_version_is_quarantined_in_derivation",
   "crates/kernel/tests/derivation.rs::t_4_position_overflow_is_a_typed_error",
+  "crates/kernel/tests/ledger_vectors.rs::p_101_merkle_node_and_root_vectors_through_the_shared_crate",
+  "crates/kernel/tests/ledger_vectors.rs::t_4_checkpoint_and_cosignature_vectors_through_the_kernel_verifier",
+  "crates/kernel/tests/ledger_vectors.rs::t_4_every_entry_is_included_in_the_cosigned_checkpoint",
+  "crates/kernel/tests/ledger_vectors.rs::t_4_inclusion_and_consistency_vectors_through_the_kernel_verifier",
   "crates/kernel/tests/properties.rs::t_4_position_overflow_is_typed",
   "crates/kernel/tests/records.rs::t_4_p_87_unknown_protocol_version_is_quarantined_before_any_rule",
   "crates/kernel/tests/records.rs::t_4_rule_set_is_selected_from_the_record_version_only",

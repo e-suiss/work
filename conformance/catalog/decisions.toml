@@ -2571,6 +2571,8 @@ acceptance = "to-fill"
 title = ""
 tests = [
   "crates/kernel/tests/records.rs::p_7_cddl_string_bounds_are_enforced",
+  "crates/kernel/tests/signature_vectors.rs::ev_3_a_record_without_the_evidence_reference_has_no_statement",
+  "crates/kernel/tests/signature_vectors.rs::ev_3_evidence_vectors_bind_the_presenter_signature_to_the_statement",
 ]
 
 [[rule]]
@@ -2596,7 +2598,9 @@ family = "EV"
 status = "frozen-product"
 stage = 2
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/signature_vectors.rs::ev_3_evidence_vectors_bind_the_presenter_signature_to_the_statement",
+]
 
 [[rule]]
 id = "EV-10"
@@ -2941,6 +2945,10 @@ tests = [
   "crates/kernel/tests/cose.rs::p_6_headers_outside_the_profile_are_header_profile",
   "crates/kernel/tests/cose.rs::p_6_only_a_tagged_attached_cose_sign1_is_a_record_container",
   "crates/kernel/tests/cose.rs::p_6_the_algorithm_comes_from_policy_never_from_the_header",
+  "crates/kernel/tests/cose.rs::p_6_two_containers_of_one_record_name_one_record",
+  "crates/kernel/tests/signature_vectors.rs::ev_3_evidence_vectors_bind_the_presenter_signature_to_the_statement",
+  "crates/kernel/tests/signature_vectors.rs::p_32_cose_sign1_vectors_through_the_kernel_signature_port",
+  "crates/kernel/tests/signature_vectors.rs::p_6_the_container_is_not_semantic",
 ]
 
 [[rule]]
@@ -2956,12 +2964,16 @@ tests = [
   "crates/kernel/src/verify.rs::p_6_rejected_signature_carries_its_detail",
   "crates/kernel/tests/codec_vectors.rs::p_104_large_part_vectors_commit_to_the_digest_of_their_content",
   "crates/kernel/tests/codec_vectors.rs::p_5_cbor_canonical_vectors_through_the_shared_decoder",
+  "crates/kernel/tests/cose.rs::p_103_a_small_order_r_and_an_out_of_range_ecdsa_scalar_are_invalid",
   "crates/kernel/tests/cose.rs::p_106_a_signed_payload_that_is_not_a_record_keeps_its_decoding_reason",
   "crates/kernel/tests/cose.rs::p_6_esp256_and_es256_verify_with_low_s",
+  "crates/kernel/tests/cose.rs::p_7_a_non_canonical_r_or_key_is_non_canonical_ed25519",
   "crates/kernel/tests/cose.rs::p_7_high_s_ecdsa_on_a_work_record_is_rejected",
   "crates/kernel/tests/cose.rs::p_7_non_canonical_ed25519_signatures_and_small_order_keys_are_rejected",
   "crates/kernel/tests/records.rs::p_7_cddl_list_and_map_bounds_reject_one_more_than_256",
   "crates/kernel/tests/records.rs::p_7_cddl_string_bounds_are_enforced",
+  "crates/kernel/tests/signature_vectors.rs::p_32_cose_sign1_vectors_through_the_kernel_signature_port",
+  "crates/kernel/tests/signature_vectors.rs::p_7_key_vectors_are_rejected_with_their_detail",
   "xtask/src/supply_chain.rs::t_33_serde_json_with_unbounded_depth_is_rejected",
 ]
 
@@ -2989,6 +3001,7 @@ tests = [
   "crates/kernel/tests/record_vectors.rs::p_11_accepted_record_vectors",
   "crates/kernel/tests/records.rs::p_10_declaration_occurred_at_is_optional",
   "crates/kernel/tests/records.rs::p_9_vector_examples_are_accepted",
+  "crates/kernel/tests/signature_vectors.rs::ev_3_a_record_without_the_evidence_reference_has_no_statement",
 ]
 
 [[rule]]
@@ -3004,6 +3017,10 @@ tests = [
   "crates/kernel/tests/codec_vectors.rs::p_100_envelope_vectors_decode_and_chain_from_the_genesis",
   "crates/kernel/tests/codec_vectors.rs::p_100_genesis_vectors_select_the_schema_by_position",
   "crates/kernel/tests/derivation.rs::p_11_ledger_order_violations_are_errors",
+  "crates/kernel/tests/ledger_vectors.rs::t_10_an_entry_that_does_not_match_its_bytes_is_an_envelope_mismatch",
+  "crates/kernel/tests/ledger_vectors.rs::t_10_the_verifier_recomputes_every_record_id_from_the_stored_bytes",
+  "crates/kernel/tests/ledger_vectors.rs::t_4_every_entry_is_included_in_the_cosigned_checkpoint",
+  "crates/kernel/tests/ledger_vectors.rs::t_4_inclusion_and_consistency_vectors_through_the_kernel_verifier",
   "crates/kernel/tests/record_vectors.rs::p_11_accepted_record_vectors",
   "crates/ledger/src/envelope.rs::p_100_every_golden_envelope_is_sealed_from_its_slot",
   "sdks/bindings/core/tests/reason_codes.rs::t_69_typescript_reason_codes_are_the_kernel_codes",
@@ -3082,6 +3099,7 @@ tests = [
   "crates/kernel/tests/codec_vectors.rs::p_100_envelope_vectors_decode_and_chain_from_the_genesis",
   "crates/kernel/tests/cose.rs::p_105_a_record_whose_author_is_not_the_key_owner_is_kid_unknown",
   "crates/kernel/tests/cose.rs::p_8_the_shared_verifier_fills_the_signature_port_and_names_the_record_by_its_payload",
+  "crates/kernel/tests/ledger_vectors.rs::t_10_the_verifier_recomputes_every_record_id_from_the_stored_bytes",
 ]
 
 [[rule]]
@@ -3120,7 +3138,10 @@ status = "frozen-technical"
 stage = 1
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/signature_vectors.rs::p_32_cose_sign1_vectors_through_the_kernel_signature_port",
+  "crates/kernel/tests/signature_vectors.rs::p_7_key_vectors_are_rejected_with_their_detail",
+]
 
 [[rule]]
 id = "P-33"
@@ -3519,6 +3540,10 @@ tests = [
   "crates/kernel/src/codec/mod.rs::p_79_record_id_ledger_id_and_proof_commit_are_unprefixed_sha_256",
   "crates/kernel/tests/codec_vectors.rs::p_100_envelope_vectors_decode_and_chain_from_the_genesis",
   "crates/kernel/tests/codec_vectors.rs::p_75_proof_commit_is_the_digest_of_the_cose_sign1_bytes_as_received",
+  "crates/kernel/tests/cose.rs::p_6_two_containers_of_one_record_name_one_record",
+  "crates/kernel/tests/ledger_vectors.rs::t_10_an_entry_that_does_not_match_its_bytes_is_an_envelope_mismatch",
+  "crates/kernel/tests/ledger_vectors.rs::t_10_the_verifier_recomputes_every_record_id_from_the_stored_bytes",
+  "crates/kernel/tests/signature_vectors.rs::p_75_every_envelope_proof_commit_is_the_digest_of_a_vector_signature",
   "crates/ledger/src/envelope.rs::p_100_every_golden_envelope_is_sealed_from_its_slot",
 ]
 
@@ -3531,6 +3556,7 @@ acceptance = "filled"
 title = ""
 tests = [
   "crates/kernel/tests/codec_vectors.rs::p_75_proof_commit_is_the_digest_of_the_cose_sign1_bytes_as_received",
+  "crates/kernel/tests/signature_vectors.rs::p_75_every_envelope_proof_commit_is_the_digest_of_a_vector_signature",
 ]
 
 [[rule]]
@@ -3572,7 +3598,13 @@ tests = [
   "crates/kernel/tests/codec_vectors.rs::p_75_proof_commit_is_the_digest_of_the_cose_sign1_bytes_as_received",
   "crates/kernel/tests/codec_vectors.rs::p_79_record_ids_are_the_unprefixed_digest_of_the_signed_record_bytes",
   "crates/kernel/tests/cose.rs::p_6_ed25519_record_signature_verifies_over_the_signed_record_bytes",
+  "crates/kernel/tests/cose.rs::p_6_two_containers_of_one_record_name_one_record",
   "crates/kernel/tests/cose.rs::p_8_the_shared_verifier_fills_the_signature_port_and_names_the_record_by_its_payload",
+  "crates/kernel/tests/ledger_vectors.rs::t_10_an_entry_that_does_not_match_its_bytes_is_an_envelope_mismatch",
+  "crates/kernel/tests/ledger_vectors.rs::t_10_the_verifier_recomputes_every_record_id_from_the_stored_bytes",
+  "crates/kernel/tests/signature_vectors.rs::p_6_the_container_is_not_semantic",
+  "crates/kernel/tests/signature_vectors.rs::p_75_every_envelope_proof_commit_is_the_digest_of_a_vector_signature",
+  "crates/ledger/src/envelope.rs::t_10_the_pending_record_id_is_recomputed_from_its_bytes",
   "sdks/bindings/core/tests/vectors.rs::p_67_digests_are_encoded_as_the_sha_256_label_and_32_bytes",
 ]
 
@@ -3847,6 +3879,8 @@ tests = [
   "crates/kernel/tests/codec_vectors.rs::p_100_genesis_vectors_select_the_schema_by_position",
   "crates/kernel/tests/codec_vectors.rs::p_100_ledger_id_is_the_unprefixed_genesis_digest_named_by_every_envelope",
   "crates/kernel/tests/codec_vectors.rs::p_101_leaf_hash_vector_uses_the_shared_prefix_0x00",
+  "crates/kernel/tests/ledger_vectors.rs::p_101_merkle_node_and_root_vectors_through_the_shared_crate",
+  "crates/kernel/tests/ledger_vectors.rs::t_10_the_verifier_recomputes_every_record_id_from_the_stored_bytes",
   "crates/ledger/src/envelope.rs::p_100_every_golden_envelope_is_sealed_from_its_slot",
   "crates/ledger/src/genesis.rs::p_100_genesis_matches_the_golden_vector",
 ]
@@ -3867,6 +3901,9 @@ tests = [
   "crates/kernel/tests/codec_vectors.rs::p_101_leaf_hash_vector_uses_the_shared_prefix_0x00",
   "crates/kernel/tests/codec_vectors.rs::p_104_large_part_vectors_commit_to_the_digest_of_their_content",
   "crates/kernel/tests/codec_vectors.rs::p_79_record_ids_are_the_unprefixed_digest_of_the_signed_record_bytes",
+  "crates/kernel/tests/ledger_vectors.rs::p_101_merkle_node_and_root_vectors_through_the_shared_crate",
+  "crates/kernel/tests/ledger_vectors.rs::t_4_every_entry_is_included_in_the_cosigned_checkpoint",
+  "crates/kernel/tests/ledger_vectors.rs::t_4_inclusion_and_consistency_vectors_through_the_kernel_verifier",
   "crates/ledger/src/envelope.rs::p_100_every_golden_envelope_is_sealed_from_its_slot",
   "crates/ledger/src/genesis.rs::p_100_genesis_matches_the_golden_vector",
 ]
@@ -3880,6 +3917,8 @@ acceptance = "to-fill"
 title = ""
 tests = [
   "crates/kernel/tests/cose.rs::p_102_the_protected_header_carries_the_work_record_content_type",
+  "crates/kernel/tests/signature_vectors.rs::ev_3_evidence_vectors_bind_the_presenter_signature_to_the_statement",
+  "crates/kernel/tests/signature_vectors.rs::p_32_cose_sign1_vectors_through_the_kernel_signature_port",
 ]
 
 [[rule]]
@@ -3892,6 +3931,8 @@ title = ""
 tests = [
   "crates/kernel/src/codec/mod.rs::p_5_every_shared_decoder_error_has_a_work_code",
   "crates/kernel/tests/codec_vectors.rs::p_5_cbor_canonical_vectors_through_the_shared_decoder",
+  "crates/kernel/tests/cose.rs::p_103_a_small_order_r_and_an_out_of_range_ecdsa_scalar_are_invalid",
+  "crates/kernel/tests/signature_vectors.rs::p_32_cose_sign1_vectors_through_the_kernel_signature_port",
 ]
 
 [[rule]]
@@ -3915,6 +3956,7 @@ acceptance = "to-fill"
 title = ""
 tests = [
   "crates/kernel/tests/cose.rs::p_105_a_record_whose_author_is_not_the_key_owner_is_kid_unknown",
+  "crates/kernel/tests/signature_vectors.rs::p_32_cose_sign1_vectors_through_the_kernel_signature_port",
 ]
 
 [[rule]]
@@ -3927,6 +3969,7 @@ title = ""
 tests = [
   "crates/kernel/tests/cose.rs::p_106_a_signed_payload_that_is_not_a_record_keeps_its_decoding_reason",
   "crates/kernel/tests/cose.rs::p_106_an_unknown_protocol_record_is_valid_without_reading_its_author",
+  "crates/kernel/tests/signature_vectors.rs::p_32_cose_sign1_vectors_through_the_kernel_signature_port",
 ]
 
 [[rule]]
@@ -4093,6 +4136,9 @@ status = "frozen-technical"
 acceptance = "to-fill"
 title = ""
 tests = [
+  "crates/kernel/tests/ledger_vectors.rs::t_10_an_entry_that_does_not_match_its_bytes_is_an_envelope_mismatch",
+  "crates/kernel/tests/ledger_vectors.rs::t_10_the_verifier_recomputes_every_record_id_from_the_stored_bytes",
+  "crates/ledger/src/envelope.rs::t_10_the_pending_record_id_is_recomputed_from_its_bytes",
   "xtask/src/rules_derived.rs::t_75_tables_without_a_valid_label_are_rejected",
 ]
 
@@ -4812,7 +4858,9 @@ family = "T"
 status = "frozen-technical"
 acceptance = "filled"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/ledger_vectors.rs::t_4_checkpoint_and_cosignature_vectors_through_the_kernel_verifier",
+]
 
 [[rule]]
 id = "T-65"
@@ -5303,7 +5351,9 @@ status = "frozen-technical"
 acceptance = "to-fill"
 pd = "set"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/ledger_vectors.rs::t_4_checkpoint_and_cosignature_vectors_through_the_kernel_verifier",
+]
 
 [[rule]]
 id = "OP-34"
