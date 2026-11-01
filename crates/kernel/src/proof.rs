@@ -118,7 +118,12 @@ impl SignedCheckpoint {
     /// # Errors
     ///
     /// A [`verify_inclusion`] error.
-    pub fn includes(&self, position: u64, leaf: &Digest, path: &[Digest]) -> Result<(), ProofError> {
+    pub fn includes(
+        &self,
+        position: u64,
+        leaf: &Digest,
+        path: &[Digest],
+    ) -> Result<(), ProofError> {
         verify_inclusion(position, self.size(), leaf, path, &self.root())
     }
 

@@ -268,7 +268,10 @@ fn p_101_merkle_node_and_root_vectors_through_the_shared_crate() {
     let merkle = file(MERKLE);
     let node = &merkle["nodes"][0];
     assert_eq!(
-        node_hash(&digest_of(&node["left_hex"]), &digest_of(&node["right_hex"])),
+        node_hash(
+            &digest_of(&node["left_hex"]),
+            &digest_of(&node["right_hex"])
+        ),
         digest_of(&node["digest_hex"])
     );
     let genesis = genesis_bytes();
@@ -378,7 +381,10 @@ fn t_4_every_entry_is_included_in_the_cosigned_checkpoint() {
             .find(|c| c["index"] == position && c["size"] == signed.size())
             .unwrap();
         let path = digests(&case["path_hex"]);
-        assert_eq!(signed.includes(position, &leaf_hash(&envelope), &path), Ok(()));
+        assert_eq!(
+            signed.includes(position, &leaf_hash(&envelope), &path),
+            Ok(())
+        );
         included += 1;
     }
     assert_eq!(included, 17);

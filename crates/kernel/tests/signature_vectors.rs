@@ -106,7 +106,12 @@ fn p_32_cose_sign1_vectors_through_the_kernel_signature_port() {
         let check = port.check(&cose);
         assert_eq!(check_outcome(&check), case["expect"], "{}", case["id"]);
         if let SignatureCheck::Valid { record, .. } = check {
-            assert_eq!(record.0, digest_of(&case["record_id_hex"]), "{}", case["id"]);
+            assert_eq!(
+                record.0,
+                digest_of(&case["record_id_hex"]),
+                "{}",
+                case["id"]
+            );
             assert_eq!(
                 proof_commit(&cose),
                 digest_of(&case["proof_commit_hex"]),
@@ -144,7 +149,12 @@ fn p_75_every_envelope_proof_commit_is_the_digest_of_a_vector_signature() {
         .unwrap()
         .iter()
         .filter(|c| c.get("envelope").is_some())
-        .map(|c| (hex_of(&c["record_id_hex"]), digest_of(&c["proof_commit_hex"])))
+        .map(|c| {
+            (
+                hex_of(&c["record_id_hex"]),
+                digest_of(&c["proof_commit_hex"]),
+            )
+        })
         .collect();
     let records = file(RECORDS);
     let quarantine = file(QUARANTINE);
@@ -155,7 +165,7 @@ fn p_75_every_envelope_proof_commit_is_the_digest_of_a_vector_signature() {
             .iter()
             .map(|c| &c["envelope"]),
     );
-    let mut signed = Vec::new();
+    let mut signed: Vec<&Digest> = Vec::new();
     for envelope in envelopes {
         let Ok(Envelope::Ledger(e)) = decode_envelope(&hex_of(&envelope["hex"])) else {
             panic!("not a ledger envelope");
