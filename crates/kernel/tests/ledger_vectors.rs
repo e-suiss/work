@@ -315,15 +315,24 @@ fn t_4_inclusion_and_consistency_vectors_through_the_kernel_verifier() {
     }
 }
 
+fn name_and_key(key: &Value) -> (&str, [u8; 32]) {
+    let public = hex_of(&key["public_key_hex"]).try_into().unwrap();
+    (key["name"].as_str().unwrap(), public)
+}
+
 fn checkpoint_keys() -> (Verifier, Vec<Verifier>) {
-    let keys = &file(MERKLE)["keys"];
-    let log = Verifier::parse(keys["log"].as_str().unwrap()).unwrap();
-    let witnesses = keys["witnesses"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|w| Verifier::parse(w.as_str().unwrap()).unwrap())
-        .collect();
+    let merkle = file(MERKLE);
+    let keys = &merkle["keys"];
+    let (name, public) = name_and_key(&keys["log"]);
+    let log = Verifier::ed25519(name, public).unwrap();
+    let mut witnesses = Vec::new();
+    for witness in keys["witnesses"].as_array().unwrap() {
+        let (name, public) = name_and_key(witness);
+        let cosigner = Verifier::cosigner(name, public).unwrap();
+        assert_eq!(cosigner.to_vkey(), witness["vkey"].as_str().unwrap());
+        witnesses.push(cosigner);
+    }
+    assert_eq!(log.to_vkey(), keys["log"]["vkey"].as_str().unwrap());
     (log, witnesses)
 }
 

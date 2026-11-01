@@ -202,7 +202,9 @@ fn ev_3_evidence_vectors_bind_the_presenter_signature_to_the_statement() {
         let got = match case.get("cose_hex") {
             Some(cose) => {
                 let statement = evidence_statement(&bytes, 0).unwrap();
-                assert_eq!(statement.bytes, hex_of(&case["statement_hex"]));
+                let signed = hex_of(&case["statement_hex"]);
+                let changed = case["id"] == "evidence/statement-changed";
+                assert_eq!(statement.bytes == signed, !changed);
                 let presenter = party(&case["presenter"]);
                 let keys = PresenterKeys {
                     presenter: &presenter,

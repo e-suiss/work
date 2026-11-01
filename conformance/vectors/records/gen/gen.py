@@ -1846,14 +1846,17 @@ write_json("merkle.json", {
               "leaf hash = SHA-256(0x00 || envelope), node = SHA-256(0x01 || left || right), the empty tree is SHA-256(\"\") (RFC 9162 section 2.1, P-101)",
               "inclusion and consistency proofs are RFC 9162 section 2.1.3 and 2.1.4 audit paths; reject codes are the suiss-crypto ProofError and NoteError codes",
               "checkpoints are C2SP tlog-checkpoint bodies in C2SP signed notes, signed by the log key and cosigned with tlog-cosignature/v1; the log key is the RFC 8032 section 7.1 test 3 Ed25519 key, the witness key a work-vector seed",
-              "the origin line is a placeholder until the Work ledger origin name is fixed"],
+              "the origin line is a placeholder until the Work ledger origin name is fixed",
+              "keys give the Ed25519 public key and the C2SP verifier key string; the log key's string carries '+' in its base64, which the suiss-crypto 0.2.3 verifier key parser does not split"],
     "nodes": [{"id": "node/genesis-and-first", "rules": ["P-101"], "left_hex": leaf_hashes[0].hex(),
                "right_hex": leaf_hashes[1].hex(), "prefix_hex": "01",
                "digest_hex": sha(b"\x01" + leaf_hashes[0] + leaf_hashes[1]).hex()}],
     "roots": [{"size": n, "root_hex": roots[n].hex()} for n in range(LOG_SIZE + 1)],
     "inclusion": inclusion_cases,
     "consistency": consistency_cases,
-    "keys": {"log": vkey(ORIGIN, 0x01, log_public), "witnesses": [vkey(WITNESS, 0x04, witness_public)]},
+    "keys": {"log": {"name": ORIGIN, "public_key_hex": log_public.hex(), "vkey": vkey(ORIGIN, 0x01, log_public)},
+             "witnesses": [{"name": WITNESS, "public_key_hex": witness_public.hex(),
+                            "vkey": vkey(WITNESS, 0x04, witness_public)}]},
     "checkpoints": checkpoint_cases})
 
 

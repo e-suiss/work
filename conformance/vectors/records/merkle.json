@@ -5,7 +5,8 @@
     "leaf hash = SHA-256(0x00 || envelope), node = SHA-256(0x01 || left || right), the empty tree is SHA-256(\"\") (RFC 9162 section 2.1, P-101)",
     "inclusion and consistency proofs are RFC 9162 section 2.1.3 and 2.1.4 audit paths; reject codes are the suiss-crypto ProofError and NoteError codes",
     "checkpoints are C2SP tlog-checkpoint bodies in C2SP signed notes, signed by the log key and cosigned with tlog-cosignature/v1; the log key is the RFC 8032 section 7.1 test 3 Ed25519 key, the witness key a work-vector seed",
-    "the origin line is a placeholder until the Work ledger origin name is fixed"
+    "the origin line is a placeholder until the Work ledger origin name is fixed",
+    "keys give the Ed25519 public key and the C2SP verifier key string; the log key's string carries '+' in its base64, which the suiss-crypto 0.2.3 verifier key parser does not split"
   ],
   "nodes": [
     {
@@ -838,9 +839,17 @@
     }
   ],
   "keys": {
-    "log": "work.example/ledger/55afae708526b561a91bbf7b87472d835e89f839febd2ba3ca155827660c79c5+b39314c7+AfxRzY5iGKGjjaR+0AIw8FgIFu0TujMDrF3rkRVIkIAl",
+    "log": {
+      "name": "work.example/ledger/55afae708526b561a91bbf7b87472d835e89f839febd2ba3ca155827660c79c5",
+      "public_key_hex": "fc51cd8e6218a1a38da47ed00230f0580816ed13ba3303ac5deb911548908025",
+      "vkey": "work.example/ledger/55afae708526b561a91bbf7b87472d835e89f839febd2ba3ca155827660c79c5+b39314c7+AfxRzY5iGKGjjaR+0AIw8FgIFu0TujMDrF3rkRVIkIAl"
+    },
     "witnesses": [
-      "witness.example/w1+71fa549e+BAlJf4/eAC6ctQzFabD3zkw81p3IUsQozrgP0S9Ol9pu"
+      {
+        "name": "witness.example/w1",
+        "public_key_hex": "09497f8fde002e9cb50cc569b0f7ce4c3cd69dc852c428ceb80fd12f4e97da6e",
+        "vkey": "witness.example/w1+71fa549e+BAlJf4/eAC6ctQzFabD3zkw81p3IUsQozrgP0S9Ol9pu"
+      }
     ]
   },
   "checkpoints": [
