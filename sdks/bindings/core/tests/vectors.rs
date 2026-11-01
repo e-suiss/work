@@ -1,4 +1,4 @@
-//! The bindings' front ends natively against the record, rejection and quarantine vectors in `conformance/vectors/records` and the derivation fixture, which WebAssembly and Swift run through their bindings for the same bytes: the CBOR entry point on each case's `hex` and the JSON entry point on its `decoded` projection give the expected answer byte for byte (T-5, T-37, T-69, INV-7, INV-8, X-24); the CBOR, digest and genesis vectors run through the kernel's own tests.
+//! The bindings' front ends natively against the record, rejection and quarantine vectors in `conformance/vectors/records` and the derivation golden vector in `conformance/vectors/kernel`, which WebAssembly and Swift run through their bindings for the same bytes: the CBOR entry point on each case's `hex` and the JSON entry point on its `decoded` projection give the expected answer byte for byte (T-5, T-37, T-69, INV-7, INV-8, X-24); the CBOR, digest and genesis vectors run through the kernel's own tests.
 
 #![allow(
     clippy::unwrap_used,
@@ -18,8 +18,10 @@ const QUARANTINE: &str =
 const CBOR: &str = include_str!("../../../../conformance/vectors/records/cbor-canonical.json");
 const DIGEST: &str = include_str!("../../../../conformance/vectors/records/digest.json");
 const DIGEST_PREFIX: &str = "822f5820";
-const DERIVE_INPUTS: &str = include_str!("fixtures/derive-inputs.json");
-const DERIVE_EXPECTED: &str = include_str!("fixtures/derive-expected.json");
+const DERIVE_INPUTS: &str =
+    include_str!("../../../../conformance/vectors/kernel/derive-inputs.json");
+const DERIVE_EXPECTED: &str =
+    include_str!("../../../../conformance/vectors/kernel/derive-expected.json");
 
 fn cases() -> Vec<Value> {
     let mut all = Vec::new();
@@ -111,7 +113,7 @@ fn t_5_t_37_inv_7_native_derivation_through_bindings_core() {
     let derived = derive_records(&entries(), DERIVE_INPUTS);
     if std::env::var_os("WORK_WRITE_GENERATED").is_some() {
         std::fs::write(
-            "tests/fixtures/derive-expected.json",
+            "../../../conformance/vectors/kernel/derive-expected.json",
             format!("{derived}\n"),
         )
         .unwrap();
@@ -120,7 +122,7 @@ fn t_5_t_37_inv_7_native_derivation_through_bindings_core() {
     assert_eq!(
         derived,
         DERIVE_EXPECTED.trim_end(),
-        "tests/fixtures/derive-expected.json is stale: WORK_WRITE_GENERATED=1 cargo test -p work-bindings-core --test vectors"
+        "conformance/vectors/kernel/derive-expected.json is stale: WORK_WRITE_GENERATED=1 cargo test -p work-bindings-core --test vectors"
     );
 }
 

@@ -62,7 +62,6 @@ interface Envelope {
 
 const kernelDir = new URL("../../../conformance/vectors/kernel/", import.meta.url);
 const recordsDir = new URL("../../../conformance/vectors/records/", import.meta.url);
-const fixturesDir = new URL("../../../sdks/bindings/core/tests/fixtures/", import.meta.url);
 
 /** Record vector files whose inputs are raw CBOR, digest, signature or proof bytes, which the WebAssembly API does not take; until the shared CBOR and crypto crates exist (P-8), the native binding tests check only their reason codes and digest encodings (T-37). */
 export const nativeOnlyRecordFiles = [
@@ -82,7 +81,12 @@ export const recordFiles = [
 ] as const;
 
 /** Kernel vector files the browser runs. */
-export const kernelFiles = ["api-version.json", "policy-default.json"] as const;
+export const kernelFiles = [
+  "api-version.json",
+  "derive-expected.json",
+  "derive-inputs.json",
+  "policy-default.json",
+] as const;
 
 async function json<T>(base: URL, name: string): Promise<T> {
   return JSON.parse(await readFile(new URL(name, base), "utf8")) as T;
@@ -132,9 +136,9 @@ export const entries: readonly DerivationEntry[] = records.records.map((r, i) =>
   };
 });
 
-export const inputs = await json<DerivationInputs>(fixturesDir, "derive-inputs.json");
+export const inputs = await json<DerivationInputs>(kernelDir, "derive-inputs.json");
 
 /** The native derivation bytes, without the trailing newline. */
 export const expectedDerivation = (
-  await readFile(new URL("derive-expected.json", fixturesDir), "utf8")
+  await readFile(new URL("derive-expected.json", kernelDir), "utf8")
 ).trimEnd();

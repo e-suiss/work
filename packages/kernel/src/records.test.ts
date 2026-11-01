@@ -30,7 +30,7 @@ interface Envelope {
 }
 
 const vectors = new URL("../../../conformance/vectors/records/", import.meta.url);
-const fixtures = new URL("../../../sdks/bindings/core/tests/fixtures/", import.meta.url);
+const fixtures = new URL("../../../conformance/vectors/kernel/", import.meta.url);
 
 function sortedJson(value: unknown): string {
   return JSON.stringify(value, (_key, v: unknown) =>

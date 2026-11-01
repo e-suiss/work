@@ -111,7 +111,7 @@ test-swift: bindings-swift
       -L target/debug -lwork_kernel_ffi -Xlinker -rpath -Xlinker "{{justfile_directory()}}/target/debug" \
       target/uniffi/swift/work_kernel_ffi.swift sdks/bindings/uniffi/tests/swift/main.swift \
       -o target/uniffi/swift/kernel-vectors
-    target/uniffi/swift/kernel-vectors conformance/vectors/kernel conformance/vectors/records sdks/bindings/core/tests/fixtures
+    target/uniffi/swift/kernel-vectors conformance/vectors/kernel conformance/vectors/records conformance/vectors/kernel
 
 # T-58
 npm_packages := "packages/kernel"
