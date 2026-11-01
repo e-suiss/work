@@ -105,6 +105,11 @@ deny = ["unbounded_depth"]
 crate = "rustls"
 deny = ["ring"]
 
+# OP-44
+[[bans.features]]
+crate = "ntp-proto"
+deny = ["__internal-test", "__internal-fuzz"]
+
 # T-31, T-38
 [sources]
 unknown-registry = "deny"

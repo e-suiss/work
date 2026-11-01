@@ -1,4 +1,4 @@
-//! Pure ledger time rules (OP-6, OP-32, OP-42, OP-43): ledger time is the last verified NTS
+//! Pure ledger time rules (OP-6, OP-32, OP-42, OP-43, OP-44): ledger time is the last verified NTS
 //! sample of each source carried forward by the monotonic clock and combined by the shared
 //! `suiss-ledger` combiner; a Roughtime answer is never a sample, only a coarse bound that the
 //! majority of the servers answering a round must confirm.
@@ -14,6 +14,7 @@ pub const MIN_ROUGHTIME_SERVERS: usize = 3;
 /// NTS sampling interval in milliseconds (OP-32 item 2, PD).
 pub const NTS_INTERVAL_MS: u64 = 64_000;
 
+// OP-44
 /// How long a sample stays usable without a newer one: eight sampling intervals, the reach of
 /// the NTP reachability register.
 pub const SAMPLE_LIFETIME_MS: u64 = 8 * NTS_INTERVAL_MS;
@@ -50,6 +51,7 @@ impl RoughtimeAnswer {
             return false;
         };
         let width = self.radius_ms.saturating_add(self.rtt_ms);
+        // OP-44
         let mid = self.midpoint_ms.saturating_add(elapsed);
         at_ms >= mid.saturating_sub(width) && at_ms <= mid.saturating_add(width)
     }
@@ -60,6 +62,7 @@ impl RoughtimeAnswer {
 #[must_use]
 pub fn majority_covers(answers: &[RoughtimeAnswer], at_ms: u64, mono_ms: u64) -> bool {
     let covering = answers.iter().filter(|a| a.covers(at_ms, mono_ms)).count();
+    // OP-44
     covering.saturating_mul(2) > answers.len()
 }
 
@@ -181,7 +184,7 @@ mod tests {
         }
     }
 
-    // OP-42
+    // OP-42 OP-44
     #[test]
     fn op_42_the_interval_is_the_midpoint_widened_by_radius_and_round_trip() {
         let a = answer(T);
@@ -193,7 +196,7 @@ mod tests {
         assert!(!a.covers(T, 60_000));
     }
 
-    // OP-43
+    // OP-43 OP-44
     #[test]
     fn op_43_the_majority_of_the_answers_decides() {
         let good = answer(T);
@@ -261,7 +264,7 @@ mod tests {
         assert_eq!(d.now(0), Ok(T));
     }
 
-    // OP-32
+    // OP-32 OP-44
     #[test]
     fn op_32_a_sample_older_than_its_lifetime_is_not_used() {
         let mut d = Discipline::new(2);
@@ -279,6 +282,7 @@ mod tests {
                 mono_ms: 0,
             },
         );
+        assert_eq!(SAMPLE_LIFETIME_MS, 512_000);
         assert!(d.now(SAMPLE_LIFETIME_MS).is_ok());
         assert_eq!(
             d.now(SAMPLE_LIFETIME_MS + 1),

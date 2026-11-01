@@ -23,12 +23,14 @@ use crate::time::adapters::ProcessMonotonic;
 use crate::time::domain::{NTS_INTERVAL_MS, NtsSample};
 use crate::time::ports::NtsEvent;
 
+// OP-44
 /// Upper bound on each NTS-KE step and each NTP send (T-32 rule 7).
 pub const NTS_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// The default NTS-KE port (RFC 8915).
 pub const NTS_KE_PORT: u16 = 4460;
 
+// OP-44
 const RETRY: Duration = Duration::from_millis(NTS_INTERVAL_MS);
 const POLL_LOG2: u8 = 6;
 const ANCHOR_NTP_SECONDS: u32 = 3_976_214_400;

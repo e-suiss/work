@@ -14,6 +14,7 @@ use crate::time::domain::RoughtimeAnswer;
 use crate::time::ports::{Monotonic, QueryError, RoughtimeQuery};
 use crate::time::wire::{self, Version};
 
+// OP-44
 /// Upper bound on one Roughtime exchange (T-32 rule 7).
 pub const ROUGHTIME_TIMEOUT: Duration = Duration::from_secs(5);
 
