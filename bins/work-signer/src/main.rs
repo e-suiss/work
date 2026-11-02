@@ -39,7 +39,7 @@ enum StartError {
     #[error("secret memory for the PIN: {0}")]
     SecretMemory(suiss_sandbox::Error),
     /// The token or the log key could not be opened.
-    #[error("key store ({}): {0}", .0.code())]
+    #[error("key store: {}: {}", .0.code(), .0)]
     KeyStore(HsmError),
     /// The log key is not an Ed25519 key.
     #[error("the log key must be an Ed25519 key")]
