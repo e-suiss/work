@@ -73,8 +73,7 @@ fn context(v: &Value) -> Mapped<Context> {
             author: actor_entry(required(actors, "author")?)?,
             on_behalf_of: optional(actors, "on_behalf_of", |l| list(l, actor_entry))?
                 .unwrap_or_default(),
-            evidence: optional(actors, "evidence", |l| list(l, actor_entry))?
-                .unwrap_or_default(),
+            evidence: optional(actors, "evidence", |l| list(l, actor_entry))?.unwrap_or_default(),
         },
         understood: list(required(m, "understood_extensions")?, |k| ext_key(text(k)?))?,
         recorded_at: optional(m, "recorded_at", uint)?.map(Time),
