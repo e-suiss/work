@@ -3,7 +3,8 @@ use std::time::Duration;
 
 use suiss_ledger::sequencer::MAX_BATCH;
 use tokio::sync::{mpsc, oneshot};
-use work_store::StoreError;
+use work_kernel::reason::Reason;
+use work_store::{LedgerId, StoreError};
 
 use crate::{Leader, LedgerError, PendingRecord};
 
@@ -103,6 +104,10 @@ pub struct Committed {
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum SubmitError {
+    /// The kernel did not admit the record, or a Declaration's `effective_at` is before the
+    /// ledger time its batch gets (P-11, P-80, T-9); nothing was written.
+    #[error("rejected: {0}")]
+    Rejected(Reason),
     /// The queue is full; nothing was written and the caller retries with the same
     /// idempotency key after `retry_after` (OP-41 item 2).
     #[error("ledger busy")]
@@ -136,6 +141,7 @@ struct Request {
 pub struct GroupCommit {
     tx: mpsc::Sender<Request>,
     retry_after: Duration,
+    ledger: LedgerId,
 }
 
 impl GroupCommit {
@@ -148,14 +154,22 @@ impl GroupCommit {
         config: GroupConfig,
     ) -> (Self, tokio::task::JoinHandle<Result<(), LedgerError>>) {
         let (tx, rx) = mpsc::channel(config.queue);
+        let ledger = *leader.ledger();
         let writer = tokio::spawn(run(leader, clock, config, rx));
         (
             Self {
                 tx,
                 retry_after: config.retry_after,
+                ledger,
             },
             writer,
         )
+    }
+
+    /// The ledger the writer appends to.
+    #[must_use]
+    pub const fn ledger(&self) -> &LedgerId {
+        &self.ledger
     }
 
     /// Queues `record` and waits until its batch is durable (OP-3). A full queue answers
@@ -179,7 +193,18 @@ impl GroupCommit {
 }
 
 fn size(r: &PendingRecord) -> usize {
-    r.record_bytes.len()
+    r.size()
+}
+
+/// Requests whose Declaration takes effect before ledger time `at` are answered
+/// `retroactive_declaration` and leave the batch: the normative check runs in the sequencer,
+/// against the time it assigns (P-27, P-80, T-9).
+fn timely(batch: Vec<Request>, at: u64) -> Vec<Request> {
+    let (late, timely): (Vec<Request>, Vec<Request>) = batch
+        .into_iter()
+        .partition(|r| r.record.effective_at.is_some_and(|e| e < at));
+    answer(late, |_| Err(SubmitError::Rejected(Reason::RetroactiveDeclaration)));
+    timely
 }
 
 /// Takes the next batch: waits for one request, then drains what queued during the previous
@@ -223,6 +248,10 @@ async fn run<C: Clock>(
                 continue;
             }
         };
+        let batch = timely(batch, now.max(leader.head().recorded_at));
+        if batch.is_empty() {
+            continue;
+        }
         let records: Vec<PendingRecord> = batch.iter().map(|r| r.record.clone()).collect();
         match leader.commit(now, &records).await {
             Ok(last) => {

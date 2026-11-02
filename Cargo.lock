@@ -4707,6 +4707,7 @@ dependencies = [
  "ed25519-dalek",
  "esuiss-crypto",
  "esuiss-ledger",
+ "esuiss-work-kernel",
  "ntp-proto",
  "roughenough-protocol",
  "rustls",

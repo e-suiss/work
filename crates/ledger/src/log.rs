@@ -1,8 +1,8 @@
 use suiss_ledger::port::{AppendError, LogStore};
 use suiss_ledger::sequencer::Batch;
 use work_store::{
-    AppendBatch, ItemHeadRow, KeyRow, LedgerId, LogRow, NewHead, OutboxRow, SequencerPool,
-    StoreError, StoredKey, StoredOutcome,
+    AppendBatch, InboundRow, ItemHeadRow, KeyRow, LedgerId, LogRow, NewHead, OutboxRow,
+    SequencerPool, StoreError, StoredKey, StoredOutcome,
 };
 
 use crate::SealedRecord;
@@ -34,13 +34,15 @@ impl PgLog {
     }
 }
 
-/// The store's batch for an engine batch: log rows in position order, then each record's item
-/// heads and outbox pointers at its position (T-81).
+/// The store's batch for an engine batch: log rows in position order with the bytes each record
+/// was received as and its skeleton, then each record's item heads, outbox pointers,
+/// idempotency key and inbound event at its position (T-81, T-89, T-90).
 pub(crate) fn rows(batch: &Batch<SealedRecord>) -> AppendBatch {
     let mut records = Vec::with_capacity(batch.records.len());
     let mut items = Vec::new();
     let mut outbox = Vec::new();
     let mut keys = Vec::new();
+    let mut inbound = Vec::new();
     for sealed in &batch.records {
         let pos = sealed.slot.pos;
         let r = &sealed.record.record;
@@ -52,10 +54,12 @@ pub(crate) fn rows(batch: &Batch<SealedRecord>) -> AppendBatch {
             leaf: sealed.leaf,
             record_bytes: r.record_bytes.clone(),
             envelope_bytes: sealed.record.envelope.clone(),
+            received: r.received.clone(),
+            skeleton: r.skeleton.clone(),
         });
         items.extend(r.items.iter().map(|c| ItemHeadRow {
             item: c.item,
-            version: c.version,
+            expect: c.expect,
             last_pos: pos,
             heads: c.heads.clone(),
         }));
@@ -65,8 +69,16 @@ pub(crate) fn rows(batch: &Batch<SealedRecord>) -> AppendBatch {
             event_type: e.event_type.clone(),
             traceparent: e.traceparent.clone(),
             item: e.item,
-            version: e.version,
         }));
+        if let Some(i) = &r.inbound {
+            inbound.push(InboundRow {
+                pos,
+                source: i.source.clone(),
+                source_id: i.source_id.clone(),
+                content_digest: r.record_id(),
+                seen_at_ms: sealed.slot.recorded_at,
+            });
+        }
         if let Some(claim) = &r.idempotency {
             keys.push(KeyRow {
                 caller: claim.caller.clone(),
@@ -89,6 +101,7 @@ pub(crate) fn rows(batch: &Batch<SealedRecord>) -> AppendBatch {
         items,
         outbox,
         keys,
+        inbound,
         head: NewHead {
             pos: batch.head.pos,
             leaf: batch.head.leaf,

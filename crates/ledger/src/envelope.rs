@@ -2,29 +2,48 @@ use suiss_crypto::dcbor::{self, EncodeError, Limits, Value};
 use suiss_crypto::digest::{Digest, leaf_hash, sha256};
 use suiss_ledger::Hash;
 use suiss_ledger::sequencer::{Entry, Slot};
-use work_store::{CallerRef, IdempotencyKey, ItemRef, LedgerId};
+use work_store::{CallerRef, Expect, IdempotencyKey, ItemRef, LedgerId, ReceivedRow, Skeleton};
 
 /// An admitted record waiting for its slot: what the sequencer needs to seal its
-/// `LedgerEnvelope` (P-11) and to write its item heads and outbox pointers in the same
-/// transaction (T-81).
+/// `LedgerEnvelope` (P-11) and to write, in the same transaction, the bytes it was received as,
+/// its skeleton, its item heads and outbox pointers (T-81, T-89, T-90). Only the admission path
+/// builds one, from the kernel's verification, validation and [`work_kernel::items::touched`].
 #[derive(Clone, PartialEq, Eq)]
 pub struct PendingRecord {
     /// The `SignedRecord` bytes stored in the log; the record id is computed from them.
-    pub record_bytes: Vec<u8>,
+    pub(crate) record_bytes: Vec<u8>,
     /// The envelope `actor_type` annotation, as det-CBOR value (P-12).
-    pub actor_type: Value,
+    pub(crate) actor_type: Value,
     /// The digest of the author signature bytes (P-75).
-    pub proof_commit: Option<[u8; 32]>,
+    pub(crate) proof_commit: Option<[u8; 32]>,
     /// The Access authentication context reference (P-21).
-    pub auth_context: Option<Value>,
+    pub(crate) auth_context: Option<Value>,
     /// The envelope `ingest` value (P-11).
-    pub ingest: Value,
-    /// The item heads the record moves (P-29).
-    pub items: Vec<ItemChange>,
-    /// The outbox pointers the record emits, one per affected item (T-81 item 2).
-    pub outbox: Vec<EventPointer>,
+    pub(crate) ingest: Value,
+    /// The externally signed bytes as received, the author signature among them (T-90).
+    pub(crate) received: Vec<ReceivedRow>,
+    /// The skeleton of a decoded record (OP-13).
+    pub(crate) skeleton: Option<Skeleton>,
+    /// The items the record touches (T-89).
+    pub(crate) items: Vec<ItemTouch>,
+    /// The outbox pointers the record emits, one per touched item (T-81 item 2).
+    pub(crate) outbox: Vec<EventPointer>,
     /// The idempotency key of the request the record answers (OP-8).
-    pub idempotency: Option<KeyClaim>,
+    pub(crate) idempotency: Option<KeyClaim>,
+    /// The inbound event the record answers (OP-8, OP-38 item 5).
+    pub(crate) inbound: Option<Inbound>,
+    /// `params.effective_at` of a Declaration, checked against the ledger time the sequencer
+    /// assigns (P-27, P-80).
+    pub(crate) effective_at: Option<u64>,
+}
+
+/// An inbound event or federated record by its source and id (OP-8, P-35 item 4).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Inbound {
+    /// The event source.
+    pub source: String,
+    /// The event id at the source.
+    pub source_id: String,
 }
 
 /// The idempotency key a fresh request carries, written with its record (OP-8, OP-36).
@@ -44,6 +63,39 @@ impl PendingRecord {
     pub fn record_id(&self) -> [u8; 32] {
         sha256(&self.record_bytes)
     }
+
+    /// The items the record touches (T-89).
+    #[must_use]
+    pub fn items(&self) -> &[ItemTouch] {
+        &self.items
+    }
+
+    /// The outbox pointers the record emits (T-81).
+    #[must_use]
+    pub fn outbox(&self) -> &[EventPointer] {
+        &self.outbox
+    }
+
+    /// The bytes the record was received as (T-90).
+    #[must_use]
+    pub fn received(&self) -> &[ReceivedRow] {
+        &self.received
+    }
+
+    /// The skeleton of a decoded record.
+    #[must_use]
+    pub const fn skeleton(&self) -> Option<&Skeleton> {
+        self.skeleton.as_ref()
+    }
+
+    /// The bytes a group commit counts for the record: the record and what it was received as
+    /// (OP-31 item 2, T-90).
+    #[must_use]
+    pub fn size(&self) -> usize {
+        self.received
+            .iter()
+            .fold(self.record_bytes.len(), |n, r| n.saturating_add(r.bytes.len()))
+    }
 }
 
 impl std::fmt::Debug for PendingRecord {
@@ -56,13 +108,13 @@ impl std::fmt::Debug for PendingRecord {
     }
 }
 
-/// A change of one item head (P-29).
+/// One item a record touches (T-89): its version is assigned by the sequencer in the append.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ItemChange {
+pub struct ItemTouch {
     /// The item.
     pub item: ItemRef,
-    /// Its version after the record; 1 for a new item.
-    pub version: u64,
+    /// What the stored head must be.
+    pub expect: Expect,
     /// Chain heads of a Commitment or Condition; `None` for a Work.
     pub heads: Option<Vec<[u8; 32]>>,
 }
@@ -76,10 +128,8 @@ pub struct EventPointer {
     pub event_type: String,
     /// The W3C `traceparent` of the request (P-42).
     pub traceparent: String,
-    /// The affected item.
+    /// The affected item; the event `seq` is the version the same append writes to its head.
     pub item: ItemRef,
-    /// Its version after the record, the event `seq`.
-    pub version: u64,
 }
 
 /// A record sealed into its slot: the envelope bytes the leaf hash covers.
@@ -202,9 +252,13 @@ mod tests {
                 proof_commit: v.get("proof_commit").map(|p| digest32(Some(p))),
                 auth_context: v.get("auth_context").cloned(),
                 ingest: v.get("ingest").unwrap().clone(),
+                received: vec![],
+                skeleton: None,
                 items: vec![],
                 outbox: vec![],
                 idempotency: None,
+                inbound: None,
+                effective_at: None,
             };
             let (leaf, sealed) = Bound {
                 ledger: &ledger,
@@ -228,9 +282,13 @@ mod tests {
             proof_commit: None,
             auth_context: None,
             ingest: Value::text("admitted"),
+            received: vec![],
+            skeleton: None,
             items: vec![],
             outbox: vec![],
             idempotency: None,
+            inbound: None,
+            effective_at: None,
         };
         let expected = decode(
             &hex(signed["record_digest"].as_str().unwrap()),
