@@ -190,7 +190,9 @@ fn bump(n: &AtomicU64) {
 }
 
 fn settle(n: &AtomicU64, by: u64) {
-    let _settled = n.update(Ordering::AcqRel, Ordering::Acquire, |v| v.saturating_sub(by));
+    let _settled = n.update(Ordering::AcqRel, Ordering::Acquire, |v| {
+        v.saturating_sub(by)
+    });
 }
 
 impl CheckpointStats {
