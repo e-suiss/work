@@ -583,7 +583,10 @@ mod tests {
         assert_eq!(config.group_config().unwrap(), GroupConfig::default());
         let small = "[group_commit]\nqueue = 8\nretry_after_ms = 2000";
         let set = with(small).unwrap().group_config().unwrap();
-        assert_eq!(set, GroupConfig::new(256, 1 << 20, 8, Duration::from_secs(2)).unwrap());
+        assert_eq!(
+            set,
+            GroupConfig::new(256, 1 << 20, 8, Duration::from_secs(2)).unwrap()
+        );
         for toml in [
             "[group_commit]\nqueue = 0",
             "[group_commit]\nmax_records = 257",
