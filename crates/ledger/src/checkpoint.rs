@@ -307,7 +307,9 @@ impl Checkpointer {
             frontier: Frontier::from_parts(size, snapshot.frontier)
                 .map_err(|_| CheckpointError::Head)?,
         };
-        let profile = self.declaration.profile(self.pool.durability(ledger).await?);
+        let profile = self
+            .declaration
+            .profile(self.pool.durability(ledger).await?);
         let origin = self.origin(ledger);
         let expected = suiss_ledger::checkpoint::of_head(&origin, &head, profile.to_extensions())
             .map_err(CheckpointError::Note)?;
@@ -438,8 +440,10 @@ mod tests {
         };
         let signed = line(&key, &log(&key), &claimed.to_body().unwrap());
         assert_eq!(
-            acknowledgement(&cp, &signed, ORIGIN, &log(&key)).unwrap_err(),
-            NoteError::Checkpoint
+            acknowledgement(&cp, &signed, ORIGIN, &log(&key))
+                .unwrap_err()
+                .code(),
+            "signature-invalid"
         );
         let bare = Checkpoint {
             extensions: Vec::new(),
@@ -457,7 +461,11 @@ mod tests {
     fn op_46_saas_declares_independent_time_and_at_least_two_witnesses() {
         let k = |n| WitnessProfile::Independent(std::num::NonZeroU8::new(n).unwrap());
         let independent = TimeSources::Independent;
-        let local_or_none = [k(1), WitnessProfile::LocalDependent, WitnessProfile::Undeclared];
+        let local_or_none = [
+            k(1),
+            WitnessProfile::LocalDependent,
+            WitnessProfile::Undeclared,
+        ];
         assert!(Declaration::new(Deployment::Saas, independent, k(2)).is_ok());
         assert!(Declaration::new(Deployment::Saas, independent, k(255)).is_ok());
         for witness in local_or_none {

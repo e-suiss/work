@@ -159,7 +159,13 @@ mod tests {
         let long = format!("{LEDGER}ab");
         let other =
             "work.example/ledger/gggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg";
-        for origin in [short, upper, long.as_str(), other, "work.example/ledger/ab12"] {
+        for origin in [
+            short,
+            upper,
+            long.as_str(),
+            other,
+            "work.example/ledger/ab12",
+        ] {
             assert_eq!(
                 checkpoint_body(body(origin, "3").as_bytes(), prefix),
                 Err(refusal::ORIGIN),
