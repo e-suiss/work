@@ -1,8 +1,9 @@
 use sqlx::{AssertSqlSafe, Executor};
 use work_store::{
-    AppendBatch, AppendError, CallerRef, Cluster, Durability, Genesis, IdempotencyKey, ItemHeadRow,
-    ItemRef, KeyRow, LedgerId, LogRow, NewHead, OutboxRow, SequencerPool, StoreError, StoredHead,
-    StoredKey, StoredOutcome,
+    AppendBatch, AppendError, CallerRef, Cluster, Durability, Expect, Genesis, HeaderRow,
+    IdempotencyKey, InboundRow, ItemHeadRow, ItemRef, KeyRow, LedgerId, LogRow, NewHead,
+    OutboxRow, ReceivedKind, ReceivedRole, ReceivedRow, SequencerPool, Skeleton, StoreError,
+    StoredHead, StoredKey, StoredOutcome,
 };
 
 use crate::env::{Env, L, M, commit_fails, fails, hex, run, scalar, with_ledgers};
@@ -31,6 +32,8 @@ fn record(pos: u64, prev: [u8; 32], leaf: [u8; 32], at: u64) -> LogRow {
         leaf,
         record_bytes: vec![0xd2],
         envelope_bytes: vec![0xa0],
+        received: vec![],
+        skeleton: None,
     }
 }
 
@@ -53,7 +56,7 @@ fn batch(epoch: u64, after: u64, version: u64) -> AppendBatch {
         records: vec![record(pos, prev, leaf, plus(AT, pos))],
         items: vec![ItemHeadRow {
             item: ITEM,
-            version,
+            expect: Expect::Version(version.checked_sub(1).unwrap()),
             last_pos: pos,
             heads: Some(vec![leaf]),
         }],
@@ -63,9 +66,9 @@ fn batch(epoch: u64, after: u64, version: u64) -> AppendBatch {
             event_type: "commitment.requested".to_owned(),
             traceparent: TRACE.to_owned(),
             item: ITEM,
-            version,
         }],
         keys: vec![],
+        inbound: vec![],
         head: NewHead {
             pos,
             leaf,
@@ -387,4 +390,231 @@ async fn op_8_the_key_is_written_with_its_record_and_a_reused_key_is_refused() {
         Err(AppendError::Refused(StoreError::KeyReused))
     ));
     seq.append(&ledger, &batch(head.epoch, 1, 2)).await.unwrap();
+}
+
+const WORK: ItemRef = ItemRef::Work([0x0c; 16]);
+const COSE: [u8; 6] = [0xd2, 0x84, 0x40, 0xa0, 0xf6, 0x40];
+const CONTEXT: &[u8] = b"work-vector:access:auth-context:alice";
+
+fn header() -> HeaderRow {
+    HeaderRow {
+        kind: "claim",
+        record_type: "https://suiss.app/ns/work/claim/observation".to_owned(),
+        author: "party:acme:alice".to_owned(),
+        author_actor_type: "human",
+        author_actor_type_source: "access_binding",
+        occurred_at_ms: Some(AT),
+        ingest: "admitted",
+        ingest_reason: None,
+        proof_commit: None,
+        auth_context_ref: Some([0x5a; 32]),
+        protocol: (1, 0),
+        schema_digest: [0x33; 32],
+    }
+}
+
+fn received(kind: ReceivedKind, role: ReceivedRole, bytes: &[u8]) -> ReceivedRow {
+    ReceivedRow {
+        kind,
+        role,
+        bytes: bytes.to_vec(),
+    }
+}
+
+/// `n` records after `after`, each concerning [`WORK`] with an [`Expect::Next`] head and one
+/// pointer, received with the authentication context.
+fn works(epoch: u64, after: u64, n: u64) -> AppendBatch {
+    let mut b = batch(epoch, after, 1);
+    b.records.clear();
+    b.items.clear();
+    b.outbox.clear();
+    let mut prev = if after == 0 {
+        GENESIS_LEAF
+    } else {
+        leaf(after)
+    };
+    for k in 1..=n {
+        let pos = plus(after, k);
+        let mut r = record(pos, prev, leaf(pos), plus(AT, pos));
+        r.received = vec![received(
+            ReceivedKind::AccessAuthContext,
+            ReceivedRole::AuthContext,
+            CONTEXT,
+        )];
+        r.skeleton = Some(Skeleton {
+            header: header(),
+            concerns: vec![[0x0c; 16]],
+            basis: vec![[0x0d; 32]],
+            relations: vec![],
+            body: vec![],
+        });
+        prev = r.leaf;
+        b.records.push(r);
+        b.items.push(ItemHeadRow {
+            item: WORK,
+            expect: Expect::Next,
+            last_pos: pos,
+            heads: None,
+        });
+        b.outbox.push(OutboxRow {
+            pos,
+            event_id: format!("evt-{pos}"),
+            event_type: "work.recorded".to_owned(),
+            traceparent: TRACE.to_owned(),
+            item: WORK,
+        });
+    }
+    let last = plus(after, n);
+    b.head = NewHead {
+        pos: last,
+        leaf: leaf(last),
+        recorded_at_ms: plus(AT, last),
+        frontier: vec![[0x40; 32]; usize::try_from(plus(last, 1).count_ones()).unwrap()],
+    };
+    b
+}
+
+fn leaf(pos: u64) -> [u8; 32] {
+    [0x30_u8.wrapping_add(u8::try_from(pos).unwrap()); 32]
+}
+
+// T-89 T-81 OP-7 P-29 C-34 OP-13
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs Docker"]
+async fn t_89_next_versions_follow_the_stored_head_and_feed_the_outbox() {
+    let (env, seq) = opened().await;
+    let ledger = LedgerId::from_bytes(L);
+    let l = hex(&L);
+    let head = seq.acquire(&ledger).await.unwrap();
+    seq.append(&ledger, &works(head.epoch, 0, 2)).await.unwrap();
+    seq.append(&ledger, &works(head.epoch, 2, 1)).await.unwrap();
+    let app = env.canonical("work_app");
+    let item = "SELECT version * 10 + last_pos FROM work.item_head WHERE item_kind = 'work'";
+    assert_eq!(scalar(&app, &l, item, false).await, 33);
+    let publisher = env.canonical("work_publisher");
+    let seqs = "SELECT sum(version * pos)::bigint FROM ledger.outbox WHERE item_kind = 'work'";
+    assert_eq!(scalar(&publisher, &l, seqs, false).await, 14);
+    let concerns = "SELECT count(*) FROM work.log_concerns";
+    assert_eq!(scalar(&app, &l, concerns, false).await, 3);
+    let root = "SELECT first_pos * 10 + count(*) OVER () FROM work.work_root";
+    assert_eq!(scalar(&app, &l, root, false).await, 11);
+    let headers = "SELECT count(*) FROM work.record_header WHERE ingest = 'admitted'";
+    assert_eq!(scalar(&app, &l, headers, false).await, 3);
+    let basis = "SELECT count(*) FROM work.log_basis";
+    assert_eq!(scalar(&app, &l, basis, false).await, 3);
+    let context = "SELECT count(*) FROM work.received_bytes WHERE kind = 'access_auth_context'";
+    assert_eq!(scalar(&app, &l, context, false).await, 1);
+    let links = "SELECT count(*) FROM work.log_received WHERE role = 'auth_context'";
+    assert_eq!(scalar(&app, &l, links, false).await, 3);
+}
+
+// T-81 T-89
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs Docker"]
+async fn t_81_a_pointer_without_its_item_head_is_refused() {
+    let (env, seq) = opened().await;
+    let ledger = LedgerId::from_bytes(L);
+    let head = seq.acquire(&ledger).await.unwrap();
+    let mut b = works(head.epoch, 0, 1);
+    b.items.clear();
+    assert!(matches!(
+        seq.append(&ledger, &b).await,
+        Err(AppendError::Refused(StoreError::OutboxItem(WORK)))
+    ));
+    let log = "SELECT count(*) FROM ledger.log";
+    assert_eq!(scalar(&env.canonical("work_app"), &hex(&L), log, false).await, 1);
+}
+
+// T-90 P-5 P-75
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs Docker"]
+async fn t_90_received_bytes_read_back_as_received_and_a_proof_commit_needs_them() {
+    let (env, seq) = opened().await;
+    let ledger = LedgerId::from_bytes(L);
+    let head = seq.acquire(&ledger).await.unwrap();
+    let mut signed = works(head.epoch, 0, 1);
+    signed.records[0].received.push(received(
+        ReceivedKind::CoseSign1,
+        ReceivedRole::AuthorSignature,
+        &COSE,
+    ));
+    seq.append(&ledger, &signed).await.unwrap();
+    let mut tx = work_store::LedgerTx::begin(&env.canonical("work_app"), &ledger)
+        .await
+        .unwrap();
+    let entries = tx.entries(0, 10).await.unwrap();
+    tx.rollback().await.unwrap();
+    assert_eq!(entries.len(), 2);
+    assert_eq!(entries[0].cose_sign1, None);
+    assert_eq!(entries[1].pos, 1);
+    assert_eq!(entries[1].cose_sign1.as_deref(), Some(COSE.as_slice()));
+    assert_eq!(entries[1].record_bytes, vec![0xd2]);
+
+    let mut unbound = works(head.epoch, 1, 1);
+    if let Some(s) = unbound.records[0].skeleton.as_mut() {
+        s.header.proof_commit = Some([0x22; 32]);
+    }
+    assert!(matches!(
+        seq.append(&ledger, &unbound).await,
+        Err(AppendError::Refused(StoreError::Constraint(c))) if c == "record_header_proof_fk"
+    ));
+    let mut oversized = works(head.epoch, 1, 1);
+    oversized.records[0].received = vec![received(
+        ReceivedKind::ForeignRecord,
+        ReceivedRole::FederatedSource,
+        &[0xab; 262_145],
+    )];
+    assert!(matches!(
+        seq.append(&ledger, &oversized).await,
+        Err(AppendError::Refused(StoreError::Constraint(c))) if c == "received_bytes_length_ck"
+    ));
+    let mut presented = works(head.epoch, 1, 1);
+    presented.records[0].received.push(received(
+        ReceivedKind::CoseSign1,
+        ReceivedRole::PresenterSignature,
+        &COSE,
+    ));
+    seq.append(&ledger, &presented).await.unwrap();
+    let app = env.canonical("work_app");
+    let l = hex(&L);
+    let kept = "SELECT count(*) FROM work.received_bytes";
+    assert_eq!(scalar(&app, &l, kept, false).await, 2);
+    let first = "SELECT first_pos FROM work.received_bytes WHERE kind = 'cose_sign1'";
+    assert_eq!(scalar(&app, &l, first, false).await, 1);
+    let links = "SELECT count(*) FROM work.log_received";
+    assert_eq!(scalar(&app, &l, links, false).await, 4);
+}
+
+// OP-8 OP-38 P-79
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs Docker"]
+async fn op_38_an_inbound_event_and_a_record_id_are_recorded_once() {
+    let (env, seq) = opened().await;
+    let ledger = LedgerId::from_bytes(L);
+    let head = seq.acquire(&ledger).await.unwrap();
+    let inbound = |pos: u64| InboundRow {
+        pos,
+        source: "https://peer.example/ledgers/x".to_owned(),
+        source_id: "evt-9".to_owned(),
+        content_digest: [0x79; 32],
+        seen_at_ms: plus(AT, pos),
+    };
+    let mut first = works(head.epoch, 0, 1);
+    first.inbound.push(inbound(1));
+    seq.append(&ledger, &first).await.unwrap();
+    let mut again = works(head.epoch, 1, 1);
+    again.inbound.push(inbound(2));
+    assert!(matches!(
+        seq.append(&ledger, &again).await,
+        Err(AppendError::Refused(StoreError::InboundSeen))
+    ));
+    let mut same = works(head.epoch, 1, 1);
+    same.records[0].record_id = first.records[0].record_id;
+    assert!(matches!(
+        seq.append(&ledger, &same).await,
+        Err(AppendError::Refused(StoreError::RecordExists))
+    ));
+    seq.append(&ledger, &works(head.epoch, 1, 1)).await.unwrap();
+    let seen = "SELECT result_pos FROM work.inbound_seen";
+    assert_eq!(scalar(&env.canonical("work_app"), &hex(&L), seen, false).await, 1);
 }

@@ -36,6 +36,19 @@ pub enum StoreError {
     /// The caller's idempotency key is already stored in a hot partition (OP-8, OP-36).
     #[error("idempotency key already recorded")]
     KeyReused,
+    /// A record with the same record id is already in the ledger (P-79, OP-38 item 5).
+    #[error("record already in the ledger")]
+    RecordExists,
+    /// The inbound event or federated record is already seen in a hot partition (OP-8, OP-38
+    /// item 5).
+    #[error("inbound event already seen")]
+    InboundSeen,
+    /// An outbox pointer names an item its record does not touch (T-81 item 2).
+    #[error("outbox pointer without its item head: {0:?}")]
+    OutboxItem(ItemRef),
+    /// A row of the batch breaks the named constraint (T-90, OP-13).
+    #[error("row refused by constraint {0}")]
+    Constraint(String),
 }
 
 /// How [`crate::SequencerPool::append`] failed: the two outcomes the ledger engine tells apart

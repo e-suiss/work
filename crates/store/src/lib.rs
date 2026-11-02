@@ -16,6 +16,7 @@ mod publisher;
 mod scope;
 mod sequencer;
 mod server;
+mod skeleton;
 
 pub use erasure::{ERASURE_SCOPE, ErasureScope};
 pub use error::{AppendError, StoreError};
@@ -32,10 +33,14 @@ pub use publisher::{
 };
 pub use scope::{Head, LedgerTx};
 pub use sequencer::{
-    AppendBatch, Durability, Genesis, ItemHeadRow, KeyRow, LogRow, NewHead, OutboxRow,
+    AppendBatch, Durability, Expect, Genesis, ItemHeadRow, KeyRow, LogRow, NewHead, OutboxRow,
     SEQUENCER_ROLE, SequencerPool, StoredHead,
 };
 pub use server::{connect, server_version_num};
+pub use skeleton::{
+    BodyCommitmentRow, EndpointRow, HeaderRow, InboundRow, ReceivedKind, ReceivedRole, ReceivedRow,
+    RelationRow, Skeleton, StoredLogEntry,
+};
 
 /// The connection pool type, so other crates need no driver dependency.
 pub use sqlx::PgPool as Pool;

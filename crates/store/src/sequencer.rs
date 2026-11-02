@@ -1,14 +1,18 @@
-//! The sequencer's storage (P-100, T-85, T-74, §18 OP-5, OP-10): opening a ledger with its
-//! genesis record, taking leadership by bumping the epoch and reading the head with its Merkle
-//! frontier, and appending a batch with its item heads and outbox pointers under the head
+//! The sequencer's storage (P-100, T-85, T-74, T-89, T-90, §18 OP-5, OP-10): opening a ledger
+//! with its genesis record, taking leadership by bumping the epoch and reading the head with its
+//! Merkle frontier, and appending a batch with the bytes each record was received as, its
+//! skeleton, its item heads, outbox pointers, idempotency keys and inbound events under the head
 //! compare-and-set, all as `work_sequencer` in one ledger-scoped transaction each. Values are
 //! plain bytes and integers; the ledger crate converts them to and from the engine's types.
+
+use std::collections::BTreeMap;
 
 use sqlx::PgPool;
 
 use crate::publisher::check_role;
 use crate::{
-    AppendError, CallerRef, IdempotencyKey, ItemRef, LedgerId, LedgerTx, StoreError, StoredKey,
+    AppendError, CallerRef, IdempotencyKey, InboundRow, ItemRef, LedgerId, LedgerTx, ReceivedRow,
+    Skeleton, StoreError, StoredKey,
 };
 
 /// The login role a [`SequencerPool`] must have.
@@ -93,6 +97,11 @@ pub struct LogRow {
     pub record_bytes: Vec<u8>,
     /// Ledger envelope bytes.
     pub envelope_bytes: Vec<u8>,
+    /// The externally signed bytes the record came with, as received (T-90).
+    pub received: Vec<ReceivedRow>,
+    /// The skeleton of a decoded record; `None` for a record of a protocol version without a
+    /// rule set, which is kept as bytes only (P-87).
+    pub skeleton: Option<Skeleton>,
 }
 
 impl std::fmt::Debug for LogRow {
@@ -102,11 +111,14 @@ impl std::fmt::Debug for LogRow {
             .field("recorded_at_ms", &self.recorded_at_ms)
             .field("record_bytes", &self.record_bytes.len())
             .field("envelope_bytes", &self.envelope_bytes.len())
+            .field("received", &self.received)
+            .field("skeleton", &self.skeleton.is_some())
             .finish_non_exhaustive()
     }
 }
 
-/// An outbox pointer written with its record (T-17, T-81).
+/// An outbox pointer written with its record (T-17, T-81): its version is the one the same
+/// batch writes to the item's head at the same position.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OutboxRow {
     /// Log position of the record.
@@ -119,8 +131,6 @@ pub struct OutboxRow {
     pub traceparent: String,
     /// The work item the event is about.
     pub item: ItemRef,
-    /// The item's version after the record.
-    pub version: u64,
 }
 
 /// An idempotency key written with the record it first produced (OP-8, OP-36 item 1).
@@ -134,14 +144,23 @@ pub struct KeyRow {
     pub stored: StoredKey,
 }
 
-/// The new head of one work item (P-29): inserted at version 1, otherwise the stored row at
-/// `version - 1` is advanced.
+/// What the append expects of a stored item head (T-89, OP-7).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Expect {
+    /// The next version: the stored version plus one, or 1 for a new item; never refused.
+    Next,
+    /// The stored version, 0 for an item not stored yet; another one refuses the batch with
+    /// [`StoreError::ItemConflict`].
+    Version(u64),
+}
+
+/// The new head of one work item (P-29, T-89): its version is assigned in the append.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ItemHeadRow {
     /// The item.
     pub item: ItemRef,
-    /// Its version after the batch.
-    pub version: u64,
+    /// What the stored head must be.
+    pub expect: Expect,
     /// Position of its last record.
     pub last_pos: u64,
     /// Current heads of a Commitment or Condition; `None` for a Work.
@@ -176,6 +195,8 @@ pub struct AppendBatch {
     pub outbox: Vec<OutboxRow>,
     /// Idempotency keys of the requests the records answer.
     pub keys: Vec<KeyRow>,
+    /// Inbound events the records answer.
+    pub inbound: Vec<InboundRow>,
     /// The head after the batch.
     pub head: NewHead,
 }
@@ -270,6 +291,24 @@ fn failed(e: impl Into<StoreError>) -> AppendError {
     AppendError::Failed(e.into())
 }
 
+fn row_failure(e: StoreError) -> AppendError {
+    match e {
+        StoreError::Constraint(_) => AppendError::Refused(e),
+        other => AppendError::Failed(other),
+    }
+}
+
+fn log_failure(e: sqlx::Error) -> AppendError {
+    let exists = db_code(&e).is_some_and(|(code, _, constraint)| {
+        code == "23505" && constraint.as_deref() == Some("log_record_uq")
+    });
+    if exists {
+        AppendError::Refused(StoreError::RecordExists)
+    } else {
+        AppendError::Failed(StoreError::Db(e))
+    }
+}
+
 async fn insert_records(
     tx: &mut LedgerTx<'_>,
     epoch: i64,
@@ -297,64 +336,100 @@ async fn insert_records(
         .bind(r.envelope_bytes.as_slice())
         .execute(tx.conn())
         .await
-        .map_err(failed)?;
+        .map_err(log_failure)?;
     }
     Ok(())
 }
 
-async fn write_items(tx: &mut LedgerTx<'_>, items: &[ItemHeadRow]) -> Result<(), AppendError> {
+/// The rows each record writes beside its log row, in the T-90 order: the bytes as received,
+/// the skeleton, then the links from the record to its received bytes.
+async fn insert_record_rows(tx: &mut LedgerTx<'_>, records: &[LogRow]) -> Result<(), AppendError> {
+    for r in records {
+        tx.insert_received(r.pos, &r.received)
+            .await
+            .map_err(row_failure)?;
+    }
+    for r in records {
+        if let Some(s) = &r.skeleton {
+            tx.insert_skeleton(r.pos, s).await.map_err(row_failure)?;
+        }
+    }
+    for r in records {
+        tx.link_received(r.pos, &r.received)
+            .await
+            .map_err(row_failure)?;
+    }
+    Ok(())
+}
+
+/// The version each `(pos, item)` of the batch has after its record (T-81 item 1, T-89).
+type Versions = BTreeMap<(u64, ItemRef), u64>;
+
+const NEXT_VERSION: &str = "INSERT INTO work.item_head \
+     (ledger_id, item_kind, item_id, version, last_pos, heads) \
+     VALUES ($1, $2, $3, 1, $4, $5::bytea[]::ledger.digest32[]) \
+     ON CONFLICT ON CONSTRAINT item_head_pk DO UPDATE \
+     SET version = work.item_head.version + 1, last_pos = EXCLUDED.last_pos, \
+         heads = EXCLUDED.heads \
+     RETURNING version";
+
+const NEW_ITEM: &str = "INSERT INTO work.item_head \
+     (ledger_id, item_kind, item_id, version, last_pos, heads) \
+     VALUES ($1, $2, $3, 1, $4, $5::bytea[]::ledger.digest32[]) \
+     RETURNING version";
+
+const STORED_VERSION: &str = "UPDATE work.item_head \
+     SET version = version + 1, last_pos = $4, heads = $5::bytea[]::ledger.digest32[] \
+     WHERE ledger_id = $1 AND item_kind = $2 AND item_id = $3 AND version = $6 \
+     RETURNING version";
+
+/// Writes the item heads in batch order and returns the version each one has after its record:
+/// [`Expect::Next`] takes the stored version plus one, or 1, and is never refused (T-89, OP-7);
+/// [`Expect::Version`] is a compare-and-set refused with [`StoreError::ItemConflict`].
+async fn write_items(
+    tx: &mut LedgerTx<'_>,
+    items: &[ItemHeadRow],
+) -> Result<Versions, AppendError> {
     let id = *tx.ledger().as_bytes();
     let id = id.as_slice();
+    let mut versions = Versions::new();
     for i in items {
-        let version = signed(i.version).map_err(failed)?;
         let last_pos = signed(i.last_pos).map_err(failed)?;
         let heads: Option<Vec<Vec<u8>>> = i
             .heads
             .as_ref()
             .map(|h| h.iter().map(|d| d.to_vec()).collect());
-        if i.version == 1 {
-            sqlx::query(
-                "INSERT INTO work.item_head \
-                 (ledger_id, item_kind, item_id, version, last_pos, heads) \
-                 VALUES ($1, $2, $3, $4, $5, $6::bytea[]::ledger.digest32[])",
-            )
+        let (sql, stored) = match i.expect {
+            Expect::Next => (NEXT_VERSION, None),
+            Expect::Version(0) => (NEW_ITEM, None),
+            Expect::Version(v) => (STORED_VERSION, Some(signed(v).map_err(failed)?)),
+        };
+        let mut query = sqlx::query_scalar(sql)
             .bind(id)
             .bind(i.item.kind())
             .bind(i.item.id())
-            .bind(version)
             .bind(last_pos)
-            .bind(heads)
-            .execute(tx.conn())
-            .await
-            .map_err(|e| item_failure(e, i.item))?;
-        } else {
-            let prev = version
-                .checked_sub(1)
-                .ok_or_else(|| failed(StoreError::Corrupt))?;
-            let done = sqlx::query(
-                "UPDATE work.item_head \
-                 SET version = $4, last_pos = $5, heads = $6::bytea[]::ledger.digest32[] \
-                 WHERE ledger_id = $1 AND item_kind = $2 AND item_id = $3 AND version = $7",
-            )
-            .bind(id)
-            .bind(i.item.kind())
-            .bind(i.item.id())
-            .bind(version)
-            .bind(last_pos)
-            .bind(heads)
-            .bind(prev)
-            .execute(tx.conn())
-            .await
-            .map_err(|e| item_failure(e, i.item))?;
-            if done.rows_affected() != 1 {
-                return Err(AppendError::Refused(StoreError::ItemConflict(i.item)));
-            }
+            .bind(heads);
+        if let Some(stored) = stored {
+            query = query.bind(stored);
         }
+        let written: Option<i64> = query
+            .fetch_optional(tx.conn())
+            .await
+            .map_err(|e| item_failure(e, i.item))?;
+        let Some(version) = written else {
+            return Err(AppendError::Refused(StoreError::ItemConflict(i.item)));
+        };
+        versions.insert((i.last_pos, i.item), unsigned(version).map_err(failed)?);
     }
-    Ok(())
+    Ok(versions)
 }
 
-async fn insert_outbox(tx: &mut LedgerTx<'_>, outbox: &[OutboxRow]) -> Result<(), AppendError> {
+async fn insert_outbox(
+    tx: &mut LedgerTx<'_>,
+    outbox: &[OutboxRow],
+    written: &Versions,
+) -> Result<(), AppendError> {
     if outbox.is_empty() {
         return Ok(());
     }
@@ -373,7 +448,10 @@ async fn insert_outbox(tx: &mut LedgerTx<'_>, outbox: &[OutboxRow]) -> Result<()
         traces.push(o.traceparent.as_str());
         kinds.push(o.item.kind());
         items.push(o.item.id());
-        versions.push(signed(o.version).map_err(failed)?);
+        let version = written
+            .get(&(o.pos, o.item))
+            .ok_or(AppendError::Refused(StoreError::OutboxItem(o.item)))?;
+        versions.push(signed(*version).map_err(failed)?);
     }
     sqlx::query(
         "INSERT INTO ledger.outbox \
@@ -532,19 +610,24 @@ impl SequencerPool {
         Ok(head)
     }
 
-    /// Appends `b` to `ledger` in one transaction (T-74 m.1, OP-5): locks the head and checks
-    /// it is at `b.after` under `b.epoch`, inserts the records, the item heads and the outbox
-    /// pointers, then moves the head with its frontier by compare-and-set. It returns `Ok` only
+    /// Appends `b` to `ledger` in one transaction (T-74 m.1, OP-5, T-90): locks the head and
+    /// checks it is at `b.after` under `b.epoch`, inserts the log rows, the bytes each record was
+    /// received as, the skeletons and the links to the received bytes, then the item heads, the
+    /// outbox pointers with the versions those heads took, the idempotency keys and the inbound
+    /// events, then moves the head with its frontier by compare-and-set. It returns `Ok` only
     /// after the commit succeeded.
     ///
-    /// The outcome maps as follows. [`AppendError::Refused`] carries
-    /// [`StoreError::ItemConflict`] and means nothing was written: an item at version 1
-    /// already exists (`23505` on `item_head_pk`), an item to advance is not stored at
-    /// `version - 1`, or the item guard rejects the step (`23514` with
-    /// `item_version_not_monotonic` or `item_position_not_monotonic`); it carries
+    /// The outcome maps as follows. [`AppendError::Refused`] means nothing was written and
+    /// carries [`StoreError::ItemConflict`] when an [`Expect::Version`] head is not stored at
+    /// that version (`23505` on `item_head_pk` for version 0) or the item guard rejects the
+    /// step (`23514` with `item_version_not_monotonic` or `item_position_not_monotonic`);
     /// [`StoreError::KeyReused`] when the caller's idempotency key is already stored in a hot
-    /// partition. Since the head row is locked and checked first, none of these is about
-    /// leadership. Everything else is
+    /// partition; [`StoreError::RecordExists`] for a record id already in the ledger;
+    /// [`StoreError::InboundSeen`] for an inbound event already seen in a hot partition;
+    /// [`StoreError::OutboxItem`] for a pointer whose item its record does not touch; and
+    /// [`StoreError::Constraint`] for a received, skeleton or inbound row that breaks a
+    /// constraint, such as a `proof_commit` without its received bytes. Since the head row is
+    /// locked and checked first, none of these is about leadership. Everything else is
     /// [`AppendError::Failed`]: [`StoreError::NotOpened`], [`StoreError::HeadMoved`] when the
     /// head is not at `b.after` under `b.epoch`, [`StoreError::Corrupt`] for a value beyond
     /// `bigint`, and [`StoreError::Db`] for any other database error, including a failed or
@@ -571,8 +654,9 @@ impl SequencerPool {
             Some(_) => {}
         }
         insert_records(&mut tx, epoch, &b.records).await?;
-        write_items(&mut tx, &b.items).await?;
-        insert_outbox(&mut tx, &b.outbox).await?;
+        insert_record_rows(&mut tx, &b.records).await?;
+        let versions = write_items(&mut tx, &b.items).await?;
+        insert_outbox(&mut tx, &b.outbox, &versions).await?;
         for k in &b.keys {
             if tx
                 .idempotency_key(&k.caller, &k.key)
@@ -585,6 +669,12 @@ impl SequencerPool {
             tx.insert_idempotency_key(&k.caller, &k.key, &k.stored)
                 .await
                 .map_err(key_failure)?;
+        }
+        for i in &b.inbound {
+            if tx.inbound_seen(i).await.map_err(failed)? {
+                return Err(AppendError::Refused(StoreError::InboundSeen));
+            }
+            tx.insert_inbound(i).await.map_err(row_failure)?;
         }
         let moved = sqlx::query(
             "UPDATE ledger.head SET pos = $2, head_leaf = $3, \

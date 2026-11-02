@@ -11,13 +11,16 @@ INSERT INTO work.ledger_profile VALUES (decode('{L}', 'hex'), 'single-node');
 INSERT INTO ledger.log (ledger_id, pos, epoch, record_id, recorded_at, prev, leaf_hash, record_bytes, envelope_bytes)
 VALUES (decode('{L}', 'hex'), 0, 0, decode(repeat('01', 32), 'hex'), '2026-10-23T10:00:00.123Z',
         NULL, decode(repeat('11', 32), 'hex'), '\\xd2', '\\xa0');
+INSERT INTO work.received_bytes (ledger_id, digest, kind, bytes, first_pos)
+VALUES (decode('{L}', 'hex'), pg_catalog.sha256('\\xd28440a0f640'), 'cose_sign1', '\\xd28440a0f640', 0);
 INSERT INTO work.record_header (
     ledger_id, pos, kind, record_type, author, author_actor_type, author_actor_type_source,
     occurred_at, ingest, proof_commit, protocol_major, protocol_minor, schema_digest)
 VALUES (
     decode('{L}', 'hex'), 0, 'declaration', 'https://suiss.app/ns/work/declaration/request', 'party:alice',
-    'human', 'access_binding', NULL, 'admitted', decode(repeat('22', 32), 'hex'), 1, 0,
+    'human', 'access_binding', NULL, 'admitted', pg_catalog.sha256('\\xd28440a0f640'), 1, 0,
     decode(repeat('33', 32), 'hex'));
+INSERT INTO work.log_received VALUES (decode('{L}', 'hex'), 0, 'author_signature', pg_catalog.sha256('\\xd28440a0f640'));
 INSERT INTO work.work_root VALUES (decode('{L}', 'hex'), '01890a5d-ac96-774b-bcce-b302099a8057', 0);
 INSERT INTO work.log_concerns VALUES (decode('{L}', 'hex'), '01890a5d-ac96-774b-bcce-b302099a8057', 0);
 INSERT INTO work.body_commitment VALUES (decode('{L}', 'hex'), 0, 'note', decode(repeat('44', 32), 'hex'));
@@ -73,7 +76,7 @@ pub(crate) async fn seeded() -> (Env, String) {
 #[ignore = "needs Docker"]
 async fn t_36_migrations_rerun_as_a_no_op() {
     let env = Env::start().await;
-    for (cluster, applied) in [(Cluster::Canonical, 14), (Cluster::Derived, 7)] {
+    for (cluster, applied) in [(Cluster::Canonical, 15), (Cluster::Derived, 7)] {
         work_store::migrate(&env.pool(cluster, "work_owner"), cluster)
             .await
             .unwrap();
@@ -187,10 +190,73 @@ async fn op_12_append_only_tables_reject_update_delete_and_truncate_from_every_r
         ("work_archive", "DELETE FROM work.idempotency_key"),
         ("work_archive", "SELECT count(*) FROM ledger.log"),
         ("work_erasure", "DELETE FROM work.body_part"),
+        (
+            "work_sequencer",
+            "UPDATE work.received_bytes SET kind = 'foreign_record'",
+        ),
+        ("work_sequencer", "DELETE FROM work.log_received"),
+        ("work_app", "INSERT INTO work.log_received SELECT * FROM work.log_received"),
     ];
     for (role, stmt) in cases {
         fails(&env.canonical(role), &l, &[stmt], Some("42501")).await;
     }
+}
+
+// T-90 P-5 P-75
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs Docker"]
+async fn t_90_received_bytes_match_their_digest_and_bind_the_proof_commit() {
+    let (env, l) = seeded().await;
+    let seq = env.canonical("work_sequencer");
+    let received = |digest: &str, kind: &str, bytes: &str| {
+        sql(&format!(
+            "INSERT INTO work.received_bytes (ledger_id, digest, kind, bytes, first_pos) \
+             VALUES (decode('{{L}}', 'hex'), {digest}, '{kind}', {bytes}, 0)"
+        ))
+    };
+    let mismatched = received("decode(repeat('00', 32), 'hex')", "cose_sign1", "'\\xd2'");
+    fails(&seq, &l, &[&mismatched], Some("23514")).await;
+    let empty = received("pg_catalog.sha256('\\x')", "cose_sign1", "'\\x'");
+    fails(&seq, &l, &[&empty], Some("23514")).await;
+    let unknown = received("pg_catalog.sha256('\\xd2')", "jwt", "'\\xd2'");
+    fails(&seq, &l, &[&unknown], Some("23514")).await;
+    let large = received(
+        "pg_catalog.sha256(pg_catalog.decode(repeat('ab', 262145), 'hex'))",
+        "foreign_record",
+        "pg_catalog.decode(repeat('ab', 262145), 'hex')",
+    );
+    fails(&seq, &l, &[&large], Some("23514")).await;
+    let again = sql(
+        "INSERT INTO work.received_bytes (ledger_id, digest, kind, bytes, first_pos) \
+         VALUES (decode('{L}', 'hex'), pg_catalog.sha256('\\xd28440a0f640'), 'cose_sign1', \
+         '\\xd28440a0f640', 0) ON CONFLICT (ledger_id, digest) DO NOTHING",
+    );
+    run(&seq, &l, &[&again]).await;
+    let count = "SELECT count(*) FROM work.received_bytes";
+    assert_eq!(scalar(&seq, &l, count, false).await, 1);
+    let unbound = sql(
+        "INSERT INTO work.log_received VALUES (decode('{L}', 'hex'), 0, 'auth_context', \
+         decode(repeat('00', 32), 'hex'))",
+    );
+    fails(&seq, &l, &[&unbound], Some("23503")).await;
+    let link = |role: &str| {
+        sql(&format!(
+            "INSERT INTO work.log_received VALUES (decode('{{L}}', 'hex'), 0, '{role}', \
+             pg_catalog.sha256('\\xd28440a0f640'))"
+        ))
+    };
+    fails(&seq, &l, &[&link("notary_signature")], Some("23514")).await;
+    run(&seq, &l, &[&link("presenter_signature")]).await;
+    let header = sql(
+        "INSERT INTO work.record_header ( \
+             ledger_id, pos, kind, record_type, author, author_actor_type, author_actor_type_source, \
+             occurred_at, ingest, proof_commit, protocol_major, protocol_minor, schema_digest) \
+         VALUES (decode('{L}', 'hex'), 1, 'claim', 'https://suiss.app/ns/work/claim/observation', \
+             'party:bob', 'agent', 'access_binding', '2026-10-23T10:00:01Z', 'admitted', \
+             decode(repeat('22', 32), 'hex'), 1, 0, decode(repeat('33', 32), 'hex'))",
+    );
+    let row = log_row(1, "11", "2026-10-23T10:00:05Z");
+    fails(&seq, &l, &[&row, &header], Some("23503")).await;
 }
 
 // T-13 T-36 Access OP-12 Access OP-18
