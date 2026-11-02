@@ -52,7 +52,10 @@ enum StartError {
     Lockdown(suiss_sandbox::Error),
 }
 
-#[allow(clippy::print_stderr, reason = "the signer's start-up and refusal lines")]
+#[allow(
+    clippy::print_stderr,
+    reason = "the signer's start-up and refusal lines"
+)]
 fn say(line: &str) {
     eprintln!("work-signer: {line}");
 }
@@ -64,7 +67,12 @@ fn version() {
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
-    match args.iter().map(String::as_str).collect::<Vec<_>>().as_slice() {
+    match args
+        .iter()
+        .map(String::as_str)
+        .collect::<Vec<_>>()
+        .as_slice()
+    {
         ["--version"] => {
             version();
             ExitCode::SUCCESS
@@ -137,9 +145,7 @@ fn run(path: &Path) -> Result<(), StartError> {
         return Err(StartError::KeyType);
     };
     let listener = bind(&config)?;
-    let locked = lockdown(&config)?
-        .apply()
-        .map_err(StartError::Lockdown)?;
+    let locked = lockdown(&config)?.apply().map_err(StartError::Lockdown)?;
     let report = locked.narrow().map_err(StartError::Lockdown)?;
     say(&format!(
         "serving on {}, lockdown {} seccomp phase {} landlock abi {}",

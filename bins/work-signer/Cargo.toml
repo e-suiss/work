@@ -9,7 +9,7 @@ repository.workspace = true
 publish = false
 
 [dependencies]
-suiss-crypto = { workspace = true, features = ["pkcs11"] }
+suiss-crypto = { workspace = true, features = ["aead", "pkcs11"] }
 suiss-sandbox = { workspace = true }
 work-proto = { workspace = true }
 serde = { workspace = true, features = ["derive", "std"] }

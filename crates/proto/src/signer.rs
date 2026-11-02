@@ -147,8 +147,8 @@ pub fn header(bytes: [u8; HEADER]) -> Result<Header, FrameError> {
     if version != VERSION {
         return Err(FrameError::Version(version));
     }
-    let len = usize::try_from(u32::from_be_bytes([a, b, c, d]))
-        .map_err(|_| FrameError::TooLarge)?;
+    let len =
+        usize::try_from(u32::from_be_bytes([a, b, c, d])).map_err(|_| FrameError::TooLarge)?;
     if len > MAX_PAYLOAD {
         return Err(FrameError::TooLarge);
     }

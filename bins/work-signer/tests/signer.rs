@@ -41,7 +41,10 @@ fn t_7_the_signer_signs_checkpoints_of_its_ledgers_only() {
 
     let (status, key) = signer.ask(Kind::LogKey.as_byte(), &[]);
     assert_eq!(status, Status::Signed);
-    assert_eq!(frames::parse_log_key(&key).unwrap(), (token.public, NAME.to_owned()));
+    assert_eq!(
+        frames::parse_log_key(&key).unwrap(),
+        (token.public, NAME.to_owned())
+    );
 
     let origin = format!("{PREFIX}ab12");
     let checkpoint = body(&origin);
@@ -60,7 +63,10 @@ fn t_7_the_signer_signs_checkpoints_of_its_ledgers_only() {
         refused(refusal::NOT_CHECKPOINT)
     );
     assert_eq!(
-        signer.ask(Kind::Checkpoint.as_byte(), body("access.example/domain/ab12").as_bytes()),
+        signer.ask(
+            Kind::Checkpoint.as_byte(),
+            body("access.example/domain/ab12").as_bytes()
+        ),
         refused(refusal::ORIGIN)
     );
     assert_eq!(
@@ -68,7 +74,10 @@ fn t_7_the_signer_signs_checkpoints_of_its_ledgers_only() {
         refused(refusal::PAYLOAD)
     );
     for kind in [0_u8, 3, 4, 0x7f, 0xff] {
-        assert_eq!(signer.ask(kind, checkpoint.as_bytes()), refused(refusal::KIND));
+        assert_eq!(
+            signer.ask(kind, checkpoint.as_bytes()),
+            refused(refusal::KIND)
+        );
     }
 }
 

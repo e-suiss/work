@@ -214,8 +214,7 @@ mod tests {
     use super::*;
 
     fn replica(test: &str) -> DirectoryReplica {
-        let root = std::env::temp_dir()
-            .join(format!("work-replica-{test}-{}", std::process::id()));
+        let root = std::env::temp_dir().join(format!("work-replica-{test}-{}", std::process::id()));
         DirectoryReplica::new("local", root)
     }
 

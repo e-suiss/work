@@ -72,8 +72,7 @@ impl LogKey {
             let mut payload = vec![0_u8; header.len];
             stream.read_exact(&mut payload)?;
             let (status, answer) = self.answer(header.code, &payload);
-            let frame = frames::frame(status.as_byte(), &answer)
-                .map_err(std::io::Error::other)?;
+            let frame = frames::frame(status.as_byte(), &answer).map_err(std::io::Error::other)?;
             stream.write_all(&frame)?;
             stream.flush()?;
         }

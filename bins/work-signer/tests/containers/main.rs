@@ -199,7 +199,9 @@ async fn p_20_the_signer_acknowledges_the_head_and_the_replica_takes_the_log() {
     .unwrap();
     assert_eq!(checkpointer.log_key(), &token.verifier());
 
-    let mut read = LedgerTx::begin(&env.pool("work_app"), &ledger).await.unwrap();
+    let mut read = LedgerTx::begin(&env.pool("work_app"), &ledger)
+        .await
+        .unwrap();
     assert_eq!(
         read.durability(1).await.unwrap(),
         Some(RecordDurability::Recorded)
@@ -215,13 +217,21 @@ async fn p_20_the_signer_acknowledges_the_head_and_the_replica_takes_the_log() {
     assert_eq!(stored.head_leaf, leader.head().leaf);
     assert_eq!(stored.issued_at_ms, AT + 9);
     let note = String::from_utf8(stored.signed_note.clone()).unwrap();
-    let signed = verify_checkpoint(&note, &checkpointer.origin(&ledger), &token.verifier(), &[])
-        .unwrap();
+    let signed =
+        verify_checkpoint(&note, &checkpointer.origin(&ledger), &token.verifier(), &[]).unwrap();
     assert_eq!(signed.checkpoint.root, leader.head().frontier.root());
     assert!(signed.cosignatures.is_empty());
-    assert!(checkpointer.checkpoint(&ledger, AT + 10).await.unwrap().is_none());
+    assert!(
+        checkpointer
+            .checkpoint(&ledger, AT + 10)
+            .await
+            .unwrap()
+            .is_none()
+    );
 
-    let mut read = LedgerTx::begin(&env.pool("work_app"), &ledger).await.unwrap();
+    let mut read = LedgerTx::begin(&env.pool("work_app"), &ledger)
+        .await
+        .unwrap();
     for pos in [0, 1] {
         assert_eq!(
             read.durability(pos).await.unwrap(),

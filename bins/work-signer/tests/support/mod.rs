@@ -37,8 +37,8 @@ pub(crate) fn module() -> PathBuf {
 }
 
 pub(crate) fn token_dir() -> PathBuf {
-    let conf = std::env::var_os("SOFTHSM2_CONF")
-        .expect("SOFTHSM2_CONF names the SoftHSM configuration");
+    let conf =
+        std::env::var_os("SOFTHSM2_CONF").expect("SOFTHSM2_CONF names the SoftHSM configuration");
     let text = std::fs::read_to_string(conf).unwrap();
     let dir = text
         .lines()
@@ -71,8 +71,7 @@ pub(crate) struct Token {
 
 impl Token {
     pub(crate) fn new(test: &str) -> Self {
-        let dir = std::env::temp_dir()
-            .join(format!("work-signer-{test}-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("work-signer-{test}-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let label = format!("{test}-{}", std::process::id());
         let init = Command::new("softhsm2-util")
@@ -88,7 +87,11 @@ impl Token {
             ])
             .output()
             .unwrap();
-        assert!(init.status.success(), "{}", String::from_utf8_lossy(&init.stderr));
+        assert!(
+            init.status.success(),
+            "{}",
+            String::from_utf8_lossy(&init.stderr)
+        );
         let store = KeyStore::open(&module(), &label, &Secret::new(PIN.to_owned())).unwrap();
         let key = store.generate_ed25519(LABEL).unwrap();
         let PublicKey::Ed25519(public) = key.public_key() else {
@@ -154,7 +157,13 @@ impl Signer {
             }
             if let Some(status) = signer.child.try_wait().unwrap() {
                 let mut err = String::new();
-                signer.child.stderr.take().unwrap().read_to_string(&mut err).unwrap();
+                signer
+                    .child
+                    .stderr
+                    .take()
+                    .unwrap()
+                    .read_to_string(&mut err)
+                    .unwrap();
                 panic!("the signer exited with {status}: {err}");
             }
             std::thread::sleep(Duration::from_millis(50));
@@ -164,8 +173,8 @@ impl Signer {
 
     pub(crate) fn pid(&self) -> u32 {
         let me = self.child.id();
-        let children = std::fs::read_to_string(format!("/proc/{me}/task/{me}/children"))
-            .unwrap_or_default();
+        let children =
+            std::fs::read_to_string(format!("/proc/{me}/task/{me}/children")).unwrap_or_default();
         children
             .split_whitespace()
             .next()
@@ -174,7 +183,9 @@ impl Signer {
 
     pub(crate) fn ask(&self, kind: u8, payload: &[u8]) -> (Status, Vec<u8>) {
         let mut stream = UnixStream::connect(&self.socket).unwrap();
-        stream.write_all(&frames::frame(kind, payload).unwrap()).unwrap();
+        stream
+            .write_all(&frames::frame(kind, payload).unwrap())
+            .unwrap();
         let mut head = [0_u8; frames::HEADER];
         stream.read_exact(&mut head).unwrap();
         let header = frames::header(head).unwrap();

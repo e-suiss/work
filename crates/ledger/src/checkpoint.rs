@@ -277,9 +277,14 @@ mod tests {
 
         let other = SigningKey::from_bytes(&[8; 32]);
         assert_eq!(
-            acknowledgement(&cp, &line(&other, &log(&key), &cp.to_body().unwrap()), ORIGIN, &log(&key))
-                .unwrap_err()
-                .code(),
+            acknowledgement(
+                &cp,
+                &line(&other, &log(&key), &cp.to_body().unwrap()),
+                ORIGIN,
+                &log(&key)
+            )
+            .unwrap_err()
+            .code(),
             "signature-invalid"
         );
         assert_eq!(
