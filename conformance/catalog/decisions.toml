@@ -5520,6 +5520,7 @@ pd = "set"
 title = ""
 tests = [
   "bins/work-server/src/config.rs::op_43_fewer_than_two_nts_or_three_roughtime_servers_stop_the_process",
+  "bins/work-server/src/config.rs::op_46_the_declaration_defaults_to_claiming_nothing_and_saas_needs_independence",
   "crates/ledger/src/checkpoint.rs::op_46_saas_declares_independent_time_and_at_least_two_witnesses",
   "crates/ledger/src/time/adapters/nts.rs::op_32_the_local_timescale_is_the_anchor_plus_monotonic_time",
   "crates/ledger/src/time/adapters/nts.rs::op_42_polls_every_64_s_through_the_ntp_source_state_machine",
@@ -5540,6 +5541,7 @@ pd = "set"
 title = ""
 tests = [
   "bins/work-server/src/config.rs::op_33_checkpoints_default_to_60_s_or_1000_records_and_need_a_replica",
+  "bins/work-server/src/config.rs::op_46_the_declaration_defaults_to_claiming_nothing_and_saas_needs_independence",
   "crates/kernel/tests/ledger_vectors.rs::t_4_checkpoint_and_cosignature_vectors_through_the_kernel_verifier",
   "crates/ledger/src/checkpoint.rs::op_46_saas_declares_independent_time_and_at_least_two_witnesses",
   "crates/ledger/src/ledgers.rs::op_33_a_checkpoint_is_due_after_60_s_or_1000_records_whichever_comes_first",
@@ -5695,6 +5697,7 @@ stage = 2
 acceptance = "to-fill"
 title = ""
 tests = [
+  "bins/work-server/src/config.rs::op_46_the_declaration_defaults_to_claiming_nothing_and_saas_needs_independence",
   "bins/work-signer/src/answer.rs::t_7_only_the_canonical_body_of_a_configured_ledger_checkpoint_is_signed",
   "bins/work-signer/src/answer.rs::t_92_a_body_without_its_profile_lines_or_a_non_ledger_origin_is_refused",
   "bins/work-signer/tests/signer.rs::t_7_the_signer_signs_checkpoints_of_its_ledgers_only",
