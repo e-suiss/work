@@ -122,6 +122,6 @@ mod tests {
     // T-89 T-81
     #[test]
     fn t_89_a_record_that_concerns_no_work_touches_nothing() {
-        assert!(touched(&claim(vec![])).is_empty());
+        assert_eq!(touched(&claim(vec![])), Vec::<Touch>::new());
     }
 }

@@ -226,18 +226,15 @@ fn t_90_a_signed_record_keeps_its_cose_sign1_and_an_unsigned_one_its_context() {
         let [kept] = record.received() else {
             panic!("{}", g.id);
         };
-        match &g.cose {
-            Some(cose) => {
-                assert_eq!(&kept.bytes, cose);
-                assert_eq!(kept.role, ReceivedRole::AuthorSignature);
-                assert_eq!(kept.kind, ReceivedKind::CoseSign1);
-                assert_eq!(record.proof_commit, Some(sha256(cose)));
-            }
-            None => {
-                assert_eq!(kept.bytes, CONTEXT);
-                assert_eq!(kept.role, ReceivedRole::AuthContext);
-                assert_eq!(record.proof_commit, None);
-            }
+        if let Some(cose) = &g.cose {
+            assert_eq!(&kept.bytes, cose);
+            assert_eq!(kept.role, ReceivedRole::AuthorSignature);
+            assert_eq!(kept.kind, ReceivedKind::CoseSign1);
+            assert_eq!(record.proof_commit, Some(sha256(cose)));
+        } else {
+            assert_eq!(kept.bytes, CONTEXT);
+            assert_eq!(kept.role, ReceivedRole::AuthContext);
+            assert_eq!(record.proof_commit, None);
         }
         if let Some(s) = record.skeleton() {
             assert_eq!(s.header.proof_commit, record.proof_commit, "{}", g.id);
@@ -285,8 +282,8 @@ fn p_19_a_quarantined_record_is_written_with_its_reason() {
     let unknown = entries.last().unwrap();
     let record = pending(unknown, &ledger).unwrap();
     assert!(record.skeleton().is_none());
-    assert!(record.items().is_empty());
-    assert!(record.outbox().is_empty());
+    assert_eq!(record.items().len(), 0);
+    assert_eq!(record.outbox().len(), 0);
 }
 
 // C-34 OP-9 P-11
