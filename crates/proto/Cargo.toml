@@ -1,12 +1,15 @@
 [package]
 name = "work-proto"
-description = "Record, event and API types, checked against the CDDL and test vectors (T-35)."
+description = "Record, event and API types, checked against the CDDL and test vectors, and the signer socket frames (T-35, T-7)."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 publish = false
+
+[dependencies]
+thiserror = { workspace = true }
 
 [lints]
 workspace = true
