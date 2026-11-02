@@ -237,13 +237,13 @@ fn pending(ledger: &LedgerId, record: &[u8]) -> PendingRecord {
     .unwrap()
 }
 
-fn opening(nonce: u8, durability: Durability) -> Genesis {
+fn opening(nonce: [u8; 32], durability: Durability) -> Genesis {
     genesis(
         &GenesisInput {
             recorded_at_ms: AT,
             protocol: (1, 0),
             schema: [0x5c; 32],
-            nonce: [nonce; 32],
+            nonce,
         },
         durability,
     )
@@ -265,7 +265,7 @@ async fn pointers(env: &Env, ledger: &LedgerId) -> Vec<(u64, ItemRef, u64)> {
 async fn t_85_a_leader_opens_commits_and_is_fenced_by_the_next() {
     let env = Env::start().await;
     let pool = env.sequencer().await;
-    let opened = opening(0x7e, Durability::SingleNode);
+    let opened = opening([0x7e; 32], Durability::SingleNode);
     let ledger = opened.ledger;
     Leader::open(&pool, &opened).await.unwrap();
     assert!(matches!(
@@ -319,7 +319,7 @@ async fn t_85_a_leader_opens_commits_and_is_fenced_by_the_next() {
 async fn inv_33_a_refused_or_failed_commit_leaves_no_pointer() {
     let env = Env::start().await;
     let pool = env.sequencer().await;
-    let opened = opening(0x6a, Durability::Quorum);
+    let opened = opening([0x6a; 32], Durability::Quorum);
     let ledger = opened.ledger;
     Leader::open(&pool, &opened).await.unwrap();
     let mut first = Leader::acquire(pool.clone(), ledger).await.unwrap();
@@ -369,7 +369,7 @@ impl Clock for Gate {
     }
 }
 
-async fn writer(env: &Env, nonce: u8) -> (SequencerPool, LedgerId, GroupCommit, Gate) {
+async fn writer(env: &Env, nonce: [u8; 32]) -> (SequencerPool, LedgerId, GroupCommit, Gate) {
     let pool = env.sequencer().await;
     let g = opening(nonce, Durability::Quorum);
     Leader::open(&pool, &g).await.unwrap();
@@ -402,7 +402,7 @@ fn admit_spawned(
 #[ignore = "needs Docker"]
 async fn op_31_concurrent_requests_share_batches_and_get_contiguous_positions() {
     let env = Env::start().await;
-    let (pool, ledger, group, gate) = writer(&env, 0x3d).await;
+    let (pool, ledger, group, gate) = writer(&env, [0x3d; 32]).await;
     let waiting: Vec<_> = (1..=100_u8)
         .map(|n| admit_spawned(&group, comment(&ledger, n)))
         .collect();
@@ -426,7 +426,7 @@ async fn op_31_concurrent_requests_share_batches_and_get_contiguous_positions() 
 async fn op_41_a_full_queue_answers_busy_at_once_and_writes_nothing() {
     let env = Env::start().await;
     let pool = env.sequencer().await;
-    let g = opening(0x3e, Durability::Quorum);
+    let g = opening([0x3e; 32], Durability::Quorum);
     Leader::open(&pool, &g).await.unwrap();
     let ledger = g.ledger;
     let leader = Leader::acquire(pool.clone(), ledger).await.unwrap();
@@ -462,7 +462,7 @@ async fn op_41_a_full_queue_answers_busy_at_once_and_writes_nothing() {
 #[ignore = "needs Docker"]
 async fn op_31_a_refused_record_does_not_sink_its_batch() {
     let env = Env::start().await;
-    let (pool, ledger, group, gate) = writer(&env, 0x3f).await;
+    let (pool, ledger, group, gate) = writer(&env, [0x3f; 32]).await;
     let waiting: Vec<_> = [1, 2, 2, 4]
         .into_iter()
         .map(|n| admit_spawned(&group, comment(&ledger, n)))
@@ -504,7 +504,7 @@ fn comment_at(ledger: &LedgerId, work: u8, n: u64) -> Vec<u8> {
 #[ignore = "needs Docker"]
 async fn op_7_work_writes_never_refuse_each_other() {
     let env = Env::start().await;
-    let (_pool, ledger, group, gate) = writer(&env, 0x40).await;
+    let (_pool, ledger, group, gate) = writer(&env, [0x40; 32]).await;
     let waiting: Vec<_> = (1..=20_u64)
         .map(|n| admit_spawned(&group, comment_at(&ledger, 9, n)))
         .collect();
@@ -534,7 +534,7 @@ async fn op_7_work_writes_never_refuse_each_other() {
 #[ignore = "needs Docker"]
 async fn t_32_a_dropped_submit_is_withdrawn_before_its_batch() {
     let env = Env::start().await;
-    let (pool, ledger, group, gate) = writer(&env, 0x41).await;
+    let (pool, ledger, group, gate) = writer(&env, [0x41; 32]).await;
     let first = admit_spawned(&group, comment(&ledger, 1));
     tokio::time::sleep(Duration::from_millis(100)).await;
     let dropped = admit_spawned(&group, comment(&ledger, 2));

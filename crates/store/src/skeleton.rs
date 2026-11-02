@@ -336,29 +336,6 @@ impl LedgerTx<'_> {
         let id = ledger.as_slice();
         let at = signed(pos)?;
         self.insert_header(at, &s.header).await?;
-        sqlx::query(
-            "INSERT INTO work.record_header \
-             (ledger_id, pos, kind, record_type, author, author_actor_type, \
-              author_actor_type_source, occurred_at, ingest, ingest_reason, proof_commit, \
-              auth_context_ref, protocol_major, protocol_minor, schema_digest) \
-             VALUES ($1, $2, $3, $4, $5, $6, $7, \
-             pg_catalog.to_timestamp(0) + interval '1 millisecond' * $8::bigint::double precision, \
-             $9, $10, $11, $12, $13, $14, $15)",
-        )
-        .bind(id)
-        .bind(at)
-        .bind(h.kind)
-        .bind(h.record_type.as_str())
-        .bind(h.author.as_str())
-        .bind(h.author_actor_type)
-        .bind(h.author_actor_type_source)
-        .bind(occurred)
-        .bind(h.ingest)
-        .bind(h.ingest_reason.as_deref())
-        .bind(h.proof_commit.as_ref().map(<[u8; 32]>::as_slice))
-        .bind(h.auth_context_ref.as_ref().map(<[u8; 32]>::as_slice))
-        .bind(signed(h.protocol.0)?)
-        .bind(signed(h.protocol.1)?)
         for work in &s.concerns {
             sqlx::query(
                 "INSERT INTO work.work_root (ledger_id, work_id, first_pos) \
