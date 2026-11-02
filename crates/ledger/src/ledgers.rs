@@ -186,15 +186,11 @@ pub struct CheckpointStats {
 }
 
 fn bump(n: &AtomicU64) {
-    let _bumped = n.fetch_update(Ordering::AcqRel, Ordering::Acquire, |v| {
-        Some(v.saturating_add(1))
-    });
+    let _bumped = n.update(Ordering::AcqRel, Ordering::Acquire, |v| v.saturating_add(1));
 }
 
 fn settle(n: &AtomicU64, by: u64) {
-    let _settled = n.fetch_update(Ordering::AcqRel, Ordering::Acquire, |v| {
-        Some(v.saturating_sub(by))
-    });
+    let _settled = n.update(Ordering::AcqRel, Ordering::Acquire, |v| v.saturating_sub(by));
 }
 
 impl CheckpointStats {
