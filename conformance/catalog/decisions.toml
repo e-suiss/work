@@ -5226,6 +5226,7 @@ tests = [
   "crates/kernel/tests/codec_vectors.rs::p_79_record_ids_are_the_unprefixed_digest_of_the_signed_record_bytes",
   "crates/kernel/tests/cose.rs::p_8_the_shared_verifier_fills_the_signature_port_and_names_the_record_by_its_payload",
   "xtask/src/rules_kernel.rs::t_87_a_host_only_libc_edge_passes_and_a_target_edge_names_the_target",
+  "xtask/src/rules_kernel.rs::t_87_a_package_only_another_member_enables_is_not_in_the_kernel_build",
   "xtask/src/rules_kernel.rs::t_87_the_tree_is_resolved_for_each_distribution_target",
 ]
 

@@ -1,8 +1,13 @@
 //! `kernel` (T-4, T-31 rule 5, T-32 rule 3, T-87): the dependency tree of `work-kernel`, resolved
-//! for each distribution target, holds only the `no_std` verification part of `suiss-crypto`; no
-//! std runtime, I/O, async, FFI, signer or other shared crate.
+//! for each distribution target as a build of the kernel alone resolves it, holds only the
+//! `no_std` verification part of `suiss-crypto`; no std runtime, I/O, async, FFI, signer or other
+//! shared crate. Features another workspace member enables on a shared crate, such as the
+//! signer's key store, unify in `cargo metadata` but never reach a kernel build, so the rule
+//! judges only the packages `cargo tree --package` builds for the kernel.
 
+use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 use crate::Violation;
 use crate::rules::files::rel;
@@ -107,12 +112,70 @@ pub(crate) fn kernel_violations(root: &Path, md: &Metadata) -> Vec<Violation> {
 
 /// Kernel tree violations over metadata resolved for `target` (T-87).
 pub(crate) fn tree_violations(root: &Path, md: &Metadata, target: &str) -> Vec<Violation> {
+    violations_within(root, md, target, None)
+}
+
+/// The `cargo tree` arguments that list the kernel's normal and build dependencies for
+/// `target`, one package per line, with the features a build of the kernel alone enables.
+pub(crate) fn tree_args(target: &str) -> Vec<&str> {
+    vec![
+        "tree",
+        "--locked",
+        "--offline",
+        "--package",
+        KERNEL_PACKAGE,
+        "--target",
+        target,
+        "--edges",
+        "normal,build",
+        "--prefix",
+        "none",
+        "--format",
+        "{p}",
+    ]
+}
+
+/// The package names of `cargo tree` output in the [`tree_args`] format.
+pub(crate) fn tree_packages(text: &str) -> BTreeSet<String> {
+    text.lines()
+        .filter_map(|l| l.split_whitespace().next())
+        .map(str::to_owned)
+        .collect()
+}
+
+fn built_packages(root: &Path, target: &str) -> Result<BTreeSet<String>, String> {
+    let cargo = std::env::var("CARGO").unwrap_or_else(|_| "cargo".to_owned());
+    let output = Command::new(cargo)
+        .args(tree_args(target))
+        .current_dir(root)
+        .output()
+        .map_err(|e| format!("cargo tree: {e}"))?;
+    if !output.status.success() {
+        return Err(format!(
+            "cargo tree failed: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        ));
+    }
+    Ok(tree_packages(&String::from_utf8_lossy(&output.stdout)))
+}
+
+fn violations_within(
+    root: &Path,
+    md: &Metadata,
+    target: &str,
+    built: Option<&BTreeSet<String>>,
+) -> Vec<Violation> {
     let Some(kernel) = kernel_package(root, md) else {
         return vec![v("crates/kernel is not a workspace member".to_owned())];
     };
     let closure = md.shipped_closure(std::slice::from_ref(&kernel.id));
     let mut out = Vec::new();
-    for pkg in md.packages.iter().filter(|p| closure.contains(&p.id)) {
+    for pkg in md
+        .packages
+        .iter()
+        .filter(|p| closure.contains(&p.id))
+        .filter(|p| built.is_none_or(|b| b.contains(&p.name)))
+    {
         if FORBIDDEN_IN_TREE.contains(&pkg.name.as_str()) {
             out.push(v(format!(
                 "`{}` {} is in the kernel dependency tree for {target}; std, I/O, async and FFI stay out (T-4, T-31 rule 5)",
@@ -128,7 +191,8 @@ pub(crate) fn check(root: &Path) -> Result<Vec<Violation>, String> {
     let mut out = kernel_violations(root, &md);
     for target in DISTRIBUTION_TARGETS {
         let filtered = crate::supply_chain::metadata::load_for_target(root, target)?;
-        out.extend(tree_violations(root, &filtered, target));
+        let built = built_packages(root, target)?;
+        out.extend(violations_within(root, &filtered, target, Some(&built)));
     }
     Ok(out)
 }
@@ -272,5 +336,34 @@ mod tests {
         assert_eq!(found.len(), 1, "{found:?}");
         assert!(found[0].message.contains("libc"));
         assert!(found[0].message.contains("for thumbv7em-none-eabihf"));
+    }
+
+    // T-87 T-4
+    #[test]
+    fn t_87_a_package_only_another_member_enables_is_not_in_the_kernel_build() {
+        let crypto = external("esuiss-crypto", "0.2.3", false);
+        let aws = external("aws-lc-rs", "1.18.2", false);
+        let crypto_id = "registry+https://github.com/rust-lang/crates.io-index#esuiss-crypto@0.2.3";
+        let aws_id = "registry+https://github.com/rust-lang/crates.io-index#aws-lc-rs@1.18.2";
+        let k = with_registry_dep(kernel(), "esuiss-crypto", Some("suiss-crypto"), false);
+        let unified = parse(&metadata_with_edges(
+            &[k, crypto, aws],
+            &[],
+            &[(KERNEL_ID, crypto_id, None), (crypto_id, aws_id, None)],
+        ))
+        .unwrap();
+        let target = DISTRIBUTION_TARGETS[0];
+        assert_eq!(tree_violations(Path::new("/ws"), &unified, target).len(), 1);
+        let built = tree_packages(
+            "esuiss-work-kernel v0.1.0 (/ws/crates/kernel)\nesuiss-crypto v0.2.3\nsha2 v0.11.1\nesuiss-crypto v0.2.3 (*)\n",
+        );
+        assert_eq!(
+            built.iter().map(String::as_str).collect::<Vec<_>>(),
+            ["esuiss-crypto", "esuiss-work-kernel", "sha2"]
+        );
+        assert!(violations_within(Path::new("/ws"), &unified, target, Some(&built)).is_empty());
+        let args = tree_args(target);
+        assert!(args.windows(2).any(|w| w == ["--package", KERNEL_PACKAGE]));
+        assert!(args.windows(2).any(|w| w == ["--target", target]));
     }
 }
