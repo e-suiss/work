@@ -4193,7 +4193,13 @@ id = "T-7"
 family = "T"
 status = "central-decision"
 title = ""
-tests = []
+tests = [
+  "bins/work-signer/src/answer.rs::t_7_only_the_canonical_body_of_a_configured_ledger_checkpoint_is_signed",
+  "bins/work-signer/src/config.rs::t_7_the_origin_prefix_and_the_key_name_follow_the_note_rules",
+  "bins/work-signer/tests/signer.rs::t_7_the_signer_signs_checkpoints_of_its_ledgers_only",
+  "crates/proto/src/signer.rs::t_7_a_frame_round_trips_and_an_oversized_or_foreign_one_is_refused",
+  "crates/proto/src/signer.rs::t_7_no_kind_byte_but_the_log_key_and_the_checkpoint_is_answered",
+]
 
 [[rule]]
 id = "T-9"
@@ -4210,6 +4216,8 @@ status = "frozen-technical"
 acceptance = "to-fill"
 title = ""
 tests = [
+  "bins/work-signer/tests/signer.rs::t_72_the_signer_serves_only_inside_its_lockdown",
+  "bins/work-signer/tests/signer.rs::t_7_the_signer_signs_checkpoints_of_its_ledgers_only",
   "crates/kernel/tests/ledger_vectors.rs::ev_35_a_stored_presenter_annotation_must_match_the_record_evidence",
   "crates/kernel/tests/ledger_vectors.rs::t_10_an_entry_that_does_not_match_its_bytes_is_an_envelope_mismatch",
   "crates/kernel/tests/ledger_vectors.rs::t_10_the_verifier_recomputes_every_record_id_from_the_stored_bytes",
@@ -4832,6 +4840,7 @@ status = "frozen-technical"
 acceptance = "filled"
 title = "Keys and secrets only through PKCS#11, with SoftHSM locally"
 tests = [
+  "bins/work-signer/tests/signer.rs::t_7_the_signer_signs_checkpoints_of_its_ledgers_only",
   "xtask/src/policy_compat.rs::t_56_kms_emulator_bundle_and_missing_services_are_rejected",
 ]
 
@@ -5023,7 +5032,10 @@ status = "frozen-technical"
 stage = 2
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "bins/work-signer/tests/signer.rs::t_72_the_signer_refuses_to_start_when_its_lockdown_cannot_be_set_up",
+  "bins/work-signer/tests/signer.rs::t_72_the_signer_serves_only_inside_its_lockdown",
+]
 
 [[rule]]
 id = "T-73"
@@ -5223,9 +5235,11 @@ stage = 1
 acceptance = "to-fill"
 title = ""
 tests = [
+  "bins/work-signer/tests/signer.rs::t_7_the_signer_signs_checkpoints_of_its_ledgers_only",
   "crates/kernel/tests/ledger_vectors.rs::t_4_checkpoint_and_cosignature_vectors_through_the_kernel_verifier",
   "crates/kernel/tests/ledger_vectors.rs::t_4_every_entry_is_included_in_the_cosigned_checkpoint",
   "crates/kernel/tests/ledger_vectors.rs::t_4_inclusion_and_consistency_vectors_through_the_kernel_verifier",
+  "crates/ledger/src/checkpoint.rs::p_20_the_acknowledgement_is_the_log_signed_checkpoint_asked_for",
 ]
 
 [[rule]]
@@ -5255,6 +5269,7 @@ tests = [
   "crates/ledger/src/admit/tests.rs::p_21_a_signed_agent_record_sent_unsigned_is_refused",
   "crates/ledger/src/admit/tests.rs::t_90_a_signed_record_keeps_its_cose_sign1_and_an_unsigned_one_its_context",
   "crates/ledger/src/admit/tests.rs::t_91_received_bytes_above_262_144_are_limit_exceeded_request",
+  "crates/ledger/src/replica.rs::op_4_a_mirrored_entry_and_its_received_bytes_are_written_once",
 ]
 
 [[rule]]
@@ -5292,7 +5307,10 @@ status = "frozen-technical"
 stage = 2
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/ledger/src/checkpoint.rs::p_20_the_acknowledgement_is_the_log_signed_checkpoint_asked_for",
+  "crates/ledger/src/replica.rs::op_4_a_mirrored_entry_and_its_received_bytes_are_written_once",
+]
 
 [[rule]]
 id = "OP-8"
