@@ -1,10 +1,12 @@
 //! Start-up checks of the mandatory infrastructure (T-20, T-84, MD-14): both PostgreSQL
-//! databases answer and run major version 18 or later, and NATS answers with JetStream enabled
+//! databases answer and run major version 18 or later, the sequencer, checkpointer and publisher
+//! pools log in as their own roles (T-79, OP-12), and NATS answers with JetStream enabled
 //! within the start-up timeout; otherwise the process does not start. Migrations are not run
 //! here (OP-28). Once running, losing NATS is only a delay (T-21, T-28, T-84): the client
 //! reconnects in the background and the loss is logged. The ledger time driver starts here
 //! too: its sources are configured and counted at load (OP-32 item 4, OP-43 item 3), and a source
-//! that does not answer yet never blocks start-up (OP-43 item 2).
+//! that does not answer yet never blocks start-up (OP-43 item 2). The signer is not needed to
+//! start; until it answers the process is not ready and nothing is checkpointed (T-39 rule 6).
 
 use std::future::Future;
 use std::io::BufReader;
@@ -16,7 +18,7 @@ use tokio::task::JoinHandle;
 use work_ledger::time::{
     LedgerTime, NTS_EVENT_QUEUE, ProcessMonotonic, RoughtimeUdp, read_roots, spawn_nts,
 };
-use work_store::{Pool, StoreError};
+use work_store::{CheckpointerPool, Pool, PublisherPool, SequencerPool, StoreError};
 
 use crate::config::Config;
 
@@ -55,12 +57,15 @@ pub(crate) enum StartupError {
     NtsRoots(std::io::Error),
     #[error("ledger time: {0}")]
     LedgerTime(String),
+    #[error("configuration: {0}")]
+    Config(String),
 }
 
 /// The running ledger time driver: one per NTS server, the NTS event follower and the
 /// Roughtime rounds (OP-32, OP-43).
 #[derive(Debug)]
 pub(crate) struct TimeDriver {
+    time: LedgerTime<ProcessMonotonic>,
     handles: Vec<JoinHandle<()>>,
 }
 
@@ -85,8 +90,9 @@ impl TimeDriver {
         let mut handles = spawn_nts(nts, roots, &mono, &events)
             .map_err(|e| StartupError::LedgerTime(e.to_string()))?;
         handles.push(tokio::spawn(time.clone().follow_nts(received)));
+        let rounds = time.clone();
         handles.push(tokio::spawn(
-            time.run_roughtime(RoughtimeUdp::new(roughtime, mono)),
+            rounds.run_roughtime(RoughtimeUdp::new(roughtime, mono)),
         ));
         tracing::info!(
             event = "ledger_time.started",
@@ -94,7 +100,12 @@ impl TimeDriver {
             roughtime = config.ledger_time.roughtime.len(),
             "ledger time driver started"
         );
-        Ok(Self { handles })
+        Ok(Self { time, handles })
+    }
+
+    /// The ledger time the `Clock` port reads (OP-6, OP-32).
+    pub(crate) fn clock(&self) -> LedgerTime<ProcessMonotonic> {
+        self.time.clone()
     }
 
     /// Stops every part of the driver.
@@ -116,22 +127,57 @@ pub(crate) const fn check_postgres_version(num: i32) -> Result<(), PostgresTooOl
 /// The connections checked at start-up, held for the life of the process.
 #[derive(Debug)]
 pub(crate) struct Infrastructure {
-    canonical: Pool,
-    derived: Pool,
-    nats: async_nats::Client,
+    pub(crate) canonical: Pool,
+    pub(crate) derived: Pool,
+    pub(crate) nats: async_nats::Client,
+    pub(crate) sequencer: SequencerPool,
+    pub(crate) checkpointer: CheckpointerPool,
+    pub(crate) publisher: PublisherPool,
+    roles: Vec<(&'static str, Pool)>,
 }
 
 impl Infrastructure {
-    /// Connects to both databases and to NATS and checks them (T-20).
+    /// Connects to both databases, to the canonical one as each writing role, and to NATS, and
+    /// checks them (T-20).
     pub(crate) async fn connect(config: &Config) -> Result<Self, StartupError> {
         let limit = config.startup_timeout();
-        let canonical = postgres("canonical", &config.postgres.canonical, limit).await?;
-        let derived = postgres("derived", &config.postgres.derived, limit).await?;
+        let pg = &config.postgres;
+        let canonical = postgres("canonical", &pg.canonical, limit).await?;
+        let derived = postgres("derived", &pg.derived, limit).await?;
+        let sequencer_pool = postgres("sequencer", &pg.sequencer, limit).await?;
+        let sequencer = role(
+            "sequencer",
+            limit,
+            SequencerPool::new(sequencer_pool.clone()),
+        )
+        .await?;
+        let checkpointer_pool = postgres("checkpointer", &pg.checkpointer, limit).await?;
+        let checkpointer = role(
+            "checkpointer",
+            limit,
+            CheckpointerPool::new(checkpointer_pool.clone()),
+        )
+        .await?;
+        let publisher_pool = postgres("publisher", &pg.publisher, limit).await?;
+        let publisher = role(
+            "publisher",
+            limit,
+            PublisherPool::new(publisher_pool.clone()),
+        )
+        .await?;
         let nats = nats(&config.nats.url, limit).await?;
         Ok(Self {
             canonical,
             derived,
             nats,
+            sequencer,
+            checkpointer,
+            publisher,
+            roles: vec![
+                ("sequencer", sequencer_pool),
+                ("checkpointer", checkpointer_pool),
+                ("publisher", publisher_pool),
+            ],
         })
     }
 
@@ -142,7 +188,22 @@ impl Infrastructure {
         }
         let _ = bounded("canonical", limit, self.canonical.close()).await;
         let _ = bounded("derived", limit, self.derived.close()).await;
+        for (name, pool) in self.roles {
+            let _ = bounded(name, limit, pool.close()).await;
+        }
     }
+}
+
+async fn role<T>(
+    database: &'static str,
+    limit: Duration,
+    check: impl Future<Output = Result<T, StoreError>>,
+) -> Result<T, StartupError> {
+    let checked = bounded(database, limit, check)
+        .await?
+        .map_err(|source| StartupError::Postgres { database, source })?;
+    tracing::info!(event = "postgres.role_checked", database);
+    Ok(checked)
 }
 
 async fn bounded<T>(

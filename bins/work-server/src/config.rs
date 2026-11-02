@@ -9,8 +9,13 @@ use base64::engine::general_purpose::STANDARD;
 use figment::Figment;
 use figment::providers::{Env, Format, Serialized, Toml};
 use serde::{Deserialize, Serialize};
+use work_dispatch::{PublisherConfig, StreamSettings};
 use work_ledger::time::{
     NTS_KE_PORT, NtsServer, RoughtimeServer, RoughtimeVersion, TimeConfigError, check_sources,
+};
+use work_ledger::{
+    Cadence, CadenceError, DEFAULT_CHECKPOINT_RECORDS, DEFAULT_MAX_BYTES, DEFAULT_MAX_RECORDS,
+    DEFAULT_QUEUE, GroupConfig, GroupConfigError,
 };
 use work_telemetry::{DEFAULT_MAX_QUEUE_SIZE, InvalidSampleRatio, SampleRatio, TraceConfig};
 
@@ -20,6 +25,8 @@ use work_telemetry::{DEFAULT_MAX_QUEUE_SIZE, InvalidSampleRatio, SampleRatio, Tr
 pub(crate) struct Config {
     /// Listen address; loopback unless the operator exposes it.
     pub(crate) listen: SocketAddr,
+    /// The internal network address of `/livez`, `/readyz` and `/metrics` (T-39 rule 6).
+    pub(crate) internal_listen: SocketAddr,
     /// `tracing` filter directives.
     pub(crate) log: String,
     /// The two PostgreSQL databases (T-20, OP-2).
@@ -32,6 +39,73 @@ pub(crate) struct Config {
     pub(crate) startup_timeout_ms: u64,
     /// The ledger time sources (OP-32, OP-42, OP-43).
     pub(crate) ledger_time: LedgerTime,
+    /// The signer process (T-7, T-72).
+    pub(crate) signer: Signer,
+    /// Checkpoint origin and cadence (P-20, OP-33).
+    pub(crate) checkpoint: Checkpoint,
+    /// The replica every checkpoint is mirrored to (OP-4 item 3, OP-33 item 3).
+    pub(crate) replica: Replica,
+    /// The outbox publisher (T-17, T-76, OP-34).
+    pub(crate) publisher: Publisher,
+    /// Group commit values (OP-31, OP-41).
+    pub(crate) group_commit: GroupCommitValues,
+}
+
+/// The signer's Unix socket.
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Signer {
+    /// The socket path, shared with `work-signer`.
+    pub(crate) socket: PathBuf,
+    /// Upper bound on one exchange with the signer, in milliseconds.
+    pub(crate) call_timeout_ms: u64,
+}
+
+/// Checkpoint settings.
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Checkpoint {
+    /// The origin of a ledger's checkpoints is this prefix and the ledger id in hex; the same
+    /// prefix the signer is configured with, e.g. `work.example/ledger/`.
+    pub(crate) origin_prefix: String,
+    /// Ledger time between checkpoints of a ledger with new records, in milliseconds.
+    pub(crate) interval_ms: u64,
+    /// New records after which a checkpoint is due at once.
+    pub(crate) records: u64,
+}
+
+/// The directory replica.
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Replica {
+    /// The `replica_id` its progress is stored under.
+    pub(crate) id: String,
+    /// The directory it is written to; none configured stops the process.
+    pub(crate) directory: Option<PathBuf>,
+}
+
+/// Outbox publisher settings; the other values are the OP-34 policy defaults.
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Publisher {
+    /// The installation URI events name as their source, `https://` and a host.
+    pub(crate) source: String,
+    /// `WORK_EVENTS` file-storage replicas: 1 on a single node, 3 in the multi-node profile.
+    pub(crate) stream_replicas: usize,
+}
+
+/// Group commit values (OP-31 item 2, OP-41).
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct GroupCommitValues {
+    /// Most records in one batch.
+    pub(crate) max_records: usize,
+    /// Most record bytes in one batch.
+    pub(crate) max_bytes: usize,
+    /// Pending requests per ledger.
+    pub(crate) queue: usize,
+    /// `Retry-After` of a request refused on a full queue, in milliseconds.
+    pub(crate) retry_after_ms: u64,
 }
 
 /// Ledger time sources; none by default, so an installation names its own (OP-32 item 4,
@@ -93,6 +167,12 @@ pub(crate) struct Postgres {
     pub(crate) canonical: String,
     /// The derived `work_derived` database.
     pub(crate) derived: String,
+    /// The canonical database as `work_sequencer`, the ledger writer (T-85).
+    pub(crate) sequencer: String,
+    /// The canonical database as `work_checkpointer` (P-20, OP-4).
+    pub(crate) checkpointer: String,
+    /// The canonical database as `work_publisher` (OP-34).
+    pub(crate) publisher: String,
 }
 
 /// NATS connection settings.
@@ -117,10 +197,14 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             listen: SocketAddr::from((Ipv4Addr::LOCALHOST, 8090)),
+            internal_listen: SocketAddr::from((Ipv4Addr::LOCALHOST, 8091)),
             log: "info".to_owned(),
             postgres: Postgres {
                 canonical: "postgres://localhost/work".to_owned(),
                 derived: "postgres://localhost/work_derived".to_owned(),
+                sequencer: "postgres://work_sequencer@localhost/work".to_owned(),
+                checkpointer: "postgres://work_checkpointer@localhost/work".to_owned(),
+                publisher: "postgres://work_publisher@localhost/work".to_owned(),
             },
             nats: Nats {
                 url: "nats://127.0.0.1:4222".to_owned(),
@@ -132,6 +216,31 @@ impl Default for Config {
             // OP-40
             startup_timeout_ms: 5_000,
             ledger_time: LedgerTime::default(),
+            signer: Signer {
+                socket: PathBuf::from("/run/work-signer/signer.sock"),
+                call_timeout_ms: 5_000,
+            },
+            // OP-33
+            checkpoint: Checkpoint {
+                origin_prefix: String::new(),
+                interval_ms: 60_000,
+                records: DEFAULT_CHECKPOINT_RECORDS,
+            },
+            replica: Replica {
+                id: "local".to_owned(),
+                directory: None,
+            },
+            publisher: Publisher {
+                source: String::new(),
+                stream_replicas: StreamSettings::default().replicas,
+            },
+            // OP-31 OP-41
+            group_commit: GroupCommitValues {
+                max_records: DEFAULT_MAX_RECORDS,
+                max_bytes: DEFAULT_MAX_BYTES,
+                queue: DEFAULT_QUEUE,
+                retry_after_ms: 1_000,
+            },
         }
     }
 }
@@ -153,6 +262,18 @@ pub(crate) enum ConfigError {
     TimeSources(#[from] TimeConfigError),
     #[error("ledger_time.roughtime[{0}].public_key is not 32 bytes of base64")]
     RoughtimeKey(usize),
+    #[error("signer.call_timeout_ms must be positive")]
+    SignerTimeout,
+    #[error("checkpoint.origin_prefix must be a non-empty origin start ending with `/`")]
+    OriginPrefix,
+    #[error("checkpoint: {0}")]
+    Cadence(#[from] CadenceError),
+    #[error("replica.id must be a non-empty identifier and replica.directory must be set")]
+    Replica,
+    #[error("publisher: {0}")]
+    Publisher(#[from] work_dispatch::ConfigError),
+    #[error("group_commit: {0}")]
+    GroupCommit(#[from] GroupConfigError),
 }
 
 impl Config {
@@ -179,6 +300,9 @@ impl Config {
         for (key, url) in [
             ("postgres.canonical", self.postgres.canonical.as_str()),
             ("postgres.derived", self.postgres.derived.as_str()),
+            ("postgres.sequencer", self.postgres.sequencer.as_str()),
+            ("postgres.checkpointer", self.postgres.checkpointer.as_str()),
+            ("postgres.publisher", self.postgres.publisher.as_str()),
             ("nats.url", self.nats.url.as_str()),
             ("trace.endpoint", endpoint),
         ] {
@@ -192,7 +316,58 @@ impl Config {
         SampleRatio::new(self.trace.sample_ratio)?;
         check_sources(self.ledger_time.nts.len(), self.ledger_time.roughtime.len())?;
         self.roughtime_servers()?;
+        if self.signer.call_timeout_ms == 0 {
+            return Err(ConfigError::SignerTimeout);
+        }
+        if !origin_prefix_ok(&self.checkpoint.origin_prefix) {
+            return Err(ConfigError::OriginPrefix);
+        }
+        self.cadence()?;
+        self.replica_directory()?;
+        self.publisher_config().validate()?;
+        self.group_config()?;
         Ok(())
+    }
+
+    /// The checkpoint cadence (OP-33 item 4).
+    pub(crate) fn cadence(&self) -> Result<Cadence, ConfigError> {
+        Ok(Cadence::new(
+            Duration::from_millis(self.checkpoint.interval_ms),
+            self.checkpoint.records,
+        )?)
+    }
+
+    /// The replica directory.
+    pub(crate) fn replica_directory(&self) -> Result<&PathBuf, ConfigError> {
+        let id_ok = ident_ok(&self.replica.id);
+        self.replica
+            .directory
+            .as_ref()
+            .filter(|d| id_ok && !d.as_os_str().is_empty())
+            .ok_or(ConfigError::Replica)
+    }
+
+    /// The publisher settings: the OP-34 policy defaults with the configured source and stream
+    /// replicas (T-76).
+    pub(crate) fn publisher_config(&self) -> PublisherConfig {
+        let mut config = PublisherConfig::new(self.publisher.source.clone());
+        config.stream.replicas = self.publisher.stream_replicas;
+        config
+    }
+
+    /// The group commit values (OP-31, OP-41).
+    pub(crate) fn group_config(&self) -> Result<GroupConfig, ConfigError> {
+        let g = &self.group_commit;
+        Ok(GroupConfig::new(
+            g.max_records,
+            g.max_bytes,
+            g.queue,
+            Duration::from_millis(g.retry_after_ms),
+        )?)
+    }
+
+    pub(crate) const fn signer_timeout(&self) -> Duration {
+        Duration::from_millis(self.signer.call_timeout_ms)
     }
 
     /// The configured NTS servers (OP-32).
@@ -247,6 +422,21 @@ impl Config {
     }
 }
 
+/// A stored `ledger.ident`: `[a-z][a-z0-9_]{0,63}`.
+fn ident_ok(id: &str) -> bool {
+    let mut bytes = id.bytes();
+    bytes.next().is_some_and(|b| b.is_ascii_lowercase())
+        && id.len() <= 64
+        && bytes.all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_')
+}
+
+fn origin_prefix_ok(prefix: &str) -> bool {
+    prefix.len() > 1
+        && prefix.ends_with('/')
+        && !prefix.starts_with('/')
+        && prefix.chars().all(|c| c.is_ascii_graphic() && c != '+')
+}
+
 fn has_password(url: &str) -> bool {
     let rest = url.split_once("://").map_or(url, |(_, rest)| rest);
     let authority = rest.split(['/', '?', '#']).next().unwrap_or_default();
@@ -279,10 +469,13 @@ mod tests {
         )
     }
 
+    const REQUIRED: &str = "[checkpoint]\norigin_prefix = \"work.example/ledger/\"\n[replica]\ndirectory = \"/var/lib/work/replica\"\n[publisher]\nsource = \"https://work.example\"\n";
+
     fn with(toml: &str) -> Result<Config, ConfigError> {
         Config::from_figment(
             &Figment::from(Serialized::defaults(Config::default()))
                 .merge(Toml::string(&time_sources(2, 3)))
+                .merge(Toml::string(REQUIRED))
                 .merge(Toml::string(toml)),
         )
     }
@@ -290,6 +483,117 @@ mod tests {
     #[test]
     fn default_listen_address_is_loopback() {
         assert!(Config::default().listen.ip().is_loopback());
+    }
+
+    // T-39 OP-18
+    #[test]
+    fn t_39_health_endpoints_listen_on_an_internal_address_of_their_own() {
+        let config = Config::default();
+        assert!(config.internal_listen.ip().is_loopback());
+        assert_ne!(config.internal_listen, config.listen);
+        let set = with("internal_listen = \"10.0.0.5:9091\"").unwrap();
+        assert_eq!(set.internal_listen.port(), 9091);
+    }
+
+    // OP-33 P-20
+    #[test]
+    fn op_33_checkpoints_default_to_60_s_or_1000_records_and_need_a_replica() {
+        let config = with("").unwrap();
+        assert_eq!(config.cadence().unwrap(), Cadence::default());
+        assert_eq!(config.checkpoint.interval_ms, 60_000);
+        assert_eq!(config.checkpoint.records, 1000);
+        assert_eq!(config.replica.id, "local");
+        let fast = "[checkpoint]\ninterval_ms = 5000\nrecords = 10";
+        let cadence = with(fast).unwrap().cadence().unwrap();
+        assert!(cadence.due(10, 0));
+        assert!(cadence.due(1, 5000));
+        assert!(!cadence.due(9, 4999));
+        for (toml, why) in [
+            ("[checkpoint]\ninterval_ms = 0", "interval"),
+            ("[checkpoint]\nrecords = 0", "records"),
+        ] {
+            assert!(matches!(with(toml), Err(ConfigError::Cadence(_))), "{why}");
+        }
+        for toml in [
+            "[replica]\ndirectory = \"\"",
+            "[replica]\nid = \"\"",
+            "[replica]\nid = \"Local\"",
+            "[replica]\nid = \"1local\"",
+        ] {
+            assert!(matches!(with(toml), Err(ConfigError::Replica)), "{toml}");
+        }
+        let without = Config::from_figment(
+            &Figment::from(Serialized::defaults(Config::default()))
+                .merge(Toml::string(&time_sources(2, 3)))
+                .merge(Toml::string(
+                    "[checkpoint]\norigin_prefix = \"work.example/ledger/\"\n[publisher]\nsource = \"https://work.example\"",
+                )),
+        );
+        assert!(matches!(without, Err(ConfigError::Replica)));
+    }
+
+    // T-7 P-20
+    #[test]
+    fn t_7_the_checkpoint_origin_prefix_is_required_and_ends_with_a_slash() {
+        for prefix in ["", "/", "work.example/ledger", "/w/", "w x/", "a+b/"] {
+            assert!(
+                matches!(
+                    with(&format!("[checkpoint]\norigin_prefix = \"{prefix}\"")),
+                    Err(ConfigError::OriginPrefix)
+                ),
+                "{prefix}"
+            );
+        }
+        assert!(with("[checkpoint]\norigin_prefix = \"work.example/ledger/\"").is_ok());
+        assert!(matches!(
+            with("[signer]\ncall_timeout_ms = 0"),
+            Err(ConfigError::SignerTimeout)
+        ));
+        let config = with("[signer]\nsocket = \"/run/s/signer.sock\"").unwrap();
+        assert_eq!(config.signer.socket, PathBuf::from("/run/s/signer.sock"));
+        assert_eq!(config.signer_timeout(), Duration::from_secs(5));
+    }
+
+    // T-17 T-76 OP-34
+    #[test]
+    fn t_76_the_publisher_takes_the_policy_defaults_and_needs_an_https_source() {
+        let config = with("").unwrap();
+        let publisher = config.publisher_config();
+        assert_eq!(publisher, PublisherConfig::new("https://work.example"));
+        assert_eq!(publisher.stream.name, "WORK_EVENTS");
+        assert_eq!(publisher.stream.replicas, 1);
+        let multi = with("[publisher]\nstream_replicas = 3").unwrap();
+        assert_eq!(multi.publisher_config().stream.replicas, 3);
+        for toml in [
+            "[publisher]\nsource = \"\"",
+            "[publisher]\nsource = \"http://work.example\"",
+            "[publisher]\nstream_replicas = 0",
+        ] {
+            assert!(
+                matches!(with(toml), Err(ConfigError::Publisher(_))),
+                "{toml}"
+            );
+        }
+    }
+
+    // OP-41 OP-31
+    #[test]
+    fn op_41_group_commit_values_come_from_the_configuration() {
+        let config = with("").unwrap();
+        assert_eq!(config.group_config().unwrap(), GroupConfig::default());
+        let small = "[group_commit]\nqueue = 8\nretry_after_ms = 2000";
+        let set = with(small).unwrap().group_config().unwrap();
+        assert_eq!(set, GroupConfig::new(256, 1 << 20, 8, Duration::from_secs(2)).unwrap());
+        for toml in [
+            "[group_commit]\nqueue = 0",
+            "[group_commit]\nmax_records = 257",
+            "[group_commit]\nretry_after_ms = 0",
+        ] {
+            assert!(
+                matches!(with(toml), Err(ConfigError::GroupCommit(_))),
+                "{toml}"
+            );
+        }
     }
 
     #[test]
@@ -440,6 +744,18 @@ mod tests {
                 "postgres.derived",
             ),
             ("[nats]\nurl = \"nats://u:pw@bus:4222\"", "nats.url"),
+            (
+                "[postgres]\nsequencer = \"postgres://work_sequencer:pw@db/work\"",
+                "postgres.sequencer",
+            ),
+            (
+                "[postgres]\ncheckpointer = \"postgres://work_checkpointer:pw@db/work\"",
+                "postgres.checkpointer",
+            ),
+            (
+                "[postgres]\npublisher = \"postgres://work_publisher:pw@db/work\"",
+                "postgres.publisher",
+            ),
             (
                 "[trace]\nendpoint = \"http://u:pw@collector:4317\"",
                 "trace.endpoint",

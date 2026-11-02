@@ -2,12 +2,16 @@
 //! business logic lives in `crates/` (T-31).
 
 mod config;
+mod health;
+mod services;
 mod startup;
 
 use std::process::ExitCode;
 
 use config::Config;
+use services::Services;
 use startup::{Infrastructure, TimeDriver};
+use tokio::sync::watch;
 
 fn main() -> ExitCode {
     let config = match Config::load() {
@@ -74,7 +78,17 @@ async fn run(config: &Config) -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    let served = serve(config).await;
+    let services = match Services::start(config, &infrastructure, time.clock()) {
+        Ok(services) => services,
+        Err(error) => {
+            tracing::error!(event = "server.start_refused", %error, "services do not start");
+            time.stop();
+            infrastructure.close(config.startup_timeout()).await;
+            return ExitCode::FAILURE;
+        }
+    };
+    let served = serve(config, health::router(services.health(&infrastructure))).await;
+    services.stop();
     time.stop();
     infrastructure.close(config.startup_timeout()).await;
     match served {
@@ -86,12 +100,28 @@ async fn run(config: &Config) -> ExitCode {
     }
 }
 
-async fn serve(config: &Config) -> std::io::Result<()> {
-    let listener = tokio::net::TcpListener::bind(config.listen).await?;
-    tracing::info!(listen = %config.listen, version = env!("CARGO_PKG_VERSION"), "work-server listening");
-    axum::serve(listener, axum::Router::new())
-        .with_graceful_shutdown(shutdown_signal())
-        .await
+async fn stopped(mut stop: watch::Receiver<bool>) {
+    let _stopped = stop.wait_for(|s| *s).await.is_ok();
+}
+
+async fn serve(config: &Config, internal: axum::Router) -> std::io::Result<()> {
+    let api = tokio::net::TcpListener::bind(config.listen).await?;
+    let health = tokio::net::TcpListener::bind(config.internal_listen).await?;
+    tracing::info!(listen = %config.listen, internal_listen = %config.internal_listen, version = env!("CARGO_PKG_VERSION"), "work-server listening");
+    let (stop, stopping) = watch::channel(false);
+    let api = axum::serve(api, axum::Router::new())
+        .with_graceful_shutdown(stopped(stopping.clone()))
+        .into_future();
+    let health = axum::serve(health, internal)
+        .with_graceful_shutdown(stopped(stopping))
+        .into_future();
+    let signal = tokio::spawn(async move {
+        shutdown_signal().await;
+        let _sent = stop.send(true);
+    });
+    let served = tokio::try_join!(api, health).map(|((), ())| ());
+    signal.abort();
+    served
 }
 
 async fn shutdown_signal() {

@@ -9,6 +9,7 @@ repository.workspace = true
 publish = false
 
 [dependencies]
+work-dispatch = { workspace = true }
 work-ledger = { workspace = true }
 work-store = { workspace = true }
 work-telemetry = { workspace = true }
@@ -18,11 +19,15 @@ axum = { workspace = true, features = ["http1", "http2", "tokio"] }
 figment = { workspace = true, features = ["env", "toml"] }
 serde = { workspace = true, features = ["derive", "std"] }
 thiserror = { workspace = true, features = ["std"] }
-tokio = { workspace = true, features = ["macros", "net", "rt-multi-thread", "signal", "time"] }
+tokio = { workspace = true, features = ["macros", "net", "rt-multi-thread", "signal", "sync", "time"] }
 tracing = { workspace = true, features = ["std"] }
 
 [dev-dependencies]
-tokio = { workspace = true, features = ["macros", "net", "rt-multi-thread", "time"] }
+futures-util = { workspace = true }
+serde_json = { workspace = true, features = ["std"] }
+suiss-crypto = { workspace = true, features = ["aead", "pkcs11"] }
+tokio = { workspace = true, features = ["io-util", "macros", "net", "rt-multi-thread", "time"] }
+work-kernel = { workspace = true }
 work-testkit = { workspace = true }
 
 [lints]

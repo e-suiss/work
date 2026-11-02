@@ -16,6 +16,7 @@ work-kernel = { package = "esuiss-work-kernel", path = "crates/kernel", default-
 work-proto = { path = "crates/proto" }
 work-parse = { path = "crates/parse" }
 work-store = { path = "crates/store" }
+work-dispatch = { path = "crates/dispatch" }
 work-ledger = { path = "crates/ledger" }
 work-rpc = { path = "crates/rpc" }
 work-access-client = { path = "crates/access-client" }
