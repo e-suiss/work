@@ -2841,7 +2841,9 @@ family = "SEC"
 status = "frozen-product"
 stage = 2
 title = ""
-tests = []
+tests = [
+  "crates/ledger/src/witness.rs::op_33_only_a_configured_witness_cosigning_the_stored_tree_is_taken",
+]
 
 [[rule]]
 id = "SEC-34"
@@ -5310,6 +5312,8 @@ title = ""
 tests = [
   "crates/ledger/src/checkpoint.rs::p_20_the_acknowledgement_is_the_log_signed_checkpoint_asked_for",
   "crates/ledger/src/replica.rs::op_4_a_mirrored_entry_and_its_received_bytes_are_written_once",
+  "crates/ledger/src/witness.rs::op_33_only_a_configured_witness_cosigning_the_stored_tree_is_taken",
+  "crates/ledger/src/witness.rs::op_4_a_checkpoint_the_replica_does_not_hold_is_not_sent_to_witnesses",
 ]
 
 [[rule]]
@@ -5507,6 +5511,8 @@ pd = "set"
 title = ""
 tests = [
   "crates/kernel/tests/ledger_vectors.rs::t_4_checkpoint_and_cosignature_vectors_through_the_kernel_verifier",
+  "crates/ledger/src/witness.rs::op_33_only_a_configured_witness_cosigning_the_stored_tree_is_taken",
+  "crates/ledger/src/witness.rs::op_4_a_checkpoint_the_replica_does_not_hold_is_not_sent_to_witnesses",
 ]
 
 [[rule]]

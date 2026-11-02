@@ -8,7 +8,7 @@
 //! enter through the admission path, which builds each pending record from the kernel's
 //! verification, validation and touched items (T-89, T-90). The checkpointer signs each head's
 //! checkpoint through `work-signer` as the ledger acknowledgement (P-20, T-88) and mirrors the
-//! log to the replica before any witness sees it (OP-4, T-90).
+//! log to the replica before any witness cosignature is taken (OP-4, OP-33, T-90).
 
 mod admit;
 mod checkpoint;
@@ -19,6 +19,7 @@ mod group;
 mod leader;
 mod log;
 mod replica;
+mod witness;
 pub mod time;
 
 pub use admit::{Arrival, AuthContext, MAX_RECEIVED, Submission, admit};
@@ -33,3 +34,4 @@ pub use group::{
 pub use leader::Leader;
 pub use log::PgLog;
 pub use replica::{DirectoryReplica, MirrorError};
+pub use witness::{Witness, WitnessError, cosignatures};

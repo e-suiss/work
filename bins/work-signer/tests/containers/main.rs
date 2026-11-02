@@ -27,9 +27,14 @@ use work_kernel::proof::verify_checkpoint;
 use work_kernel::reason::{Reason, Schema};
 use work_kernel::validate::{ActorType, ActorTypeEntry, ActorTypeSource, ActorTypes, Origin};
 use work_kernel::verify::{SignatureCheck, SignatureVerifier};
+use suiss_crypto::cose::PublicKey;
+use suiss_crypto::note::Verifier;
+use suiss_crypto::pkcs11::KeyStore;
+use suiss_crypto::secret::Secret;
+use suiss_crypto::signer::{Signer as _, cosign};
 use work_ledger::{
     Arrival, AuthContext, Checkpointer, DirectoryReplica, GenesisInput, Leader, SignerClient,
-    Submission, admit, genesis,
+    Submission, Witness, WitnessError, admit, genesis,
 };
 use work_store::{
     CheckpointerPool, Cluster, Durability, LedgerId, LedgerTx, Pool, RecordDurability,
@@ -37,7 +42,7 @@ use work_store::{
 };
 use work_testkit::Postgres;
 
-use support::{PREFIX, Signer, Token};
+use support::{PIN, PREFIX, Signer, Token, module};
 
 const PASSWORD: &str = "test-only-not-a-secret";
 const LOGINS: &str = "ALTER ROLE work_owner LOGIN PASSWORD 'test-only-not-a-secret';\nALTER ROLE work_sequencer LOGIN PASSWORD 'test-only-not-a-secret';\nALTER ROLE work_checkpointer LOGIN PASSWORD 'test-only-not-a-secret';\nALTER ROLE work_app LOGIN PASSWORD 'test-only-not-a-secret';";
@@ -130,7 +135,7 @@ fn comment(ledger: &LedgerId) -> Vec<u8> {
     dcbor::encode(&v, Limits::CEILING).unwrap()
 }
 
-// P-20 T-88 OP-4 OP-33 T-90
+// P-20 T-88 OP-4 OP-33 T-90 SEC-32
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "needs Docker, SoftHSM and sudo"]
 async fn p_20_the_signer_acknowledges_the_head_and_the_replica_takes_the_log() {
@@ -242,6 +247,24 @@ async fn p_20_the_signer_acknowledges_the_head_and_the_replica_takes_the_log() {
 
     let root = token.dir.join("replica");
     let replica = DirectoryReplica::new("local", &root);
+    let store = KeyStore::open(&module(), &token.label, &Secret::new(PIN.to_owned())).unwrap();
+    let cosigner = store.generate_ed25519("witness.v1").unwrap();
+    let PublicKey::Ed25519(witness_key) = cosigner.public_key() else {
+        panic!("an Ed25519 key");
+    };
+    let witnesses = [Witness {
+        id: "witness_a".to_owned(),
+        key: Verifier::cosigner("witness.example", witness_key).unwrap(),
+    }];
+    let body = signed.checkpoint.to_body().unwrap();
+    let (_, cosignature) = cosign(&cosigner, "witness.example", AT / 1000 + 20, &body).unwrap();
+    let cosigned = format!("{note}{cosignature}");
+    assert!(matches!(
+        checkpointer
+            .take_cosignatures(&ledger, 2, &cosigned, &replica, &witnesses)
+            .await,
+        Err(WitnessError::Order(_))
+    ));
     assert_eq!(checkpointer.mirror(&ledger, &replica).await.unwrap(), 2);
     assert_eq!(checkpointer.mirror(&ledger, &replica).await.unwrap(), 2);
     let dir = root.join(ledger.to_hex());
@@ -257,4 +280,25 @@ async fn p_20_the_signer_acknowledges_the_head_and_the_replica_takes_the_log() {
         std::fs::read(dir.join("checkpoint").join(format!("{:020}", 2))).unwrap(),
         stored.signed_note
     );
+
+    assert_eq!(
+        checkpointer
+            .take_cosignatures(&ledger, 2, &cosigned, &replica, &witnesses)
+            .await
+            .unwrap(),
+        1
+    );
+    assert_eq!(
+        checkpointer
+            .take_cosignatures(&ledger, 2, &cosigned, &replica, &witnesses)
+            .await
+            .unwrap(),
+        0
+    );
+    let mut read = LedgerTx::begin(&env.pool("work_app"), &ledger).await.unwrap();
+    assert_eq!(
+        read.durability(1).await.unwrap(),
+        Some(RecordDurability::Witnessed)
+    );
+    read.rollback().await.unwrap();
 }
