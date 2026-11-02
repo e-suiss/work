@@ -27,10 +27,12 @@ use work_kernel::limits::SemanticLimits;
 use work_kernel::reason::{Reason, Schema};
 use work_kernel::uri::TypeUri;
 use work_kernel::validate::{ActorType, ActorTypeEntry, ActorTypeSource, ActorTypes, Origin};
-use work_kernel::verify::{ChainPoint, SignatureCheck, SignatureVerifier, StoredEntry, verify_entry};
+use work_kernel::verify::{
+    ChainPoint, SignatureCheck, SignatureVerifier, StoredEntry, verify_entry,
+};
 use work_ledger::{
     Arrival, AuthContext, Clock, ClockError, GenesisInput, GroupCommit, GroupConfig, Leader,
-    LedgerError, PendingRecord, SubmitError, Submission, admit, genesis,
+    LedgerError, PendingRecord, Submission, SubmitError, admit, genesis,
 };
 use work_store::{
     Cluster, Durability, Genesis, ItemRef, LedgerId, LedgerTx, Pool, SequencerPool, StoreError,
@@ -377,11 +379,8 @@ async fn writer(env: &Env, nonce: u8) -> (SequencerPool, LedgerId, GroupCommit, 
         permits: permits.clone(),
         at: AT,
     };
-    let (group, task) = GroupCommit::spawn(
-        leader,
-        Gate { permits, at: AT },
-        GroupConfig::default(),
-    );
+    let (group, task) =
+        GroupCommit::spawn(leader, Gate { permits, at: AT }, GroupConfig::default());
     drop(task);
     (pool, g.ledger, group, gate)
 }
@@ -590,7 +589,11 @@ fn golden() -> (Vec<u8>, Vec<Golden>) {
     }
     for c in quarantine["cases"].as_array().unwrap().iter().take(3) {
         let id = c["id"].as_str().unwrap();
-        cases.push((c, &c["envelope"], format!("records-quarantine.json {id} envelope")));
+        cases.push((
+            c,
+            &c["envelope"],
+            format!("records-quarantine.json {id} envelope"),
+        ));
     }
     let entries = cases
         .into_iter()
@@ -617,11 +620,17 @@ fn golden() -> (Vec<u8>, Vec<Golden>) {
             }
         })
         .collect();
-    (unhex(json(GENESIS)["cases"][0]["hex"].as_str().unwrap()), entries)
+    (
+        unhex(json(GENESIS)["cases"][0]["hex"].as_str().unwrap()),
+        entries,
+    )
 }
 
 fn recorded_at(envelope: &[u8]) -> u64 {
-    match dcbor::decode(envelope, Limits::CEILING).unwrap().get("recorded_at") {
+    match dcbor::decode(envelope, Limits::CEILING)
+        .unwrap()
+        .get("recorded_at")
+    {
         Some(Value::Unsigned(t)) => *t,
         _ => panic!("recorded_at"),
     }
@@ -645,27 +654,39 @@ async fn p_5_the_golden_ledger_is_stored_as_received_and_reverifies() {
     Leader::open(&pool, &opened).await.unwrap();
     let mut leader = Leader::acquire(pool, ledger).await.unwrap();
     let directory = Directory::golden();
-    for g in &entries {
-        let arrival = g.cose.as_deref().map_or(unsigned(&g.record), Arrival::Signed);
+    let mut kept = Vec::new();
+    for (n, g) in entries.iter().enumerate() {
+        let arrival = g
+            .cose
+            .as_deref()
+            .map_or(unsigned(&g.record), Arrival::Signed);
         let mut s = submission(arrival, &g.actors);
         s.origin = g.origin;
         s.understood_extensions = &g.understood;
         let record = admit(&directory, &ledger, s).unwrap();
-        leader
-            .commit(recorded_at(&g.envelope), &[record])
-            .await
-            .unwrap();
+        let committed = leader.commit(recorded_at(&g.envelope), &[record]).await;
+        if n == 11 {
+            assert!(matches!(
+                committed,
+                Err(LedgerError::Refused(StoreError::RecordExists))
+            ));
+        } else {
+            committed.unwrap();
+            kept.push((n, g));
+        }
     }
     let mut tx = env.read("work_app", &ledger).await;
     let stored = tx.entries(0, 100).await.unwrap();
     tx.rollback().await.unwrap();
-    assert_eq!(stored.len(), 15);
+    assert_eq!(stored.len(), 14);
     assert_eq!(stored[0].record_bytes, bytes);
     let mut at = ChainPoint::genesis(&bytes).unwrap();
-    for (s, g) in stored[1..].iter().zip(&entries) {
+    for (s, (n, g)) in stored[1..].iter().zip(kept) {
         assert_eq!(s.record_bytes, g.record);
-        assert_eq!(s.envelope_bytes, g.envelope);
         assert_eq!(s.cose_sign1, g.cose);
+        if n < 11 {
+            assert_eq!(s.envelope_bytes, g.envelope);
+        }
         let entry = StoredEntry {
             envelope: &s.envelope_bytes,
             record: &s.record_bytes,
@@ -694,11 +715,8 @@ async fn p_80_a_declaration_effective_before_its_ledger_time_is_rejected_in_the_
     let leader = Leader::acquire(pool.clone(), ledger).await.unwrap();
     let permits = Arc::new(Semaphore::new(100));
     let late = AT.checked_mul(2).unwrap();
-    let (group, task) = GroupCommit::spawn(
-        leader,
-        Gate { permits, at: late },
-        GroupConfig::default(),
-    );
+    let (group, task) =
+        GroupCommit::spawn(leader, Gate { permits, at: late }, GroupConfig::default());
     let amend = &entries[3];
     let mut s = submission(unsigned(&amend.record), &amend.actors);
     s.understood_extensions = &amend.understood;

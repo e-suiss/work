@@ -203,7 +203,9 @@ fn timely(batch: Vec<Request>, at: u64) -> Vec<Request> {
     let (late, timely): (Vec<Request>, Vec<Request>) = batch
         .into_iter()
         .partition(|r| r.record.effective_at.is_some_and(|e| e < at));
-    answer(late, |_| Err(SubmitError::Rejected(Reason::RetroactiveDeclaration)));
+    answer(late, |_| {
+        Err(SubmitError::Rejected(Reason::RetroactiveDeclaration))
+    });
     timely
 }
 

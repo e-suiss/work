@@ -16,7 +16,9 @@ use work_kernel::items::{self, ItemKey, Touch};
 use work_kernel::limits::SemanticLimits;
 use work_kernel::reason::{EnvelopeField, Limit, Reason, Schema};
 use work_kernel::record::{Claim, ClaimType, Record};
-use work_kernel::relation::{ConcernsSource, DerivedRole, DerivedTarget, ReferenceTarget, Relation};
+use work_kernel::relation::{
+    ConcernsSource, DerivedRole, DerivedTarget, ReferenceTarget, Relation,
+};
 use work_kernel::uri::{CORE_ROOT, ExtKey, ExternalRef, TypeUri};
 use work_kernel::validate::{
     ActorTypeEntry, ActorTypes, Origin, Outcome, ValidationContext, validate,
@@ -198,7 +200,10 @@ fn core_uri(point: &str, name: &str) -> String {
 }
 
 /// One relation as `log_relation` normalizes it (P-14, P-73).
-#[allow(clippy::too_many_lines, reason = "one arm per canonical relation (P-14)")]
+#[allow(
+    clippy::too_many_lines,
+    reason = "one arm per canonical relation (P-14)"
+)]
 fn relation(r: &Relation) -> RelationRow {
     let (rel, source, target, qualifier) = match r {
         Relation::EngagedIn {
@@ -267,12 +272,7 @@ fn relation(r: &Relation) -> RelationRow {
                 DerivedRole::Core(c) => core_uri("derived_from", c.wire_name()),
                 DerivedRole::Extension(u) => u.as_str().to_owned(),
             };
-            (
-                "derived_from",
-                this_or(source.as_ref()),
-                target,
-                Some(role),
-            )
+            ("derived_from", this_or(source.as_ref()), target, Some(role))
         }
         Relation::OnBehalfOf {
             source,
@@ -516,7 +516,12 @@ fn check(ledger: &LedgerId, s: &Submission<'_>, a: &Arrived) -> Result<Checked, 
         .map(touch)
         .collect::<Result<Vec<_>, _>>()?;
     Ok(Checked {
-        skeleton: Some(skeleton(&record, s.actor_types, quarantine.clone(), a.binding)),
+        skeleton: Some(skeleton(
+            &record,
+            s.actor_types,
+            quarantine.clone(),
+            a.binding,
+        )),
         quarantine,
         touches,
         effective_at: record.effective_at().map(|t| t.0),

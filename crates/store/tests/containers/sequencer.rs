@@ -1,9 +1,9 @@
 use sqlx::{AssertSqlSafe, Executor};
 use work_store::{
     AppendBatch, AppendError, CallerRef, Cluster, Durability, Expect, Genesis, HeaderRow,
-    IdempotencyKey, InboundRow, ItemHeadRow, ItemRef, KeyRow, LedgerId, LogRow, NewHead,
-    OutboxRow, ReceivedKind, ReceivedRole, ReceivedRow, SequencerPool, Skeleton, StoreError,
-    StoredHead, StoredKey, StoredOutcome,
+    IdempotencyKey, InboundRow, ItemHeadRow, ItemRef, KeyRow, LedgerId, LogRow, NewHead, OutboxRow,
+    ReceivedKind, ReceivedRole, ReceivedRow, SequencerPool, Skeleton, StoreError, StoredHead,
+    StoredKey, StoredOutcome,
 };
 
 use crate::env::{Env, L, M, commit_fails, fails, hex, run, scalar, with_ledgers};
@@ -522,7 +522,10 @@ async fn t_81_a_pointer_without_its_item_head_is_refused() {
         Err(AppendError::Refused(StoreError::OutboxItem(WORK)))
     ));
     let log = "SELECT count(*) FROM ledger.log";
-    assert_eq!(scalar(&env.canonical("work_app"), &hex(&L), log, false).await, 1);
+    assert_eq!(
+        scalar(&env.canonical("work_app"), &hex(&L), log, false).await,
+        1
+    );
 }
 
 // T-90 P-5 P-75
@@ -616,5 +619,8 @@ async fn op_38_an_inbound_event_and_a_record_id_are_recorded_once() {
     ));
     seq.append(&ledger, &works(head.epoch, 1, 1)).await.unwrap();
     let seen = "SELECT result_pos FROM work.inbound_seen";
-    assert_eq!(scalar(&env.canonical("work_app"), &hex(&L), seen, false).await, 1);
+    assert_eq!(
+        scalar(&env.canonical("work_app"), &hex(&L), seen, false).await,
+        1
+    );
 }

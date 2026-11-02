@@ -12,6 +12,7 @@ import {
   expectedDerivation,
   inputs,
   kernelFiles,
+  nativeOnlyKernelFiles,
   nativeOnlyRecordFiles,
   policy,
   recordCases,
@@ -23,7 +24,7 @@ import {
 test.describe("t_5_t_37 browser WebAssembly kernel matches the shared kernel vectors", () => {
   test("every vector file is run in the browser or named as native only", async () => {
     const files = await vectorFiles();
-    expect(files.kernel).toEqual([...kernelFiles].sort());
+    expect(files.kernel).toEqual([...kernelFiles, ...nativeOnlyKernelFiles].sort());
     expect(files.records).toEqual([...recordFiles, ...nativeOnlyRecordFiles].sort());
   });
 

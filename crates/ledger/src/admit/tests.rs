@@ -120,7 +120,10 @@ fn golden() -> Vec<Golden> {
         .zip(envelopes)
         .map(|(r, e)| (r, e, format!("records.json {}", e["id"].as_str().unwrap())))
         .chain(held.iter().take(3).map(|c| {
-            let name = format!("records-quarantine.json {} envelope", c["id"].as_str().unwrap());
+            let name = format!(
+                "records-quarantine.json {} envelope",
+                c["id"].as_str().unwrap()
+            );
             (c, &c["envelope"], name)
         }));
     for (r, e, name) in pairs {
@@ -267,7 +270,9 @@ fn t_89_the_items_and_pointers_come_from_the_concerned_works() {
 #[test]
 fn p_19_a_quarantined_record_is_written_with_its_reason() {
     let entries = golden();
-    let critical = entries.iter().find(|g| g.id.ends_with("critical-ext-not-understood"));
+    let critical = entries
+        .iter()
+        .find(|g| g.id.ends_with("critical-ext-not-understood"));
     let critical = critical.unwrap();
     let (ledger, _) = slot_of(&critical.envelope);
     let record = pending(critical, &ledger).unwrap();

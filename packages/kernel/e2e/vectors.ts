@@ -88,6 +88,9 @@ export const kernelFiles = [
   "policy-default.json",
 ] as const;
 
+/** Kernel vector files of the sequencer's write path, which runs natively only; the WebAssembly API does not name touched items (T-89). */
+export const nativeOnlyKernelFiles = ["items-touched.json"] as const;
+
 async function json<T>(base: URL, name: string): Promise<T> {
   return JSON.parse(await readFile(new URL(name, base), "utf8")) as T;
 }

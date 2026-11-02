@@ -195,7 +195,10 @@ async fn op_12_append_only_tables_reject_update_delete_and_truncate_from_every_r
             "UPDATE work.received_bytes SET kind = 'foreign_record'",
         ),
         ("work_sequencer", "DELETE FROM work.log_received"),
-        ("work_app", "INSERT INTO work.log_received SELECT * FROM work.log_received"),
+        (
+            "work_app",
+            "INSERT INTO work.log_received SELECT * FROM work.log_received",
+        ),
     ];
     for (role, stmt) in cases {
         fails(&env.canonical(role), &l, &[stmt], Some("42501")).await;
@@ -247,14 +250,12 @@ async fn t_90_received_bytes_match_their_digest_and_bind_the_proof_commit() {
     };
     fails(&seq, &l, &[&link("notary_signature")], Some("23514")).await;
     run(&seq, &l, &[&link("presenter_signature")]).await;
-    let header = sql(
-        "INSERT INTO work.record_header ( \
+    let header = sql("INSERT INTO work.record_header ( \
              ledger_id, pos, kind, record_type, author, author_actor_type, author_actor_type_source, \
              occurred_at, ingest, proof_commit, protocol_major, protocol_minor, schema_digest) \
          VALUES (decode('{L}', 'hex'), 1, 'claim', 'https://suiss.app/ns/work/claim/observation', \
              'party:bob', 'agent', 'access_binding', '2026-10-23T10:00:01Z', 'admitted', \
-             decode(repeat('22', 32), 'hex'), 1, 0, decode(repeat('33', 32), 'hex'))",
-    );
+             decode(repeat('22', 32), 'hex'), 1, 0, decode(repeat('33', 32), 'hex'))");
     let row = log_row(1, "11", "2026-10-23T10:00:05Z");
     fails(&seq, &l, &[&row, &header], Some("23503")).await;
 }

@@ -92,9 +92,9 @@ impl PendingRecord {
     /// (OP-31 item 2, T-90).
     #[must_use]
     pub fn size(&self) -> usize {
-        self.received
-            .iter()
-            .fold(self.record_bytes.len(), |n, r| n.saturating_add(r.bytes.len()))
+        self.received.iter().fold(self.record_bytes.len(), |n, r| {
+            n.saturating_add(r.bytes.len())
+        })
     }
 }
 
