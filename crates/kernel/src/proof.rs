@@ -182,11 +182,11 @@ impl Profile {
             WitnessProfile::LocalDependent => String::from("witness local-dependent"),
             WitnessProfile::Undeclared => String::from("witness none"),
         };
-        let mut lines = Vec::with_capacity(3);
-        lines.push(String::from(durability));
-        lines.push(String::from(time_sources));
-        lines.push(witness);
-        lines
+        alloc::vec![
+            String::from(durability),
+            String::from(time_sources),
+            witness,
+        ]
     }
 }
 
