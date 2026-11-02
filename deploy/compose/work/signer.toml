@@ -1,0 +1,14 @@
+# T-7, T-56, T-72
+
+socket = "/run/work-signer/signer.sock"
+origin_prefix = "work.localhost/ledger/"
+
+[pkcs11]
+module = "/usr/lib/softhsm/libsofthsm2.so"
+token = "work-dev"
+pin_file = "/run/work-signer-pin/pin"
+token_dir = "/var/lib/softhsm/tokens"
+
+[log_key]
+label = "work.log.v1"
+name = "work.localhost"

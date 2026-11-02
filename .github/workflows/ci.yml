@@ -286,7 +286,7 @@ jobs:
   compose:
     name: compose
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 45
     permissions:
       contents: read
     steps:
@@ -321,31 +321,21 @@ jobs:
           curl -fsS http://127.0.0.1:8180/healthz
           for _ in $(seq 1 60); do curl -fsS http://127.0.0.1:4010/readyz >/dev/null 2>&1 && break; sleep 1; done
           curl -fsS http://127.0.0.1:4010/readyz
-      - name: Server starts, runs a Roughtime round and stops (OP-43)
-        env:
-          WORK_CONFIG: deploy/compose/work-server.toml
-          WORK_LISTEN: 127.0.0.1:18090
-          WORK_POSTGRES__CANONICAL: postgres://work_app@127.0.0.1:5442/work
-          WORK_POSTGRES__DERIVED: postgres://work_app@127.0.0.1:5442/work_derived
-          WORK_NATS__URL: nats://127.0.0.1:4232
-          PGPASSWORD: local-only-not-a-secret
-          NATS_USER: work
-          NATS_PASSWORD: local-only-not-a-secret
+      - name: Server is live and ready with the signer and runs a Roughtime round (T-39, T-72, OP-43)
         run: |
-          cargo build --locked -p work-server
-          target/debug/work-server > "$RUNNER_TEMP/work-server.log" &
-          pid=$!
-          for _ in $(seq 1 50); do (echo > /dev/tcp/127.0.0.1/18090) 2>/dev/null && break; sleep 0.2; done
-          (echo > /dev/tcp/127.0.0.1/18090) 2>/dev/null
-          for _ in $(seq 1 50); do grep -q 'ledger_time.roughtime_round' "$RUNNER_TEMP/work-server.log" && break; sleep 0.2; done
-          kill -TERM "$pid"
-          wait "$pid"
-          cat "$RUNNER_TEMP/work-server.log"
-          grep 'ledger_time.roughtime_round' "$RUNNER_TEMP/work-server.log" | grep -q '3'
-          if grep -q 'ledger_time.roughtime_unreachable' "$RUNNER_TEMP/work-server.log"; then exit 1; fi
+          c() { docker compose -f deploy/compose/compose.yaml "$@"; }
+          for _ in $(seq 1 60); do curl -fsS http://127.0.0.1:8191/readyz >/dev/null 2>&1 && break; sleep 1; done
+          curl -fsS http://127.0.0.1:8191/livez
+          curl -fsS http://127.0.0.1:8191/readyz
+          curl -fsS http://127.0.0.1:8191/metrics | grep -qx 'work_ready 1'
+          curl -fsS http://127.0.0.1:8191/metrics | grep -qx 'work_dependency_up{dependency="signer"} 1'
+          for _ in $(seq 1 60); do c logs work-server | grep -q 'ledger_time.roughtime_round' && break; sleep 1; done
+          c logs work-server | grep 'ledger_time.roughtime_round' | grep -q '3'
+          if c logs work-server | grep -q 'ledger_time.roughtime_unreachable'; then exit 1; fi
+          c logs work-signer | grep -q 'serving on /run/work-signer/signer.sock, lockdown'
       - name: Logs on failure
         if: failure()
-        run: docker compose -f deploy/compose/compose.yaml logs --no-color --tail 80 access relay relay-migrate nts-a nts-b roughtime-a roughtime-b roughtime-c
+        run: docker compose -f deploy/compose/compose.yaml logs --no-color --tail 80 access relay relay-migrate nts-a nts-b roughtime-a roughtime-b roughtime-c work-signer work-server
       - name: Stop
         if: always()
         run: just dev-down

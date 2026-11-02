@@ -159,6 +159,7 @@ dev:
     @echo "OTLP           127.0.0.1:${WORK_DEV_OTLP_GRPC_PORT:-4327} (gRPC), 127.0.0.1:${WORK_DEV_OTLP_HTTP_PORT:-4328} (HTTP)"
     @echo "Access         http://127.0.0.1:${WORK_DEV_ACCESS_PORT:-8180}  (Mailpit http://127.0.0.1:${WORK_DEV_MAIL_UI_PORT:-8035})"
     @echo "Relay          http://127.0.0.1:${WORK_DEV_RELAY_PORT:-4010}"
+    @echo "Work server    http://127.0.0.1:${WORK_DEV_SERVER_PORT:-8190}  (health http://127.0.0.1:${WORK_DEV_SERVER_INTERNAL_PORT:-8191}/readyz, signer socket in volume signer-socket)"
 
 dev-down:
     {{compose}} down

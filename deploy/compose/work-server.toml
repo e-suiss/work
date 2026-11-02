@@ -1,13 +1,35 @@
-# OP-32, OP-42, OP-43, T-41
+# OP-32, OP-42, OP-43, T-41, T-20, T-39, OP-33, T-76
+
+[postgres]
+canonical = "postgres://work_app@postgres:5432/work"
+derived = "postgres://work_app@postgres:5432/work_derived"
+sequencer = "postgres://work_sequencer@postgres:5432/work"
+checkpointer = "postgres://work_checkpointer@postgres:5432/work"
+publisher = "postgres://work_publisher@postgres:5432/work"
+
+[nats]
+url = "nats://nats:4222"
+
+[signer]
+socket = "/run/work-signer/signer.sock"
+
+[checkpoint]
+origin_prefix = "work.localhost/ledger/"
+
+[replica]
+directory = "/var/lib/work/replica"
+
+[publisher]
+source = "https://work.localhost"
 
 [ledger_time]
-nts_roots = "deploy/compose/nts/pki/root.pem"
+nts_roots = "/etc/work/nts-root.pem"
 nts = [
-  { host = "127.0.0.1", port = 14460 },
-  { host = "127.0.0.1", port = 14461 },
+  { host = "nts-a", port = 14460 },
+  { host = "nts-b", port = 14461 },
 ]
 roughtime = [
-  { address = "127.0.0.1:15319", public_key = "ZPbtnLTku4KBCF8B1YIhFSsDdpYs6CW/35mPsv5ZgvM=", version = "rfc" },
-  { address = "127.0.0.1:15320", public_key = "RW6UPuZR++RA8vjZRifiCkVfPCvAggemi7RlkQRLdrk=", version = "rfc" },
-  { address = "127.0.0.1:15321", public_key = "yFLhuJSAjDrmKPwqy0zrWYZcHfiuvQfW+iCgHsufKWU=", version = "rfc" },
+  { address = "roughtime-a:5319", public_key = "ZPbtnLTku4KBCF8B1YIhFSsDdpYs6CW/35mPsv5ZgvM=", version = "rfc" },
+  { address = "roughtime-b:5319", public_key = "RW6UPuZR++RA8vjZRifiCkVfPCvAggemi7RlkQRLdrk=", version = "rfc" },
+  { address = "roughtime-c:5319", public_key = "yFLhuJSAjDrmKPwqy0zrWYZcHfiuvQfW+iCgHsufKWU=", version = "rfc" },
 ]

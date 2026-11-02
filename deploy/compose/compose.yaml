@@ -77,6 +77,79 @@ services:
       timeout: 5s
       retries: 30
 
+  # T-7, T-10, T-56, T-72
+  work-signer:
+    <<: *hardening
+    build:
+      context: ../..
+      dockerfile: deploy/compose/work/Dockerfile
+      target: signer
+    image: work-dev/work-signer:local
+    read_only: true
+    environment:
+      SOFTHSM_TOKEN_LABEL: work-dev
+      SOFTHSM_USER_PIN: "1234"
+      WORK_SIGNER_KEY_LABEL: work.log.v1
+      WORK_SIGNER_PIN_FILE: /run/work-signer-pin/pin
+    tmpfs:
+      - /run/work-signer-pin:uid=65532,gid=65532,mode=0700
+    volumes:
+      - softhsm:/var/lib/softhsm/tokens
+      - signer-socket:/run/work-signer
+      - ./work/signer.toml:/etc/work-signer/signer.toml:ro
+    depends_on:
+      softhsm:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "test", "-S", "/run/work-signer/signer.sock"]
+      interval: 2s
+      timeout: 3s
+      retries: 60
+
+  # T-39, T-84, T-20, OP-33, T-76
+  work-server:
+    <<: *hardening
+    build:
+      context: ../..
+      dockerfile: deploy/compose/work/Dockerfile
+      target: server
+    image: work-dev/work-server:local
+    user: "65532:65532"
+    read_only: true
+    environment:
+      WORK_CONFIG: /etc/work/work-server.toml
+      WORK_LISTEN: 0.0.0.0:8090
+      WORK_INTERNAL_LISTEN: 0.0.0.0:8091
+      PGPASSWORD: local-only-not-a-secret
+      NATS_USER: work
+      NATS_PASSWORD: local-only-not-a-secret
+    tmpfs:
+      - /var/lib/work/replica:uid=65532,gid=65532
+    volumes:
+      - signer-socket:/run/work-signer
+      - ./work-server.toml:/etc/work/work-server.toml:ro
+      - ./nts/pki/root.pem:/etc/work/nts-root.pem:ro
+    ports:
+      - "127.0.0.1:${WORK_DEV_SERVER_PORT:-8190}:8090"
+      - "127.0.0.1:${WORK_DEV_SERVER_INTERNAL_PORT:-8191}:8091"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+      work-signer:
+        condition: service_healthy
+      nts-a:
+        condition: service_healthy
+      nts-b:
+        condition: service_healthy
+      roughtime-a:
+        condition: service_started
+      roughtime-b:
+        condition: service_started
+      roughtime-c:
+        condition: service_started
+
   # OP-32, T-41
   nts-a:
     <<: *hardening
@@ -347,6 +420,7 @@ services:
 volumes:
   pgdata:
   softhsm:
+  signer-socket:
 
 secrets:
   relay_db_password:
