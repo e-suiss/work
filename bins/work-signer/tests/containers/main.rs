@@ -20,18 +20,18 @@ mod support;
 use std::time::Duration;
 
 use serde_json::Value as Json;
+use suiss_crypto::cose::PublicKey;
 use suiss_crypto::dcbor::{self, Limits, Value};
 use suiss_crypto::digest::{Digest, leaf_hash};
+use suiss_crypto::note::Verifier;
+use suiss_crypto::pkcs11::KeyStore;
+use suiss_crypto::secret::Secret;
+use suiss_crypto::signer::{Signer as _, cosign};
 use work_kernel::limits::SemanticLimits;
 use work_kernel::proof::verify_checkpoint;
 use work_kernel::reason::{Reason, Schema};
 use work_kernel::validate::{ActorType, ActorTypeEntry, ActorTypeSource, ActorTypes, Origin};
 use work_kernel::verify::{SignatureCheck, SignatureVerifier};
-use suiss_crypto::cose::PublicKey;
-use suiss_crypto::note::Verifier;
-use suiss_crypto::pkcs11::KeyStore;
-use suiss_crypto::secret::Secret;
-use suiss_crypto::signer::{Signer as _, cosign};
 use work_ledger::{
     Arrival, AuthContext, Checkpointer, DirectoryReplica, GenesisInput, Leader, SignerClient,
     Submission, Witness, WitnessError, admit, genesis,
@@ -84,21 +84,25 @@ impl Env {
         }
         let env = Self { pg };
         for cluster in Cluster::ALL {
-            work_store::migrate(&env.pool("work_owner"), cluster)
+            work_store::migrate(&env.pool_on(cluster, "work_owner"), cluster)
                 .await
                 .unwrap();
         }
         env
     }
 
-    fn pool(&self, role: &str) -> Pool {
+    fn pool_on(&self, cluster: Cluster, role: &str) -> Pool {
         let url = format!(
             "postgres://{role}:{PASSWORD}@{}:{}/{}",
             self.pg.host(),
             self.pg.port(),
-            Cluster::Canonical.database()
+            cluster.database()
         );
         Pool::connect_lazy(&url).unwrap()
+    }
+
+    fn pool(&self, role: &str) -> Pool {
+        self.pool_on(Cluster::Canonical, role)
     }
 }
 
@@ -295,7 +299,9 @@ async fn p_20_the_signer_acknowledges_the_head_and_the_replica_takes_the_log() {
             .unwrap(),
         0
     );
-    let mut read = LedgerTx::begin(&env.pool("work_app"), &ledger).await.unwrap();
+    let mut read = LedgerTx::begin(&env.pool("work_app"), &ledger)
+        .await
+        .unwrap();
     assert_eq!(
         read.durability(1).await.unwrap(),
         Some(RecordDurability::Witnessed)

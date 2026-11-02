@@ -19,8 +19,8 @@ mod group;
 mod leader;
 mod log;
 mod replica;
-mod witness;
 pub mod time;
+mod witness;
 
 pub use admit::{Arrival, AuthContext, MAX_RECEIVED, Submission, admit};
 pub use checkpoint::{CheckpointError, Checkpointer, SignerClient, acknowledgement};

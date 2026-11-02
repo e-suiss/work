@@ -69,8 +69,7 @@ pub fn cosignatures(
     witnesses: &[Witness],
 ) -> Result<Vec<CosignatureRow>, WitnessError> {
     let keys: Vec<Verifier> = witnesses.iter().map(|w| w.key.clone()).collect();
-    let signed =
-        verify_checkpoint(note, &stored.origin, log, &keys).map_err(WitnessError::Note)?;
+    let signed = verify_checkpoint(note, &stored.origin, log, &keys).map_err(WitnessError::Note)?;
     if signed.checkpoint != *stored {
         return Err(WitnessError::Equivocation(stored.size));
     }
@@ -206,21 +205,40 @@ mod tests {
             key: witness_key(&witness),
         }];
         let stored = checkpoint(9);
-        let rows = cosignatures(&note(&log, &witness, &stored), &stored, &log_key(&log), &configured)
-            .unwrap();
+        let rows = cosignatures(
+            &note(&log, &witness, &stored),
+            &stored,
+            &log_key(&log),
+            &configured,
+        )
+        .unwrap();
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0].witness_id, "witness_a");
         assert_eq!(rows[0].size, 3);
         assert_eq!(rows[0].cosigned_at_ms, 1_792_749_601_000);
-        assert!(rows[0].signature.starts_with("\u{2014} witness.example ".as_bytes()));
+        assert!(
+            rows[0]
+                .signature
+                .starts_with("\u{2014} witness.example ".as_bytes())
+        );
 
         assert!(matches!(
-            cosignatures(&note(&log, &witness, &checkpoint(10)), &stored, &log_key(&log), &configured),
+            cosignatures(
+                &note(&log, &witness, &checkpoint(10)),
+                &stored,
+                &log_key(&log),
+                &configured
+            ),
             Err(WitnessError::Equivocation(3))
         ));
         let stranger = SigningKey::from_bytes(&[11; 32]);
         assert!(matches!(
-            cosignatures(&note(&log, &stranger, &stored), &stored, &log_key(&log), &configured),
+            cosignatures(
+                &note(&log, &stranger, &stored),
+                &stored,
+                &log_key(&log),
+                &configured
+            ),
             Err(WitnessError::Uncosigned)
         ));
     }
