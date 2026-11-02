@@ -14,6 +14,7 @@ mod idempotency;
 mod migrate;
 mod outbox;
 mod publisher;
+mod rebuild;
 mod scope;
 mod sequencer;
 mod server;
@@ -35,6 +36,10 @@ pub use outbox::{CommittedRecord, PendingEvent, PointerKey};
 pub use publisher::{
     DERIVER_ROLE, DeriverPool, DeriverRole, DiscoveryPool, DiscoveryRole, PUBLISHER_ROLE,
     PublisherPool, PublisherRole,
+};
+pub use rebuild::{
+    CANONICAL_INPUTS, CANONICAL_READS, CanonicalEntry, CanonicalLog, REBUILD_ROLE, RebuildDiff,
+    Snapshot, TableDiff, covered_tables, diff,
 };
 pub use scope::{Head, LedgerTx};
 pub use sequencer::{

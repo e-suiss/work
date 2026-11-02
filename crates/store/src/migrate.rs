@@ -59,6 +59,12 @@ impl Cluster {
     }
 }
 
+/// The SQL of the canonical migrations, in order.
+#[cfg(test)]
+pub(crate) fn canonical_sql() -> impl Iterator<Item = &'static str> {
+    CANONICAL.iter().map(|m| m.sql.as_str())
+}
+
 /// Applies the pending migrations of `cluster` as `work_owner` (OP-28, T-36 rule 5): a separate
 /// step run by `work-cli migrate`, never at node start-up.
 ///

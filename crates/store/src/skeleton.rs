@@ -24,6 +24,24 @@ pub enum ReceivedKind {
 }
 
 impl ReceivedKind {
+    /// Every kind.
+    pub const ALL: [Self; 8] = [
+        Self::CoseSign1,
+        Self::AccessDecisionReceipt,
+        Self::AccessPortableAuthorityProof,
+        Self::AccessApprovalActStatement,
+        Self::AccessEligibilityCheck,
+        Self::AccessAuthContext,
+        Self::WebauthnAssertion,
+        Self::ForeignRecord,
+    ];
+
+    /// The kind stored as `kind`; `None` for any other text.
+    #[must_use]
+    pub fn from_stored(kind: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|k| k.as_str() == kind)
+    }
+
     /// The stored `kind`.
     #[must_use]
     pub const fn as_str(self) -> &'static str {
@@ -58,6 +76,22 @@ pub enum ReceivedRole {
 }
 
 impl ReceivedRole {
+    /// Every role.
+    pub const ALL: [Self; 6] = [
+        Self::AuthorSignature,
+        Self::AuthorityProof,
+        Self::AuthContext,
+        Self::WebauthnAssertion,
+        Self::FederatedSource,
+        Self::PresenterSignature,
+    ];
+
+    /// The role stored as `role`; `None` for any other text.
+    #[must_use]
+    pub fn from_stored(role: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|r| r.as_str() == role)
+    }
+
     /// The stored `role`.
     #[must_use]
     pub const fn as_str(self) -> &'static str {

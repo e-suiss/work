@@ -40,6 +40,19 @@ impl LedgerTx<'static> {
     pub async fn begin(pool: &PgPool, ledger: &LedgerId) -> Result<Self, StoreError> {
         Self::scoped(pool.begin().await?, ledger).await
     }
+
+    /// Opens a read-only repeatable-read transaction on `pool` scoped to `ledger`, so every
+    /// statement in it sees the same committed state (§18 OP-1 item 3).
+    ///
+    /// # Errors
+    /// [`StoreError::Db`], or [`StoreError::Scope`] if the setting did not take.
+    pub async fn begin_snapshot(pool: &PgPool, ledger: &LedgerId) -> Result<Self, StoreError> {
+        let mut tx = pool.begin().await?;
+        sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
+            .execute(&mut *tx)
+            .await?;
+        Self::scoped(tx, ledger).await
+    }
 }
 
 impl<'c> LedgerTx<'c> {

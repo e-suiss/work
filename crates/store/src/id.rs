@@ -28,6 +28,21 @@ impl LedgerId {
         }
         s
     }
+
+    /// From 64 hex digits of either case, the form [`LedgerId::to_hex`] writes; `None` for
+    /// anything else.
+    #[must_use]
+    pub fn from_hex(hex: &str) -> Option<Self> {
+        let digits = hex.as_bytes();
+        if digits.len() != 64 || !digits.iter().all(u8::is_ascii_hexdigit) {
+            return None;
+        }
+        let mut bytes = [0_u8; 32];
+        for (byte, pair) in bytes.iter_mut().zip(digits.chunks_exact(2)) {
+            *byte = u8::from_str_radix(std::str::from_utf8(pair).ok()?, 16).ok()?;
+        }
+        Some(Self(bytes))
+    }
 }
 
 impl std::fmt::Debug for LedgerId {
@@ -106,6 +121,10 @@ mod tests {
         assert!(hex.starts_with("0fab"));
         assert!(hex.ends_with("aba0"));
         assert_eq!(id.as_bytes(), &bytes);
+        assert_eq!(LedgerId::from_hex(&hex), Some(id));
+        assert_eq!(LedgerId::from_hex(&hex.to_uppercase()), Some(id));
+        assert_eq!(LedgerId::from_hex(&hex[1..]), None);
+        assert_eq!(LedgerId::from_hex(&format!("+{}", &hex[1..])), None);
     }
 
     // T-81 P-29
