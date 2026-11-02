@@ -1,8 +1,8 @@
-//! The ledger acknowledgement end to end against real PostgreSQL 18, a SoftHSM token and the
+//! The ledger acknowledgement end to end against real PostgreSQL 18, a `SoftHSM` token and the
 //! signer process (P-20, T-7, T-88, T-90, §18 OP-4, OP-33): the checkpointer signs the head's
 //! checkpoint through `work-signer`, stores it as `work_checkpointer`, the records below it
 //! become `included`, and the replica takes the log with the received bytes before its progress
-//! moves. These tests need Docker, SoftHSM and `sudo -n`; `just test-containers` runs them.
+//! moves. These tests need Docker, `SoftHSM` and `sudo -n`; `just test-containers` runs them.
 
 #![cfg(target_os = "linux")]
 #![allow(

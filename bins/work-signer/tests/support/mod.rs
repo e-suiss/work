@@ -1,4 +1,4 @@
-//! Shared helpers of the signer tests: a SoftHSM token with a generated log key, and the
+//! Shared helpers of the signer tests: a `SoftHSM` token with a generated log key, and the
 //! signer process started as root through `sudo -n`, which drops to the test's identity.
 
 #![allow(
@@ -10,6 +10,7 @@
     reason = "test code"
 )]
 
+use std::fmt::Write as _;
 use std::io::{Read as _, Write as _};
 use std::os::unix::net::UnixStream;
 use std::path::PathBuf;
@@ -115,7 +116,7 @@ impl Token {
             token_dir().display(),
         );
         if let Some((uid, gid)) = run_as {
-            text.push_str(&format!("\n[run_as]\nuid = {uid}\ngid = {gid}\n"));
+            write!(text, "\n[run_as]\nuid = {uid}\ngid = {gid}\n").unwrap();
         }
         let path = self.dir.join("signer.toml");
         std::fs::write(&path, text).unwrap();

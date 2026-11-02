@@ -1,7 +1,7 @@
-//! The signer process against a real SoftHSM token (T-7, T-10, T-56, T-72): it starts only
+//! The signer process against a real `SoftHSM` token (T-7, T-10, T-56, T-72): it starts only
 //! inside its lockdown, which needs root to empty the capability bounding set before it switches
 //! to the test's own identity, answers on its Unix socket with checkpoint note signatures under
-//! the token's key and refuses every other request. `SOFTHSM2_CONF` names the SoftHSM
+//! the token's key and refuses every other request. `SOFTHSM2_CONF` names the `SoftHSM`
 //! configuration and `sudo -n` must work, as in CI.
 
 #![cfg(target_os = "linux")]
