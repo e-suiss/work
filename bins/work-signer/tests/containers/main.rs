@@ -21,6 +21,7 @@
 mod support;
 
 use std::num::NonZeroU8;
+use std::sync::Arc;
 use std::time::Duration;
 
 use serde_json::Value as Json;
@@ -37,8 +38,9 @@ use work_kernel::reason::{Reason, Schema};
 use work_kernel::validate::{ActorType, ActorTypeEntry, ActorTypeSource, ActorTypes, Origin};
 use work_kernel::verify::{SignatureCheck, SignatureVerifier};
 use work_ledger::{
-    Arrival, AuthContext, Checkpointer, Declaration, Deployment, DirectoryReplica, GenesisInput,
-    Leader, SignerClient, Submission, Witness, WitnessError, admit, genesis,
+    Arrival, AuthContext, Cadence, CheckpointSetup, CheckpointStats, Checkpointer, Clock,
+    ClockError, Declaration, Deployment, DirectoryReplica, GenesisInput, GroupConfig, Leader,
+    Ledgers, SignerClient, Submission, Witness, WitnessError, admit, genesis, run_checkpoints,
 };
 use work_store::{
     CheckpointerPool, Cluster, Durability, Genesis, LedgerId, LedgerTx, Pool, RecordDurability,
@@ -400,4 +402,113 @@ async fn p_20_the_signer_acknowledges_the_head_and_the_replica_takes_the_log() {
         durability(&env, &pair, 1).await,
         Some(RecordDurability::Witnessed)
     );
+}
+
+/// Ledger time fixed at one instant.
+#[derive(Clone)]
+struct Fixed(u64);
+
+impl Clock for Fixed {
+    async fn now(&mut self) -> Result<u64, ClockError> {
+        Ok(self.0)
+    }
+}
+
+// OP-33 P-20 OP-4 T-90 T-85
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs Docker, SoftHSM and sudo"]
+async fn op_33_a_led_ledger_is_checkpointed_on_its_cadence_and_mirrored() {
+    let env = Env::start().await;
+    let sequencer = SequencerPool::new(env.pool("work_sequencer"))
+        .await
+        .unwrap();
+    let opened = genesis(
+        &GenesisInput {
+            recorded_at_ms: AT,
+            protocol: (1, 0),
+            schema: [0x5c; 32],
+            nonce: [0x3c; 32],
+        },
+        Durability::SingleNode,
+    )
+    .unwrap();
+    let ledger = opened.ledger;
+    Leader::open(&sequencer, &opened).await.unwrap();
+    let clock = Fixed(AT + 5);
+    let ledgers = Arc::new(Ledgers::new(sequencer, clock, GroupConfig::default()));
+    let actors = ActorTypes {
+        author: ActorTypeEntry {
+            actor_type: ActorType::Human,
+            source: ActorTypeSource::AccessBinding,
+        },
+        on_behalf_of: vec![],
+        evidence: vec![],
+    };
+    let record = comment(&ledger);
+    let pending = admit(
+        &Unsigned,
+        &ledger,
+        Submission {
+            arrival: Arrival::Unsigned {
+                record: &record,
+                auth_context: AuthContext {
+                    bytes: CONTEXT,
+                    assurance: "aal2",
+                    step_up: false,
+                },
+            },
+            actor_types: &actors,
+            origin: Origin::Direct,
+            understood_extensions: &[],
+            limits: SemanticLimits::default(),
+            event_type: "work.recorded",
+            traceparent: TRACE,
+            idempotency: None,
+            inbound: None,
+        },
+    )
+    .unwrap();
+    assert_eq!(ledgers.submit(&ledger, pending).await.unwrap().pos, 1);
+    assert_eq!(ledgers.led().await, [ledger]);
+
+    let token = Token::new("cadence");
+    let signer = Signer::start(&token);
+    let root = token.dir.join("replica");
+    let setup = CheckpointSetup {
+        pool: CheckpointerPool::new(env.pool("work_checkpointer"))
+            .await
+            .unwrap(),
+        signer: SignerClient::new(signer.socket.clone(), Duration::from_secs(5)),
+        origin_prefix: PREFIX.to_owned(),
+        replica: DirectoryReplica::new("local", &root),
+        cadence: Cadence::new(Duration::from_secs(3600), 1).unwrap(),
+    };
+    let stats = Arc::new(CheckpointStats::default());
+    let task = tokio::spawn(run_checkpoints(
+        Arc::clone(&ledgers),
+        setup,
+        Arc::clone(&stats),
+    ));
+    let mirrored = tokio::time::timeout(Duration::from_secs(30), async {
+        while stats.mirrored() == 0 {
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+    })
+    .await;
+    task.abort();
+    assert!(mirrored.is_ok(), "nothing was mirrored");
+    assert!(stats.signer_connected());
+    assert_eq!(stats.stored(), 1);
+    assert_eq!(stats.failed(), 0);
+    let dir = root.join(ledger.to_hex());
+    assert!(dir.join("checkpoint").join(format!("{:020}", 2)).exists());
+    assert!(dir.join("log").join(format!("{:020}", 1)).exists());
+    let mut read = LedgerTx::begin(&env.pool("work_app"), &ledger)
+        .await
+        .unwrap();
+    assert_eq!(
+        read.durability(1).await.unwrap(),
+        Some(RecordDurability::Included)
+    );
+    read.rollback().await.unwrap();
 }
