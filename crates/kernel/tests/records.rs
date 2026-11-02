@@ -1069,7 +1069,7 @@ fn ev_35_every_evidence_presenter_has_an_actor_type_in_evidence_order() {
     assert_eq!(validate(&r, &ctx(Origin::Direct, &actors, &[])), mismatch);
     let without = promise();
     let mut actors = actor_types(&without);
-    assert!(actors.evidence.is_empty());
+    assert_eq!(actors.evidence, vec![]);
     actors.evidence.push(bound(ActorType::Organization));
     assert_eq!(
         validate(&without, &ctx(Origin::Direct, &actors, &[])),
