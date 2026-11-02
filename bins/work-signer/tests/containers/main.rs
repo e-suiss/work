@@ -409,8 +409,8 @@ async fn p_20_the_signer_acknowledges_the_head_and_the_replica_takes_the_log() {
 struct Fixed(u64);
 
 impl Clock for Fixed {
-    async fn now(&mut self) -> Result<u64, ClockError> {
-        Ok(self.0)
+    fn now(&mut self) -> impl Future<Output = Result<u64, ClockError>> + Send {
+        std::future::ready(Ok(self.0))
     }
 }
 

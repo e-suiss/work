@@ -34,6 +34,10 @@ pub(crate) struct Health {
 }
 
 /// The answers of one round of probes.
+#[allow(
+    clippy::struct_excessive_bools,
+    reason = "one answer per probed dependency"
+)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Probes {
     pub(crate) canonical: bool,

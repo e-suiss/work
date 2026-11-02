@@ -465,10 +465,6 @@ fn pending(ledger: &LedgerId, record: &[u8], actors: &ActorTypes) -> PendingReco
     .unwrap()
 }
 
-fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|b| format!("{b:02x}")).collect()
-}
-
 async fn next_event(consumer: &PullConsumer) -> async_nats::Message {
     tokio::time::timeout(DEADLINE, async {
         loop {
@@ -554,7 +550,7 @@ async fn t_17_a_committed_record_reaches_jetstream_through_the_server() {
     let headers = message.headers.clone().unwrap();
     assert_eq!(headers.get("Nats-Msg-Id").unwrap().as_str(), event_id);
     assert_eq!(headers.get("traceparent").unwrap().as_str(), TRACE);
-    let ledger_hex = hex(ledger.as_bytes());
+    let ledger_hex = ledger.to_hex();
     let subject = message.subject.as_str();
     let tail = format!(".{ledger_hex}.work.recorded");
     assert!(subject.starts_with("work.evt."), "{subject}");
