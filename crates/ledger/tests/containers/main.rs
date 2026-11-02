@@ -237,13 +237,13 @@ fn pending(ledger: &LedgerId, record: &[u8]) -> PendingRecord {
     .unwrap()
 }
 
-fn opening(nonce: [u8; 32], durability: Durability) -> Genesis {
+fn opening(tag: [u8; 32], durability: Durability) -> Genesis {
     genesis(
         &GenesisInput {
             recorded_at_ms: AT,
             protocol: (1, 0),
             schema: [0x5c; 32],
-            nonce,
+            nonce: tag,
         },
         durability,
     )
@@ -369,9 +369,9 @@ impl Clock for Gate {
     }
 }
 
-async fn writer(env: &Env, nonce: [u8; 32]) -> (SequencerPool, LedgerId, GroupCommit, Gate) {
+async fn writer(env: &Env, tag: [u8; 32]) -> (SequencerPool, LedgerId, GroupCommit, Gate) {
     let pool = env.sequencer().await;
-    let g = opening(nonce, Durability::Quorum);
+    let g = opening(tag, Durability::Quorum);
     Leader::open(&pool, &g).await.unwrap();
     let leader = Leader::acquire(pool.clone(), g.ledger).await.unwrap();
     let permits = Arc::new(Semaphore::new(0));
