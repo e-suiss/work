@@ -500,7 +500,7 @@ mod tests {
     fn op_1_a_rebuild_reads_only_canonical_tables() {
         let labels = labels();
         let read: Vec<String> = CANONICAL_READS.iter().flat_map(|s| tables_in(s)).collect();
-        assert!(!read.is_empty());
+        assert_ne!(read.len(), 0);
         for table in &read {
             assert!(CANONICAL_INPUTS.contains(&table.as_str()), "{table}");
         }
@@ -556,8 +556,8 @@ mod tests {
             ("work.log_concerns", rows(&["(b,2)", "(a,1)"])),
             ("work.one_time_flag", rows(&[])),
         ]);
-        assert!(diff(&live, &live).is_empty());
-        assert!(diff(&rebuilt, &rebuilt).is_empty());
+        assert_eq!(diff(&live, &live), Vec::<TableDiff>::new());
+        assert_eq!(diff(&rebuilt, &rebuilt), Vec::<TableDiff>::new());
         let found = diff(&live, &rebuilt);
         assert_eq!(
             found,

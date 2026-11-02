@@ -823,7 +823,7 @@ async fn op_1_the_rebuilt_golden_ledger_equals_the_live_rows() {
     assert_eq!(live_rows.rows("ledger.log").unwrap().len(), 15);
     assert_eq!(live_rows.rows("work.item_head").unwrap().len(), 2);
     assert_eq!(live_rows.rows("work.record_header").unwrap().len(), 13);
-    assert!(live_rows.rows("work.one_time_flag").unwrap().is_empty());
+    assert_eq!(live_rows.rows("work.one_time_flag").unwrap().len(), 0);
     assert!(matches!(
         rebuild_diff(&live, &target, ledger, Durability::SingleNode).await,
         Err(RebuildError::Replay { pos: 0, .. })
@@ -865,7 +865,7 @@ async fn op_1_a_tampered_row_is_a_sev_1_diff_and_never_a_rebuild_input() {
         BTreeSet::from(["work.item_head", "work.log_concerns", "work.one_time_flag"])
     );
     for t in outcome.tables() {
-        assert!(!t.unexpected.is_empty(), "{t:?}");
+        assert_ne!(t.unexpected.len(), 0, "{t:?}");
     }
     let heads = outcome
         .tables()
