@@ -1,0 +1,191 @@
+{
+  "file": "items-touched.json",
+  "notes": [
+    "T-89: the items each decodable record of records.json and records-quarantine.json touches, read from its signed core fields only",
+    "until the Commitment and Condition lifecycles every touch is a Work of concerns, in concerns order, with expect next and no heads; quarantine does not change what a record touches",
+    "item is [kind, lower-case hex id]"
+  ],
+  "cases": [
+    {
+      "id": "record/declaration-promise-for-principal",
+      "source": "records.json",
+      "touches": [
+        {
+          "item": [
+            "work",
+            "019a2f4c8e1b7c3da5e6f70812345678"
+          ],
+          "expect": "next",
+          "heads": null
+        }
+      ]
+    },
+    {
+      "id": "record/act-action-fulfills",
+      "source": "records.json",
+      "touches": [
+        {
+          "item": [
+            "work",
+            "019a2f4c8e1b7c3da5e6f70812345678"
+          ],
+          "expect": "next",
+          "heads": null
+        }
+      ]
+    },
+    {
+      "id": "record/claim-observation-system",
+      "source": "records.json",
+      "touches": [
+        {
+          "item": [
+            "work",
+            "019a2f4c8e1b7c3da5e6f70812345678"
+          ],
+          "expect": "next",
+          "heads": null
+        },
+        {
+          "item": [
+            "work",
+            "019a2f4c8e1b7c3da5e6f70887654321"
+          ],
+          "expect": "next",
+          "heads": null
+        }
+      ]
+    },
+    {
+      "id": "record/declaration-amend-supersedes-ext",
+      "source": "records.json",
+      "touches": [
+        {
+          "item": [
+            "work",
+            "019a2f4c8e1b7c3da5e6f70812345678"
+          ],
+          "expect": "next",
+          "heads": null
+        }
+      ]
+    },
+    {
+      "id": "record/claim-comment-private",
+      "source": "records.json",
+      "touches": []
+    },
+    {
+      "id": "record/claim-critical-ext-understood",
+      "source": "records.json",
+      "touches": [
+        {
+          "item": [
+            "work",
+            "019a2f4c8e1b7c3da5e6f70887654321"
+          ],
+          "expect": "next",
+          "heads": null
+        }
+      ]
+    },
+    {
+      "id": "record/declaration-decline-parties",
+      "source": "records.json",
+      "touches": [
+        {
+          "item": [
+            "work",
+            "019a2f4c8e1b7c3da5e6f70887654321"
+          ],
+          "expect": "next",
+          "heads": null
+        }
+      ]
+    },
+    {
+      "id": "record/declaration-open-condition-decision-gate",
+      "source": "records.json",
+      "touches": [
+        {
+          "item": [
+            "work",
+            "019a2f4c8e1b7c3da5e6f70812345678"
+          ],
+          "expect": "next",
+          "heads": null
+        }
+      ]
+    },
+    {
+      "id": "record/declaration-open-condition-practice-type",
+      "source": "records.json",
+      "touches": [
+        {
+          "item": [
+            "work",
+            "019a2f4c8e1b7c3da5e6f70887654321"
+          ],
+          "expect": "next",
+          "heads": null
+        }
+      ]
+    },
+    {
+      "id": "record/declaration-cancel-reason-sub-code",
+      "source": "records.json",
+      "touches": [
+        {
+          "item": [
+            "work",
+            "019a2f4c8e1b7c3da5e6f70812345678"
+          ],
+          "expect": "next",
+          "heads": null
+        }
+      ]
+    },
+    {
+      "id": "record/claim-practice-params-digest-and-list",
+      "source": "records.json",
+      "touches": [
+        {
+          "item": [
+            "work",
+            "019a2f4c8e1b7c3da5e6f70812345678"
+          ],
+          "expect": "next",
+          "heads": null
+        }
+      ]
+    },
+    {
+      "id": "record-quarantine/critical-ext-not-understood",
+      "source": "records-quarantine.json",
+      "touches": [
+        {
+          "item": [
+            "work",
+            "019a2f4c8e1b7c3da5e6f70887654321"
+          ],
+          "expect": "next",
+          "heads": null
+        }
+      ]
+    },
+    {
+      "id": "record-quarantine/one-of-two-critical-not-understood",
+      "source": "records-quarantine.json",
+      "touches": [
+        {
+          "item": [
+            "work",
+            "019a2f4c8e1b7c3da5e6f70887654321"
+          ],
+          "expect": "next",
+          "heads": null
+        }
+      ]
+    }
+  ]
+}
