@@ -24,7 +24,7 @@ pub mod validate;
 pub mod verify;
 
 /// Version of the kernel public API (T-4 rule 4).
-pub const API_VERSION: ApiVersion = ApiVersion { major: 0, minor: 8 };
+pub const API_VERSION: ApiVersion = ApiVersion { major: 0, minor: 9 };
 
 /// A kernel public API version.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]

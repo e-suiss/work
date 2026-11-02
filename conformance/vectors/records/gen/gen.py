@@ -1827,8 +1827,11 @@ witness_public = ed25519(WITNESS_SEED, b"")[0]
 COSIGNED_AT = 1792109120
 
 
-def checkpoint_body(size, root):
-    return "%s\n%d\n%s\n" % (ORIGIN, size, b64(root))
+PROFILE = ["durability quorum", "time_sources independent", "witness independent 2"]
+
+
+def checkpoint_body(size, root, profile=PROFILE):
+    return "%s\n%d\n%s\n" % (ORIGIN, size, b64(root)) + "".join(line + "\n" for line in profile)
 
 
 def log_signature(body):
@@ -1862,13 +1865,50 @@ checkpoint_cases = [
      "note": body + "\n" + log_signature(body) + cosignature(body, COSIGNED_AT + 1, signed_at=COSIGNED_AT),
      "expect": {"outcome": "reject", "reason": "signature-invalid"}},
 ]
+for case in checkpoint_cases:
+    if case["expect"]["outcome"] == "accept":
+        case["expect"]["profile"] = PROFILE
+
+
+def profile_case(case_id, profile, expect):
+    profiled = checkpoint_body(LOG_SIZE, roots[LOG_SIZE], profile)
+    return {"id": case_id, "rules": ["OP-46", "T-88"], "origin": ORIGIN,
+            "note": profiled + "\n" + log_signature(profiled), "expect": expect}
+
+
+def profile_accept(case_id, profile):
+    return profile_case(case_id, profile, {"outcome": "accept", "size": LOG_SIZE, "root_hex": roots[LOG_SIZE].hex(),
+                                           "cosignatures": [], "profile": profile})
+
+
+def profile_reject(case_id, profile):
+    return profile_case(case_id, profile, {"outcome": "reject", "reason": "checkpoint-malformed"})
+
+
+checkpoint_cases += [
+    profile_accept("checkpoint/profile-single-node-local-dependent",
+                   ["durability single-node", "time_sources dependent", "witness local-dependent"]),
+    profile_accept("checkpoint/profile-witness-none", ["durability single-node", "time_sources independent", "witness none"]),
+    profile_accept("checkpoint/profile-independent-255", ["durability quorum", "time_sources dependent", "witness independent 255"]),
+    profile_reject("checkpoint-reject/profile-missing", []),
+    profile_reject("checkpoint-reject/profile-witness-missing", PROFILE[:2]),
+    profile_reject("checkpoint-reject/profile-extra", PROFILE + ["extra line"]),
+    profile_reject("checkpoint-reject/profile-repeated", PROFILE + PROFILE[2:]),
+    profile_reject("checkpoint-reject/profile-out-of-order", [PROFILE[1], PROFILE[0], PROFILE[2]]),
+    profile_reject("checkpoint-reject/profile-unknown-durability", ["durability eventual"] + PROFILE[1:]),
+    profile_reject("checkpoint-reject/profile-unknown-time-sources", [PROFILE[0], "time_sources none", PROFILE[2]]),
+    profile_reject("checkpoint-reject/profile-witness-zero", PROFILE[:2] + ["witness independent 0"]),
+    profile_reject("checkpoint-reject/profile-witness-leading-zero", PROFILE[:2] + ["witness independent 02"]),
+    profile_reject("checkpoint-reject/profile-witness-above-255", PROFILE[:2] + ["witness independent 256"]),
+]
 write_json("merkle.json", {
     "file": "merkle.json",
     "notes": ["the leaves are the envelope bytes in ledger order: genesis.json genesis/accept at index 0, the records.json envelopes at 1 to 11 and the records-quarantine.json envelopes at 12 to 16; a record at pos p is leaf p",
               "leaf hash = SHA-256(0x00 || envelope), node = SHA-256(0x01 || left || right), the empty tree is SHA-256(\"\") (RFC 9162 section 2.1, P-101)",
               "inclusion and consistency proofs are RFC 9162 section 2.1.3 and 2.1.4 audit paths; reject codes are the suiss-crypto ProofError and NoteError codes",
               "checkpoints are C2SP tlog-checkpoint bodies in C2SP signed notes, signed by the log key and cosigned with tlog-cosignature/v1; the log key is the RFC 8032 section 7.1 test 3 Ed25519 key, the witness key a work-vector seed",
-              "the origin line is a placeholder until the Work ledger origin name is fixed",
+              "the origin is the installation prefix work.example/ledger/ followed by the LedgerID in 64 lowercase hex (OP-46 item 1)",
+              "a Work checkpoint body carries exactly three extension lines after the root, in this order: durability (quorum, single-node), time_sources (independent, dependent) and witness (independent k with k 1 to 255 and no leading zero, local-dependent, none); a missing, extra, repeated, reordered or unknown line is checkpoint-malformed under a valid log signature (OP-46 item 3)",
               "keys give the Ed25519 public key and the C2SP verifier key string; the log key's string carries '+' in its base64, which the suiss-crypto 0.2.3 verifier key parser does not split"],
     "nodes": [{"id": "node/genesis-and-first", "rules": ["P-101"], "left_hex": leaf_hashes[0].hex(),
                "right_hex": leaf_hashes[1].hex(), "prefix_hex": "01",

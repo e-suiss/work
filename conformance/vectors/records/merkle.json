@@ -5,7 +5,8 @@
     "leaf hash = SHA-256(0x00 || envelope), node = SHA-256(0x01 || left || right), the empty tree is SHA-256(\"\") (RFC 9162 section 2.1, P-101)",
     "inclusion and consistency proofs are RFC 9162 section 2.1.3 and 2.1.4 audit paths; reject codes are the suiss-crypto ProofError and NoteError codes",
     "checkpoints are C2SP tlog-checkpoint bodies in C2SP signed notes, signed by the log key and cosigned with tlog-cosignature/v1; the log key is the RFC 8032 section 7.1 test 3 Ed25519 key, the witness key a work-vector seed",
-    "the origin line is a placeholder until the Work ledger origin name is fixed",
+    "the origin is the installation prefix work.example/ledger/ followed by the LedgerID in 64 lowercase hex (OP-46 item 1)",
+    "a Work checkpoint body carries exactly three extension lines after the root, in this order: durability (quorum, single-node), time_sources (independent, dependent) and witness (independent k with k 1 to 255 and no leading zero, local-dependent, none); a missing, extra, repeated, reordered or unknown line is checkpoint-malformed under a valid log signature (OP-46 item 3)",
     "keys give the Ed25519 public key and the C2SP verifier key string; the log key's string carries '+' in its base64, which the suiss-crypto 0.2.3 verifier key parser does not split"
   ],
   "nodes": [
@@ -863,7 +864,7 @@
         "OP-33"
       ],
       "origin": "work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc",
-      "note": "work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc\n17\nalfTGxjUcwTuv4Mw9p4ErRmuh7jnM9GVb14wFIAy+r8=\n\n— work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc HSuHDCzcA+t13UM/+C5LOyWF+OAMvqEheFz9w8ExZbOpZNWEtF/Rb3icpfTyyfetNDBelHaeWdcxd1YBvmhIg0XRTAs=\n— witness.example/w1 cfpUngAAAABq0WpAtq53IXGToDloql42zRU1PQhet0rXgbFdh1Bt0YhgKroeuv1MYagiIOei5WS1HDcgs8piOlLGOgp8g3IAerXnAw==\n",
+      "note": "work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc\n17\nalfTGxjUcwTuv4Mw9p4ErRmuh7jnM9GVb14wFIAy+r8=\ndurability quorum\ntime_sources independent\nwitness independent 2\n\n— work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc HSuHDFcGZCqD8fFGPHBq9Jknr0hlYLUNubJHyG8PKqkoHPK+ul9rlWWoFXA/73GWDGpErGnAjTc7d4z2J15JeNR36QM=\n— witness.example/w1 cfpUngAAAABq0WpABpxvc3chWP+0io74oPRN1XBLbcYOv2rU2JpEMNgvZgSx0ZO3WSFbllXVCzvBscKePGEJ+n26VloWgN24/0KNBg==\n",
       "expect": {
         "outcome": "accept",
         "size": 17,
@@ -873,6 +874,11 @@
             "name": "witness.example/w1",
             "timestamp": 1792109120
           }
+        ],
+        "profile": [
+          "durability quorum",
+          "time_sources independent",
+          "witness independent 2"
         ]
       }
     },
@@ -884,12 +890,17 @@
         "T-64"
       ],
       "origin": "work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc",
-      "note": "work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc\n17\nalfTGxjUcwTuv4Mw9p4ErRmuh7jnM9GVb14wFIAy+r8=\n\n— work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc HSuHDCzcA+t13UM/+C5LOyWF+OAMvqEheFz9w8ExZbOpZNWEtF/Rb3icpfTyyfetNDBelHaeWdcxd1YBvmhIg0XRTAs=\n",
+      "note": "work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc\n17\nalfTGxjUcwTuv4Mw9p4ErRmuh7jnM9GVb14wFIAy+r8=\ndurability quorum\ntime_sources independent\nwitness independent 2\n\n— work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc HSuHDFcGZCqD8fFGPHBq9Jknr0hlYLUNubJHyG8PKqkoHPK+ul9rlWWoFXA/73GWDGpErGnAjTc7d4z2J15JeNR36QM=\n",
       "expect": {
         "outcome": "accept",
         "size": 17,
         "root_hex": "6a57d31b18d47304eebf8330f69e04ad19ae87b8e733d1956f5e30148032fabf",
-        "cosignatures": []
+        "cosignatures": [],
+        "profile": [
+          "durability quorum",
+          "time_sources independent",
+          "witness independent 2"
+        ]
       }
     },
     {
@@ -900,7 +911,7 @@
         "T-64"
       ],
       "origin": "work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc",
-      "note": "work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc\n16\nalfTGxjUcwTuv4Mw9p4ErRmuh7jnM9GVb14wFIAy+r8=\n\n— work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc HSuHDCzcA+t13UM/+C5LOyWF+OAMvqEheFz9w8ExZbOpZNWEtF/Rb3icpfTyyfetNDBelHaeWdcxd1YBvmhIg0XRTAs=\n— witness.example/w1 cfpUngAAAABq0WpAtq53IXGToDloql42zRU1PQhet0rXgbFdh1Bt0YhgKroeuv1MYagiIOei5WS1HDcgs8piOlLGOgp8g3IAerXnAw==\n",
+      "note": "work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc\n16\nalfTGxjUcwTuv4Mw9p4ErRmuh7jnM9GVb14wFIAy+r8=\ndurability quorum\ntime_sources independent\nwitness independent 2\n\n— work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc HSuHDFcGZCqD8fFGPHBq9Jknr0hlYLUNubJHyG8PKqkoHPK+ul9rlWWoFXA/73GWDGpErGnAjTc7d4z2J15JeNR36QM=\n— witness.example/w1 cfpUngAAAABq0WpABpxvc3chWP+0io74oPRN1XBLbcYOv2rU2JpEMNgvZgSx0ZO3WSFbllXVCzvBscKePGEJ+n26VloWgN24/0KNBg==\n",
       "expect": {
         "outcome": "reject",
         "reason": "signature-invalid"
@@ -914,7 +925,7 @@
         "T-64"
       ],
       "origin": "work.example/ledger/other",
-      "note": "work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc\n17\nalfTGxjUcwTuv4Mw9p4ErRmuh7jnM9GVb14wFIAy+r8=\n\n— work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc HSuHDCzcA+t13UM/+C5LOyWF+OAMvqEheFz9w8ExZbOpZNWEtF/Rb3icpfTyyfetNDBelHaeWdcxd1YBvmhIg0XRTAs=\n— witness.example/w1 cfpUngAAAABq0WpAtq53IXGToDloql42zRU1PQhet0rXgbFdh1Bt0YhgKroeuv1MYagiIOei5WS1HDcgs8piOlLGOgp8g3IAerXnAw==\n",
+      "note": "work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc\n17\nalfTGxjUcwTuv4Mw9p4ErRmuh7jnM9GVb14wFIAy+r8=\ndurability quorum\ntime_sources independent\nwitness independent 2\n\n— work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc HSuHDFcGZCqD8fFGPHBq9Jknr0hlYLUNubJHyG8PKqkoHPK+ul9rlWWoFXA/73GWDGpErGnAjTc7d4z2J15JeNR36QM=\n— witness.example/w1 cfpUngAAAABq0WpABpxvc3chWP+0io74oPRN1XBLbcYOv2rU2JpEMNgvZgSx0ZO3WSFbllXVCzvBscKePGEJ+n26VloWgN24/0KNBg==\n",
       "expect": {
         "outcome": "reject",
         "reason": "checkpoint-malformed"
@@ -928,7 +939,7 @@
         "T-64"
       ],
       "origin": "work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc",
-      "note": "work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc\n17\nalfTGxjUcwTuv4Mw9p4ErRmuh7jnM9GVb14wFIAy+r8=\n\n— witness.example/w1 cfpUngAAAABq0WpAtq53IXGToDloql42zRU1PQhet0rXgbFdh1Bt0YhgKroeuv1MYagiIOei5WS1HDcgs8piOlLGOgp8g3IAerXnAw==\n",
+      "note": "work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc\n17\nalfTGxjUcwTuv4Mw9p4ErRmuh7jnM9GVb14wFIAy+r8=\ndurability quorum\ntime_sources independent\nwitness independent 2\n\n— witness.example/w1 cfpUngAAAABq0WpABpxvc3chWP+0io74oPRN1XBLbcYOv2rU2JpEMNgvZgSx0ZO3WSFbllXVCzvBscKePGEJ+n26VloWgN24/0KNBg==\n",
       "expect": {
         "outcome": "reject",
         "reason": "note-unverified"
@@ -943,10 +954,200 @@
         "OP-33"
       ],
       "origin": "work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc",
-      "note": "work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc\n17\nalfTGxjUcwTuv4Mw9p4ErRmuh7jnM9GVb14wFIAy+r8=\n\n— work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc HSuHDCzcA+t13UM/+C5LOyWF+OAMvqEheFz9w8ExZbOpZNWEtF/Rb3icpfTyyfetNDBelHaeWdcxd1YBvmhIg0XRTAs=\n— witness.example/w1 cfpUngAAAABq0WpBtq53IXGToDloql42zRU1PQhet0rXgbFdh1Bt0YhgKroeuv1MYagiIOei5WS1HDcgs8piOlLGOgp8g3IAerXnAw==\n",
+      "note": "work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc\n17\nalfTGxjUcwTuv4Mw9p4ErRmuh7jnM9GVb14wFIAy+r8=\ndurability quorum\ntime_sources independent\nwitness independent 2\n\n— work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc HSuHDFcGZCqD8fFGPHBq9Jknr0hlYLUNubJHyG8PKqkoHPK+ul9rlWWoFXA/73GWDGpErGnAjTc7d4z2J15JeNR36QM=\n— witness.example/w1 cfpUngAAAABq0WpBBpxvc3chWP+0io74oPRN1XBLbcYOv2rU2JpEMNgvZgSx0ZO3WSFbllXVCzvBscKePGEJ+n26VloWgN24/0KNBg==\n",
       "expect": {
         "outcome": "reject",
         "reason": "signature-invalid"
+      }
+    },
+    {
+      "id": "checkpoint/profile-single-node-local-dependent",
+      "rules": [
+        "OP-46",
+        "T-88"
+      ],
+      "origin": "work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc",
+      "note": "work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc\n17\nalfTGxjUcwTuv4Mw9p4ErRmuh7jnM9GVb14wFIAy+r8=\ndurability single-node\ntime_sources dependent\nwitness local-dependent\n\n— work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc HSuHDEMkn3JUXFM41x4XBMb8pqt0MoEpNqXZaUXEKCrSZwfKHABKzCxl0893ELbOZxKBWewpX5pO5q8OvkZM4BSi4AE=\n",
+      "expect": {
+        "outcome": "accept",
+        "size": 17,
+        "root_hex": "6a57d31b18d47304eebf8330f69e04ad19ae87b8e733d1956f5e30148032fabf",
+        "cosignatures": [],
+        "profile": [
+          "durability single-node",
+          "time_sources dependent",
+          "witness local-dependent"
+        ]
+      }
+    },
+    {
+      "id": "checkpoint/profile-witness-none",
+      "rules": [
+        "OP-46",
+        "T-88"
+      ],
+      "origin": "work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc",
+      "note": "work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc\n17\nalfTGxjUcwTuv4Mw9p4ErRmuh7jnM9GVb14wFIAy+r8=\ndurability single-node\ntime_sources independent\nwitness none\n\n— work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc HSuHDFqM/3Qj4FPY8GAM52jOetpCI0XnpvTy22yQBa/YWzogrbmFj3uBsySSmKEB5roNbH9GyoGLQYMKwVFsKFxDLQU=\n",
+      "expect": {
+        "outcome": "accept",
+        "size": 17,
+        "root_hex": "6a57d31b18d47304eebf8330f69e04ad19ae87b8e733d1956f5e30148032fabf",
+        "cosignatures": [],
+        "profile": [
+          "durability single-node",
+          "time_sources independent",
+          "witness none"
+        ]
+      }
+    },
+    {
+      "id": "checkpoint/profile-independent-255",
+      "rules": [
+        "OP-46",
+        "T-88"
+      ],
+      "origin": "work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc",
+      "note": "work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc\n17\nalfTGxjUcwTuv4Mw9p4ErRmuh7jnM9GVb14wFIAy+r8=\ndurability quorum\ntime_sources dependent\nwitness independent 255\n\n— work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc HSuHDL4ar9z5rxvXW16xPnFJRHBYJ3A7p2tDM8avSYx3puOLzRfxnbchDX4wG0L/Bj8P8BCX4m1kSEQW0gp+sDRGPA0=\n",
+      "expect": {
+        "outcome": "accept",
+        "size": 17,
+        "root_hex": "6a57d31b18d47304eebf8330f69e04ad19ae87b8e733d1956f5e30148032fabf",
+        "cosignatures": [],
+        "profile": [
+          "durability quorum",
+          "time_sources dependent",
+          "witness independent 255"
+        ]
+      }
+    },
+    {
+      "id": "checkpoint-reject/profile-missing",
+      "rules": [
+        "OP-46",
+        "T-88"
+      ],
+      "origin": "work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc",
+      "note": "work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc\n17\nalfTGxjUcwTuv4Mw9p4ErRmuh7jnM9GVb14wFIAy+r8=\n\n— work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc HSuHDCzcA+t13UM/+C5LOyWF+OAMvqEheFz9w8ExZbOpZNWEtF/Rb3icpfTyyfetNDBelHaeWdcxd1YBvmhIg0XRTAs=\n",
+      "expect": {
+        "outcome": "reject",
+        "reason": "checkpoint-malformed"
+      }
+    },
+    {
+      "id": "checkpoint-reject/profile-witness-missing",
+      "rules": [
+        "OP-46",
+        "T-88"
+      ],
+      "origin": "work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc",
+      "note": "work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc\n17\nalfTGxjUcwTuv4Mw9p4ErRmuh7jnM9GVb14wFIAy+r8=\ndurability quorum\ntime_sources independent\n\n— work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc HSuHDHRRrMmmg4/WwA6v5i+qbqSs2jQeijIIlA8kbsPeHbmI+B21LrJEO1rVO4t3UsVhGU1mRoUD7WMDgNlsacVxjAo=\n",
+      "expect": {
+        "outcome": "reject",
+        "reason": "checkpoint-malformed"
+      }
+    },
+    {
+      "id": "checkpoint-reject/profile-extra",
+      "rules": [
+        "OP-46",
+        "T-88"
+      ],
+      "origin": "work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc",
+      "note": "work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc\n17\nalfTGxjUcwTuv4Mw9p4ErRmuh7jnM9GVb14wFIAy+r8=\ndurability quorum\ntime_sources independent\nwitness independent 2\nextra line\n\n— work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc HSuHDMfOwgk06kEgoKuA1UxNdAn3cRRiiuEUPZHLpLyaHL16xM684zi4xwlPOwgl+vDg+3FxPC+K5l4F0dcmLMsNww8=\n",
+      "expect": {
+        "outcome": "reject",
+        "reason": "checkpoint-malformed"
+      }
+    },
+    {
+      "id": "checkpoint-reject/profile-repeated",
+      "rules": [
+        "OP-46",
+        "T-88"
+      ],
+      "origin": "work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc",
+      "note": "work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc\n17\nalfTGxjUcwTuv4Mw9p4ErRmuh7jnM9GVb14wFIAy+r8=\ndurability quorum\ntime_sources independent\nwitness independent 2\nwitness independent 2\n\n— work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc HSuHDLuCniUF5Ehk0y0vjVcU7u7cneuu3N5gCf4NXK4Z/mpMafmN8JD9KfCOw8pViRZhrgTHWINALWt4z/gzMD+bGA0=\n",
+      "expect": {
+        "outcome": "reject",
+        "reason": "checkpoint-malformed"
+      }
+    },
+    {
+      "id": "checkpoint-reject/profile-out-of-order",
+      "rules": [
+        "OP-46",
+        "T-88"
+      ],
+      "origin": "work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc",
+      "note": "work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc\n17\nalfTGxjUcwTuv4Mw9p4ErRmuh7jnM9GVb14wFIAy+r8=\ntime_sources independent\ndurability quorum\nwitness independent 2\n\n— work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc HSuHDBoFD5F7R+VhQFTobJ2dRFB4z5NX0pbYN2awgZE9rqvMmHzDE1K/KVtsTVK6DXASNToGHS8h4HeIf2YOVpyiMQo=\n",
+      "expect": {
+        "outcome": "reject",
+        "reason": "checkpoint-malformed"
+      }
+    },
+    {
+      "id": "checkpoint-reject/profile-unknown-durability",
+      "rules": [
+        "OP-46",
+        "T-88"
+      ],
+      "origin": "work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc",
+      "note": "work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc\n17\nalfTGxjUcwTuv4Mw9p4ErRmuh7jnM9GVb14wFIAy+r8=\ndurability eventual\ntime_sources independent\nwitness independent 2\n\n— work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc HSuHDN60Rb2Wqh81qVrzpATZHinI68eQ3wehKsaJ2Jl4xMOY+V8LRgysv5aM0PU637Yo0888W37XQghX3PyLMV7oXAo=\n",
+      "expect": {
+        "outcome": "reject",
+        "reason": "checkpoint-malformed"
+      }
+    },
+    {
+      "id": "checkpoint-reject/profile-unknown-time-sources",
+      "rules": [
+        "OP-46",
+        "T-88"
+      ],
+      "origin": "work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc",
+      "note": "work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc\n17\nalfTGxjUcwTuv4Mw9p4ErRmuh7jnM9GVb14wFIAy+r8=\ndurability quorum\ntime_sources none\nwitness independent 2\n\n— work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc HSuHDL6rQCsS23Yzq5syHvFE8FHXQG8iBpuPOWsUCX7EUKCjdwU0z4svmApjcNEzrxBuK0hJiMlsFFXzLerI/DfzSQA=\n",
+      "expect": {
+        "outcome": "reject",
+        "reason": "checkpoint-malformed"
+      }
+    },
+    {
+      "id": "checkpoint-reject/profile-witness-zero",
+      "rules": [
+        "OP-46",
+        "T-88"
+      ],
+      "origin": "work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc",
+      "note": "work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc\n17\nalfTGxjUcwTuv4Mw9p4ErRmuh7jnM9GVb14wFIAy+r8=\ndurability quorum\ntime_sources independent\nwitness independent 0\n\n— work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc HSuHDCVIXlwGlxX4sj7qW3uD+7LewhB/PkckZechJ/EV9MeyfWsAXXgUtt+mwVvDyzKbfaXQJBmRblZUQd8LKfrPdwI=\n",
+      "expect": {
+        "outcome": "reject",
+        "reason": "checkpoint-malformed"
+      }
+    },
+    {
+      "id": "checkpoint-reject/profile-witness-leading-zero",
+      "rules": [
+        "OP-46",
+        "T-88"
+      ],
+      "origin": "work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc",
+      "note": "work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc\n17\nalfTGxjUcwTuv4Mw9p4ErRmuh7jnM9GVb14wFIAy+r8=\ndurability quorum\ntime_sources independent\nwitness independent 02\n\n— work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc HSuHDCMeYD4zu55xFp8RB25xd/FzEw5ETJj4qjx0WoS1mDZg4a/aUmmCE/yQNaYjcgcwZcHOg2MPSsY83gQHoeIE6wY=\n",
+      "expect": {
+        "outcome": "reject",
+        "reason": "checkpoint-malformed"
+      }
+    },
+    {
+      "id": "checkpoint-reject/profile-witness-above-255",
+      "rules": [
+        "OP-46",
+        "T-88"
+      ],
+      "origin": "work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc",
+      "note": "work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc\n17\nalfTGxjUcwTuv4Mw9p4ErRmuh7jnM9GVb14wFIAy+r8=\ndurability quorum\ntime_sources independent\nwitness independent 256\n\n— work.example/ledger/93be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc HSuHDO5pZdpm84awYKQYphI9pVXGyqUblxlNacNoryhpEm4cVo4oYPTPBfN3keYOcjzyeTAadZ/fgsssfhydIWk/FAA=\n",
+      "expect": {
+        "outcome": "reject",
+        "reason": "checkpoint-malformed"
       }
     }
   ]

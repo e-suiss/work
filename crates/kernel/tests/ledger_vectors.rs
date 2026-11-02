@@ -435,12 +435,56 @@ fn t_4_checkpoint_and_cosignature_vectors_through_the_kernel_verifier() {
                     .map(|a| serde_json::json!({ "name": a.name, "timestamp": a.timestamp }))
                     .collect();
                 assert_eq!(Value::Array(cosigned), expect["cosignatures"]);
+                assert_eq!(
+                    serde_json::json!(signed.profile.to_extensions()),
+                    expect["profile"],
+                    "{}",
+                    case["id"]
+                );
             }
             Err(error) => {
                 assert_eq!(expect["reason"], error.code(), "{}", case["id"]);
             }
         }
     }
+}
+
+// OP-46 T-88
+#[test]
+fn op_46_a_checkpoint_without_exactly_its_three_profile_lines_is_malformed() {
+    let (log, witnesses) = checkpoint_keys();
+    let merkle = file(MERKLE);
+    let mut rejected = 0;
+    for case in merkle["checkpoints"].as_array().unwrap() {
+        let got = verify_checkpoint(
+            case["note"].as_str().unwrap(),
+            case["origin"].as_str().unwrap(),
+            &log,
+            &witnesses,
+        );
+        let profiled = case["rules"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|r| r == "OP-46");
+        match (got, case["expect"]["outcome"].as_str().unwrap()) {
+            (Ok(signed), "accept") => {
+                assert_eq!(
+                    serde_json::json!(signed.checkpoint.extensions),
+                    case["expect"]["profile"],
+                    "{}",
+                    case["id"]
+                );
+            }
+            (Err(error), "reject") if profiled => {
+                assert_eq!(error, NoteError::Checkpoint, "{}", case["id"]);
+                rejected += 1;
+            }
+            (Err(_), "reject") => {}
+            (got, _) => panic!("{}: {got:?}", case["id"]),
+        }
+    }
+    assert_eq!(rejected, 10);
 }
 
 // T-4 P-11 P-20 P-101 P-108 T-88
