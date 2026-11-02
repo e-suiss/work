@@ -9,7 +9,9 @@
 //! verification, validation and touched items (T-89, T-90). The checkpointer signs each head's
 //! checkpoint through `work-signer` as the ledger acknowledgement (P-20, T-88) and mirrors the
 //! log to the replica before any witness cosignature is taken (OP-4, OP-33, T-90); the ledgers a
-//! process leads are checkpointed on the OP-33 cadence.
+//! process leads are checkpointed on the OP-33 cadence. A ledger's rows beside the log are
+//! rebuilt from the canonical log alone through the same append and compared with the live
+//! rows, a difference being a sev-1 signal (OP-1).
 
 mod admit;
 mod checkpoint;
@@ -20,6 +22,7 @@ mod group;
 mod leader;
 mod ledgers;
 mod log;
+mod rebuild;
 mod replica;
 pub mod time;
 mod witness;
@@ -42,5 +45,6 @@ pub use ledgers::{
     DEFAULT_CHECKPOINT_INTERVAL, DEFAULT_CHECKPOINT_RECORDS, Ledgers, run_checkpoints,
 };
 pub use log::PgLog;
+pub use rebuild::{REBUILD_PAGE, RebuildError, rebuild, rebuild_diff};
 pub use replica::{DirectoryReplica, MirrorError};
 pub use witness::{Witness, WitnessError, cosignatures};

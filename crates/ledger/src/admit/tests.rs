@@ -408,3 +408,28 @@ fn ev_35_the_envelope_carries_the_presenter_actor_types_the_caller_resolved() {
         Some(Reason::EnvelopeMismatch(EnvelopeField::ActorType))
     );
 }
+
+// OP-1 T-11 T-89 T-90 P-87
+#[test]
+fn op_1_the_golden_ledger_replays_from_its_stored_bytes_to_the_admitted_records() {
+    for g in &golden() {
+        let (ledger, slot) = slot_of(&g.envelope);
+        let mut admitted = pending(g, &ledger).unwrap();
+        let stored = work_store::CanonicalEntry {
+            pos: slot.pos,
+            recorded_at_ms: slot.recorded_at,
+            record_bytes: g.record.clone(),
+            envelope_bytes: g.envelope.clone(),
+            received: admitted.received().to_vec(),
+        };
+        let replayed = crate::rebuild::replayed(&ledger, &stored).unwrap();
+        admitted.outbox.clear();
+        assert_eq!(replayed, admitted, "{}", g.id);
+        let mut other = stored.clone();
+        other.pos = slot.pos.checked_add(1).unwrap();
+        assert!(crate::rebuild::replayed(&ledger, &other).is_err(), "{}", g.id);
+        let mut foreign = stored.clone();
+        foreign.record_bytes.push(0);
+        assert!(crate::rebuild::replayed(&ledger, &foreign).is_err(), "{}", g.id);
+    }
+}

@@ -140,7 +140,7 @@ fn actor_entry(e: ActorTypeEntry) -> Value {
 }
 
 /// The envelope `actor_type` annotation (P-12, INV-18, EV-35).
-fn actor_types(t: &ActorTypes) -> Value {
+pub(crate) fn actor_types(t: &ActorTypes) -> Value {
     let mut map = vec![(Value::text("author"), actor_entry(t.author))];
     if !t.on_behalf_of.is_empty() {
         let rings = t.on_behalf_of.iter().copied().map(actor_entry).collect();
@@ -162,7 +162,7 @@ fn item_ref(key: ItemKey) -> Result<ItemRef, Reason> {
     }
 }
 
-fn touch(t: &Touch) -> Result<ItemTouch, Reason> {
+pub(crate) fn touch(t: &Touch) -> Result<ItemTouch, Reason> {
     Ok(ItemTouch {
         item: item_ref(t.item)?,
         expect: match t.expect {
@@ -338,13 +338,13 @@ fn occurred_at(record: &Record) -> Option<u64> {
 /// The envelope binding of the author: the `proof_commit` of a signed record or the
 /// authentication context reference of an unsigned one (P-21, P-75).
 #[derive(Clone, Copy)]
-struct Binding {
-    proof_commit: Option<[u8; 32]>,
-    auth_context_ref: Option<[u8; 32]>,
+pub(crate) struct Binding {
+    pub(crate) proof_commit: Option<[u8; 32]>,
+    pub(crate) auth_context_ref: Option<[u8; 32]>,
 }
 
 /// The skeleton of a decoded record (OP-13, draft table mapping).
-fn skeleton(
+pub(crate) fn skeleton(
     record: &Record,
     actors: &ActorTypes,
     quarantine: Option<String>,
@@ -386,11 +386,20 @@ fn skeleton(
     }
 }
 
-fn ingest(quarantine: Option<&str>) -> Value {
+pub(crate) fn ingest(quarantine: Option<&str>) -> Value {
     quarantine.map_or_else(
         || Value::text("admitted"),
         |code| Value::Array(vec![Value::text("quarantined"), Value::text(code)]),
     )
+}
+
+/// The envelope `auth_context` of an unsigned human record (P-21).
+pub(crate) fn auth_context_value(reference: &[u8; 32], step_up: bool, assurance: &str) -> Value {
+    Value::Map(vec![
+        (Value::text("ref"), Digest(*reference).to_value()),
+        (Value::text("step_up"), Value::Bool(step_up)),
+        (Value::text("assurance"), Value::text(assurance)),
+    ])
 }
 
 /// A record as it arrived: its `SignedRecord` bytes, the bytes kept as received and how the
@@ -441,14 +450,8 @@ fn arrive<V: SignatureVerifier + ?Sized>(
                 auth_context.bytes,
             )?;
             let reference = sha256(auth_context.bytes);
-            let value = Value::Map(vec![
-                (Value::text("ref"), Digest(reference).to_value()),
-                (Value::text("step_up"), Value::Bool(auth_context.step_up)),
-                (
-                    Value::text("assurance"),
-                    Value::text(auth_context.assurance),
-                ),
-            ]);
+            let value =
+                auth_context_value(&reference, auth_context.step_up, auth_context.assurance);
             Ok(Arrived {
                 record_bytes: record.to_vec(),
                 received: vec![row],

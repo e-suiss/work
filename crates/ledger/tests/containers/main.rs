@@ -32,10 +32,12 @@ use work_kernel::verify::{
 };
 use work_ledger::{
     Arrival, AuthContext, Clock, ClockError, GenesisInput, GroupCommit, GroupConfig, Leader,
-    LedgerError, PendingRecord, Submission, SubmitError, admit, genesis,
+    LedgerError, PendingRecord, RebuildError, Submission, SubmitError, admit, genesis,
+    rebuild_diff,
 };
 use work_store::{
-    Cluster, Durability, Genesis, ItemRef, LedgerId, LedgerTx, Pool, SequencerPool, StoreError,
+    Cluster, Durability, Genesis, ItemRef, LedgerId, LedgerTx, Pool, SequencerPool, Snapshot,
+    StoreError,
 };
 use work_testkit::Postgres;
 
@@ -49,6 +51,17 @@ const RECORDS: &str = include_str!("../../../../conformance/vectors/records/reco
 const QUARANTINE: &str =
     include_str!("../../../../conformance/vectors/records/records-quarantine.json");
 const CONTEXT: &[u8] = b"work-vector:access:auth-context:alice";
+const TARGET: &str = "work_rebuild";
+const REBUILD_TARGET: &str = include_str!("../../../store/fixtures/rebuild-target.sql");
+const TAMPER: &str = include_str!("../../../store/fixtures/rebuild-tamper.sql");
+
+/// `sql` without its spec ID comment lines, so `psql -c` sends one statement.
+fn statement(sql: &str) -> String {
+    sql.lines()
+        .filter(|l| !l.trim_start().starts_with("--"))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
 
 struct Env {
     pg: Postgres,
@@ -91,13 +104,34 @@ impl Env {
     }
 
     fn pool(&self, cluster: Cluster, role: &str) -> Pool {
+        self.pool_on(cluster.database(), role)
+    }
+
+    fn pool_on(&self, database: &str, role: &str) -> Pool {
         let url = format!(
-            "postgres://{role}:{PASSWORD}@{}:{}/{}",
+            "postgres://{role}:{PASSWORD}@{}:{}/{database}",
             self.pg.host(),
-            self.pg.port(),
-            cluster.database()
+            self.pg.port()
         );
         Pool::connect_lazy(&url).unwrap()
+    }
+
+    /// An empty, migrated canonical database for a rebuild, as `work_sequencer` (OP-1).
+    async fn target(&self) -> SequencerPool {
+        let psql = |db: &'static str| ["psql", "-X", "-q", "-v", "ON_ERROR_STOP=1", "-d", db];
+        let create = statement(REBUILD_TARGET);
+        let mut databases = psql("postgres").to_vec();
+        databases.extend(["-c", create.as_str()]);
+        self.pg.client(&databases).await.unwrap();
+        let mut bootstrap = psql(TARGET).to_vec();
+        bootstrap.extend(["-c", Cluster::Canonical.bootstrap()]);
+        self.pg.client(&bootstrap).await.unwrap();
+        work_store::migrate(&self.pool_on(TARGET, "work_owner"), Cluster::Canonical)
+            .await
+            .unwrap();
+        SequencerPool::new(self.pool_on(TARGET, "work_sequencer"))
+            .await
+            .unwrap()
     }
 
     async fn sequencer(&self) -> SequencerPool {
@@ -723,4 +757,121 @@ async fn p_80_a_declaration_effective_before_its_ledger_time_is_rejected_in_the_
     drop(group);
     task.await.unwrap().unwrap();
     assert_eq!(Leader::acquire(pool, ledger).await.unwrap().head().pos, 0);
+}
+
+/// The golden ledger committed live, one entry per batch at its own ledger time.
+async fn golden_ledger(env: &Env) -> LedgerId {
+    let pool = env.sequencer().await;
+    let (bytes, entries) = golden();
+    let opened = Genesis {
+        ledger: LedgerId::from_bytes(sha256(&bytes)),
+        recorded_at_ms: recorded_at(&bytes),
+        leaf: leaf_hash(&bytes),
+        bytes,
+        durability: Durability::SingleNode,
+    };
+    let ledger = opened.ledger;
+    Leader::open(&pool, &opened).await.unwrap();
+    let mut leader = Leader::acquire(pool, ledger).await.unwrap();
+    let directory = Directory::golden();
+    for g in &entries {
+        let arrival = g
+            .cose
+            .as_deref()
+            .map_or(unsigned(&g.record), Arrival::Signed);
+        let mut s = submission(arrival, &g.actors);
+        s.origin = g.origin;
+        s.understood_extensions = &g.understood;
+        let record = admit(&directory, &ledger, s).unwrap();
+        leader
+            .commit(recorded_at(&g.envelope), &[record])
+            .await
+            .unwrap();
+    }
+    ledger
+}
+
+async fn live_snapshot(live: &Pool, ledger: &LedgerId) -> Snapshot {
+    let mut tx = LedgerTx::begin_snapshot(live, ledger).await.unwrap();
+    let rows = tx.snapshot().await.unwrap();
+    tx.rollback().await.unwrap();
+    rows
+}
+
+async fn rebuilt_snapshot(target: &SequencerPool, ledger: &LedgerId) -> Snapshot {
+    let mut tx = target.begin(ledger).await.unwrap();
+    let rows = tx.snapshot().await.unwrap();
+    tx.rollback().await.unwrap();
+    rows
+}
+
+// OP-1 T-11 T-89 T-37 P-109 INV-6
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs Docker"]
+async fn op_1_the_rebuilt_golden_ledger_equals_the_live_rows() {
+    let env = Env::start().await;
+    let ledger = golden_ledger(&env).await;
+    let target = env.target().await;
+    let live = env.pool(Cluster::Canonical, "work_app");
+    let outcome = rebuild_diff(&live, &target, ledger, Durability::SingleNode)
+        .await
+        .unwrap();
+    assert!(outcome.is_clean(), "{outcome:?}");
+    assert_eq!(outcome.through(), 14);
+    let live_rows = live_snapshot(&live, &ledger).await;
+    assert_eq!(live_rows, rebuilt_snapshot(&target, &ledger).await);
+    assert_eq!(live_rows.rows("ledger.log").unwrap().len(), 15);
+    assert_eq!(live_rows.rows("work.item_head").unwrap().len(), 2);
+    assert_eq!(live_rows.rows("work.record_header").unwrap().len(), 13);
+    assert!(live_rows.rows("work.one_time_flag").unwrap().is_empty());
+    assert!(matches!(
+        rebuild_diff(&live, &target, ledger, Durability::SingleNode).await,
+        Err(RebuildError::Replay { pos: 0, .. })
+    ));
+}
+
+// OP-1 T-11 T-10 T-89 INV-6
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs Docker"]
+async fn op_1_a_tampered_row_is_a_sev_1_diff_and_never_a_rebuild_input() {
+    let env = Env::start().await;
+    let ledger = golden_ledger(&env).await;
+    let live = env.pool(Cluster::Canonical, "work_app");
+    let before = live_snapshot(&live, &ledger).await;
+    let tamper = statement(TAMPER);
+    env.pg
+        .client(&[
+            "psql",
+            "-X",
+            "-q",
+            "-v",
+            "ON_ERROR_STOP=1",
+            "-d",
+            Cluster::Canonical.database(),
+            "-c",
+            tamper.as_str(),
+        ])
+        .await
+        .unwrap();
+    assert_ne!(live_snapshot(&live, &ledger).await, before);
+    let target = env.target().await;
+    let outcome = rebuild_diff(&live, &target, ledger, Durability::SingleNode)
+        .await
+        .unwrap();
+    assert!(!outcome.is_clean());
+    let tables: BTreeSet<&str> = outcome.tables().iter().map(|t| t.table).collect();
+    assert_eq!(
+        tables,
+        BTreeSet::from(["work.item_head", "work.log_concerns", "work.one_time_flag"])
+    );
+    for t in outcome.tables() {
+        assert!(!t.unexpected.is_empty(), "{t:?}");
+    }
+    let heads = outcome
+        .tables()
+        .iter()
+        .find(|t| t.table == "work.item_head")
+        .unwrap();
+    assert_eq!(heads.missing.len(), heads.unexpected.len());
+    assert_eq!(rebuilt_snapshot(&target, &ledger).await, before);
 }
