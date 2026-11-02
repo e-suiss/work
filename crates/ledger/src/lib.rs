@@ -6,18 +6,23 @@
 //! ledger time adapter behind that port (OP-32, OP-42, OP-43). The engine, the time combiner and
 //! the encoding come from the shared crates; nothing here re-implements them (T-31). Records
 //! enter through the admission path, which builds each pending record from the kernel's
-//! verification, validation and touched items (T-89, T-90).
+//! verification, validation and touched items (T-89, T-90). The checkpointer signs each head's
+//! checkpoint through `work-signer` as the ledger acknowledgement (P-20, T-88) and mirrors the
+//! log to the replica before any witness sees it (OP-4, T-90).
 
 mod admit;
+mod checkpoint;
 mod envelope;
 mod error;
 mod genesis;
 mod group;
 mod leader;
 mod log;
+mod replica;
 pub mod time;
 
 pub use admit::{Arrival, AuthContext, MAX_RECEIVED, Submission, admit};
+pub use checkpoint::{CheckpointError, Checkpointer, SignerClient, acknowledgement};
 pub use envelope::{EventPointer, Inbound, ItemTouch, KeyClaim, PendingRecord, SealedRecord};
 pub use error::LedgerError;
 pub use genesis::{GenesisInput, genesis};
@@ -27,3 +32,4 @@ pub use group::{
 };
 pub use leader::Leader;
 pub use log::PgLog;
+pub use replica::{DirectoryReplica, MirrorError};
