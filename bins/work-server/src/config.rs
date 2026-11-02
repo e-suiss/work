@@ -11,10 +11,10 @@ use figment::Figment;
 use figment::providers::{Env, Format, Serialized, Toml};
 use serde::{Deserialize, Serialize};
 use work_dispatch::{PublisherConfig, StreamSettings};
+use work_kernel::proof::{TimeSources, WitnessProfile};
 use work_ledger::time::{
     NTS_KE_PORT, NtsServer, RoughtimeServer, RoughtimeVersion, TimeConfigError, check_sources,
 };
-use work_kernel::proof::{TimeSources, WitnessProfile};
 use work_ledger::{
     Cadence, CadenceError, DEFAULT_CHECKPOINT_RECORDS, DEFAULT_MAX_BYTES, DEFAULT_MAX_RECORDS,
     DEFAULT_QUEUE, Declaration, DeclarationError, Deployment, GroupConfig, GroupConfigError,
