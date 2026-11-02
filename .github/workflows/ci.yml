@@ -81,6 +81,14 @@ jobs:
         with:
           cache-key: test
           tools: nextest
+      - name: SoftHSM for the signer (T-56, T-72)
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install --yes --no-install-recommends softhsm2
+          mkdir -p "$RUNNER_TEMP/softhsm/tokens"
+          printf 'directories.tokendir = %s\nobjectstore.backend = file\nlog.level = ERROR\n' \
+            "$RUNNER_TEMP/softhsm/tokens" > "$RUNNER_TEMP/softhsm/softhsm2.conf"
+          echo "SOFTHSM2_CONF=$RUNNER_TEMP/softhsm/softhsm2.conf" >> "$GITHUB_ENV"
       - name: Tests (T-37)
         env:
           NEXTEST_PROFILE: ci
@@ -95,6 +103,9 @@ jobs:
         env:
           XTASK_NEXTEST: "1"
         run: cargo xtask check rule-coverage
+      - name: Seccomp kills reported by the kernel
+        if: failure()
+        run: sudo dmesg | grep -E 'type=1326|seccomp|landlock' || true
 
   cddl:
     name: cddl
