@@ -131,7 +131,7 @@ fn received(kind: ReceivedKind, role: ReceivedRole, bytes: &[u8]) -> Result<Rece
     })
 }
 
-fn actor_entry(e: &ActorTypeEntry) -> Value {
+fn actor_entry(e: ActorTypeEntry) -> Value {
     Value::Array(vec![
         Value::text(e.actor_type.wire_name()),
         Value::text(e.source.wire_name()),
@@ -140,9 +140,9 @@ fn actor_entry(e: &ActorTypeEntry) -> Value {
 
 /// The envelope `actor_type` annotation (P-12, INV-18).
 fn actor_types(t: &ActorTypes) -> Value {
-    let mut map = vec![(Value::text("author"), actor_entry(&t.author))];
+    let mut map = vec![(Value::text("author"), actor_entry(t.author))];
     if !t.on_behalf_of.is_empty() {
-        let rings = t.on_behalf_of.iter().map(actor_entry).collect();
+        let rings = t.on_behalf_of.iter().copied().map(actor_entry).collect();
         map.push((Value::text("on_behalf_of"), Value::Array(rings)));
     }
     Value::Map(map)
