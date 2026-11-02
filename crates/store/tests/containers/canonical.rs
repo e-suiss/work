@@ -307,7 +307,7 @@ async fn t_13_rows_outside_the_ledger_scope_are_invisible_and_unwritable() {
     tx.commit().await.unwrap();
 }
 
-// OP-4 P-20 Access T21 Access TI-13
+// OP-4 OP-46 P-20 Access T21 Access TI-13
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "needs Docker"]
 async fn op_4_a_witness_needs_a_mirror_and_durability_is_derived_from_rows() {
@@ -323,7 +323,8 @@ async fn op_4_a_witness_needs_a_mirror_and_durability_is_derived_from_rows() {
     run(
         &cp,
         &l,
-        &[&sql("INSERT INTO ledger.checkpoint VALUES (decode('{L}', 'hex'), 1, decode(repeat('88', 32), 'hex'), decode(repeat('11', 32), 'hex'), '2026-10-23T10:00:01Z', '\\xd2')")],
+        &[&sql("INSERT INTO ledger.checkpoint VALUES (decode('{L}', 'hex'), 1, decode(repeat('88', 32), 'hex'), decode(repeat('11', 32), 'hex'), '2026-10-23T10:00:01Z', \
+                 pg_catalog.convert_to('work.example/ledger/{L}\n1\niIiI\ndurability single-node\ntime_sources dependent\nwitness independent 2\n\n\u{2014} work.example AAAA\n', 'UTF8'))")],
     )
     .await;
     let cosign = sql(
@@ -347,6 +348,13 @@ async fn op_4_a_witness_needs_a_mirror_and_durability_is_derived_from_rows() {
             &sql("INSERT INTO ledger.replica_progress (ledger_id, replica_id, mirrored_size) VALUES (decode('{L}', 'hex'), 'replica_a', 1)"),
             &cosign,
         ],
+    )
+    .await;
+    assert_eq!(scalar(&app, &l, durability, false).await, 1);
+    run(
+        &cp,
+        &l,
+        &[&sql("INSERT INTO ledger.checkpoint_cosignature VALUES (decode('{L}', 'hex'), 1, 'witness_b', 'witness', '2026-10-23T10:00:03Z', '\\x02')")],
     )
     .await;
     fails(

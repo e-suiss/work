@@ -11,6 +11,7 @@ publish = false
 [dependencies]
 suiss-crypto = { workspace = true, features = ["aead", "pkcs11"] }
 suiss-sandbox = { workspace = true }
+work-kernel = { workspace = true }
 work-proto = { workspace = true }
 serde = { workspace = true, features = ["derive", "std"] }
 thiserror = { workspace = true, features = ["std"] }
@@ -19,7 +20,6 @@ toml = { workspace = true, features = ["parse", "serde", "std"] }
 [dev-dependencies]
 serde_json = { workspace = true, features = ["std"] }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
-work-kernel = { workspace = true }
 work-ledger = { workspace = true }
 work-store = { workspace = true }
 work-testkit = { workspace = true }

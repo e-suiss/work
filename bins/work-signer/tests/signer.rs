@@ -25,15 +25,17 @@ use work_proto::signer::{self as frames, Kind, Status, refusal};
 
 use support::{NAME, PREFIX, ROOT, Signer, Token, ids};
 
+const PROFILE: &str = "durability single-node\ntime_sources dependent\nwitness local-dependent\n";
+
 fn body(origin: &str) -> String {
-    format!("{origin}\n7\n{ROOT}\n")
+    format!("{origin}\n7\n{ROOT}\n{PROFILE}")
 }
 
 fn refused(code: &str) -> (Status, Vec<u8>) {
     (Status::Refused, code.as_bytes().to_vec())
 }
 
-// T-7 T-10 T-56 P-20 T-88
+// T-7 T-10 T-56 P-20 T-88 T-92 OP-46
 #[test]
 fn t_7_the_signer_signs_checkpoints_of_its_ledgers_only() {
     let token = Token::new("kinds");
@@ -46,7 +48,7 @@ fn t_7_the_signer_signs_checkpoints_of_its_ledgers_only() {
         (token.public, NAME.to_owned())
     );
 
-    let origin = format!("{PREFIX}ab12");
+    let origin = format!("{PREFIX}{}", "ab".repeat(32));
     let checkpoint = body(&origin);
     let (status, line) = signer.ask(Kind::Checkpoint.as_byte(), checkpoint.as_bytes());
     assert_eq!(status, Status::Signed);
@@ -68,6 +70,20 @@ fn t_7_the_signer_signs_checkpoints_of_its_ledgers_only() {
             body("access.example/domain/ab12").as_bytes()
         ),
         refused(refusal::ORIGIN)
+    );
+    assert_eq!(
+        signer.ask(
+            Kind::Checkpoint.as_byte(),
+            body(&format!("{PREFIX}ab12")).as_bytes()
+        ),
+        refused(refusal::ORIGIN)
+    );
+    assert_eq!(
+        signer.ask(
+            Kind::Checkpoint.as_byte(),
+            format!("{origin}\n7\n{ROOT}\n").as_bytes()
+        ),
+        refused(refusal::NOT_CHECKPOINT)
     );
     assert_eq!(
         signer.ask(Kind::LogKey.as_byte(), b"x"),

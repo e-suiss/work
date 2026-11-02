@@ -1,8 +1,10 @@
 //! The ledger acknowledgement end to end against real PostgreSQL 18, a `SoftHSM` token and the
-//! signer process (P-20, T-7, T-88, T-90, §18 OP-4, OP-33): the checkpointer signs the head's
-//! checkpoint through `work-signer`, stores it as `work_checkpointer`, the records below it
-//! become `included`, and the replica takes the log with the received bytes before its progress
-//! moves. These tests need Docker, `SoftHSM` and `sudo -n`; `just test-containers` runs them.
+//! signer process (P-20, T-7, T-88, T-90, §18 OP-4, OP-33, OP-46): the checkpointer signs the
+//! head's checkpoint with its profile lines through `work-signer`, stores it as
+//! `work_checkpointer`, the records below it become `included`, the replica takes the log with
+//! the received bytes before its progress moves, and a record becomes `witnessed` only under
+//! `witness independent k` with k configured witnesses' cosignatures. These tests need Docker,
+//! `SoftHSM` and `sudo -n`; `just test-containers` runs them.
 
 #![cfg(target_os = "linux")]
 #![allow(
@@ -18,6 +20,7 @@
 #[path = "../support/mod.rs"]
 mod support;
 
+use std::num::NonZeroU8;
 use std::time::Duration;
 
 use serde_json::Value as Json;
@@ -25,20 +28,20 @@ use suiss_crypto::cose::PublicKey;
 use suiss_crypto::dcbor::{self, Limits, Value};
 use suiss_crypto::digest::{Digest, leaf_hash};
 use suiss_crypto::note::Verifier;
-use suiss_crypto::pkcs11::KeyStore;
+use suiss_crypto::pkcs11::{HsmSigner, KeyStore};
 use suiss_crypto::secret::Secret;
 use suiss_crypto::signer::{Signer as _, cosign};
 use work_kernel::limits::SemanticLimits;
-use work_kernel::proof::{Accepted, verify_checkpoint};
+use work_kernel::proof::{Accepted, TimeSources, WitnessProfile, verify_checkpoint};
 use work_kernel::reason::{Reason, Schema};
 use work_kernel::validate::{ActorType, ActorTypeEntry, ActorTypeSource, ActorTypes, Origin};
 use work_kernel::verify::{SignatureCheck, SignatureVerifier};
 use work_ledger::{
-    Arrival, AuthContext, Checkpointer, DirectoryReplica, GenesisInput, Leader, SignerClient,
-    Submission, Witness, WitnessError, admit, genesis,
+    Arrival, AuthContext, Checkpointer, Declaration, Deployment, DirectoryReplica, GenesisInput,
+    Leader, SignerClient, Submission, Witness, WitnessError, admit, genesis,
 };
 use work_store::{
-    CheckpointerPool, Cluster, Durability, LedgerId, LedgerTx, Pool, RecordDurability,
+    CheckpointerPool, Cluster, Durability, Genesis, LedgerId, LedgerTx, Pool, RecordDurability,
     SequencerPool,
 };
 use work_testkit::Postgres;
@@ -140,11 +143,9 @@ fn comment(ledger: &LedgerId) -> Vec<u8> {
     dcbor::encode(&v, Limits::CEILING).unwrap()
 }
 
-// P-20 T-88 OP-4 OP-33 T-90 SEC-32
-#[tokio::test(flavor = "multi_thread")]
-#[ignore = "needs Docker, SoftHSM and sudo"]
-async fn p_20_the_signer_acknowledges_the_head_and_the_replica_takes_the_log() {
-    let env = Env::start().await;
+/// A ledger opened with genesis nonce `nonce` and one human comment after its genesis, and its
+/// leader.
+async fn ledger_with_comment(env: &Env, nonce: u8) -> (Genesis, Leader) {
     let sequencer = SequencerPool::new(env.pool("work_sequencer"))
         .await
         .unwrap();
@@ -153,7 +154,7 @@ async fn p_20_the_signer_acknowledges_the_head_and_the_replica_takes_the_log() {
             recorded_at_ms: AT,
             protocol: (1, 0),
             schema: [0x5c; 32],
-            nonce: [0x2a; 32],
+            nonce: [nonce; 32],
         },
         Durability::SingleNode,
     )
@@ -194,84 +195,128 @@ async fn p_20_the_signer_acknowledges_the_head_and_the_replica_takes_the_log() {
     )
     .unwrap();
     assert_eq!(leader.commit(AT + 5, &[pending]).await.unwrap(), 1);
+    (opened, leader)
+}
 
-    let token = Token::new("containers");
-    let signer = Signer::start(&token);
+/// A checkpointer whose checkpoints declare `witness` under dependent time sources.
+async fn checkpointer(env: &Env, signer: &Signer, witness: WitnessProfile) -> Checkpointer {
     let pool = CheckpointerPool::new(env.pool("work_checkpointer"))
         .await
         .unwrap();
-    let checkpointer = Checkpointer::connect(
+    let declared = Declaration::new(Deployment::SelfHost, TimeSources::Dependent, witness).unwrap();
+    Checkpointer::connect(
         pool,
         SignerClient::new(signer.socket.clone(), Duration::from_secs(5)),
         PREFIX,
+        declared,
     )
     .await
-    .unwrap();
-    assert_eq!(checkpointer.log_key(), &token.verifier());
+    .unwrap()
+}
 
-    let mut read = LedgerTx::begin(&env.pool("work_app"), &ledger)
+async fn durability(env: &Env, ledger: &LedgerId, pos: u64) -> Option<RecordDurability> {
+    let mut read = LedgerTx::begin(&env.pool("work_app"), ledger)
         .await
         .unwrap();
+    let state = read.durability(pos).await.unwrap();
+    read.rollback().await.unwrap();
+    state
+}
+
+/// A configured witness with its key in the token.
+struct Cosigner {
+    key: HsmSigner,
+    name: &'static str,
+    witness: Witness,
+}
+
+fn cosigner(store: &KeyStore, label: &str, id: &str, name: &'static str) -> Cosigner {
+    let key = store.generate_ed25519(label).unwrap();
+    let PublicKey::Ed25519(public) = key.public_key() else {
+        panic!("an Ed25519 key");
+    };
+    Cosigner {
+        key,
+        name,
+        witness: Witness {
+            id: id.to_owned(),
+            key: Verifier::cosigner(name, public).unwrap(),
+        },
+    }
+}
+
+/// `note` with the cosignatures of `by` appended.
+fn cosigned(note: &str, origin: &str, log: &Verifier, by: &[&Cosigner]) -> String {
+    let body = verify_checkpoint(note, origin, log, &[])
+        .unwrap()
+        .checkpoint
+        .to_body()
+        .unwrap();
+    let mut out = note.to_owned();
+    for witness in by {
+        let (_, line) = cosign(&witness.key, witness.name, AT / 1000 + 20, &body).unwrap();
+        out.push_str(&line);
+    }
+    out
+}
+
+fn one() -> WitnessProfile {
+    WitnessProfile::Independent(NonZeroU8::MIN)
+}
+
+// P-20 T-88 OP-4 OP-33 OP-46 T-90 SEC-32
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs Docker, SoftHSM and sudo"]
+async fn p_20_the_signer_acknowledges_the_head_and_the_replica_takes_the_log() {
+    let env = Env::start().await;
+    let (opened, leader) = ledger_with_comment(&env, 0x2a).await;
+    let ledger = opened.ledger;
+
+    let token = Token::new("containers");
+    let signer = Signer::start(&token);
+    let local = checkpointer(&env, &signer, WitnessProfile::LocalDependent).await;
+    assert_eq!(local.log_key(), &token.verifier());
     assert_eq!(
-        read.durability(1).await.unwrap(),
+        durability(&env, &ledger, 1).await,
         Some(RecordDurability::Recorded)
     );
-    read.rollback().await.unwrap();
 
-    let stored = checkpointer
-        .checkpoint(&ledger, AT + 9)
-        .await
-        .unwrap()
-        .unwrap();
+    let stored = local.checkpoint(&ledger, AT + 9).await.unwrap().unwrap();
     assert_eq!(stored.size, 2);
     assert_eq!(stored.head_leaf, leader.head().leaf);
     assert_eq!(stored.issued_at_ms, AT + 9);
     let note = String::from_utf8(stored.signed_note.clone()).unwrap();
     let verified =
-        verify_checkpoint(&note, &checkpointer.origin(&ledger), &token.verifier(), &[]).unwrap();
+        verify_checkpoint(&note, &local.origin(&ledger), &token.verifier(), &[]).unwrap();
     assert_eq!(verified.checkpoint.root, leader.head().frontier.root());
     assert_eq!(verified.cosignatures, Vec::<Accepted>::new());
-    assert!(
-        checkpointer
-            .checkpoint(&ledger, AT + 10)
-            .await
-            .unwrap()
-            .is_none()
+    assert_eq!(
+        verified.profile,
+        local.declaration().profile(Durability::SingleNode)
     );
-
-    let mut read = LedgerTx::begin(&env.pool("work_app"), &ledger)
-        .await
-        .unwrap();
+    assert!(local.checkpoint(&ledger, AT + 10).await.unwrap().is_none());
     for pos in [0, 1] {
         assert_eq!(
-            read.durability(pos).await.unwrap(),
+            durability(&env, &ledger, pos).await,
             Some(RecordDurability::Included)
         );
     }
-    read.rollback().await.unwrap();
 
     let root = token.dir.join("replica");
     let replica = DirectoryReplica::new("local", &root);
     let store = KeyStore::open(&module(), &token.label, &Secret::new(PIN.to_owned())).unwrap();
-    let cosigner = store.generate_ed25519("witness.v1").unwrap();
-    let PublicKey::Ed25519(witness_key) = cosigner.public_key() else {
-        panic!("an Ed25519 key");
-    };
-    let witnesses = [Witness {
-        id: "witness_a".to_owned(),
-        key: Verifier::cosigner("witness.example", witness_key).unwrap(),
-    }];
-    let body = verified.checkpoint.to_body().unwrap();
-    let (_, cosignature) = cosign(&cosigner, "witness.example", AT / 1000 + 20, &body).unwrap();
-    let witnessed_note = format!("{note}{cosignature}");
+    let first = cosigner(&store, "witness.v1", "witness_a", "witness.example");
+    let second = cosigner(&store, "witness.v2", "witness_b", "witness-b.example");
+    let witnesses = [first.witness.clone(), second.witness.clone()];
+    let witnessed_note = cosigned(&note, &local.origin(&ledger), &token.verifier(), &[&first]);
     assert!(matches!(
-        checkpointer
+        local
             .take_cosignatures(&ledger, 2, &witnessed_note, &replica, &witnesses)
             .await,
         Err(WitnessError::Order(_))
     ));
-    assert_eq!(checkpointer.mirror(&ledger, &replica).await.unwrap(), 2);
-    assert_eq!(checkpointer.mirror(&ledger, &replica).await.unwrap(), 2);
+    assert_eq!(local.mirror(&ledger, &replica).await.unwrap(), 2);
+    assert_eq!(local.mirror(&ledger, &replica).await.unwrap(), 2);
     let dir = root.join(ledger.to_hex());
     assert_eq!(
         leaf_hash(&std::fs::read(dir.join("log").join(format!("{:020}", 0))).unwrap()),
@@ -285,27 +330,74 @@ async fn p_20_the_signer_acknowledges_the_head_and_the_replica_takes_the_log() {
         std::fs::read(dir.join("checkpoint").join(format!("{:020}", 2))).unwrap(),
         stored.signed_note
     );
-
     assert_eq!(
-        checkpointer
+        local
             .take_cosignatures(&ledger, 2, &witnessed_note, &replica, &witnesses)
             .await
             .unwrap(),
         1
     );
     assert_eq!(
-        checkpointer
+        local
             .take_cosignatures(&ledger, 2, &witnessed_note, &replica, &witnesses)
             .await
             .unwrap(),
         0
     );
-    let mut read = LedgerTx::begin(&env.pool("work_app"), &ledger)
-        .await
-        .unwrap();
     assert_eq!(
-        read.durability(1).await.unwrap(),
+        durability(&env, &ledger, 1).await,
+        Some(RecordDurability::Included)
+    );
+
+    let (opened, _leader) = ledger_with_comment(&env, 0x2b).await;
+    let single = opened.ledger;
+    let hosted = checkpointer(&env, &signer, one()).await;
+    let stored = hosted.checkpoint(&single, AT + 9).await.unwrap().unwrap();
+    let note = String::from_utf8(stored.signed_note).unwrap();
+    assert_eq!(hosted.mirror(&single, &replica).await.unwrap(), 2);
+    let first_only = cosigned(&note, &hosted.origin(&single), &token.verifier(), &[&first]);
+    assert_eq!(
+        hosted
+            .take_cosignatures(&single, 2, &first_only, &replica, &witnesses)
+            .await
+            .unwrap(),
+        1
+    );
+    assert_eq!(
+        durability(&env, &single, 1).await,
         Some(RecordDurability::Witnessed)
     );
-    read.rollback().await.unwrap();
+
+    let (opened, _leader) = ledger_with_comment(&env, 0x2c).await;
+    let pair = opened.ledger;
+    let two = WitnessProfile::Independent(NonZeroU8::MIN.saturating_add(1));
+    let saas_like = checkpointer(&env, &signer, two).await;
+    let stored = saas_like.checkpoint(&pair, AT + 9).await.unwrap().unwrap();
+    let note = String::from_utf8(stored.signed_note).unwrap();
+    assert_eq!(saas_like.mirror(&pair, &replica).await.unwrap(), 2);
+    let origin = saas_like.origin(&pair);
+    let first_only = cosigned(&note, &origin, &token.verifier(), &[&first]);
+    assert_eq!(
+        saas_like
+            .take_cosignatures(&pair, 2, &first_only, &replica, &witnesses)
+            .await
+            .unwrap(),
+        1
+    );
+    assert_eq!(
+        durability(&env, &pair, 1).await,
+        Some(RecordDurability::Included)
+    );
+    let second_only = cosigned(&note, &origin, &token.verifier(), &[&second]);
+    assert_eq!(
+        saas_like
+            .take_cosignatures(&pair, 2, &second_only, &replica, &witnesses)
+            .await
+            .unwrap(),
+        1
+    );
+    assert_eq!(
+        durability(&env, &pair, 1).await,
+        Some(RecordDurability::Witnessed)
+    );
 }

@@ -23,7 +23,10 @@ pub mod time;
 mod witness;
 
 pub use admit::{Arrival, AuthContext, MAX_RECEIVED, Submission, admit};
-pub use checkpoint::{CheckpointError, Checkpointer, SignerClient, acknowledgement};
+pub use checkpoint::{
+    CheckpointError, Checkpointer, Declaration, DeclarationError, Deployment, SignerClient,
+    acknowledgement,
+};
 pub use envelope::{EventPointer, Inbound, ItemTouch, KeyClaim, PendingRecord, SealedRecord};
 pub use error::LedgerError;
 pub use genesis::{GenesisInput, genesis};

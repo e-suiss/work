@@ -1,13 +1,14 @@
-//! The checkpointer's storage (P-20, T-88, §18 OP-4, OP-33, Access T21): the head it builds a
-//! checkpoint from, the signed checkpoints of a ledger, the replica's progress and the witness
-//! cosignatures, all as `work_checkpointer` in one ledger-scoped transaction each, and the
-//! durability of a record as the view derives it from those rows. The database refuses a
-//! cosignature for a size the replica does not hold yet (mirror before witness).
+//! The checkpointer's storage (P-20, T-88, §18 OP-4, OP-33, OP-46, Access T21): the head and the
+//! durability profile it builds a checkpoint from, the signed checkpoints of a ledger, the
+//! replica's progress and the witness cosignatures, all as `work_checkpointer` in one
+//! ledger-scoped transaction each, and the durability of a record as the view derives it from
+//! those rows and the witness line of the signed notes. The database refuses a cosignature for
+//! a size the replica does not hold yet (mirror before witness).
 
 use sqlx::PgPool;
 
 use crate::publisher::check_role;
-use crate::{LedgerId, LedgerTx, StoreError};
+use crate::{Durability, LedgerId, LedgerTx, StoreError};
 
 /// The login role a [`CheckpointerPool`] must have.
 pub const CHECKPOINTER_ROLE: &str = "work_checkpointer";
@@ -94,7 +95,8 @@ pub enum RecordDurability {
     Recorded,
     /// Below the size of a signed checkpoint.
     Included,
-    /// Below the size of a witness-cosigned checkpoint.
+    /// Below the size of a checkpoint that declares `witness independent k` and has the
+    /// cosignatures of k configured witnesses (OP-46 item 5).
     Witnessed,
 }
 
@@ -187,6 +189,29 @@ impl CheckpointerPool {
             recorded_at_ms: unsigned(at)?,
             frontier: nodes.to_vec(),
         })
+    }
+
+    /// The durability profile of `ledger`, the `durability` line of its checkpoints (OP-27,
+    /// OP-46 item 3).
+    ///
+    /// # Errors
+    /// [`StoreError::NotOpened`], [`StoreError::Corrupt`] for an unknown value, otherwise
+    /// [`StoreError::Db`].
+    pub async fn durability(&self, ledger: &LedgerId) -> Result<Durability, StoreError> {
+        let mut tx = self.begin(ledger).await?;
+        let profile: Option<String> = sqlx::query_scalar(
+            "SELECT durability_profile FROM work.ledger_profile WHERE ledger_id = $1",
+        )
+        .bind(ledger.as_bytes().as_slice())
+        .fetch_optional(tx.conn())
+        .await?;
+        tx.commit().await?;
+        match profile.as_deref() {
+            Some("quorum") => Ok(Durability::Quorum),
+            Some("single-node") => Ok(Durability::SingleNode),
+            Some(_) => Err(StoreError::Corrupt),
+            None => Err(StoreError::NotOpened),
+        }
     }
 
     /// The largest stored checkpoint of `ledger`.

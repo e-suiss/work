@@ -1,13 +1,15 @@
-//! What the signer answers on its socket (T-7, T-10, P-20, T-88): its log key, and a C2SP note
-//! signature line over the canonical body of a `tlog-checkpoint` whose origin is one of the
-//! configured ledgers. Every other request is refused with a stable code, so the log key never
-//! signs a record, an author statement or any bytes that are not a checkpoint.
+//! What the signer answers on its socket (T-7, T-10, P-20, T-88, T-92, OP-46): its log key, and
+//! a C2SP note signature line over the canonical body of a Work `tlog-checkpoint`, with exactly
+//! its three profile lines, whose origin is the configured prefix followed by a ledger id in 64
+//! lowercase hex. Every other request is refused with a stable code, so the log key never signs
+//! a record, an author statement or any bytes that are not a checkpoint.
 
 use std::io::{Read, Write};
 
 use suiss_crypto::note::Checkpoint;
 use suiss_crypto::pkcs11::HsmSigner;
 use suiss_crypto::signer::sign_note;
+use work_kernel::proof::Profile;
 use work_proto::signer::{self as frames, Kind, Status, refusal};
 
 /// The log key and what it may sign.
@@ -22,21 +24,27 @@ pub(crate) struct LogKey {
     pub(crate) origin_prefix: String,
 }
 
-/// The checkpoint body of `payload` when it is the canonical body of a checkpoint whose origin
-/// starts with `prefix` and names something after it.
+/// The checkpoint body of `payload` when it is the canonical body of a Work checkpoint with its
+/// three profile lines whose origin is `prefix` followed by 64 lowercase hex characters.
 pub(crate) fn checkpoint_body<'a>(
     payload: &'a [u8],
     prefix: &str,
 ) -> Result<&'a str, &'static str> {
     let body = std::str::from_utf8(payload).map_err(|_| refusal::NOT_CHECKPOINT)?;
     let checkpoint = Checkpoint::parse(body).map_err(|_| refusal::NOT_CHECKPOINT)?;
-    if checkpoint.to_body().ok().as_deref() != Some(body) {
+    if checkpoint.to_body().ok().as_deref() != Some(body)
+        || Profile::from_extensions(&checkpoint.extensions).is_err()
+    {
         return Err(refusal::NOT_CHECKPOINT);
     }
     match checkpoint.origin.strip_prefix(prefix) {
-        Some(ledger) if !ledger.is_empty() => Ok(body),
+        Some(ledger) if is_ledger_hex(ledger) => Ok(body),
         _ => Err(refusal::ORIGIN),
     }
+}
+
+fn is_ledger_hex(text: &str) -> bool {
+    text.len() == 64 && text.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
 }
 
 impl LogKey {
@@ -84,16 +92,20 @@ mod tests {
     use super::*;
 
     const ROOT: &str = "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=";
+    const PROFILE: &str =
+        "durability single-node\ntime_sources dependent\nwitness local-dependent\n";
+    const LEDGER: &str =
+        "work.example/ledger/abababababababababababababababababababababababababababababababab";
 
     fn body(origin: &str, size: &str) -> String {
-        format!("{origin}\n{size}\n{ROOT}\n")
+        format!("{origin}\n{size}\n{ROOT}\n{PROFILE}")
     }
 
-    // T-7 P-20
+    // T-7 P-20 T-92 OP-46
     #[test]
     fn t_7_only_the_canonical_body_of_a_configured_ledger_checkpoint_is_signed() {
         let prefix = "work.example/ledger/";
-        let ok = body("work.example/ledger/ab12", "3");
+        let ok = body(LEDGER, "3");
         assert_eq!(checkpoint_body(ok.as_bytes(), prefix), Ok(ok.as_str()));
         let record = [0xa2, 0x61, 0x61, 0x01, 0x61, 0x62, 0x02];
         assert_eq!(
@@ -101,7 +113,7 @@ mod tests {
             Err(refusal::NOT_CHECKPOINT)
         );
         assert_eq!(
-            checkpoint_body(body("work.example/ledger/ab12", "03").as_bytes(), prefix),
+            checkpoint_body(body(LEDGER, "03").as_bytes(), prefix),
             Err(refusal::NOT_CHECKPOINT)
         );
         assert_eq!(
@@ -116,5 +128,43 @@ mod tests {
             checkpoint_body(body("work.example/ledger/", "3").as_bytes(), prefix),
             Err(refusal::ORIGIN)
         );
+    }
+
+    // T-92 OP-46
+    #[test]
+    fn t_92_a_body_without_its_profile_lines_or_a_non_ledger_origin_is_refused() {
+        let prefix = "work.example/ledger/";
+        let bare = format!("{LEDGER}\n3\n{ROOT}\n");
+        assert_eq!(
+            checkpoint_body(bare.as_bytes(), prefix),
+            Err(refusal::NOT_CHECKPOINT)
+        );
+        for profile in [
+            "durability single-node\ntime_sources dependent\n",
+            "time_sources dependent\ndurability single-node\nwitness none\n",
+            "durability single-node\ntime_sources dependent\nwitness independent 0\n",
+            "durability single-node\ntime_sources dependent\nwitness none\nwitness none\n",
+        ] {
+            let text = format!("{bare}{profile}");
+            assert_eq!(
+                checkpoint_body(text.as_bytes(), prefix),
+                Err(refusal::NOT_CHECKPOINT),
+                "{profile}"
+            );
+        }
+        let short =
+            "work.example/ledger/abababababababababababababababababababababababababababababababa";
+        let upper =
+            "work.example/ledger/ABABABABABABABABABABABABABABABABABABABABABABABABABABABABABABABAB";
+        let long = format!("{LEDGER}ab");
+        let other =
+            "work.example/ledger/gggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg";
+        for origin in [short, upper, long.as_str(), other, "work.example/ledger/ab12"] {
+            assert_eq!(
+                checkpoint_body(body(origin, "3").as_bytes(), prefix),
+                Err(refusal::ORIGIN),
+                "{origin}"
+            );
+        }
     }
 }

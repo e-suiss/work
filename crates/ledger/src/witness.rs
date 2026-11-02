@@ -155,14 +155,19 @@ mod tests {
 
     use super::*;
 
-    const ORIGIN: &str = "work.example/ledger/ab12";
+    const ORIGIN: &str =
+        "work.example/ledger/abababababababababababababababababababababababababababababababab";
 
     fn checkpoint(root: u8) -> Checkpoint {
         Checkpoint {
             origin: ORIGIN.to_owned(),
             size: 3,
             root: [root; 32],
-            extensions: Vec::new(),
+            extensions: vec![
+                "durability single-node".to_owned(),
+                "time_sources dependent".to_owned(),
+                "witness independent 1".to_owned(),
+            ],
         }
     }
 

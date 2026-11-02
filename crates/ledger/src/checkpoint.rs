@@ -1,9 +1,11 @@
-//! The ledger acknowledgement (P-20, T-7, T-88, §18 OP-4, OP-33): the checkpointer builds the
-//! C2SP `tlog-checkpoint` of a ledger's head with the shared engine, has `work-signer` sign its
-//! body over the signer's Unix socket, verifies the signed note with the kernel against the log
-//! key the signer reported, and stores it as `work_checkpointer`. A stored checkpoint makes
-//! every record below its size `included`; the log key's signature is never an author
-//! signature, and the note is not a `COSE_Sign1`, so no record verifier accepts it.
+//! The ledger acknowledgement (P-20, T-7, T-88, §18 OP-4, OP-33, OP-46): the checkpointer builds
+//! the C2SP `tlog-checkpoint` of a ledger's head with the shared engine, with the ledger's
+//! durability profile and the installation's declared time sources and witnesses as its three
+//! profile lines, has `work-signer` sign its body over the signer's Unix socket, verifies the
+//! signed note with the kernel against the log key the signer reported, and stores it as
+//! `work_checkpointer`. A stored checkpoint makes every record below its size `included`; the
+//! log key's signature is never an author signature, and the note is not a `COSE_Sign1`, so no
+//! record verifier accepts it.
 
 use std::path::PathBuf;
 use std::time::Duration;
@@ -13,9 +15,93 @@ use suiss_ledger::sequencer::Head;
 use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
 use tokio::net::UnixStream;
 use tokio::time::timeout;
-use work_kernel::proof::{Checkpoint, NoteError, Verifier, verify_checkpoint};
+use work_kernel::proof::{
+    Checkpoint, DurabilityProfile, NoteError, Profile, TimeSources, Verifier, WitnessProfile,
+    verify_checkpoint,
+};
 use work_proto::signer::{self as frames, FrameError, Kind, Status};
-use work_store::{CheckpointRow, CheckpointerPool, LedgerId, StoreError};
+use work_store::{CheckpointRow, CheckpointerPool, Durability, LedgerId, StoreError};
+
+/// Where the installation runs, which bounds what its checkpoints may declare (OP-33 item 1,
+/// OP-46 item 3).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Deployment {
+    /// The Suiss-operated service.
+    Saas,
+    /// A self-hosted or local installation.
+    SelfHost,
+}
+
+/// Why a profile declaration is refused at start-up.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+#[non_exhaustive]
+pub enum DeclarationError {
+    /// A SaaS installation declares fewer than two independent witnesses (OP-33 item 1).
+    #[error("a SaaS installation declares at least two independent witnesses")]
+    Witnesses,
+    /// A SaaS installation declares dependent time sources (OP-32 item 5).
+    #[error("a SaaS installation declares independent time sources")]
+    TimeSources,
+}
+
+/// The configured part of a checkpoint's profile: the declared time sources and witnesses; the
+/// durability line comes from the ledger's stored profile (OP-46 item 3).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Declaration {
+    time_sources: TimeSources,
+    witness: WitnessProfile,
+}
+
+impl Declaration {
+    /// A declaration for a `deployment`; SaaS takes only `time_sources independent` and
+    /// `witness independent k` with k at least 2.
+    ///
+    /// # Errors
+    /// [`DeclarationError`].
+    pub fn new(
+        deployment: Deployment,
+        time_sources: TimeSources,
+        witness: WitnessProfile,
+    ) -> Result<Self, DeclarationError> {
+        if deployment == Deployment::Saas {
+            if !matches!(witness, WitnessProfile::Independent(k) if k.get() >= 2) {
+                return Err(DeclarationError::Witnesses);
+            }
+            if time_sources != TimeSources::Independent {
+                return Err(DeclarationError::TimeSources);
+            }
+        }
+        Ok(Self {
+            time_sources,
+            witness,
+        })
+    }
+
+    /// The declared time sources.
+    #[must_use]
+    pub const fn time_sources(&self) -> TimeSources {
+        self.time_sources
+    }
+
+    /// The declared witnesses.
+    #[must_use]
+    pub const fn witness(&self) -> WitnessProfile {
+        self.witness
+    }
+
+    /// The profile of a checkpoint of a ledger with `durability`.
+    #[must_use]
+    pub const fn profile(&self, durability: Durability) -> Profile {
+        Profile {
+            durability: match durability {
+                Durability::Quorum => DurabilityProfile::Quorum,
+                Durability::SingleNode => DurabilityProfile::SingleNode,
+            },
+            time_sources: self.time_sources,
+            witness: self.witness,
+        }
+    }
+}
 
 /// Why no checkpoint was stored.
 #[derive(Debug, thiserror::Error)]
@@ -146,11 +232,12 @@ pub struct Checkpointer {
     signer: SignerClient,
     log: Verifier,
     origin_prefix: String,
+    declaration: Declaration,
 }
 
 impl Checkpointer {
     /// A checkpointer for ledgers whose origin is `origin_prefix` followed by the ledger id in
-    /// hex; it asks the signer for its log key once.
+    /// hex, whose checkpoints declare `declaration`; it asks the signer for its log key once.
     ///
     /// # Errors
     /// [`CheckpointError`].
@@ -158,6 +245,7 @@ impl Checkpointer {
         pool: CheckpointerPool,
         signer: SignerClient,
         origin_prefix: &str,
+        declaration: Declaration,
     ) -> Result<Self, CheckpointError> {
         let log = signer.log_key().await?;
         Ok(Self {
@@ -165,7 +253,14 @@ impl Checkpointer {
             signer,
             log,
             origin_prefix: origin_prefix.to_owned(),
+            declaration,
         })
+    }
+
+    /// What the checkpoints declare besides the durability profile.
+    #[must_use]
+    pub const fn declaration(&self) -> &Declaration {
+        &self.declaration
     }
 
     /// The checkpoint origin of `ledger`.
@@ -212,8 +307,9 @@ impl Checkpointer {
             frontier: Frontier::from_parts(size, snapshot.frontier)
                 .map_err(|_| CheckpointError::Head)?,
         };
+        let profile = self.declaration.profile(self.pool.durability(ledger).await?);
         let origin = self.origin(ledger);
-        let expected = suiss_ledger::checkpoint::of_head(&origin, &head, Vec::new())
+        let expected = suiss_ledger::checkpoint::of_head(&origin, &head, profile.to_extensions())
             .map_err(CheckpointError::Note)?;
         let body = expected.to_body().map_err(CheckpointError::Note)?;
         let line = self.signer.sign_checkpoint(&body).await?;
@@ -245,14 +341,24 @@ mod tests {
 
     use super::*;
 
-    const ORIGIN: &str = "work.example/ledger/ab12";
+    const ORIGIN: &str =
+        "work.example/ledger/abababababababababababababababababababababababababababababababab";
+
+    fn local() -> Declaration {
+        Declaration::new(
+            Deployment::SelfHost,
+            TimeSources::Dependent,
+            WitnessProfile::LocalDependent,
+        )
+        .unwrap()
+    }
 
     fn checkpoint(size: u64) -> Checkpoint {
         Checkpoint {
             origin: ORIGIN.to_owned(),
             size,
             root: [9; 32],
-            extensions: Vec::new(),
+            extensions: local().profile(Durability::SingleNode).to_extensions(),
         }
     }
 
@@ -291,7 +397,7 @@ mod tests {
             acknowledgement(
                 &checkpoint(4),
                 &line(&key, &log(&key), &checkpoint(4).to_body().unwrap()),
-                "work.example/ledger/cd34",
+                "work.example/ledger/cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
                 &log(&key)
             )
             .unwrap_err(),
@@ -307,5 +413,70 @@ mod tests {
         let signed = line(&key, &log(&key), &cp.to_body().unwrap());
         let note = acknowledgement(&cp, &signed, ORIGIN, &log(&key)).unwrap();
         assert!(verify_record_signature(note.as_bytes(), &KeySet::default()).is_err());
+    }
+
+    // OP-46 P-20 T-88
+    #[test]
+    fn op_46_the_acknowledgement_declares_the_profile_asked_for() {
+        let key = SigningKey::from_bytes(&[7; 32]);
+        let cp = checkpoint(3);
+        assert_eq!(
+            cp.extensions,
+            [
+                "durability single-node",
+                "time_sources dependent",
+                "witness local-dependent",
+            ]
+        );
+        let claimed = Checkpoint {
+            extensions: vec![
+                "durability quorum".to_owned(),
+                "time_sources independent".to_owned(),
+                "witness independent 2".to_owned(),
+            ],
+            ..cp.clone()
+        };
+        let signed = line(&key, &log(&key), &claimed.to_body().unwrap());
+        assert_eq!(
+            acknowledgement(&cp, &signed, ORIGIN, &log(&key)).unwrap_err(),
+            NoteError::Checkpoint
+        );
+        let bare = Checkpoint {
+            extensions: Vec::new(),
+            ..cp
+        };
+        let signed = line(&key, &log(&key), &bare.to_body().unwrap());
+        assert_eq!(
+            acknowledgement(&bare, &signed, ORIGIN, &log(&key)).unwrap_err(),
+            NoteError::Checkpoint
+        );
+    }
+
+    // OP-46 OP-33 OP-32
+    #[test]
+    fn op_46_saas_declares_independent_time_and_at_least_two_witnesses() {
+        let k = |n| WitnessProfile::Independent(std::num::NonZeroU8::new(n).unwrap());
+        let independent = TimeSources::Independent;
+        let local_or_none = [k(1), WitnessProfile::LocalDependent, WitnessProfile::Undeclared];
+        assert!(Declaration::new(Deployment::Saas, independent, k(2)).is_ok());
+        assert!(Declaration::new(Deployment::Saas, independent, k(255)).is_ok());
+        for witness in local_or_none {
+            assert_eq!(
+                Declaration::new(Deployment::Saas, independent, witness),
+                Err(DeclarationError::Witnesses)
+            );
+        }
+        assert_eq!(
+            Declaration::new(Deployment::Saas, TimeSources::Dependent, k(2)),
+            Err(DeclarationError::TimeSources)
+        );
+        for witness in local_or_none {
+            let declared = Declaration::new(Deployment::SelfHost, TimeSources::Dependent, witness);
+            assert_eq!(declared.map(|d| d.witness()), Ok(witness));
+        }
+        assert_eq!(
+            local().profile(Durability::Quorum).durability,
+            DurabilityProfile::Quorum
+        );
     }
 }
