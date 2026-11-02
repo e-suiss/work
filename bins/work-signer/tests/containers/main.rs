@@ -11,6 +11,7 @@
     clippy::panic,
     clippy::indexing_slicing,
     clippy::missing_panics_doc,
+    clippy::too_many_lines,
     reason = "test code"
 )]
 
@@ -28,7 +29,7 @@ use suiss_crypto::pkcs11::KeyStore;
 use suiss_crypto::secret::Secret;
 use suiss_crypto::signer::{Signer as _, cosign};
 use work_kernel::limits::SemanticLimits;
-use work_kernel::proof::verify_checkpoint;
+use work_kernel::proof::{Accepted, verify_checkpoint};
 use work_kernel::reason::{Reason, Schema};
 use work_kernel::validate::{ActorType, ActorTypeEntry, ActorTypeSource, ActorTypes, Origin};
 use work_kernel::verify::{SignatureCheck, SignatureVerifier};
@@ -226,10 +227,10 @@ async fn p_20_the_signer_acknowledges_the_head_and_the_replica_takes_the_log() {
     assert_eq!(stored.head_leaf, leader.head().leaf);
     assert_eq!(stored.issued_at_ms, AT + 9);
     let note = String::from_utf8(stored.signed_note.clone()).unwrap();
-    let signed =
+    let verified =
         verify_checkpoint(&note, &checkpointer.origin(&ledger), &token.verifier(), &[]).unwrap();
-    assert_eq!(signed.checkpoint.root, leader.head().frontier.root());
-    assert!(signed.cosignatures.is_empty());
+    assert_eq!(verified.checkpoint.root, leader.head().frontier.root());
+    assert_eq!(verified.cosignatures, Vec::<Accepted>::new());
     assert!(
         checkpointer
             .checkpoint(&ledger, AT + 10)
@@ -260,12 +261,12 @@ async fn p_20_the_signer_acknowledges_the_head_and_the_replica_takes_the_log() {
         id: "witness_a".to_owned(),
         key: Verifier::cosigner("witness.example", witness_key).unwrap(),
     }];
-    let body = signed.checkpoint.to_body().unwrap();
+    let body = verified.checkpoint.to_body().unwrap();
     let (_, cosignature) = cosign(&cosigner, "witness.example", AT / 1000 + 20, &body).unwrap();
-    let cosigned = format!("{note}{cosignature}");
+    let witnessed_note = format!("{note}{cosignature}");
     assert!(matches!(
         checkpointer
-            .take_cosignatures(&ledger, 2, &cosigned, &replica, &witnesses)
+            .take_cosignatures(&ledger, 2, &witnessed_note, &replica, &witnesses)
             .await,
         Err(WitnessError::Order(_))
     ));
@@ -287,14 +288,14 @@ async fn p_20_the_signer_acknowledges_the_head_and_the_replica_takes_the_log() {
 
     assert_eq!(
         checkpointer
-            .take_cosignatures(&ledger, 2, &cosigned, &replica, &witnesses)
+            .take_cosignatures(&ledger, 2, &witnessed_note, &replica, &witnesses)
             .await
             .unwrap(),
         1
     );
     assert_eq!(
         checkpointer
-            .take_cosignatures(&ledger, 2, &cosigned, &replica, &witnesses)
+            .take_cosignatures(&ledger, 2, &witnessed_note, &replica, &witnesses)
             .await
             .unwrap(),
         0
