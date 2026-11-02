@@ -1720,6 +1720,7 @@ tests = [
   "bins/work-signer/tests/signer.rs::t_7_the_signer_signs_checkpoints_of_its_ledgers_only",
   "crates/kernel/tests/ledger_vectors.rs::t_4_checkpoint_and_cosignature_vectors_through_the_kernel_verifier",
   "crates/kernel/tests/ledger_vectors.rs::t_4_every_entry_is_included_in_the_cosigned_checkpoint",
+  "crates/ledger/src/checkpoint.rs::op_46_the_acknowledgement_declares_the_profile_asked_for",
   "crates/ledger/src/checkpoint.rs::p_20_a_ledger_acknowledgement_never_verifies_as_an_author_signature",
   "crates/ledger/src/checkpoint.rs::p_20_the_acknowledgement_is_the_log_signed_checkpoint_asked_for",
   "crates/proto/src/signer.rs::t_7_no_kind_byte_but_the_log_key_and_the_checkpoint_is_answered",

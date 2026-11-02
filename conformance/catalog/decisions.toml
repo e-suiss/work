@@ -5239,9 +5239,12 @@ acceptance = "to-fill"
 title = ""
 tests = [
   "bins/work-signer/tests/signer.rs::t_7_the_signer_signs_checkpoints_of_its_ledgers_only",
+  "crates/kernel/src/proof.rs::op_46_profile_lines_are_three_known_values_in_order",
+  "crates/kernel/tests/ledger_vectors.rs::op_46_a_checkpoint_without_exactly_its_three_profile_lines_is_malformed",
   "crates/kernel/tests/ledger_vectors.rs::t_4_checkpoint_and_cosignature_vectors_through_the_kernel_verifier",
   "crates/kernel/tests/ledger_vectors.rs::t_4_every_entry_is_included_in_the_cosigned_checkpoint",
   "crates/kernel/tests/ledger_vectors.rs::t_4_inclusion_and_consistency_vectors_through_the_kernel_verifier",
+  "crates/ledger/src/checkpoint.rs::op_46_the_acknowledgement_declares_the_profile_asked_for",
   "crates/ledger/src/checkpoint.rs::p_20_the_acknowledgement_is_the_log_signed_checkpoint_asked_for",
 ]
 
@@ -5290,6 +5293,19 @@ tests = [
   "crates/ledger/src/admit/tests.rs::p_21_an_unsigned_record_of_an_unknown_protocol_is_refused",
   "crates/ledger/src/admit/tests.rs::t_89_the_items_and_pointers_come_from_the_concerned_works",
   "crates/ledger/src/admit/tests.rs::t_91_received_bytes_above_262_144_are_limit_exceeded_request",
+]
+
+[[rule]]
+id = "T-92"
+family = "T"
+status = "frozen-technical"
+stage = 2
+acceptance = "filled"
+title = ""
+tests = [
+  "bins/work-signer/src/answer.rs::t_7_only_the_canonical_body_of_a_configured_ledger_checkpoint_is_signed",
+  "bins/work-signer/src/answer.rs::t_92_a_body_without_its_profile_lines_or_a_non_ledger_origin_is_refused",
+  "bins/work-signer/tests/signer.rs::t_7_the_signer_signs_checkpoints_of_its_ledgers_only",
 ]
 
 [[rule]]
@@ -5493,6 +5509,7 @@ pd = "set"
 title = ""
 tests = [
   "bins/work-server/src/config.rs::op_43_fewer_than_two_nts_or_three_roughtime_servers_stop_the_process",
+  "crates/ledger/src/checkpoint.rs::op_46_saas_declares_independent_time_and_at_least_two_witnesses",
   "crates/ledger/src/time/adapters/nts.rs::op_32_the_local_timescale_is_the_anchor_plus_monotonic_time",
   "crates/ledger/src/time/adapters/nts.rs::op_42_polls_every_64_s_through_the_ntp_source_state_machine",
   "crates/ledger/src/time/app/tests.rs::op_32_the_clock_port_carries_samples_forward_and_stops_without_two_sources",
@@ -5512,6 +5529,7 @@ pd = "set"
 title = ""
 tests = [
   "crates/kernel/tests/ledger_vectors.rs::t_4_checkpoint_and_cosignature_vectors_through_the_kernel_verifier",
+  "crates/ledger/src/checkpoint.rs::op_46_saas_declares_independent_time_and_at_least_two_witnesses",
   "crates/ledger/src/witness.rs::op_33_only_a_configured_witness_cosigning_the_stored_tree_is_taken",
   "crates/ledger/src/witness.rs::op_4_a_checkpoint_the_replica_does_not_hold_is_not_sent_to_witnesses",
 ]
@@ -5651,4 +5669,21 @@ tests = [
   "crates/ledger/src/time/domain.rs::op_32_a_sample_older_than_its_lifetime_is_not_used",
   "crates/ledger/src/time/domain.rs::op_42_the_interval_is_the_midpoint_widened_by_radius_and_round_trip",
   "crates/ledger/src/time/domain.rs::op_43_the_majority_of_the_answers_decides",
+]
+
+[[rule]]
+id = "OP-46"
+family = "OP"
+status = "frozen-technical"
+stage = 2
+acceptance = "to-fill"
+title = ""
+tests = [
+  "bins/work-signer/src/answer.rs::t_7_only_the_canonical_body_of_a_configured_ledger_checkpoint_is_signed",
+  "bins/work-signer/src/answer.rs::t_92_a_body_without_its_profile_lines_or_a_non_ledger_origin_is_refused",
+  "bins/work-signer/tests/signer.rs::t_7_the_signer_signs_checkpoints_of_its_ledgers_only",
+  "crates/kernel/src/proof.rs::op_46_profile_lines_are_three_known_values_in_order",
+  "crates/kernel/tests/ledger_vectors.rs::op_46_a_checkpoint_without_exactly_its_three_profile_lines_is_malformed",
+  "crates/ledger/src/checkpoint.rs::op_46_saas_declares_independent_time_and_at_least_two_witnesses",
+  "crates/ledger/src/checkpoint.rs::op_46_the_acknowledgement_declares_the_profile_asked_for",
 ]
