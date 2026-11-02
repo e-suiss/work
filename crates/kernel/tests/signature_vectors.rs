@@ -192,7 +192,7 @@ fn p_6_the_container_is_not_semantic() {
     assert_eq!(record_id(&payload).0, digest_of(&second["record_id_hex"]));
 }
 
-// EV-3 EV-8 P-6 P-102
+// EV-3 EV-8 P-6 P-102 P-107
 #[test]
 fn ev_3_evidence_vectors_bind_the_presenter_signature_to_the_statement() {
     let sets = key_sets();
@@ -220,7 +220,7 @@ fn ev_3_evidence_vectors_bind_the_presenter_signature_to_the_statement() {
     assert_eq!(checked, 9);
 }
 
-// EV-3 P-10
+// EV-3 P-10 P-107
 #[test]
 fn ev_3_a_record_without_the_evidence_reference_has_no_statement() {
     let accepted = &file(EVIDENCE)["cases"][0];

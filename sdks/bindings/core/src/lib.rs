@@ -27,6 +27,8 @@ const CONTEXT_FIELDS: &[&str] = &[
     "recorded_at",
 ];
 
+const ACTOR_FIELDS: &[&str] = &["author", "on_behalf_of", "evidence"];
+
 pub(crate) fn error(code: &str, extra: Map<String, Value>) -> String {
     let mut detail = extra;
     detail.insert("code".to_owned(), Value::from(code));
@@ -62,7 +64,7 @@ fn context(v: &Value) -> Mapped<Context> {
         return Err(MISSING);
     }
     let actors = object(required(m, "actor_type")?)?;
-    if actors.keys().any(|k| k != "author" && k != "on_behalf_of") {
+    if actors.keys().any(|k| !ACTOR_FIELDS.contains(&k.as_str())) {
         return Err(MISSING);
     }
     Ok(Context {
@@ -70,6 +72,8 @@ fn context(v: &Value) -> Mapped<Context> {
         actor_types: ActorTypes {
             author: actor_entry(required(actors, "author")?)?,
             on_behalf_of: optional(actors, "on_behalf_of", |l| list(l, actor_entry))?
+                .unwrap_or_default(),
+            evidence: optional(actors, "evidence", |l| list(l, actor_entry))?
                 .unwrap_or_default(),
         },
         understood: list(required(m, "understood_extensions")?, |k| ext_key(text(k)?))?,

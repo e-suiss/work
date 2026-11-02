@@ -1050,6 +1050,33 @@ fn inv_18_every_on_behalf_of_ring_has_an_actor_type() {
     );
 }
 
+// EV-35 P-12 INV-18
+#[test]
+fn ev_35_every_evidence_presenter_has_an_actor_type_in_evidence_order() {
+    let mismatch = Outcome::Rejected(Reason::EnvelopeMismatch(EnvelopeField::ActorType));
+    let r = delivery();
+    let mut actors = actor_types(&r);
+    assert_eq!(actors.evidence.len(), 1);
+    actors.evidence[0].source = ActorTypeSource::DeclaredUnverified;
+    assert_eq!(
+        validate(&r, &ctx(Origin::Direct, &actors, &[])),
+        Outcome::Accepted
+    );
+    let extra = actors.evidence[0];
+    actors.evidence.push(extra);
+    assert_eq!(validate(&r, &ctx(Origin::Direct, &actors, &[])), mismatch);
+    actors.evidence.clear();
+    assert_eq!(validate(&r, &ctx(Origin::Direct, &actors, &[])), mismatch);
+    let without = promise();
+    let mut actors = actor_types(&without);
+    assert!(actors.evidence.is_empty());
+    actors.evidence.push(bound(ActorType::Organization));
+    assert_eq!(
+        validate(&without, &ctx(Origin::Direct, &actors, &[])),
+        mismatch
+    );
+}
+
 // INV-23 P-12
 #[test]
 fn inv_23_actor_type_is_not_an_authority_input() {

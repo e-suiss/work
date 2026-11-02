@@ -67,13 +67,15 @@ pub struct ActorTypeEntry {
     pub source: ActorTypeSource,
 }
 
-/// Actor types of the author and of every `on_behalf_of` ring, as the ledger writes them into the envelope (P-12, INV-18).
+/// Actor types of the author, of every `on_behalf_of` ring and of every evidence presenter, as the ledger writes them into the envelope (P-12, INV-18, EV-35).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ActorTypes {
     /// The author's actor type.
     pub author: ActorTypeEntry,
     /// One entry per `on_behalf_of` ring, in chain order.
     pub on_behalf_of: Vec<ActorTypeEntry>,
+    /// One entry per evidence reference's presenter, in `evidence` order (EV-35).
+    pub evidence: Vec<ActorTypeEntry>,
 }
 
 /// Verifier inputs that are not record bytes.
@@ -623,11 +625,16 @@ fn capacity(core: &RecordCore) -> Result<(), Reason> {
     reject_if(!consistent, Reason::CapacityMismatch)
 }
 
-// INV-18 P-12
-fn actor_rings(core: &RecordCore, actor_types: &ActorTypes) -> Result<(), Reason> {
+/// Checks that the `actor_type` annotation has one entry per `on_behalf_of` ring and one per evidence presenter (P-12, INV-18, EV-35).
+///
+/// # Errors
+///
+/// `envelope_mismatch:actor_type`.
+pub(crate) fn actor_rings(core: &RecordCore, actor_types: &ActorTypes) -> Result<(), Reason> {
     let rings = core.on_behalf_of.as_ref().map_or(0, Vec::len);
+    let presenters = core.evidence.as_ref().map_or(0, Vec::len);
     reject_if(
-        actor_types.on_behalf_of.len() != rings,
+        actor_types.on_behalf_of.len() != rings || actor_types.evidence.len() != presenters,
         Reason::EnvelopeMismatch(EnvelopeField::ActorType),
     )
 }

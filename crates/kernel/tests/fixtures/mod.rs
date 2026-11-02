@@ -307,6 +307,12 @@ pub(crate) fn actor_types(record: &Record) -> ActorTypes {
             .flatten()
             .map(|p| bound(actor_type_of(p.as_str())))
             .collect(),
+        evidence: core
+            .evidence
+            .iter()
+            .flatten()
+            .map(|e| bound(actor_type_of(e.presenter.as_str())))
+            .collect(),
     }
 }
 

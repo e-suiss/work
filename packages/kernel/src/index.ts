@@ -134,12 +134,13 @@ export type ActorType = "human" | "agent" | "system" | "machine" | "organization
 export type ActorTypeSource = "access_binding" | "declared_unverified";
 export type ActorTypeEntry = readonly [ActorType, ActorTypeSource];
 
-/** Verifier inputs that are not record bytes, in the record vector `context` shape (P-12, P-19, T-66). */
+/** Verifier inputs that are not record bytes, in the record vector `context` shape (P-12, P-19, T-66, EV-35). */
 export interface RecordContext {
   readonly origin: "direct" | "automation";
   readonly actor_type: {
     readonly author: ActorTypeEntry;
     readonly on_behalf_of?: readonly ActorTypeEntry[];
+    readonly evidence?: readonly ActorTypeEntry[];
   };
   readonly understood_extensions: readonly string[];
   readonly recorded_at?: UintJson;

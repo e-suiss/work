@@ -171,7 +171,7 @@ fn p_100_genesis_vectors_select_the_schema_by_position() {
     }
 }
 
-// P-11 P-12 P-21 P-75 P-100 INV-18
+// P-11 P-12 P-21 P-75 P-100 INV-18 EV-35
 #[test]
 fn p_100_envelope_vectors_decode_and_chain_from_the_genesis() {
     let genesis = file(GENESIS);
@@ -215,6 +215,10 @@ fn p_100_envelope_vectors_decode_and_chain_from_the_genesis() {
             .get("on_behalf_of")
             .map_or(0, |r| r.as_array().unwrap().len());
         assert_eq!(e.actor_types.on_behalf_of.len(), rings);
+        let presenters = record["decoded"]
+            .get("evidence")
+            .map_or(0, |p| p.as_array().unwrap().len());
+        assert_eq!(e.actor_types.evidence.len(), presenters);
         let expected = match record["expect"]["reason"].as_str() {
             None => EnvelopeIngest::Admitted,
             Some(code) => EnvelopeIngest::Quarantined(QuarantineReason::from_code(code).unwrap()),

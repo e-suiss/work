@@ -95,7 +95,8 @@ impl std::fmt::Debug for Arrival<'_> {
 pub struct Submission<'a> {
     /// The record as it arrived.
     pub arrival: Arrival<'a>,
-    /// Actor types of the author and every `on_behalf_of` ring from Access (P-12).
+    /// Actor types of the author, every `on_behalf_of` ring and every evidence presenter from
+    /// the Access identity binding, `declared_unverified` without one (P-12, EV-35).
     pub actor_types: &'a ActorTypes,
     /// The origin the Work service supplies (T-66).
     pub origin: Origin,
@@ -138,12 +139,16 @@ fn actor_entry(e: ActorTypeEntry) -> Value {
     ])
 }
 
-/// The envelope `actor_type` annotation (P-12, INV-18).
+/// The envelope `actor_type` annotation (P-12, INV-18, EV-35).
 fn actor_types(t: &ActorTypes) -> Value {
     let mut map = vec![(Value::text("author"), actor_entry(t.author))];
     if !t.on_behalf_of.is_empty() {
         let rings = t.on_behalf_of.iter().copied().map(actor_entry).collect();
         map.push((Value::text("on_behalf_of"), Value::Array(rings)));
+    }
+    if !t.evidence.is_empty() {
+        let presenters = t.evidence.iter().copied().map(actor_entry).collect();
+        map.push((Value::text("evidence"), Value::Array(presenters)));
     }
     Value::Map(map)
 }

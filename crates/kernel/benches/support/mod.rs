@@ -150,6 +150,7 @@ pub(crate) fn actor_types() -> ActorTypes {
     ActorTypes {
         author: bound(ActorType::Agent),
         on_behalf_of: vec![bound(ActorType::Organization)],
+        evidence: vec![],
     }
 }
 

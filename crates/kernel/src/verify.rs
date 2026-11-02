@@ -1,10 +1,10 @@
 //! Verification results that state only "the author signature is valid" and "present in the ledger at this position", never truth or authorisation (SEC-5, P-22); signature checking is a port the shared crypto crate fills (P-8, [`crate::cose::AuthorKeys`]), and a stored ledger entry is verified from its bytes alone: the record ID, envelope binding and author binding are recomputed, never taken from the caller (T-10, P-11, P-75, P-79).
 
 use crate::codec::{Decoded, decode_record, leaf_hash, ledger_id, proof_commit, record_id};
-use crate::envelope::{Envelope, LedgerEnvelope, decode_envelope};
+use crate::envelope::{Envelope, EnvelopeIngest, LedgerEnvelope, decode_envelope};
 use crate::id::{Digest, LedgerId, PartyRef, RecordId, Time};
 use crate::reason::{EnvelopeField, Reason, Schema};
-use crate::validate::ActorType;
+use crate::validate::{ActorType, actor_rings};
 
 /// How the author is bound to the record (P-20, P-21).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -200,11 +200,11 @@ const fn mismatch(field: EnvelopeField) -> Reason {
     Reason::EnvelopeMismatch(field)
 }
 
-/// Verifies one stored ledger entry after `at`: the envelope names the ledger and the previous leaf, its `record` is the digest of the stored record bytes, a signed record's `proof_commit` is the digest of the `COSE_Sign1` bytes and its signature, through the port, covers exactly those record bytes, and an unsigned record is a human record with an authentication context (P-11, P-21, P-75, P-79, P-100, T-10).
+/// Verifies one stored ledger entry after `at`: the envelope names the ledger and the previous leaf, its `record` is the digest of the stored record bytes, a signed record's `proof_commit` is the digest of the `COSE_Sign1` bytes and its signature, through the port, covers exactly those record bytes, an unsigned record is a human record with an authentication context, and the `actor_type` annotation of an admitted or quarantined record of a known protocol has one entry per `on_behalf_of` ring and per evidence presenter (P-11, P-12, P-21, P-75, P-79, P-100, T-10, EV-35).
 ///
 /// # Errors
 ///
-/// `envelope_mismatch:ledger`, `envelope_mismatch:prev` (also for a genesis in place of an envelope), `envelope_mismatch:record`, `envelope_mismatch:proof_commit`, a decoding reason of the envelope or record, the port's rejection, a reason of [`verify_unsigned`], or `protocol_version_unknown` for an unsigned record whose author cannot be read.
+/// `envelope_mismatch:ledger`, `envelope_mismatch:prev` (also for a genesis in place of an envelope), `envelope_mismatch:record`, `envelope_mismatch:proof_commit`, a decoding reason of the envelope or record, the port's rejection, a reason of [`verify_unsigned`], `protocol_version_unknown` for an unsigned record whose author cannot be read, or `envelope_mismatch:actor_type`.
 pub fn verify_entry<V: SignatureVerifier + ?Sized>(
     verifier: &V,
     at: &ChainPoint,
@@ -263,6 +263,11 @@ pub fn verify_entry<V: SignatureVerifier + ?Sized>(
             VerifyOutcome::Rejected(reason) => return Err(reason),
         }
     };
+    if let Decoded::Record(decoded) = &record
+        && !matches!(envelope.ingest, EnvelopeIngest::Rejected(_))
+    {
+        actor_rings(decoded.core(), &envelope.actor_types)?;
+    }
     Ok(VerifiedEntry {
         verification,
         leaf: leaf_hash(entry.envelope),

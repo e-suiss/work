@@ -11,6 +11,7 @@ use serde_json::Value as Json;
 use suiss_crypto::dcbor::{Limits, decode};
 use suiss_ledger::sequencer::{Entry as _, Slot};
 use work_kernel::cose::{Algorithm, AuthorKeys, KeySet, PublicKey, verify_record_signature};
+use work_kernel::envelope::{Envelope, decode_envelope};
 use work_kernel::id::PartyRef;
 use work_kernel::validate::{ActorType, ActorTypeSource};
 use work_kernel::verify::SignatureCheck;
@@ -139,6 +140,10 @@ fn golden() -> Vec<Golden> {
                     .as_array()
                     .map(|rings| rings.iter().map(actor).collect())
                     .unwrap_or_default(),
+                evidence: ctx["actor_type"]["evidence"]
+                    .as_array()
+                    .map(|presenters| presenters.iter().map(actor).collect())
+                    .unwrap_or_default(),
             },
             origin: Origin::from_wire_name(ctx["origin"].as_str().unwrap()).unwrap(),
             understood: ctx["understood_extensions"]
@@ -198,7 +203,7 @@ fn slot_of(envelope: &[u8]) -> (LedgerId, Slot) {
     )
 }
 
-// P-100 P-11 P-12 P-21 P-75 P-19 P-87 T-89 T-90 OP-5
+// P-100 P-11 P-12 P-21 P-75 P-19 P-87 T-89 T-90 T-91 OP-5 EV-35
 #[test]
 fn p_100_the_admission_path_seals_the_golden_ledger_byte_for_byte() {
     let entries = golden();
@@ -242,7 +247,7 @@ fn t_90_a_signed_record_keeps_its_cose_sign1_and_an_unsigned_one_its_context() {
     }
 }
 
-// T-89 T-81 C-34 OP-13
+// T-89 T-81 T-91 C-34 OP-13
 #[test]
 fn t_89_the_items_and_pointers_come_from_the_concerned_works() {
     for g in &golden() {
@@ -286,7 +291,7 @@ fn p_19_a_quarantined_record_is_written_with_its_reason() {
     assert_eq!(record.outbox().len(), 0);
 }
 
-// C-34 OP-9 P-11
+// C-34 OP-9 P-11 T-91
 #[test]
 fn op_9_a_record_declaring_another_ledger_is_refused() {
     let g = &golden()[0];
@@ -296,7 +301,7 @@ fn op_9_a_record_declaring_another_ledger_is_refused() {
     );
 }
 
-// P-21 P-87
+// P-21 P-108 T-91
 #[test]
 fn p_21_an_unsigned_record_of_an_unknown_protocol_is_refused() {
     let quarantine = json(QUARANTINE);
@@ -309,6 +314,7 @@ fn p_21_an_unsigned_record_of_an_unknown_protocol_is_refused() {
         actors: ActorTypes {
             author: actor(&serde_json::json!(["human", "access_binding"])),
             on_behalf_of: vec![],
+            evidence: vec![],
         },
         origin: Origin::Direct,
         understood: vec![],
@@ -320,7 +326,7 @@ fn p_21_an_unsigned_record_of_an_unknown_protocol_is_refused() {
     );
 }
 
-// P-21 T-90
+// P-21 T-90 T-91
 #[test]
 fn p_21_a_signed_agent_record_sent_unsigned_is_refused() {
     let g = &golden()[0];
@@ -337,5 +343,68 @@ fn p_21_a_signed_agent_record_sent_unsigned_is_refused() {
     assert_eq!(
         pending(&unsigned, &ledger).err(),
         Some(Reason::AuthorSignatureMissing)
+    );
+}
+
+// T-91 T-90 P-33
+#[test]
+fn t_91_received_bytes_above_262_144_are_limit_exceeded_request() {
+    let g = &golden()[0];
+    let (ledger, _) = slot_of(&g.envelope);
+    let too_long = Golden {
+        id: g.id.clone(),
+        record: g.record.clone(),
+        envelope: g.envelope.clone(),
+        cose: Some(vec![0; 262_145]),
+        actors: g.actors.clone(),
+        origin: g.origin,
+        understood: g.understood.clone(),
+    };
+    assert_eq!(
+        pending(&too_long, &ledger).err(),
+        Some(Reason::LimitExceeded(Limit::Request))
+    );
+}
+
+// EV-35 P-12 T-91
+#[test]
+fn ev_35_the_envelope_carries_the_presenter_actor_types_the_caller_resolved() {
+    let entries = golden();
+    let act = entries
+        .iter()
+        .find(|g| g.id == "record/act-action-fulfills")
+        .unwrap();
+    let (ledger, slot) = slot_of(&act.envelope);
+    let with = |actors: ActorTypes| Golden {
+        id: act.id.clone(),
+        record: act.record.clone(),
+        envelope: act.envelope.clone(),
+        cose: act.cose.clone(),
+        actors,
+        origin: act.origin,
+        understood: act.understood.clone(),
+    };
+    let mut unbound = act.actors.clone();
+    unbound.evidence = vec![ActorTypeEntry {
+        actor_type: ActorType::Organization,
+        source: ActorTypeSource::DeclaredUnverified,
+    }];
+    let record = pending(&with(unbound.clone()), &ledger).unwrap();
+    let (_, sealed) = Bound {
+        ledger: &ledger,
+        record: &record,
+    }
+    .seal(&slot)
+    .unwrap();
+    let Ok(Envelope::Ledger(e)) = decode_envelope(&sealed.envelope) else {
+        panic!("{}", act.id);
+    };
+    assert_eq!(e.actor_types, unbound);
+    assert_ne!(sealed.envelope, act.envelope);
+    let mut missing = act.actors.clone();
+    missing.evidence.clear();
+    assert_eq!(
+        pending(&with(missing), &ledger).err(),
+        Some(Reason::EnvelopeMismatch(EnvelopeField::ActorType))
     );
 }

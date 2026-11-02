@@ -1,4 +1,4 @@
-//! The ledger envelopes as the normative CDDL writes them: the genesis at position 0 and a `LedgerEnvelope` at every later position, the schema chosen by `pos` (P-11, P-12, P-21, P-75, P-100).
+//! The ledger envelopes as the normative CDDL writes them: the genesis at position 0 and a `LedgerEnvelope` at every later position, the schema chosen by `pos` (P-11, P-12, P-21, P-75, P-100, EV-35).
 
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -60,7 +60,7 @@ pub struct LedgerEnvelope {
     pub recorded_at: Time,
     /// The leaf hash of the previous envelope (P-100).
     pub prev: Digest,
-    /// Actor types of the author and every `on_behalf_of` ring (P-12, INV-18).
+    /// Actor types of the author, every `on_behalf_of` ring and every evidence presenter (P-12, INV-18, EV-35).
     pub actor_types: ActorTypes,
     /// The digest of the `COSE_Sign1` bytes as received (P-75, P-76).
     pub proof_commit: Option<Digest>,
@@ -98,11 +98,16 @@ const LEDGER_FIELDS: &[(&str, bool)] = &[
     ("proof_commit", false),
 ];
 
-const ACTOR_FIELDS: &[(&str, bool)] = &[("author", true), ("on_behalf_of", false)];
+const ACTOR_FIELDS: &[(&str, bool)] = &[
+    ("author", true),
+    ("evidence", false),
+    ("on_behalf_of", false),
+];
 const AUTH_CONTEXT_FIELDS: &[(&str, bool)] =
     &[("ref", true), ("step_up", true), ("assurance", true)];
 const MAX_ASSURANCE: usize = 64;
 const MAX_RINGS: usize = 8;
+const MAX_PRESENTERS: usize = 256;
 
 /// Walks the keys of a closed map and of its schema together in canonical order: the first key the schema lacks is `schema:unknown_core_field`, the first required key the map lacks is `schema:required_field` (P-72, P-100 item 6).
 fn walk<'a>(v: &'a Value, schema: &[(&str, bool)]) -> Mapped<Vec<Option<&'a Value>>> {
@@ -151,7 +156,7 @@ fn actor_entry(v: &Value) -> Mapped<ActorTypeEntry> {
 fn actor_types(v: &Value) -> Mapped<ActorTypes> {
     let f = walk(v, ACTOR_FIELDS)?;
     let on_behalf_of =
-        optional_field(&f, 1, |l| list(l, actor_entry))?.map_or(Ok(Vec::new()), |rings| {
+        optional_field(&f, 2, |l| list(l, actor_entry))?.map_or(Ok(Vec::new()), |rings| {
             if rings.is_empty() {
                 Err(Reason::Schema(Schema::EmptyOptionalList))
             } else if rings.len() > MAX_RINGS {
@@ -160,9 +165,20 @@ fn actor_types(v: &Value) -> Mapped<ActorTypes> {
                 Ok(rings)
             }
         })?;
+    let evidence =
+        optional_field(&f, 1, |l| list(l, actor_entry))?.map_or(Ok(Vec::new()), |presenters| {
+            if presenters.is_empty() {
+                Err(Reason::Schema(Schema::EmptyOptionalList))
+            } else if presenters.len() > MAX_PRESENTERS {
+                Err(Reason::LimitExceeded(Limit::Items))
+            } else {
+                Ok(presenters)
+            }
+        })?;
     Ok(ActorTypes {
         author: actor_entry(field(&f, 0)?)?,
         on_behalf_of,
+        evidence,
     })
 }
 
@@ -363,6 +379,36 @@ mod tests {
         assert_eq!(
             auth_context(&context(&"a".repeat(65))),
             Err(Reason::LimitExceeded(Limit::String))
+        );
+    }
+
+    // EV-35 P-12
+    #[test]
+    fn ev_35_presenter_actor_types_are_one_to_256_entries() {
+        let pair = ["agent", "declared_unverified"].map(Value::text);
+        let entry = Value::Array(Vec::from(pair));
+        let annotation = |n: usize| {
+            map(&[
+                ("author", entry.clone()),
+                ("evidence", Value::Array(vec![entry.clone(); n])),
+            ])
+        };
+        let presenters = |v: &Value| actor_types(v).map(|t| t.evidence);
+        let bare = map(&[("author", entry.clone())]);
+        assert_eq!(presenters(&bare), Ok(vec![]));
+        let unverified = ActorTypeEntry {
+            actor_type: ActorType::Agent,
+            source: ActorTypeSource::DeclaredUnverified,
+        };
+        assert_eq!(presenters(&annotation(1)), Ok(vec![unverified]));
+        assert_eq!(presenters(&annotation(256)), Ok(vec![unverified; 256]));
+        assert_eq!(
+            actor_types(&annotation(0)),
+            Err(Reason::Schema(Schema::EmptyOptionalList))
+        );
+        assert_eq!(
+            actor_types(&annotation(257)),
+            Err(Reason::LimitExceeded(Limit::Items))
         );
     }
 }

@@ -10,6 +10,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use serde_json::Value;
+use suiss_crypto::dcbor::{self, Limits, Value as Cbor};
 use work_kernel::codec::{Decoded, leaf_hash, record_id};
 use work_kernel::cose::{Algorithm, AuthorKeys, KeySet, PublicKey, verify_record_signature};
 use work_kernel::derive::{AuthorityIssuer, Entry, Restriction};
@@ -150,7 +151,7 @@ impl SignatureVerifier for Directory {
     }
 }
 
-// T-10 P-11 P-75 P-79 P-100 P-21
+// T-10 P-11 P-75 P-79 P-100 P-21 P-108
 #[test]
 fn t_10_the_verifier_recomputes_every_record_id_from_the_stored_bytes() {
     let directory = Directory::new();
@@ -215,7 +216,7 @@ fn first_signed() -> (Vec<u8>, Vec<u8>, Vec<u8>) {
     (record, envelope, cose.unwrap())
 }
 
-// T-10 P-11 P-75 P-79
+// T-10 P-11 P-75 P-79 P-108
 #[test]
 fn t_10_an_entry_that_does_not_match_its_bytes_is_an_envelope_mismatch() {
     let directory = Directory::new();
@@ -265,7 +266,81 @@ fn t_10_an_entry_that_does_not_match_its_bytes_is_an_envelope_mismatch() {
     assert!(ChainPoint::genesis(&envelope).is_err());
 }
 
-// P-101 P-100 T-4
+/// The envelope bytes with the `evidence` entry of their `actor_type` annotation replaced, or removed.
+fn with_presenters(envelope: &[u8], evidence: Option<&Cbor>) -> Vec<u8> {
+    let Ok(Cbor::Map(mut fields)) = dcbor::decode(envelope, Limits::CEILING) else {
+        panic!("envelope");
+    };
+    for (key, value) in &mut fields {
+        if let (Cbor::Text(name), Cbor::Map(actors)) = (&*key, value)
+            && name == "actor_type"
+        {
+            actors.retain(|(k, _)| !matches!(k, Cbor::Text(t) if t == "evidence"));
+            if let Some(e) = evidence {
+                actors.push((Cbor::text("evidence"), e.clone()));
+            }
+        }
+    }
+    dcbor::encode(&Cbor::Map(fields), Limits::CEILING).unwrap()
+}
+
+fn checked_with(
+    directory: &Directory,
+    at: &ChainPoint,
+    stored: &Stored,
+    envelope: &[u8],
+) -> Result<(), String> {
+    let (record, _, cose) = stored;
+    let entry = StoredEntry {
+        envelope,
+        record,
+        cose_sign1: cose.as_deref(),
+    };
+    check(directory, entry, at)
+}
+
+// EV-35 P-12 T-10
+#[test]
+fn ev_35_a_stored_presenter_annotation_must_match_the_record_evidence() {
+    let directory = Directory::new();
+    let entries = stored();
+    let start = ChainPoint::genesis(&genesis_bytes()).unwrap();
+    let (promise, act) = (&entries[0], &entries[1]);
+    let pair = ["organization", "access_binding"].map(Cbor::text);
+    let presenter = Cbor::Array(Vec::from(pair));
+    let one = Cbor::Array(vec![presenter.clone()]);
+    let two = Cbor::Array(vec![presenter.clone(), presenter]);
+    let added = with_presenters(&promise.1, Some(&one));
+    assert_eq!(
+        checked_with(&directory, &start, promise, &added),
+        mismatch("actor_type")
+    );
+    let first = StoredEntry {
+        envelope: &promise.1,
+        record: &promise.0,
+        cose_sign1: promise.2.as_deref(),
+    };
+    let at = verify_entry(&directory, &start, &first).unwrap().next();
+    assert_eq!(checked_with(&directory, &at, act, &act.1), Ok(()));
+    for evidence in [None, Some(&two)] {
+        let changed = with_presenters(&act.1, evidence);
+        assert_eq!(
+            checked_with(&directory, &at, act, &changed),
+            mismatch("actor_type")
+        );
+    }
+}
+
+// P-109 P-5 P-11
+#[test]
+fn p_109_no_record_of_the_golden_ledger_repeats_another() {
+    let entries = stored();
+    let records: BTreeSet<&[u8]> = entries.iter().map(|(r, _, _)| r.as_slice()).collect();
+    assert_eq!(entries.len(), 16);
+    assert_eq!(records.len(), entries.len());
+}
+
+// P-101 P-100 P-108 T-4
 #[test]
 fn p_101_merkle_node_and_root_vectors_through_the_shared_crate() {
     let merkle = file(MERKLE);
@@ -289,7 +364,7 @@ fn p_101_merkle_node_and_root_vectors_through_the_shared_crate() {
     }
 }
 
-// T-4 P-11 P-101
+// T-4 P-11 P-101 T-88
 #[test]
 fn t_4_inclusion_and_consistency_vectors_through_the_kernel_verifier() {
     let merkle = file(MERKLE);
@@ -336,7 +411,7 @@ fn checkpoint_keys() -> (Verifier, Vec<Verifier>) {
     (log, witnesses)
 }
 
-// T-4 P-20 OP-33 T-64
+// T-4 P-20 OP-33 T-64 T-88
 #[test]
 fn t_4_checkpoint_and_cosignature_vectors_through_the_kernel_verifier() {
     let (log, witnesses) = checkpoint_keys();
@@ -368,7 +443,7 @@ fn t_4_checkpoint_and_cosignature_vectors_through_the_kernel_verifier() {
     }
 }
 
-// T-4 P-11 P-20 P-101
+// T-4 P-11 P-20 P-101 P-108 T-88
 #[test]
 fn t_4_every_entry_is_included_in_the_cosigned_checkpoint() {
     let (log, witnesses) = checkpoint_keys();

@@ -178,6 +178,7 @@ fn human() -> ActorTypes {
             source: ActorTypeSource::AccessBinding,
         },
         on_behalf_of: vec![],
+        evidence: vec![],
     }
 }
 
@@ -609,6 +610,10 @@ fn golden() -> (Vec<u8>, Vec<Golden>) {
                         .as_array()
                         .map(|rings| rings.iter().map(actor).collect())
                         .unwrap_or_default(),
+                    evidence: ctx["actor_type"]["evidence"]
+                        .as_array()
+                        .map(|presenters| presenters.iter().map(actor).collect())
+                        .unwrap_or_default(),
                 },
                 origin: Origin::from_wire_name(ctx["origin"].as_str().unwrap()).unwrap(),
                 understood: ctx["understood_extensions"]
@@ -636,7 +641,7 @@ fn recorded_at(envelope: &[u8]) -> u64 {
     }
 }
 
-// P-5 T-90 P-75 P-100 P-11 T-10 OP-13 T-89
+// P-5 T-90 P-75 P-100 P-11 T-10 OP-13 T-89 P-109 EV-35
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "needs Docker"]
 async fn p_5_the_golden_ledger_is_stored_as_received_and_reverifies() {
@@ -654,8 +659,7 @@ async fn p_5_the_golden_ledger_is_stored_as_received_and_reverifies() {
     Leader::open(&pool, &opened).await.unwrap();
     let mut leader = Leader::acquire(pool, ledger).await.unwrap();
     let directory = Directory::golden();
-    let mut kept = Vec::new();
-    for (n, g) in entries.iter().enumerate() {
+    for g in &entries {
         let arrival = g
             .cose
             .as_deref()
@@ -664,29 +668,21 @@ async fn p_5_the_golden_ledger_is_stored_as_received_and_reverifies() {
         s.origin = g.origin;
         s.understood_extensions = &g.understood;
         let record = admit(&directory, &ledger, s).unwrap();
-        let committed = leader.commit(recorded_at(&g.envelope), &[record]).await;
-        if n == 11 {
-            assert!(matches!(
-                committed,
-                Err(LedgerError::Refused(StoreError::RecordExists))
-            ));
-        } else {
-            committed.unwrap();
-            kept.push((n, g));
-        }
+        leader
+            .commit(recorded_at(&g.envelope), &[record])
+            .await
+            .unwrap();
     }
     let mut tx = env.read("work_app", &ledger).await;
     let stored = tx.entries(0, 100).await.unwrap();
     tx.rollback().await.unwrap();
-    assert_eq!(stored.len(), 14);
+    assert_eq!(stored.len(), 15);
     assert_eq!(stored[0].record_bytes, bytes);
     let mut at = ChainPoint::genesis(&bytes).unwrap();
-    for (s, (n, g)) in stored[1..].iter().zip(kept) {
+    for (s, g) in stored[1..].iter().zip(&entries) {
         assert_eq!(s.record_bytes, g.record);
         assert_eq!(s.cose_sign1, g.cose);
-        if n < 11 {
-            assert_eq!(s.envelope_bytes, g.envelope);
-        }
+        assert_eq!(s.envelope_bytes, g.envelope);
         let entry = StoredEntry {
             envelope: &s.envelope_bytes,
             record: &s.record_bytes,

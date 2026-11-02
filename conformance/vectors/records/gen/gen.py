@@ -669,6 +669,8 @@ def semantic(rec, ctx):
         return ("reject", "capacity_mismatch")
     if len(ctx["actor_type"].get("on_behalf_of", [])) != len(obo or []):
         return ("reject", "envelope_mismatch:actor_type")
+    if len(ctx["actor_type"].get("evidence", [])) != len(rec.get("evidence", [])):
+        return ("reject", "envelope_mismatch:actor_type")
     if rec["kind"] == "declaration" and "authority" not in rec:
         return ("reject", "authority_missing")
     if rec["kind"] == "declaration" and cap is None:
@@ -708,11 +710,20 @@ def vis(see="work", **kw):
     return v
 
 
-def ctx(rec, origin="direct", understood=(), actor=None, recorded_at=None, rings=None):
+def presenter_entry(e):
+    return [ACTOR.get(e.get("presenter") if isinstance(e, dict) else None, "organization"), "access_binding"]
+
+
+# EV-35
+def ctx(rec, origin="direct", understood=(), actor=None, recorded_at=None, rings=None, presenters=None):
     actors = {"author": actor or [ACTOR[rec["author"]], "access_binding"]}
     rings = len(rec.get("on_behalf_of", [])) if rings is None else rings
     if rings:
         actors["on_behalf_of"] = [["organization", "access_binding"] for _ in range(rings)]
+    if presenters is None:
+        presenters = [presenter_entry(e) for e in rec.get("evidence", [])]
+    if presenters:
+        actors["evidence"] = presenters
     c = {"origin": origin, "actor_type": actors, "understood_extensions": list(understood)}
     if recorded_at is not None:
         c["recorded_at"] = recorded_at
@@ -1038,7 +1049,7 @@ write_json("records.json", {
               "leaf_hash = SHA-256(0x00 || det-CBOR(LedgerEnvelope))",
               "proof_commit = SHA-256 of the full tagged WorkRecordCose bytes as received; cose-sign1.json holds those bytes for every envelope that carries proof_commit",
               "Digest values labelled work-vector:* are SHA-256 of ASCII placeholder strings, not real objects",
-              "context holds verifier inputs that are not record bytes: origin, actor_type exactly as the envelope ActorTypeAnnotation (author and one entry per on_behalf_of party), understood_extensions, and recorded_at when the record carries params.effective_at",
+              "context holds verifier inputs that are not record bytes: origin, actor_type exactly as the envelope ActorTypeAnnotation (author, one entry per on_behalf_of party and one per evidence presenter in evidence order), understood_extensions, and recorded_at when the record carries params.effective_at",
               "ledger is the LedgerID of genesis.json genesis/accept; the first envelope is at pos 1 and its prev is the genesis leaf hash (P-100)",
               "PartyRef values are placeholder text until the Access Party reference byte form is fixed"],
     "records": out_recs, "envelopes": out_envs})
@@ -1383,6 +1394,12 @@ rejects = [
      ["P-15", "C-23"], "producer_missing"),
     ("actor-type-rings-mismatch", rec_promise, {"rings": 0},
      ["P-12", "INV-18"], "envelope_mismatch:actor_type"),
+    ("actor-type-presenter-missing", rec_act, {"presenters": []},
+     ["EV-35", "P-12"], "envelope_mismatch:actor_type"),
+    ("actor-type-presenter-extra", rec_act, {"presenters": [["organization", "access_binding"]] * 2},
+     ["EV-35", "P-12"], "envelope_mismatch:actor_type"),
+    ("actor-type-presenter-without-evidence", rec_promise, {"presenters": [["organization", "access_binding"]]},
+     ["EV-35", "P-12"], "envelope_mismatch:actor_type"),
     ("unpinned-practice-act-subtype", variant(rec_act, type=PROC + "act/delivery"), {},
      ["P-71", "P-82", "C-5", "PR-3"], "unmapped_extension_value"),
     ("unpinned-practice-derived-from-role", variant(rec_act, relations=derived(PROC + "role/backs")), {},
@@ -1521,7 +1538,7 @@ write_json("records-reject.json", {
     "file": "records-reject.json",
     "notes": ["each case is a single-field mutation of a records.json example; hex is canonical CBOR, so rejection is semantic or schema-level, never encoding-level",
               "cddl = fail means work-record.cddl alone rejects the bytes; cddl = pass means a kernel rule rejects them",
-              "context holds verifier inputs that are not record bytes (origin, actor_type as the envelope ActorTypeAnnotation with one entry per on_behalf_of party, understood_extensions, recorded_at)"],
+              "context holds verifier inputs that are not record bytes (origin, actor_type as the envelope ActorTypeAnnotation with one entry per on_behalf_of party and one per evidence presenter, understood_extensions, recorded_at)"],
     "cases": out_rej})
 
 V2 = dict(rec_comment["versions"], protocol=[2, 0])
@@ -1529,9 +1546,9 @@ v2_new_field = variant(rec_comment, versions=V2)
 v2_new_field["priority"] = 3
 v2_new_kind = variant(rec_comment, kind="event", versions=V2)
 quarantine = [
-    ("critical-ext-not-understood", rec_consent, {},
-     ["P-19", "P-69", "C-5"],
-     "Same bytes as record/claim-critical-ext-understood; this verifier does not understand the critical extension.",
+    ("critical-ext-not-understood", variant(rec_consent, body=[{"part": "note", "commit": label("body:note:care:quarantine")}]), {},
+     ["P-19", "P-69", "C-5", "P-109"],
+     "The care note Claim of record/claim-critical-ext-understood with another body commitment, so the golden ledger holds no record twice; this verifier does not understand the critical extension.",
      "extension_critical_unknown"),
     ("one-of-two-critical-not-understood", variant(rec_consent, critical=two_critical), {"understood": [CONSENT]},
      ["P-19", "P-69"],
@@ -1568,9 +1585,14 @@ for name, rec, kw, rules, purpose, reason in quarantine:
                                "leaf_hash": leaf.hex(), "cddl": "pass"},
                   "expect": {"outcome": "quarantine", "reason": reason}})
 
+# P-109
+ledger_records = [r["hex"] for r in out_recs] + [q["hex"] for q in out_q]
+assert len(set(ledger_records)) == len(ledger_records), "golden ledger records must have unique bytes"
+
 write_json("records-quarantine.json", {
     "file": "records-quarantine.json",
-    "notes": ["a quarantined record is still written to the ledger; its envelope carries ingest [\"quarantined\", reason] and continues the records.json chain"],
+    "notes": ["a quarantined record is still written to the ledger; its envelope carries ingest [\"quarantined\", reason] and continues the records.json chain",
+              "no record of records.json or records-quarantine.json repeats the bytes of another, so the golden ledger stores each once (P-109)"],
     "cases": out_q})
 
 # P-6 P-7 P-32 P-102 P-103 P-105 P-106 Access CR-9

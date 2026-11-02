@@ -191,10 +191,11 @@ GenesisEnvelope = {
   nonce: bstr .size 32,
 }
 
-; P-12 C-17
+; P-12 C-17 EV-35
 ActorTypeAnnotation = {
   author: ActorTypeEntry,
   ? on_behalf_of: [1*8 ActorTypeEntry],
+  ? evidence: [1*256 ActorTypeEntry],     ; EV-35
 }
 ActorTypeEntry = [type: ActorType, source: ActorTypeSource]
 ActorType = "human" / "agent" / "system" / "machine" / "organization"
