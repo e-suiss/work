@@ -505,7 +505,11 @@ mod tests {
             assert!(CANONICAL_INPUTS.contains(&table.as_str()), "{table}");
         }
         for table in CANONICAL_INPUTS {
-            assert_eq!(labels.get(table).map(String::as_str), Some("CANONICAL"), "{table}");
+            assert_eq!(
+                labels.get(table).map(String::as_str),
+                Some("CANONICAL"),
+                "{table}"
+            );
             assert!(read.iter().any(|r| r == table), "{table}");
         }
     }
@@ -537,12 +541,18 @@ mod tests {
     #[test]
     fn op_1_the_diff_names_each_missing_and_unexpected_row() {
         let live = Snapshot::new(vec![
-            ("work.item_head", rows(&["(work,\\x01,3,9,)", "(work,\\x02,1,4,)"])),
+            (
+                "work.item_head",
+                rows(&["(work,\\x01,3,9,)", "(work,\\x02,1,4,)"]),
+            ),
             ("work.log_concerns", rows(&["(a,1)", "(a,1)", "(b,2)"])),
             ("work.one_time_flag", rows(&[])),
         ]);
         let rebuilt = Snapshot::new(vec![
-            ("work.item_head", rows(&["(work,\\x02,1,4,)", "(work,\\x01,2,7,)"])),
+            (
+                "work.item_head",
+                rows(&["(work,\\x02,1,4,)", "(work,\\x01,2,7,)"]),
+            ),
             ("work.log_concerns", rows(&["(b,2)", "(a,1)"])),
             ("work.one_time_flag", rows(&[])),
         ]);

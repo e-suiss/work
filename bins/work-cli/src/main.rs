@@ -119,7 +119,9 @@ fn rebuild(ledger: LedgerId, profile: Durability) -> Result<work_store::RebuildD
     runtime()?.block_on(async move {
         let live = Pool::connect(&live).await.map_err(|e| e.to_string())?;
         let target = Pool::connect(&target).await.map_err(|e| e.to_string())?;
-        let target = SequencerPool::new(target).await.map_err(|e| e.to_string())?;
+        let target = SequencerPool::new(target)
+            .await
+            .map_err(|e| e.to_string())?;
         work_ledger::rebuild_diff(&live, &target, ledger, profile)
             .await
             .map_err(|e| e.to_string())

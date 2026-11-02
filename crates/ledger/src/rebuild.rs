@@ -149,7 +149,11 @@ pub async fn rebuild(
 ) -> Result<u64, RebuildError> {
     let replay = |pos: u64| move |source: LedgerError| RebuildError::Replay { pos, source };
     let first = live.entries(&ledger, 0, 1).await?;
-    let opened = opening(&ledger, first.first().ok_or(RebuildError::Gap(0))?, durability)?;
+    let opened = opening(
+        &ledger,
+        first.first().ok_or(RebuildError::Gap(0))?,
+        durability,
+    )?;
     Leader::open(&target, &opened).await.map_err(replay(0))?;
     let mut leader = Leader::acquire(target, ledger).await.map_err(replay(0))?;
     let mut next: u64 = 1;

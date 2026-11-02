@@ -427,9 +427,17 @@ fn op_1_the_golden_ledger_replays_from_its_stored_bytes_to_the_admitted_records(
         assert_eq!(replayed, admitted, "{}", g.id);
         let mut other = stored.clone();
         other.pos = slot.pos.checked_add(1).unwrap();
-        assert!(crate::rebuild::replayed(&ledger, &other).is_err(), "{}", g.id);
+        assert!(
+            crate::rebuild::replayed(&ledger, &other).is_err(),
+            "{}",
+            g.id
+        );
         let mut foreign = stored.clone();
         foreign.record_bytes.push(0);
-        assert!(crate::rebuild::replayed(&ledger, &foreign).is_err(), "{}", g.id);
+        assert!(
+            crate::rebuild::replayed(&ledger, &foreign).is_err(),
+            "{}",
+            g.id
+        );
     }
 }
