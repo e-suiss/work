@@ -129,6 +129,10 @@ pub enum SubmitError {
     /// The writer has stopped.
     #[error("writer stopped")]
     Closed,
+    /// The ledger could not be led here: it is not opened, its stored head does not fit the
+    /// engine or the store refused; nothing was written (T-85 item 4).
+    #[error("ledger not led: {0}")]
+    Lead(LedgerError),
 }
 
 struct Request {
