@@ -111,6 +111,7 @@ pub(crate) fn kernel_violations(root: &Path, md: &Metadata) -> Vec<Violation> {
 }
 
 /// Kernel tree violations over metadata resolved for `target` (T-87).
+#[cfg(test)]
 pub(crate) fn tree_violations(root: &Path, md: &Metadata, target: &str) -> Vec<Violation> {
     violations_within(root, md, target, None)
 }
