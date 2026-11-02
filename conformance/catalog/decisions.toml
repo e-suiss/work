@@ -4196,6 +4196,7 @@ family = "T"
 status = "central-decision"
 title = ""
 tests = [
+  "bins/work-server/src/config.rs::t_7_the_checkpoint_origin_prefix_is_required_and_ends_with_a_slash",
   "bins/work-signer/src/answer.rs::t_7_only_the_canonical_body_of_a_configured_ledger_checkpoint_is_signed",
   "bins/work-signer/src/config.rs::t_7_the_origin_prefix_and_the_key_name_follow_the_note_rules",
   "bins/work-signer/tests/signer.rs::t_7_the_signer_signs_checkpoints_of_its_ledgers_only",
@@ -4271,6 +4272,7 @@ stage = 2
 acceptance = "to-fill"
 title = ""
 tests = [
+  "bins/work-server/src/config.rs::t_76_the_publisher_takes_the_policy_defaults_and_needs_an_https_source",
   "crates/dispatch/src/app.rs::t_17_pointers_publish_in_order_with_the_event_id_as_msg_id",
   "crates/dispatch/src/domain.rs::t_17_event_is_derived_deterministically_from_the_committed_row",
 ]
@@ -4576,6 +4578,9 @@ acceptance = "to-fill"
 title = "OpenTelemetry signals with trace context, no identity labels and no secrets"
 tests = [
   "bins/work-server/src/config.rs::op_40_new_root_traces_are_sampled_at_one_in_ten_by_default",
+  "bins/work-server/src/config.rs::t_39_health_endpoints_listen_on_an_internal_address_of_their_own",
+  "bins/work-server/src/health.rs::t_39_metrics_raise_the_nats_alarm_with_a_bounded_label_set",
+  "bins/work-server/src/health.rs::t_39_readiness_looks_only_at_postgres_and_the_signer",
   "crates/telemetry/src/guard.rs::p_43_content_secret_and_genai_names_are_forbidden",
   "crates/telemetry/src/guard.rs::p_43_identifier_fields_are_allowed",
   "crates/telemetry/tests/content_guard.rs::op_19_record_body_bytes_never_reach_the_output",
@@ -5091,6 +5096,7 @@ acceptance = "to-fill"
 pd = "set"
 title = ""
 tests = [
+  "bins/work-server/src/config.rs::t_76_the_publisher_takes_the_policy_defaults_and_needs_an_https_source",
   "crates/dispatch/src/app.rs::t_76_a_duplicate_ack_still_removes_the_pointer",
   "crates/dispatch/src/app.rs::t_76_poll_takes_a_bounded_batch_and_acks_each_delivery",
   "crates/dispatch/src/domain.rs::t_76_consumers_are_durable_per_group_and_partition",
@@ -5183,7 +5189,9 @@ status = "frozen-technical"
 stage = 2
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "bins/work-server/src/health.rs::t_39_readiness_looks_only_at_postgres_and_the_signer",
+]
 
 [[rule]]
 id = "T-85"
@@ -5378,6 +5386,8 @@ title = "Telemetry is minimised, pseudonymous and never a decision input"
 tests = [
   "bins/work-server/src/config.rs::op_40_new_root_traces_are_sampled_at_one_in_ten_by_default",
   "bins/work-server/src/config.rs::t_20_urls_with_a_password_are_rejected",
+  "bins/work-server/src/config.rs::t_39_health_endpoints_listen_on_an_internal_address_of_their_own",
+  "bins/work-server/src/health.rs::t_39_metrics_raise_the_nats_alarm_with_a_bounded_label_set",
   "crates/telemetry/tests/content_guard.rs::p_43_content_and_secret_fields_are_never_recorded",
   "crates/telemetry/tests/content_guard.rs::sec_24_the_log_format_redacts_without_the_guard",
   "crates/telemetry/tests/redaction_canary.rs::t_39_json_logs_never_contain_secrets",
@@ -5496,6 +5506,7 @@ acceptance = "to-fill"
 pd = "unset"
 title = ""
 tests = [
+  "bins/work-server/src/config.rs::op_41_group_commit_values_come_from_the_configuration",
   "crates/ledger/src/group.rs::op_41_defaults_are_the_policy_defaults",
   "crates/ledger/src/group.rs::op_41_values_outside_their_range_are_refused",
 ]
@@ -5528,8 +5539,11 @@ acceptance = "to-fill"
 pd = "set"
 title = ""
 tests = [
+  "bins/work-server/src/config.rs::op_33_checkpoints_default_to_60_s_or_1000_records_and_need_a_replica",
   "crates/kernel/tests/ledger_vectors.rs::t_4_checkpoint_and_cosignature_vectors_through_the_kernel_verifier",
   "crates/ledger/src/checkpoint.rs::op_46_saas_declares_independent_time_and_at_least_two_witnesses",
+  "crates/ledger/src/ledgers.rs::op_33_a_checkpoint_is_due_after_60_s_or_1000_records_whichever_comes_first",
+  "crates/ledger/src/ledgers.rs::op_33_cadence_values_outside_their_range_are_refused",
   "crates/ledger/src/witness.rs::op_33_only_a_configured_witness_cosigning_the_stored_tree_is_taken",
   "crates/ledger/src/witness.rs::op_4_a_checkpoint_the_replica_does_not_hold_is_not_sent_to_witnesses",
 ]
@@ -5543,6 +5557,7 @@ acceptance = "to-fill"
 pd = "set"
 title = ""
 tests = [
+  "bins/work-server/src/config.rs::t_76_the_publisher_takes_the_policy_defaults_and_needs_an_https_source",
   "crates/dispatch/src/app.rs::op_34_only_acknowledged_pointers_are_removed",
 ]
 
@@ -5614,6 +5629,7 @@ stage = 2
 pd = "set"
 title = ""
 tests = [
+  "bins/work-server/src/config.rs::op_41_group_commit_values_come_from_the_configuration",
   "crates/ledger/src/group.rs::op_41_defaults_are_the_policy_defaults",
   "crates/ledger/src/group.rs::op_41_values_outside_their_range_are_refused",
 ]
