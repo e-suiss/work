@@ -143,9 +143,9 @@ fn comment(ledger: &LedgerId) -> Vec<u8> {
     dcbor::encode(&v, Limits::CEILING).unwrap()
 }
 
-/// A ledger opened with genesis nonce `nonce` and one human comment after its genesis, and its
-/// leader.
-async fn ledger_with_comment(env: &Env, nonce: u8) -> (Genesis, Leader) {
+/// A ledger opened with the schema digest byte `schema` and one human comment after its
+/// genesis, and its leader.
+async fn ledger_with_comment(env: &Env, schema: u8) -> (Genesis, Leader) {
     let sequencer = SequencerPool::new(env.pool("work_sequencer"))
         .await
         .unwrap();
@@ -153,8 +153,8 @@ async fn ledger_with_comment(env: &Env, nonce: u8) -> (Genesis, Leader) {
         &GenesisInput {
             recorded_at_ms: AT,
             protocol: (1, 0),
-            schema: [0x5c; 32],
-            nonce: [nonce; 32],
+            schema: [schema; 32],
+            nonce: [0x2a; 32],
         },
         Durability::SingleNode,
     )
@@ -269,7 +269,7 @@ fn one() -> WitnessProfile {
 #[ignore = "needs Docker, SoftHSM and sudo"]
 async fn p_20_the_signer_acknowledges_the_head_and_the_replica_takes_the_log() {
     let env = Env::start().await;
-    let (opened, leader) = ledger_with_comment(&env, 0x2a).await;
+    let (opened, leader) = ledger_with_comment(&env, 0x5c).await;
     let ledger = opened.ledger;
 
     let token = Token::new("containers");
@@ -349,7 +349,7 @@ async fn p_20_the_signer_acknowledges_the_head_and_the_replica_takes_the_log() {
         Some(RecordDurability::Included)
     );
 
-    let (opened, _leader) = ledger_with_comment(&env, 0x2b).await;
+    let (opened, _leader) = ledger_with_comment(&env, 0x5d).await;
     let single = opened.ledger;
     let hosted = checkpointer(&env, &signer, one()).await;
     let stored = hosted.checkpoint(&single, AT + 9).await.unwrap().unwrap();
@@ -368,7 +368,7 @@ async fn p_20_the_signer_acknowledges_the_head_and_the_replica_takes_the_log() {
         Some(RecordDurability::Witnessed)
     );
 
-    let (opened, _leader) = ledger_with_comment(&env, 0x2c).await;
+    let (opened, _leader) = ledger_with_comment(&env, 0x5e).await;
     let pair = opened.ledger;
     let two = WitnessProfile::Independent(NonZeroU8::MIN.saturating_add(1));
     let saas_like = checkpointer(&env, &signer, two).await;
