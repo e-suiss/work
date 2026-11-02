@@ -426,8 +426,8 @@ async fn op_33_a_led_ledger_is_checkpointed_on_its_cadence_and_mirrored() {
         &GenesisInput {
             recorded_at_ms: AT,
             protocol: (1, 0),
-            schema: [0x5c; 32],
-            nonce: [0x3c; 32],
+            schema: [0x3c; 32],
+            nonce: [0x2a; 32],
         },
         Durability::SingleNode,
     )
@@ -482,6 +482,12 @@ async fn op_33_a_led_ledger_is_checkpointed_on_its_cadence_and_mirrored() {
         origin_prefix: PREFIX.to_owned(),
         replica: DirectoryReplica::new("local", &root),
         cadence: Cadence::new(Duration::from_secs(3600), 1).unwrap(),
+        declaration: Declaration::new(
+            Deployment::SelfHost,
+            TimeSources::Dependent,
+            WitnessProfile::LocalDependent,
+        )
+        .unwrap(),
     };
     let stats = Arc::new(CheckpointStats::default());
     let task = tokio::spawn(run_checkpoints(

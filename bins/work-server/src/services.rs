@@ -57,6 +57,9 @@ impl Services {
             cadence: config
                 .cadence()
                 .map_err(|e| StartupError::Config(e.to_string()))?,
+            declaration: config
+                .declaration()
+                .map_err(|e| StartupError::Config(e.to_string()))?,
         };
         let checkpoints = Arc::new(CheckpointStats::default());
         let handles = vec![

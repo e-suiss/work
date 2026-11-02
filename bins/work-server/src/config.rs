@@ -1,6 +1,7 @@
 //! Typed process configuration, validated at start-up (T-32 rule 8).
 
 use std::net::{Ipv4Addr, SocketAddr};
+use std::num::NonZeroU8;
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -13,9 +14,10 @@ use work_dispatch::{PublisherConfig, StreamSettings};
 use work_ledger::time::{
     NTS_KE_PORT, NtsServer, RoughtimeServer, RoughtimeVersion, TimeConfigError, check_sources,
 };
+use work_kernel::proof::{TimeSources, WitnessProfile};
 use work_ledger::{
     Cadence, CadenceError, DEFAULT_CHECKPOINT_RECORDS, DEFAULT_MAX_BYTES, DEFAULT_MAX_RECORDS,
-    DEFAULT_QUEUE, GroupConfig, GroupConfigError,
+    DEFAULT_QUEUE, Declaration, DeclarationError, Deployment, GroupConfig, GroupConfigError,
 };
 use work_telemetry::{DEFAULT_MAX_QUEUE_SIZE, InvalidSampleRatio, SampleRatio, TraceConfig};
 
@@ -49,6 +51,59 @@ pub(crate) struct Config {
     pub(crate) publisher: Publisher,
     /// Group commit values (OP-31, OP-41).
     pub(crate) group_commit: GroupCommitValues,
+    /// What every checkpoint declares (OP-32 item 5, OP-33 item 1, OP-46 item 3).
+    pub(crate) declaration: DeclarationValues,
+}
+
+/// The profile declaration; by default a self-hosted installation that claims neither
+/// independent time sources nor any witness (OP-46).
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct DeclarationValues {
+    /// Where the installation runs.
+    pub(crate) deployment: DeploymentWire,
+    /// Whether the NTS sources are run by different organisations (OP-32 item 5).
+    pub(crate) time_sources: TimeSourcesWire,
+    /// The witness profile (OP-33).
+    pub(crate) witness: WitnessWire,
+    /// The number k of independent witnesses, used only with `witness = "independent"`.
+    pub(crate) independent_witnesses: u8,
+}
+
+/// `deployment`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+pub(crate) enum DeploymentWire {
+    /// The Suiss-operated service.
+    #[serde(rename = "saas")]
+    Saas,
+    /// A self-hosted or local installation.
+    #[serde(rename = "self-host")]
+    SelfHost,
+}
+
+/// `time_sources`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+pub(crate) enum TimeSourcesWire {
+    /// Run by different organisations.
+    #[serde(rename = "independent")]
+    Independent,
+    /// Not independent, as locally and in CI.
+    #[serde(rename = "dependent")]
+    Dependent,
+}
+
+/// `witness`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+pub(crate) enum WitnessWire {
+    /// No witness is declared.
+    #[serde(rename = "none")]
+    Undeclared,
+    /// The dependent witness of a local or single-node installation.
+    #[serde(rename = "local-dependent")]
+    LocalDependent,
+    /// `independent_witnesses` independent witnesses.
+    #[serde(rename = "independent")]
+    Independent,
 }
 
 /// The signer's Unix socket.
@@ -241,6 +296,13 @@ impl Default for Config {
                 queue: DEFAULT_QUEUE,
                 retry_after_ms: 1_000,
             },
+            // OP-46
+            declaration: DeclarationValues {
+                deployment: DeploymentWire::SelfHost,
+                time_sources: TimeSourcesWire::Dependent,
+                witness: WitnessWire::Undeclared,
+                independent_witnesses: 0,
+            },
         }
     }
 }
@@ -274,6 +336,10 @@ pub(crate) enum ConfigError {
     Publisher(#[from] work_dispatch::ConfigError),
     #[error("group_commit: {0}")]
     GroupCommit(#[from] GroupConfigError),
+    #[error("declaration: {0}")]
+    Declaration(#[from] DeclarationError),
+    #[error("declaration.independent_witnesses must be at least 1 with witness = \"independent\"")]
+    Witnesses,
 }
 
 impl Config {
@@ -326,6 +392,7 @@ impl Config {
         self.replica_directory()?;
         self.publisher_config().validate()?;
         self.group_config()?;
+        self.declaration()?;
         Ok(())
     }
 
@@ -364,6 +431,27 @@ impl Config {
             g.queue,
             Duration::from_millis(g.retry_after_ms),
         )?)
+    }
+
+    /// The profile every checkpoint declares (OP-46 item 3).
+    pub(crate) fn declaration(&self) -> Result<Declaration, ConfigError> {
+        let d = &self.declaration;
+        let deployment = match d.deployment {
+            DeploymentWire::Saas => Deployment::Saas,
+            DeploymentWire::SelfHost => Deployment::SelfHost,
+        };
+        let time_sources = match d.time_sources {
+            TimeSourcesWire::Independent => TimeSources::Independent,
+            TimeSourcesWire::Dependent => TimeSources::Dependent,
+        };
+        let witness = match d.witness {
+            WitnessWire::Undeclared => WitnessProfile::Undeclared,
+            WitnessWire::LocalDependent => WitnessProfile::LocalDependent,
+            WitnessWire::Independent => WitnessProfile::Independent(
+                NonZeroU8::new(d.independent_witnesses).ok_or(ConfigError::Witnesses)?,
+            ),
+        };
+        Ok(Declaration::new(deployment, time_sources, witness)?)
     }
 
     pub(crate) const fn signer_timeout(&self) -> Duration {
@@ -574,6 +662,47 @@ mod tests {
                 "{toml}"
             );
         }
+    }
+
+    // OP-46 OP-33 OP-32
+    #[test]
+    fn op_46_the_declaration_defaults_to_claiming_nothing_and_saas_needs_independence() {
+        let local = Declaration::new(
+            Deployment::SelfHost,
+            TimeSources::Dependent,
+            WitnessProfile::Undeclared,
+        );
+        assert_eq!(with("").unwrap().declaration().ok(), local.ok());
+        let saas = "[declaration]\ndeployment = \"saas\"\ntime_sources = \"independent\"\nwitness = \"independent\"\nindependent_witnesses = 2";
+        let two = NonZeroU8::new(2).unwrap();
+        assert_eq!(
+            with(saas).unwrap().declaration().unwrap(),
+            Declaration::new(
+                Deployment::Saas,
+                TimeSources::Independent,
+                WitnessProfile::Independent(two),
+            )
+            .unwrap()
+        );
+        let compose = "[declaration]\nwitness = \"local-dependent\"";
+        assert!(with(compose).is_ok());
+        for toml in [
+            "[declaration]\ndeployment = \"saas\"",
+            "[declaration]\ndeployment = \"saas\"\nwitness = \"independent\"\nindependent_witnesses = 2",
+        ] {
+            assert!(
+                matches!(with(toml), Err(ConfigError::Declaration(_))),
+                "{toml}"
+            );
+        }
+        assert!(matches!(
+            with("[declaration]\nwitness = \"independent\""),
+            Err(ConfigError::Witnesses)
+        ));
+        assert!(matches!(
+            with("[declaration]\nwitness = \"cosigned\""),
+            Err(ConfigError::Parse(_))
+        ));
     }
 
     // OP-41 OP-31

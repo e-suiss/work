@@ -506,7 +506,7 @@ async fn t_17_a_committed_record_reaches_jetstream_through_the_server() {
             recorded_at_ms: AT,
             protocol: (1, 0),
             schema: [0x5c; 32],
-            nonce: [0x2b; 32],
+            nonce: [0x2a; 32],
         },
         Durability::SingleNode,
     )

@@ -17,8 +17,8 @@ use tokio::time::MissedTickBehavior;
 use work_store::{CheckpointerPool, LedgerId, SequencerPool};
 
 use crate::{
-    Checkpointer, Clock, Committed, DirectoryReplica, GroupCommit, GroupConfig, Leader,
-    LedgerError, PendingRecord, SignerClient, SubmitError,
+    Checkpointer, Clock, Committed, Declaration, DirectoryReplica, GroupCommit, GroupConfig,
+    Leader, LedgerError, PendingRecord, SignerClient, SubmitError,
 };
 
 /// Ledger time between checkpoints of a ledger with new records (OP-33 item 4; POLICY DEFAULT,
@@ -240,6 +240,8 @@ pub struct CheckpointSetup {
     pub replica: DirectoryReplica,
     /// When a checkpoint is due.
     pub cadence: Cadence,
+    /// The time sources and witnesses every checkpoint declares (OP-46 item 3).
+    pub declaration: Declaration,
 }
 
 async fn connect(setup: &CheckpointSetup, stats: &CheckpointStats) -> Option<Checkpointer> {
@@ -247,6 +249,7 @@ async fn connect(setup: &CheckpointSetup, stats: &CheckpointStats) -> Option<Che
         setup.pool.clone(),
         setup.signer.clone(),
         &setup.origin_prefix,
+        setup.declaration,
     )
     .await
     {

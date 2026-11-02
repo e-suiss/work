@@ -1,4 +1,4 @@
-# OP-32, OP-42, OP-43, T-41, T-20, T-39, OP-33, T-76
+# OP-32, OP-42, OP-43, T-41, T-20, T-39, OP-33, T-76, OP-46
 
 [postgres]
 canonical = "postgres://work_app@postgres:5432/work"
@@ -21,6 +21,11 @@ directory = "/var/lib/work/replica"
 
 [publisher]
 source = "https://work.localhost"
+
+[declaration]
+deployment = "self-host"
+time_sources = "dependent"
+witness = "local-dependent"
 
 [ledger_time]
 nts_roots = "/etc/work/nts-root.pem"
