@@ -289,7 +289,7 @@ async fn nats(url: &str, limit: Duration) -> Result<async_nats::Client, StartupE
 mod tests {
     use super::*;
 
-    // T-20 MD-14
+    // T-20 MD-14 T-93
     #[test]
     fn t_20_postgres_18_and_later_are_accepted() {
         for num in [180_000, 180_006, 190_002, i32::MAX] {
@@ -297,7 +297,7 @@ mod tests {
         }
     }
 
-    // T-20 MD-14
+    // T-20 MD-14 T-93
     #[test]
     fn t_20_postgres_older_than_18_is_refused() {
         for num in [170_006, 179_999, 160_000, 90_624, 0, -1, i32::MIN] {

@@ -573,7 +573,7 @@ mod tests {
         assert!(Config::default().listen.ip().is_loopback());
     }
 
-    // T-39 OP-18
+    // T-39 OP-18 T-93
     #[test]
     fn t_39_health_endpoints_listen_on_an_internal_address_of_their_own() {
         let config = Config::default();
@@ -583,7 +583,7 @@ mod tests {
         assert_eq!(set.internal_listen.port(), 9091);
     }
 
-    // OP-33 P-20
+    // OP-33 P-20 T-93
     #[test]
     fn op_33_checkpoints_default_to_60_s_or_1000_records_and_need_a_replica() {
         let config = with("").unwrap();
@@ -620,7 +620,7 @@ mod tests {
         assert!(matches!(without, Err(ConfigError::Replica)));
     }
 
-    // T-7 P-20
+    // T-7 P-20 T-93
     #[test]
     fn t_7_the_checkpoint_origin_prefix_is_required_and_ends_with_a_slash() {
         for prefix in ["", "/", "work.example/ledger", "/w/", "w x/", "a+b/"] {
@@ -642,7 +642,7 @@ mod tests {
         assert_eq!(config.signer_timeout(), Duration::from_secs(5));
     }
 
-    // T-17 T-76 OP-34
+    // T-17 T-76 OP-34 T-93
     #[test]
     fn t_76_the_publisher_takes_the_policy_defaults_and_needs_an_https_source() {
         let config = with("").unwrap();
@@ -664,7 +664,7 @@ mod tests {
         }
     }
 
-    // OP-46 OP-33 OP-32
+    // OP-46 OP-33 OP-32 T-93
     #[test]
     fn op_46_the_declaration_defaults_to_claiming_nothing_and_saas_needs_independence() {
         let local = Declaration::new(
@@ -820,7 +820,7 @@ mod tests {
         ));
     }
 
-    // T-20 MD-14 OP-2
+    // T-20 MD-14 OP-2 T-93
     #[test]
     fn t_20_both_databases_and_nats_are_configured() {
         let config = with(
@@ -863,7 +863,7 @@ mod tests {
         }
     }
 
-    // T-20 OP-18
+    // T-20 OP-18 T-93
     #[test]
     fn t_20_urls_with_a_password_are_rejected() {
         for (toml, key) in [

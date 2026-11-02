@@ -218,7 +218,7 @@ mod tests {
         mirror_failures: 0,
     };
 
-    // T-39 T-84 T-21
+    // T-39 T-84 T-21 T-93
     #[test]
     fn t_39_readiness_looks_only_at_postgres_and_the_signer() {
         assert!(ALL.ready());
@@ -251,7 +251,7 @@ mod tests {
         );
     }
 
-    // T-39 OP-18
+    // T-39 OP-18 T-93
     #[test]
     fn t_39_metrics_raise_the_nats_alarm_with_a_bounded_label_set() {
         let text = exposition(Probes { nats: false, ..ALL }, NONE);

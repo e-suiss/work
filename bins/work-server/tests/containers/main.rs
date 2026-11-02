@@ -359,7 +359,7 @@ async fn t_20_refuses_to_start_when_a_database_is_missing() {
     assert!(log.contains("server.start_refused"), "{log}");
 }
 
-// T-79 OP-12 T-13
+// T-79 OP-12 T-13 T-93
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "needs Docker"]
 async fn t_79_refuses_to_start_when_a_writing_pool_logs_in_as_another_role() {
@@ -484,7 +484,7 @@ async fn next_event(consumer: &PullConsumer) -> async_nats::Message {
     .unwrap()
 }
 
-// T-17 T-76 OP-34 T-81 P-42 T-39
+// T-17 T-76 OP-34 T-81 P-42 T-39 T-93
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "needs Docker"]
 async fn t_17_a_committed_record_reaches_jetstream_through_the_server() {

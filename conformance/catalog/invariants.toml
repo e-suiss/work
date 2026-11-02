@@ -2036,7 +2036,9 @@ status = "canonical-invariant"
 stage = 2
 title = ""
 tests = [
+  "crates/ledger/src/admit/tests.rs::op_1_the_golden_ledger_replays_from_its_stored_bytes_to_the_admitted_records",
   "crates/store/src/migrate.rs::op_2_tables_live_in_exactly_one_cluster",
+  "crates/store/src/rebuild.rs::op_1_a_rebuild_reads_only_canonical_tables",
 ]
 
 [[rule]]
@@ -2104,7 +2106,12 @@ family = "OP"
 status = "canonical-invariant"
 stage = 2
 title = ""
-tests = []
+tests = [
+  "crates/ledger/src/admit/tests.rs::op_1_the_golden_ledger_replays_from_its_stored_bytes_to_the_admitted_records",
+  "crates/store/src/rebuild.rs::op_1_a_rebuild_reads_only_canonical_tables",
+  "crates/store/src/rebuild.rs::op_1_the_diff_names_each_missing_and_unexpected_row",
+  "crates/store/src/rebuild.rs::t_10_every_sync_derived_table_is_rebuilt_or_checked_against_the_log",
+]
 
 [[rule]]
 id = "OP-3"

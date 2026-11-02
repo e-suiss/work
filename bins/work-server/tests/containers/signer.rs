@@ -158,7 +158,7 @@ async fn becomes(at: std::net::SocketAddr, path: &str, status: u16) -> String {
     .unwrap_or_else(|_| panic!("{path} did not answer {status}"))
 }
 
-// T-39 T-84 T-21 T-28 OP-18
+// T-39 T-84 T-21 T-28 OP-18 T-93
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "needs Docker, SoftHSM and sudo"]
 async fn t_39_readiness_follows_postgres_and_the_signer_and_never_nats() {
