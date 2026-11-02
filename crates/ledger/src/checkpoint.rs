@@ -36,10 +36,10 @@ pub enum Deployment {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 #[non_exhaustive]
 pub enum DeclarationError {
-    /// A SaaS installation declares fewer than two independent witnesses (OP-33 item 1).
+    /// A `SaaS` installation declares fewer than two independent witnesses (OP-33 item 1).
     #[error("a SaaS installation declares at least two independent witnesses")]
     Witnesses,
-    /// A SaaS installation declares dependent time sources (OP-32 item 5).
+    /// A `SaaS` installation declares dependent time sources (OP-32 item 5).
     #[error("a SaaS installation declares independent time sources")]
     TimeSources,
 }
@@ -53,7 +53,7 @@ pub struct Declaration {
 }
 
 impl Declaration {
-    /// A declaration for a `deployment`; SaaS takes only `time_sources independent` and
+    /// A declaration for a `deployment`; `SaaS` takes only `time_sources independent` and
     /// `witness independent k` with k at least 2.
     ///
     /// # Errors
