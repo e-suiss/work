@@ -414,6 +414,7 @@ stage = 1
 title = ""
 tests = [
   "crates/kernel/tests/codec_vectors.rs::p_100_envelope_vectors_decode_and_chain_from_the_genesis",
+  "crates/kernel/tests/records.rs::ev_35_every_evidence_presenter_has_an_actor_type_in_evidence_order",
   "crates/kernel/tests/records.rs::inv_18_every_on_behalf_of_ring_has_an_actor_type",
 ]
 
@@ -1653,9 +1654,13 @@ status = "canonical-invariant"
 stage = 3
 title = ""
 tests = [
+  "crates/kernel/src/envelope.rs::ev_35_presenter_actor_types_are_one_to_256_entries",
   "crates/kernel/tests/codec_vectors.rs::p_100_envelope_vectors_decode_and_chain_from_the_genesis",
+  "crates/kernel/tests/ledger_vectors.rs::ev_35_a_stored_presenter_annotation_must_match_the_record_evidence",
+  "crates/kernel/tests/records.rs::ev_35_every_evidence_presenter_has_an_actor_type_in_evidence_order",
   "crates/kernel/tests/records.rs::inv_18_every_on_behalf_of_ring_has_an_actor_type",
   "crates/kernel/tests/records.rs::inv_23_actor_type_is_not_an_authority_input",
+  "crates/ledger/src/admit/tests.rs::ev_35_the_envelope_carries_the_presenter_actor_types_the_caller_resolved",
   "crates/ledger/src/admit/tests.rs::p_100_the_admission_path_seals_the_golden_ledger_byte_for_byte",
 ]
 

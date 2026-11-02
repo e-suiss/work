@@ -2702,6 +2702,22 @@ title = ""
 tests = []
 
 [[rule]]
+id = "EV-35"
+family = "EV"
+status = "frozen-protocol"
+stage = 1
+acceptance = "to-fill"
+title = ""
+tests = [
+  "crates/kernel/src/envelope.rs::ev_35_presenter_actor_types_are_one_to_256_entries",
+  "crates/kernel/tests/codec_vectors.rs::p_100_envelope_vectors_decode_and_chain_from_the_genesis",
+  "crates/kernel/tests/ledger_vectors.rs::ev_35_a_stored_presenter_annotation_must_match_the_record_evidence",
+  "crates/kernel/tests/records.rs::ev_35_every_evidence_presenter_has_an_actor_type_in_evidence_order",
+  "crates/ledger/src/admit/tests.rs::ev_35_the_envelope_carries_the_presenter_actor_types_the_caller_resolved",
+  "crates/ledger/src/admit/tests.rs::p_100_the_admission_path_seals_the_golden_ledger_byte_for_byte",
+]
+
+[[rule]]
 id = "FD-1"
 family = "FD"
 status = "central-decision"
@@ -2915,6 +2931,7 @@ tests = [
   "crates/kernel/src/codec/mod.rs::p_5_every_shared_decoder_error_has_a_work_code",
   "crates/kernel/tests/codec_vectors.rs::p_5_cbor_canonical_vectors_through_the_shared_decoder",
   "crates/kernel/tests/codec_vectors.rs::p_67_digest_vectors_decode_encode_and_reject",
+  "crates/kernel/tests/ledger_vectors.rs::p_109_no_record_of_the_golden_ledger_repeats_another",
   "crates/kernel/tests/record_vectors.rs::p_72_rejected_record_vectors",
   "crates/kernel/tests/records.rs::p_69_ext_keys_are_in_canonical_map_order",
   "crates/kernel/tests/records.rs::p_72_empty_optional_lists_are_rejected",
@@ -3018,6 +3035,7 @@ tests = [
   "crates/kernel/tests/codec_vectors.rs::p_100_envelope_vectors_decode_and_chain_from_the_genesis",
   "crates/kernel/tests/codec_vectors.rs::p_100_genesis_vectors_select_the_schema_by_position",
   "crates/kernel/tests/derivation.rs::p_11_ledger_order_violations_are_errors",
+  "crates/kernel/tests/ledger_vectors.rs::p_109_no_record_of_the_golden_ledger_repeats_another",
   "crates/kernel/tests/ledger_vectors.rs::t_10_an_entry_that_does_not_match_its_bytes_is_an_envelope_mismatch",
   "crates/kernel/tests/ledger_vectors.rs::t_10_the_verifier_recomputes_every_record_id_from_the_stored_bytes",
   "crates/kernel/tests/ledger_vectors.rs::t_4_every_entry_is_included_in_the_cosigned_checkpoint",
@@ -3168,6 +3186,7 @@ tests = [
   "crates/kernel/tests/record_vectors.rs::p_72_rejected_record_vectors",
   "crates/kernel/tests/records.rs::p_33_sec_18_semantic_limits_accept_the_bound_and_reject_one_more",
   "crates/kernel/tests/records.rs::t_65_a_narrower_configured_limit_rejects_what_the_default_accepts",
+  "crates/ledger/src/admit/tests.rs::t_91_received_bytes_above_262_144_are_limit_exceeded_request",
 ]
 
 [[rule]]
@@ -3747,7 +3766,6 @@ tests = [
   "crates/kernel/tests/records.rs::t_4_rule_set_is_selected_from_the_record_version_only",
   "crates/ledger/src/admit/tests.rs::p_100_the_admission_path_seals_the_golden_ledger_byte_for_byte",
   "crates/ledger/src/admit/tests.rs::p_19_a_quarantined_record_is_written_with_its_reason",
-  "crates/ledger/src/admit/tests.rs::p_21_an_unsigned_record_of_an_unknown_protocol_is_refused",
 ]
 
 [[rule]]
@@ -3991,6 +4009,44 @@ tests = [
 ]
 
 [[rule]]
+id = "P-107"
+family = "P"
+status = "frozen-protocol"
+stage = 1
+acceptance = "to-fill"
+title = ""
+tests = [
+  "crates/kernel/tests/signature_vectors.rs::ev_3_a_record_without_the_evidence_reference_has_no_statement",
+  "crates/kernel/tests/signature_vectors.rs::ev_3_evidence_vectors_bind_the_presenter_signature_to_the_statement",
+]
+
+[[rule]]
+id = "P-108"
+family = "P"
+status = "frozen-protocol"
+stage = 1
+acceptance = "to-fill"
+title = ""
+tests = [
+  "crates/kernel/tests/ledger_vectors.rs::p_101_merkle_node_and_root_vectors_through_the_shared_crate",
+  "crates/kernel/tests/ledger_vectors.rs::t_10_an_entry_that_does_not_match_its_bytes_is_an_envelope_mismatch",
+  "crates/kernel/tests/ledger_vectors.rs::t_10_the_verifier_recomputes_every_record_id_from_the_stored_bytes",
+  "crates/kernel/tests/ledger_vectors.rs::t_4_every_entry_is_included_in_the_cosigned_checkpoint",
+  "crates/ledger/src/admit/tests.rs::p_21_an_unsigned_record_of_an_unknown_protocol_is_refused",
+]
+
+[[rule]]
+id = "P-109"
+family = "P"
+status = "frozen-protocol"
+stage = 1
+acceptance = "to-fill"
+title = ""
+tests = [
+  "crates/kernel/tests/ledger_vectors.rs::p_109_no_record_of_the_golden_ledger_repeats_another",
+]
+
+[[rule]]
 id = "PR-2"
 family = "PR"
 status = "frozen-product"
@@ -4154,6 +4210,7 @@ status = "frozen-technical"
 acceptance = "to-fill"
 title = ""
 tests = [
+  "crates/kernel/tests/ledger_vectors.rs::ev_35_a_stored_presenter_annotation_must_match_the_record_evidence",
   "crates/kernel/tests/ledger_vectors.rs::t_10_an_entry_that_does_not_match_its_bytes_is_an_envelope_mismatch",
   "crates/kernel/tests/ledger_vectors.rs::t_10_the_verifier_recomputes_every_record_id_from_the_stored_bytes",
   "crates/ledger/src/envelope.rs::t_10_the_pending_record_id_is_recomputed_from_its_bytes",
@@ -5159,6 +5216,19 @@ tests = [
 ]
 
 [[rule]]
+id = "T-88"
+family = "T"
+status = "frozen-technical"
+stage = 1
+acceptance = "to-fill"
+title = ""
+tests = [
+  "crates/kernel/tests/ledger_vectors.rs::t_4_checkpoint_and_cosignature_vectors_through_the_kernel_verifier",
+  "crates/kernel/tests/ledger_vectors.rs::t_4_every_entry_is_included_in_the_cosigned_checkpoint",
+  "crates/kernel/tests/ledger_vectors.rs::t_4_inclusion_and_consistency_vectors_through_the_kernel_verifier",
+]
+
+[[rule]]
 id = "T-89"
 family = "T"
 status = "frozen-technical"
@@ -5184,6 +5254,24 @@ tests = [
   "crates/ledger/src/admit/tests.rs::p_100_the_admission_path_seals_the_golden_ledger_byte_for_byte",
   "crates/ledger/src/admit/tests.rs::p_21_a_signed_agent_record_sent_unsigned_is_refused",
   "crates/ledger/src/admit/tests.rs::t_90_a_signed_record_keeps_its_cose_sign1_and_an_unsigned_one_its_context",
+  "crates/ledger/src/admit/tests.rs::t_91_received_bytes_above_262_144_are_limit_exceeded_request",
+]
+
+[[rule]]
+id = "T-91"
+family = "T"
+status = "frozen-technical"
+stage = 2
+acceptance = "to-fill"
+title = ""
+tests = [
+  "crates/ledger/src/admit/tests.rs::ev_35_the_envelope_carries_the_presenter_actor_types_the_caller_resolved",
+  "crates/ledger/src/admit/tests.rs::op_9_a_record_declaring_another_ledger_is_refused",
+  "crates/ledger/src/admit/tests.rs::p_100_the_admission_path_seals_the_golden_ledger_byte_for_byte",
+  "crates/ledger/src/admit/tests.rs::p_21_a_signed_agent_record_sent_unsigned_is_refused",
+  "crates/ledger/src/admit/tests.rs::p_21_an_unsigned_record_of_an_unknown_protocol_is_refused",
+  "crates/ledger/src/admit/tests.rs::t_89_the_items_and_pointers_come_from_the_concerned_works",
+  "crates/ledger/src/admit/tests.rs::t_91_received_bytes_above_262_144_are_limit_exceeded_request",
 ]
 
 [[rule]]
