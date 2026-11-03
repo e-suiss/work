@@ -497,6 +497,35 @@ func p_32_swift_signature_and_evidence_vectors_match(_ records: URL, _ tally: in
     }
 }
 
+// P-110 P-100 P-108 T-37 T-95
+func p_110_swift_activation_vectors_match(_ records: URL, _ tally: inout Tally) throws {
+    let name = #function
+    let file = try vectorFile(records, "activation.json")
+    for c in try cases(file, "cases", name) {
+        let id = try text(c["id"], name)
+        let input = try bytes(try text(c["hex"], id), id)
+        try same(&tally, name, id, decodeEnvelope(envelope: input), c["expect"] ?? NSNull())
+        if (c["expect"] as? JSONObject)?["outcome"] as? String == "accept" {
+            try same(&tally, name, id, recordId(record: input), found(c["entry_id"]))
+            try same(&tally, name, id, leafHash(envelope: input), found(c["leaf_hash"]))
+        }
+    }
+    for c in try cases(file, "sequences", name) {
+        let id = try text(c["id"], name)
+        let got = checkActivations(entries: try json(c["entries"] ?? NSNull(), id))
+        try same(&tally, name, id, got, c["expect"] ?? NSNull())
+    }
+    let keys: JSONObject = ["party": "party:acme:operator", "allowed": [-19, -9, -7], "keys": [Any]()]
+    for c in try cases(file, "verify", name) {
+        let id = try text(c["id"], name)
+        let got = verifyEntry(
+            at: try json(c["at"] ?? NSNull(), id), envelope: try bytes(try text(c["envelope"], id), id),
+            record: try bytes(try text(c["record"], id), id), coseSign1: nil,
+            authorKeys: try json(keys, id))
+        try same(&tally, name, id, got, c["expect"] ?? NSNull())
+    }
+}
+
 // T-10 P-11 P-21 P-75 P-79 P-100 P-108 EV-35 T-37 T-95
 func t_10_swift_stored_entries_verify_from_their_bytes(_ records: URL, _ tally: inout Tally) throws {
     let name = #function
@@ -544,7 +573,7 @@ func t_10_swift_stored_entries_verify_from_their_bytes(_ records: URL, _ tally: 
         try same(&tally, name, id, got, want)
         at = next
     }
-    guard verified == 14 else { throw HarnessError.malformed(name) }
+    guard verified == 18 else { throw HarnessError.malformed(name) }
 }
 
 func digests(_ value: Any?, _ id: String) throws -> [Any] {
@@ -640,7 +669,7 @@ func t_4_swift_merkle_and_checkpoint_vectors_match(_ records: URL, _ tally: inou
         try same(&tally, name, id, got, accepted())
         included += 1
     }
-    guard included == 17 else { throw HarnessError.malformed(name) }
+    guard included == 21 else { throw HarnessError.malformed(name) }
     signed["witnesses"] = [JSONObject]()
     let got = checkpointExtendsTo(older: try json(signed, name), newer: checkpoint, path: "[]")
     try same(&tally, name, "extends", got, accepted())
@@ -697,6 +726,7 @@ do {
     try p_5_swift_cbor_canonical_vectors_match(records, &tally)
     try p_79_swift_digest_vectors_match(records, &tally)
     try p_100_swift_genesis_envelope_and_record_bytes_match(records, &tally)
+    try p_110_swift_activation_vectors_match(records, &tally)
     try p_32_swift_signature_and_evidence_vectors_match(records, &tally)
     try t_10_swift_stored_entries_verify_from_their_bytes(records, &tally)
     try t_4_swift_merkle_and_checkpoint_vectors_match(records, &tally)

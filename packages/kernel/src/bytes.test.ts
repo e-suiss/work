@@ -15,7 +15,7 @@ const checks = byteChecks(kernel, raw, byteVectors);
 // T-5 T-37 T-69 INV-7 INV-8 X-24 T-95 P-49 P-51
 describe("t_5_t_37_inv_7 WebAssembly byte entry points match their vectors", () => {
   it("runs every record format vector file, the touched item and the mapping vectors", () => {
-    expect(new Set(checks.map((c) => c.file)).size).toBe(10);
+    expect(new Set(checks.map((c) => c.file)).size).toBe(11);
   });
 
   it.each(checks)("$file $id", (c) => {

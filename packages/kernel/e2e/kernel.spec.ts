@@ -172,7 +172,7 @@ test.describe("t_5_t_37_inv_7 browser WebAssembly byte entry points match their 
       JSON.stringify(byteVectors),
     );
     const files = new Set(checks.map((c) => c.file));
-    expect(files.size).toBe(10);
+    expect(files.size).toBe(11);
     for (const c of checks) {
       expect.soft(c.got, `${c.file} ${c.id}`).toBe(c.want);
     }

@@ -63,6 +63,7 @@ export const recordFiles = [
 
 /** Record vector files the browser runs only through the byte entry points and the derivation. */
 export const byteRecordFiles = [
+  "activation.json",
   "cbor-canonical.json",
   "cose-sign1.json",
   "derive-entries.json",
@@ -121,6 +122,7 @@ export const expectedDerivation = (
 
 /** Every record format vector file, the touched item vectors and the mapping vectors, for the byte entry points (T-5, T-37). */
 export const byteVectors: ByteVectors = {
+  activation: await json<ByteVectors["activation"]>(recordsDir, "activation.json"),
   cbor: await json<ByteVectors["cbor"]>(recordsDir, "cbor-canonical.json"),
   cose: await json<ByteVectors["cose"]>(recordsDir, "cose-sign1.json"),
   digest: await json<ByteVectors["digest"]>(recordsDir, "digest.json"),

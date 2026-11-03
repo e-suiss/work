@@ -1,5 +1,6 @@
 // T-5 T-37 INV-7
 import type {
+  ChainPoint,
   DecodedRecord,
   DigestJson,
   JsonObject,
@@ -180,8 +181,35 @@ export interface ConsistencyCase {
   readonly expect: Expect;
 }
 
+export interface ActivationCase {
+  readonly id: string;
+  readonly hex: string;
+  readonly entry_id?: string;
+  readonly leaf_hash?: string;
+  readonly expect: JsonObject;
+}
+
+export interface ActivationSequence {
+  readonly id: string;
+  readonly entries: readonly string[];
+  readonly expect: JsonObject;
+}
+
+export interface ActivationVerify {
+  readonly id: string;
+  readonly at: ChainPoint;
+  readonly envelope: string;
+  readonly record: string;
+  readonly expect: JsonObject;
+}
+
 /** The parsed record format, touched item and mapping vector files the byte entry points run against. */
 export interface ByteVectors {
+  readonly activation: {
+    readonly cases: readonly ActivationCase[];
+    readonly sequences: readonly ActivationSequence[];
+    readonly verify: readonly ActivationVerify[];
+  };
   readonly cbor: { readonly cases: readonly CborCase[] };
   readonly cose: {
     readonly keys: readonly CoseKey[];

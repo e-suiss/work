@@ -152,8 +152,9 @@ pub use cbor::{
 pub use derivation::derive_records;
 pub use items::touched;
 pub use ledger::{
-    checkpoint_extends_to, checkpoint_includes, genesis_chain_point, merkle_node_hash, merkle_root,
-    verify_checkpoint, verify_consistency, verify_entry, verify_inclusion,
+    check_activations, checkpoint_extends_to, checkpoint_includes, genesis_chain_point,
+    merkle_node_hash, merkle_root, verify_checkpoint, verify_consistency, verify_entry,
+    verify_inclusion,
 };
 pub use mapping::map_record;
 pub use signature::{

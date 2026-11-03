@@ -334,6 +334,15 @@ pub fn verify_entry(
     work_bindings_core::verify_entry(at, envelope, record, cose_sign1.as_deref(), author_keys)
 }
 
+/// Checks a ledger's activation entries, given as a JSON array of envelope hex strings in log
+/// order with the genesis first; returns `{"outcome", "activations"?, "reason"?}` or
+/// `{"error": …}` as JSON text (P-110).
+#[wasm_bindgen(js_name = checkActivations)]
+#[must_use]
+pub fn check_activations(entries: &str) -> String {
+    work_bindings_core::check_activations(entries)
+}
+
 /// The RFC 9162 node hash of two digests; returns `{"digest"}` or `{"error": …}` as JSON text (P-101).
 #[wasm_bindgen(js_name = merkleNodeHash)]
 #[must_use]

@@ -11,13 +11,14 @@ use std::collections::BTreeMap;
 
 use serde_json::{Value, json};
 use work_bindings_core::{
-    body_commitment, check_cbor, check_public_key, checkpoint_extends_to, checkpoint_includes,
-    decode_digest, decode_envelope, decode_record_cbor, evidence_statement, genesis_chain_point,
-    leaf_hash, ledger_id, merkle_node_hash, merkle_root, parse_cose_container, proof_commit,
-    record_id, touched, verify_checkpoint, verify_consistency, verify_entry,
+    body_commitment, check_activations, check_cbor, check_public_key, checkpoint_extends_to,
+    checkpoint_includes, decode_digest, decode_envelope, decode_record_cbor, evidence_statement,
+    genesis_chain_point, leaf_hash, ledger_id, merkle_node_hash, merkle_root, parse_cose_container,
+    proof_commit, record_id, touched, verify_checkpoint, verify_consistency, verify_entry,
     verify_evidence_signature, verify_inclusion, verify_record_signature,
 };
 
+const ACTIVATION: &str = include_str!("../../../../conformance/vectors/records/activation.json");
 const CBOR: &str = include_str!("../../../../conformance/vectors/records/cbor-canonical.json");
 const COSE: &str = include_str!("../../../../conformance/vectors/records/cose-sign1.json");
 const DIGEST: &str = include_str!("../../../../conformance/vectors/records/digest.json");
@@ -267,6 +268,40 @@ fn p_100_genesis_envelope_and_record_bytes_decode_through_bindings_core() {
     }
 }
 
+// P-110 P-100 P-108 T-37 T-95
+#[test]
+fn p_110_activation_vectors_through_bindings_core() {
+    let v = file(ACTIVATION);
+    for case in cases(&v, "cases") {
+        let id = case["id"].as_str().unwrap();
+        let input = bytes(&case["hex"]);
+        same(id, &decode_envelope(&input), &case["expect"]);
+        if case["expect"]["outcome"] == "accept" {
+            let entry = digest(&case["entry_id"]);
+            let leaf = digest(&case["leaf_hash"]);
+            same(id, &record_id(&input), &found(&entry));
+            same(id, &leaf_hash(&input), &found(&leaf));
+        }
+    }
+    for case in cases(&v, "sequences") {
+        let id = case["id"].as_str().unwrap();
+        let got = check_activations(&case["entries"].to_string());
+        same(id, &got, &case["expect"]);
+    }
+    let keys = json!({ "party": "party:acme:operator", "allowed": ALLOWED, "keys": [] });
+    for case in cases(&v, "verify") {
+        let id = case["id"].as_str().unwrap();
+        let got = verify_entry(
+            &case["at"].to_string(),
+            &bytes(&case["envelope"]),
+            &bytes(&case["record"]),
+            None,
+            &keys.to_string(),
+        );
+        same(id, &got, &case["expect"]);
+    }
+}
+
 // P-32 P-6 P-7 P-75 P-102 P-105 P-106 T-37 T-95 Access CR-9
 #[test]
 fn p_32_cose_sign1_and_key_vectors_through_bindings_core() {
@@ -410,7 +445,7 @@ fn t_10_stored_entries_verify_from_their_bytes_through_bindings_core() {
         same(id, &got, &want);
         at = next;
     }
-    assert_eq!(verified, 14);
+    assert_eq!(verified, 18);
 }
 
 fn leaves() -> Vec<Value> {
@@ -541,7 +576,7 @@ fn t_88_checkpoint_vectors_through_bindings_core() {
         );
         included += 1;
     }
-    assert_eq!(included, 17);
+    assert_eq!(included, 21);
     let older = checkpoint(&notes[0], false);
     same(
         "extends",
@@ -570,7 +605,7 @@ fn t_89_touched_item_vectors_through_bindings_core() {
         let want = accept(json!({ "touches": case["touches"] }));
         same(id, &touched(&record_hex(&files, id)), &want);
     }
-    assert_eq!(all.len(), 13);
+    assert_eq!(all.len(), 17);
     for case in cases(&files[1], "cases") {
         if case["expect"]["reason"] == "protocol_version_unknown" {
             let id = case["id"].as_str().unwrap();

@@ -269,6 +269,15 @@ pub fn merkle_node_hash(left: &str, right: &str) -> String {
     work_bindings_core::merkle_node_hash(left, right)
 }
 
+/// Checks a ledger's activation entries, given as a JSON array of envelope hex strings in log
+/// order with the genesis first; returns `{"outcome", "activations"?, "reason"?}` or
+/// `{"error": …}` as JSON text (P-110).
+#[uniffi::export]
+#[must_use]
+pub fn check_activations(entries: &str) -> String {
+    work_bindings_core::check_activations(entries)
+}
+
 /// The RFC 9162 root over envelope bytes given as a JSON array of hex strings;
 /// returns `{"digest"}` or `{"error": …}` as JSON text (P-101).
 #[uniffi::export]

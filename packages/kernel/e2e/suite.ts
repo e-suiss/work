@@ -2,6 +2,7 @@
 import type * as Raw from "../wasm/work_kernel_wasm.js";
 import type { Kernel } from "../src/index.js";
 import type { ByteVectors, Check } from "./byte-vectors.js";
+import { activationChecks } from "./byte-activation.js";
 import { cborChecks, decodeChecks, digestChecks, signatureChecks } from "./byte-records.js";
 import { entryChecks } from "./byte-entries.js";
 import { touchedChecks } from "./byte-items.js";
@@ -16,6 +17,7 @@ export function byteChecks(kernel: Kernel, raw: typeof Raw, vectors: ByteVectors
     ...decodeChecks(kernel, raw, vectors),
     ...signatureChecks(kernel, raw, vectors),
     ...entryChecks(kernel, raw, vectors),
+    ...activationChecks(kernel, raw, vectors),
     ...proofChecks(kernel, raw, vectors),
     ...touchedChecks(kernel, raw, vectors),
     ...mappingChecks(kernel, raw, vectors),

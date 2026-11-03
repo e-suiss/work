@@ -130,7 +130,7 @@ fn t_10_derivation_takes_record_ids_from_the_stored_bytes_through_bindings_core(
             digest["digest"].clone()
         })
         .collect();
-    assert_eq!(ids.len(), 11);
+    assert_eq!(ids.len(), 15);
     assert_eq!(ids, from_bytes);
 }
 

@@ -1,11 +1,15 @@
 //! Stored ledger entries, Merkle proofs and checkpoints through the kernel verifier (T-4, T-7, T-10, T-88, P-11, P-20, P-100, P-101, P-108, OP-33, OP-46): an entry is verified from its stored bytes with the record ID recomputed, a proof or checkpoint answers with the shared crate's codes, and none of it states truth or authorisation (SEC-5).
 
 use serde_json::{Value, json};
+use work_kernel::activation::{Activation, check_activations as kernel_check_activations};
 use work_kernel::cose::AuthorKeys;
-use work_kernel::envelope::EnvelopeIngest;
+use work_kernel::envelope::{ActivatedVersion, EnvelopeIngest};
 use work_kernel::id::{Digest, LedgerId};
 use work_kernel::proof::{self, NoteError, ProofError, SignedCheckpoint, Verifier};
-use work_kernel::verify::{AuthorBinding, ChainPoint, StoredEntry, VerifiedEntry};
+use work_kernel::record::ProtocolVersion;
+use work_kernel::verify::{
+    AuthorBinding, ChainPoint, StoredEntry, Verified, VerifiedActivation, VerifiedEntry,
+};
 
 use crate::decode::{Mapped, digest, exact_keys, hex, list, object, required, text, uint};
 use crate::project::{accept, accepted, digest_answer, digest_json, fields, reject, uint_json};
@@ -74,9 +78,60 @@ fn verified(v: &VerifiedEntry) -> String {
     ]))
 }
 
-/// Verifies one stored ledger entry after the chain point `at` from its bytes alone: the envelope names the ledger and the previous leaf, its `record` is the digest of the stored record bytes, a signed record's `proof_commit` is the digest of the `COSE_Sign1` bytes and its signature verifies under the keys Access binds to its author, and an unsigned record is a human record with an authentication context (T-10, P-11, P-12, P-21, P-75, P-79, P-100, P-108, EV-35).
+fn protocol_json(p: ProtocolVersion) -> Value {
+    Value::Array(vec![uint_json(p.major), uint_json(p.minor)])
+}
+
+fn activated_json(a: &ActivatedVersion) -> Value {
+    json!({ "protocol": protocol_json(a.protocol), "schema": digest_json(&a.schema) })
+}
+
+fn verified_activation(v: &VerifiedActivation) -> String {
+    let envelope = v.envelope();
+    accept(fields([
+        ("record", digest_json(&v.id().0)),
+        ("binding", Value::from("auth_context")),
+        ("ledger", digest_json(&envelope.ledger.0)),
+        ("position", uint_json(envelope.position)),
+        ("recorded_at", uint_json(envelope.recorded_at.0)),
+        ("activation", activated_json(&envelope.activation)),
+        ("leaf", digest_json(&v.leaf())),
+        ("next", point_json(&v.next())),
+    ]))
+}
+
+fn activation_json(a: &Activation) -> Value {
+    json!({
+        "position": uint_json(a.position),
+        "protocol": protocol_json(a.protocol),
+        "schema": digest_json(&a.schema),
+    })
+}
+
+/// Checks the activation entries of one ledger with the kernel's sequence rule (P-110 item 8, T-95): `entries` is a JSON array of the envelope bytes in hex, in log order with the genesis first.
 ///
-/// `at` is `{"ledger":[-16,<hex>],"prev":[-16,<hex>]}`, from [`genesis_chain_point`] or the previous entry's `next`; `author_keys` has the shape of [`crate::verify_record_signature`]'s keys. Returns `{"outcome":"accept","record","author","binding":"signature_valid"|"auth_context","ledger","position","recorded_at","ingest","leaf","next"}` or `{"outcome":"reject","reason":<code>}`; input that does not fit returns `{"error":{"code":"invalid_json"}}`, `{"error":{"code":"invalid_chain_point"}}` or a keys error.
+/// Returns `{"outcome":"accept","activations":[{"position","protocol":[major,minor],"schema":[-16,<hex>]}]}` or `{"outcome":"reject","reason":<code>}`, or `{"error":{"code":"invalid_json"}}` or `{"error":{"code":"invalid_envelopes"}}`.
+#[must_use]
+pub fn check_activations(entries: &str) -> String {
+    let Some(entries) = parse(entries) else {
+        return input_error("invalid_json");
+    };
+    let Ok(bytes) = list(&entries, hex) else {
+        return input_error("invalid_envelopes");
+    };
+    let slices: Vec<&[u8]> = bytes.iter().map(Vec::as_slice).collect();
+    match kernel_check_activations(&slices) {
+        Ok(found) => {
+            let activations = Value::Array(found.iter().map(activation_json).collect());
+            accept(fields([("activations", activations)]))
+        }
+        Err(reason) => reject(&reason.to_string()),
+    }
+}
+
+/// Verifies one stored ledger entry after the chain point `at` from its bytes alone: the envelope names the ledger and the previous leaf, its `record` is the digest of the stored record bytes, a signed record's `proof_commit` is the digest of the `COSE_Sign1` bytes and its signature verifies under the keys Access binds to its author, and an unsigned record is a human record with an authentication context (T-10, P-11, P-12, P-21, P-75, P-79, P-100, P-108, EV-35); a version activation names the ledger and the previous leaf and its record bytes are its envelope bytes (P-110).
+///
+/// `at` is `{"ledger":[-16,<hex>],"prev":[-16,<hex>]}`, from [`genesis_chain_point`] or the previous entry's `next`; `author_keys` has the shape of [`crate::verify_record_signature`]'s keys. Returns `{"outcome":"accept","record","author","binding":"signature_valid"|"auth_context","ledger","position","recorded_at","ingest","leaf","next"}`, for an activation `{"outcome":"accept","record","binding":"auth_context","ledger","position","recorded_at","activation":{"protocol","schema"},"leaf","next"}`, or `{"outcome":"reject","reason":<code>}`; input that does not fit returns `{"error":{"code":"invalid_json"}}`, `{"error":{"code":"invalid_chain_point"}}` or a keys error.
 #[must_use]
 pub fn verify_entry(
     at: &str,
@@ -105,7 +160,8 @@ pub fn verify_entry(
         cose_sign1,
     };
     match work_kernel::verify::verify_entry(&port, &at, &entry) {
-        Ok(v) => verified(&v),
+        Ok(Verified::Record(v)) => verified(&v),
+        Ok(Verified::Activation(a)) => verified_activation(&a),
         Err(reason) => reject(&reason.to_string()),
     }
 }

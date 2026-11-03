@@ -55,6 +55,7 @@ export const REASON_CODES = [
   "envelope_mismatch:recorded_at",
   "envelope_mismatch:proof_commit",
   "envelope_mismatch:actor_type",
+  "envelope_mismatch:activation",
   "authority_missing",
   "capacity_mismatch",
   "capacity_missing",
@@ -70,9 +71,14 @@ export const REASON_CODES = [
   "duplicate_version",
   "retroactive_declaration",
   "supersedes_kind_mismatch",
+  "secret_detected",
 ] as const;
 
-export const QUARANTINE_CODES = ["extension_critical_unknown", "protocol_version_unknown"] as const;
+export const QUARANTINE_CODES = [
+  "extension_critical_unknown",
+  "protocol_version_unknown",
+  "secret_detected",
+] as const;
 
 /** A reason code the kernel decides with (P-11). */
 export type ReasonCode = (typeof REASON_CODES)[number];

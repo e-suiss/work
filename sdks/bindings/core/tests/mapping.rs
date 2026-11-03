@@ -39,7 +39,7 @@ fn p_49_p_51_mapping_vectors_through_bindings_core() {
         let got = map_record(&bytes(&case["hex"]), &case["context"].to_string());
         same(id, &got, &case["expect"]);
     }
-    assert_eq!(cases.len(), 21);
+    assert_eq!(cases.len(), 25);
     for record in file(RECORDS)["records"].as_array().unwrap() {
         assert!(
             cases.iter().any(|c| c["id"] == record["id"]),

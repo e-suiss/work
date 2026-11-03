@@ -171,7 +171,8 @@ export interface DerivationEntries {
 
 /** Every input besides the records that the normative result depends on (P-31, T-6). */
 export interface DerivationInputs {
-  readonly protocol: readonly [number, number];
+  /** The ledger's activations as `[position, [major, minor]]`, the genesis first (P-110). */
+  readonly activations: readonly (readonly [UintJson, readonly [number, number]])[];
   readonly profile: number;
   readonly practices: Readonly<Record<string, DigestJson>>;
   readonly trusted_publishers: readonly string[];
@@ -266,6 +267,34 @@ export interface EntryVerification {
   readonly ingest: Admission;
   readonly leaf: DigestJson;
   readonly next: ChainPoint;
+}
+
+/** A protocol version and the digest of its normative CDDL bytes (P-110). */
+export interface ActivatedVersion {
+  readonly protocol: readonly [UintJson, UintJson];
+  readonly schema: DigestJson;
+}
+
+/** What verifying a stored version activation establishes: its place in the chain and the operator's Access context as its binding (P-110). */
+export interface ActivationVerification {
+  readonly record: DigestJson;
+  readonly binding: "auth_context";
+  readonly ledger: DigestJson;
+  readonly position: UintJson;
+  readonly recorded_at: UintJson;
+  readonly activation: ActivatedVersion;
+  readonly leaf: DigestJson;
+  readonly next: ChainPoint;
+}
+
+/** One activation of a ledger, the genesis at position 0 (P-110). */
+export interface Activation extends ActivatedVersion {
+  readonly position: UintJson;
+}
+
+/** The activations of a ledger that pass the sequence rule (P-110). */
+export interface ActivationList {
+  readonly activations: readonly Activation[];
 }
 
 /** An RFC 9162 inclusion proof (P-101). */
@@ -423,7 +452,10 @@ export interface Verifier {
     record: Uint8Array,
     coseSign1: Uint8Array | undefined,
     authorKeys: PartyKeys,
-  ) => Accepted<EntryVerification> | Rejected;
+  ) => Accepted<EntryVerification> | Accepted<ActivationVerification> | Rejected;
+  readonly checkActivations: (
+    entries: readonly Uint8Array[],
+  ) => Accepted<ActivationList> | Rejected;
   readonly merkleNodeHash: (left: DigestJson, right: DigestJson) => DigestAnswer;
   readonly merkleRoot: (envelopes: readonly Uint8Array[]) => DigestAnswer;
   readonly verifyInclusion: (proof: InclusionProof) => Accepted | Rejected<ProofCode>;
@@ -600,6 +632,8 @@ const verifier: Verifier = {
   genesisChainPoint: (genesis) => answer("genesisChainPoint", wasm.genesisChainPoint(genesis)),
   verifyEntry: (at, envelope, record, coseSign1, keys) =>
     answer("verifyEntry", wasm.verifyEntry(j(at), envelope, record, coseSign1, j(keys))),
+  checkActivations: (entries) =>
+    answer("checkActivations", wasm.checkActivations(j(entries.map(hex)))),
   merkleNodeHash: (left, right) => answer("merkleNodeHash", wasm.merkleNodeHash(j(left), j(right))),
   merkleRoot: (envelopes) => answer("merkleRoot", wasm.merkleRoot(j(envelopes.map(hex)))),
   verifyInclusion: (proof) => answer("verifyInclusion", wasm.verifyInclusion(j(proof))),

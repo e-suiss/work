@@ -11,7 +11,7 @@ use work_kernel::derive::{
 use work_kernel::id::{PartyRef, RecordId, Time};
 use work_kernel::reason::{Reason, Schema};
 use work_kernel::record::{PracticePin, ProtocolVersion};
-use work_kernel::verify::{StoredEntry, VerifiedEntry, verify_entry};
+use work_kernel::verify::{StoredEntry, Verified as Stored, VerifiedEntry, verify_entry};
 
 use crate::decode::{
     self, Mapped, exact_keys, hex, list, object, optional, pair, party, required, text, uint,
@@ -35,7 +35,7 @@ const ENTRY_FIELDS: &[&str] = &[
 ];
 
 const INPUT_FIELDS: &[&str] = &[
-    "protocol",
+    "activations",
     "profile",
     "practices",
     "trusted_publishers",
@@ -53,7 +53,7 @@ struct EntryParts {
 }
 
 struct Inputs {
-    protocol: ProtocolVersion,
+    activations: Vec<(u64, ProtocolVersion)>,
     profile: ProfileVersion,
     practices: Vec<PracticePin>,
     trusted_publishers: Vec<PartyRef>,
@@ -93,15 +93,24 @@ fn entry_parts(m: &Map<String, Value>) -> Mapped<EntryParts> {
     })
 }
 
+fn protocol(v: &Value) -> Mapped<ProtocolVersion> {
+    let (major, minor) = pair(v)?;
+    Ok(ProtocolVersion {
+        major: uint(major)?,
+        minor: uint(minor)?,
+    })
+}
+
+fn activation(v: &Value) -> Mapped<(u64, ProtocolVersion)> {
+    let (position, version) = pair(v)?;
+    Ok((uint(position)?, protocol(version)?))
+}
+
 fn inputs(v: &Value) -> Mapped<Inputs> {
     let m = object(v)?;
     exact_keys(m, INPUT_FIELDS)?;
-    let (major, minor) = pair(required(m, "protocol")?)?;
     Ok(Inputs {
-        protocol: ProtocolVersion {
-            major: uint(major)?,
-            minor: uint(minor)?,
-        },
+        activations: list(required(m, "activations")?, activation)?,
         profile: ProfileVersion(
             u32::try_from(uint(required(m, "profile")?)?).map_err(|_| MISSING)?,
         ),
@@ -199,6 +208,7 @@ fn invalid_entry(index: usize, reason: Option<Reason>) -> String {
 }
 
 struct Verified {
+    index: usize,
     entry: VerifiedEntry,
     restriction: Restriction,
     issuer: AuthorityIssuer,
@@ -237,18 +247,21 @@ fn verified_entries(at: &Value, items: &[Value]) -> Result<Vec<Verified>, String
             Err(reason) => return Err(invalid_entry(index, Some(reason))),
         };
         at = entry.next();
-        out.push(Verified {
-            entry,
-            restriction: p.restriction,
-            issuer: p.issuer,
-        });
+        if let Stored::Record(entry) = entry {
+            out.push(Verified {
+                index,
+                entry,
+                restriction: p.restriction,
+                issuer: p.issuer,
+            });
+        }
     }
     Ok(out)
 }
 
 /// Verifies stored ledger entries from their bytes and folds them into the derived view (P-31, T-6, T-10).
 ///
-/// `entries` is `{"at": {"ledger": [-16, <hex>], "prev": [-16, <hex>]}, "entries": [...]}`: `at` is the chain point the first entry continues (from [`crate::genesis_chain_point`] or an earlier entry's `next`), and each entry in ledger order is `{"envelope": <hex>, "record": <hex>, "cose_sign1"?: <hex>, "author_keys", "restriction", "issuer"}` with `author_keys` in the shape of [`crate::verify_record_signature`]'s keys, `restriction` `"no_objection"`, `"deny"` or `"require"`, and `issuer` `"local"` or `["federated", <PartyRef>]`. Each entry is verified as [`crate::verify_entry`] verifies it; the record ID, record, position, time and ingest the fold reads come from the verified bytes, never from the caller. `inputs` is `{"protocol": [major, minor], "profile", "practices": {<namespace>: <digest>}, "trusted_publishers", "ledger_time", "calendar": "continuous"}`.
+/// `entries` is `{"at": {"ledger": [-16, <hex>], "prev": [-16, <hex>]}, "entries": [...]}`: `at` is the chain point the first entry continues (from [`crate::genesis_chain_point`] or an earlier entry's `next`), and each entry in ledger order is `{"envelope": <hex>, "record": <hex>, "cose_sign1"?: <hex>, "author_keys", "restriction", "issuer"}` with `author_keys` in the shape of [`crate::verify_record_signature`]'s keys, `restriction` `"no_objection"`, `"deny"` or `"require"`, and `issuer` `"local"` or `["federated", <PartyRef>]`. Each entry is verified as [`crate::verify_entry`] verifies it; the record ID, record, position, time and ingest the fold reads come from the verified bytes, never from the caller. `inputs` is `{"activations": [[position, [major, minor]]], "profile", "practices": {<namespace>: <digest>}, "trusted_publishers", "ledger_time", "calendar": "continuous"}`.
 ///
 /// Returns `{"derivation":{"records":[…],"chains":[…]}}`, or `{"error":{"code":…}}` with `invalid_json`, `invalid_inputs`, `invalid_entries`, `invalid_chain_point`, `invalid_entry` (with `index`, and `reason` when the entry does not verify or its record is of an unknown protocol version) or a kernel derivation error (`position_gap`, `recorded_at_out_of_order`, `duplicate_record`, `ledger_mismatch`, `overflow`).
 #[must_use]
@@ -267,15 +280,15 @@ pub fn derive_records(entries: &str, inputs_json: &str) -> String {
         Err(answer) => return answer,
     };
     let mut entries: Vec<Entry<'_>> = Vec::with_capacity(verified.len());
-    for (index, v) in verified.iter().enumerate() {
+    for v in &verified {
         let Some(entry) = Entry::verified(&v.entry, v.restriction, v.issuer.clone()) else {
             let unknown = matches!(v.entry.record(), Decoded::UnknownProtocol(_));
-            return invalid_entry(index, unknown.then_some(Reason::ProtocolVersionUnknown));
+            return invalid_entry(v.index, unknown.then_some(Reason::ProtocolVersionUnknown));
         };
         entries.push(entry);
     }
     let kernel_inputs = DerivationInputs {
-        protocol: inputs.protocol,
+        activations: &inputs.activations,
         profile: inputs.profile,
         practices: &inputs.practices,
         trust: TrustInputs {
