@@ -1,6 +1,6 @@
 [package]
 name = "work-proto"
-description = "Record, event and API types, checked against the CDDL and test vectors, the signer socket frames and the parser worker frames (T-35, T-7, T-72)."
+description = "Record, event and API types, checked against the CDDL and test vectors, the external standard mappings of a record, the signer socket frames and the parser worker frames (T-35, P-48, T-7, T-72)."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -9,6 +9,9 @@ repository.workspace = true
 publish = false
 
 [dependencies]
+# T-31
+work-kernel = { workspace = true }
+serde_json = { workspace = true, features = ["alloc"] }
 thiserror = { workspace = true }
 
 [lints]

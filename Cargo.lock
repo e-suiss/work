@@ -4744,6 +4744,7 @@ version = "0.1.0"
 dependencies = [
  "esuiss-work-kernel",
  "serde_json",
+ "work-proto",
 ]
 
 [[package]]
@@ -4853,6 +4854,8 @@ dependencies = [
 name = "work-proto"
 version = "0.1.0"
 dependencies = [
+ "esuiss-work-kernel",
+ "serde_json",
  "thiserror 2.0.21",
 ]
 
