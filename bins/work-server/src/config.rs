@@ -906,8 +906,7 @@ mod tests {
                 "{toml}"
             );
         }
-        let path =
-            std::env::temp_dir().join(format!("work-witness-{}.vkey", std::process::id()));
+        let path = std::env::temp_dir().join(format!("work-witness-{}.vkey", std::process::id()));
         std::fs::write(&path, format!("{WITNESS_A}\n")).unwrap();
         let from_file = format!(
             "[[witnesses]]\nid = \"w\"\nurl = \"http://w\"\nkey_file = \"{}\"\n",
@@ -916,7 +915,10 @@ mod tests {
         let endpoints = with(&from_file).unwrap().witness_endpoints().unwrap();
         std::fs::remove_file(&path).unwrap();
         assert_eq!(endpoints[0].witness.key.to_vkey(), WITNESS_A);
-        assert!(matches!(with(&from_file), Err(ConfigError::Witness(0, "key_file"))));
+        assert!(matches!(
+            with(&from_file),
+            Err(ConfigError::Witness(0, "key_file"))
+        ));
         assert!(matches!(
             with("[[witnesses]]\nid = \"w\"\nurl = \"http://w\"\n"),
             Err(ConfigError::Witness(0, "key"))
