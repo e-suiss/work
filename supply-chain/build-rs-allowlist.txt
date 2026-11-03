@@ -4,6 +4,7 @@ aws-lc-rs
 aws-lc-sys
 bincode-next
 bollard-buildkit-proto
+borsh
 camino
 cedar-policy
 cedar-policy-core
