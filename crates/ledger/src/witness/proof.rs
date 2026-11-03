@@ -106,8 +106,14 @@ mod tests {
             let slices: Vec<&[u8]> = all[..n].iter().map(Vec::as_slice).collect();
             let new_root = Digest::sha256(root(&slices));
             assert_eq!(tree_root(&leaves[..n]).unwrap(), *new_root.as_bytes());
-            assert!(consistency_proof(&leaves[..n], 0).unwrap().is_empty());
-            assert!(consistency_proof(&leaves[..n], size).unwrap().is_empty());
+            assert_eq!(
+                consistency_proof(&leaves[..n], 0).unwrap(),
+                Vec::<[u8; 32]>::new()
+            );
+            assert_eq!(
+                consistency_proof(&leaves[..n], size).unwrap(),
+                Vec::<[u8; 32]>::new()
+            );
             for m in 1..n {
                 let old = u64::try_from(m).unwrap();
                 let path = consistency_proof(&leaves[..n], old).unwrap();
