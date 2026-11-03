@@ -9,6 +9,7 @@ repository.workspace = true
 publish = false
 
 [dependencies]
+suiss-crypto = { workspace = true, features = ["aws-lc"] }
 suiss-sandbox = { workspace = true }
 work-dispatch = { workspace = true }
 work-kernel = { workspace = true }

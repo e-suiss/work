@@ -22,6 +22,7 @@
 
 #[path = "../support/mod.rs"]
 mod support;
+mod worm;
 
 use std::num::NonZeroU8;
 use std::sync::Arc;
@@ -496,7 +497,7 @@ async fn op_33_a_led_ledger_is_checkpointed_on_its_cadence_and_mirrored() {
             .unwrap(),
         signer: SignerClient::new(signer.socket.clone(), Duration::from_secs(5)),
         origin_prefix: PREFIX.to_owned(),
-        replica: DirectoryReplica::new("local", &root),
+        replica: DirectoryReplica::new("local", &root).into(),
         cadence: Cadence::new(Duration::from_secs(3600), 1).unwrap(),
         declaration: Declaration::new(
             Deployment::SelfHost,

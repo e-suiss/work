@@ -16,7 +16,9 @@
 //! rows, a difference being a sev-1 signal (OP-1). Bodies are sealed under three key tiers,
 //! the ledger KEK in the PKCS#11 token, a class DEK per subject and retention class and a DEK
 //! per part, written with their record and opened, or found unreadable after a crypto-shred, on
-//! the read path (OP-45); large ciphertexts may go to an S3-compatible store (T-20).
+//! the read path (OP-45); large ciphertexts may go to an S3-compatible store (T-20). The replica
+//! is a directory on a single node or an S3 bucket with Object Lock whose objects are written
+//! once (OP-33 item 3).
 
 mod admit;
 mod body;
@@ -30,8 +32,12 @@ mod ledgers;
 mod log;
 mod rebuild;
 mod replica;
+#[cfg(feature = "s3")]
+mod s3;
 pub mod time;
 mod witness;
+#[cfg(feature = "s3")]
+mod worm;
 
 pub use admit::{Arrival, AuthContext, MAX_RECEIVED, Submission, admit};
 pub use body::{
@@ -40,7 +46,7 @@ pub use body::{
     PartRead, SealedPart, context, kek_label, object_key, open_part, seal_part,
 };
 #[cfg(feature = "s3")]
-pub use body::{S3Config, S3Store};
+pub use body::S3Store;
 pub use checkpoint::{
     CheckpointError, Checkpointer, Declaration, DeclarationError, Deployment, SignerClient,
     acknowledgement,
@@ -59,9 +65,18 @@ pub use ledgers::{
 };
 pub use log::PgLog;
 pub use rebuild::{REBUILD_PAGE, RebuildError, rebuild, rebuild_diff};
-pub use replica::{DirectoryReplica, MirrorError};
+pub use replica::{
+    AnyReplica, DirectoryReplica, MirrorError, Replica, checkpoint_key, cosignature_key, entry_key,
+    leaf, put_checkpoint, put_cosignature, put_entry, received_key,
+};
+#[cfg(feature = "s3")]
+pub use replica::WormReplica;
+#[cfg(feature = "s3")]
+pub use s3::{S3Config, S3Error, tls_trusting};
 pub use witness::{
     Comparison, DEFAULT_WITNESS_TIMEOUT, MAX_WITNESS_PAUSE, WITNESS_RECHECK, WITNESS_TICK, Witness,
     WitnessAnswer, WitnessCallError, WitnessClient, WitnessEndpoint, WitnessError, WitnessPass,
     WitnessRole, WitnessSetup, WitnessStates, cosignatures, run_witnessing, witness_tls,
 };
+#[cfg(feature = "s3")]
+pub use worm::{MAX_RETENTION_DAYS, RETENTION_MODE, Retention, WormError, WormStore};

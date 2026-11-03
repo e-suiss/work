@@ -18,7 +18,13 @@ socket = "/run/work-signer/signer.sock"
 origin_prefix = "work.localhost/ledger/"
 
 [replica]
-directory = "/var/lib/work/replica"
+id = "local"
+
+[replica.s3]
+endpoint = "http://s3:7070"
+region = "us-east-1"
+bucket = "work-replica"
+retention_days = 3650
 
 [publisher]
 source = "https://work.localhost"

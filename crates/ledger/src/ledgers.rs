@@ -4,7 +4,8 @@
 //! [`run_checkpoints`] checkpoints each led ledger through `work-signer` once its [`Cadence`] is
 //! due, 60 s of ledger time or 1,000 records by default, whichever comes first, then mirrors it
 //! to the replica, which a witness cosignature waits for. Until the signer has answered its log
-//! key nothing is checkpointed and the connection is tried again on the next tick.
+//! key nothing is checkpointed and the connection is tried again on the next tick; the replica is
+//! prepared, its bucket created with Object Lock when it is one, on the first tick it answers.
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -17,8 +18,8 @@ use tokio::time::MissedTickBehavior;
 use work_store::{CheckpointerPool, LedgerId, SequencerPool};
 
 use crate::{
-    Checkpointer, Clock, Committed, Declaration, DirectoryReplica, GroupCommit, GroupConfig,
-    Leader, LedgerError, PendingRecord, SignerClient, SubmitError,
+    AnyReplica, Checkpointer, Clock, Committed, Declaration, GroupCommit, GroupConfig, Leader,
+    LedgerError, PendingRecord, Replica as _, SignerClient, SubmitError,
 };
 
 /// Ledger time between checkpoints of a ledger with new records (OP-33 item 4; POLICY DEFAULT,
@@ -228,7 +229,7 @@ impl CheckpointStats {
 }
 
 /// What the checkpointer works with.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct CheckpointSetup {
     /// The `work_checkpointer` pool.
     pub pool: CheckpointerPool,
@@ -237,7 +238,7 @@ pub struct CheckpointSetup {
     /// The checkpoint origin of a ledger is this prefix and the ledger id in hex.
     pub origin_prefix: String,
     /// The replica every checkpoint is mirrored to before a witness is asked (OP-4 item 3).
-    pub replica: DirectoryReplica,
+    pub replica: AnyReplica,
     /// When a checkpoint is due.
     pub cadence: Cadence,
     /// The time sources and witnesses every checkpoint declares (OP-46 item 3).
@@ -264,6 +265,23 @@ async fn connect(setup: &CheckpointSetup, stats: &CheckpointStats) -> Option<Che
         Err(error) => {
             tracing::warn!(event = "checkpointer.signer_unreachable", %error, "no checkpoint until the signer answers");
             None
+        }
+    }
+}
+
+async fn prepare(replica: &AnyReplica) -> bool {
+    match replica.prepare().await {
+        Ok(()) => {
+            tracing::info!(
+                event = "replica.prepared",
+                replica = replica.id(),
+                "replica takes objects"
+            );
+            true
+        }
+        Err(error) => {
+            tracing::warn!(event = "replica.unprepared", %error, "replica not ready yet");
+            false
         }
     }
 }
@@ -327,10 +345,14 @@ pub async fn run_checkpoints<C: Clock + Clone + Sync + 'static>(
 ) {
     let mut clock = ledgers.clock.clone();
     let mut checkpointer: Option<Checkpointer> = None;
+    let mut prepared = false;
     let mut ticks = tokio::time::interval(CHECKPOINT_TICK);
     ticks.set_missed_tick_behavior(MissedTickBehavior::Delay);
     loop {
         ticks.tick().await;
+        if !prepared {
+            prepared = prepare(&setup.replica).await;
+        }
         if checkpointer.is_none() {
             checkpointer = connect(&setup, &stats).await;
         }

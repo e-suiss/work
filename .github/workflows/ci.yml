@@ -345,9 +345,24 @@ jobs:
           test "$(curl -s -o /dev/null -w '%{http_code}' --data-binary 'old 0' http://127.0.0.1:7390/add-checkpoint)" = 400
           c logs work-server | grep 'server.services_started' | grep -q '"witnesses":1'
           c logs witness | grep -q 'verifier key'
+      - name: The replica is an Object Lock bucket on a durable volume (OP-33, OP-46, T-93)
+        env:
+          S3_USER: work-dev:local-only-not-a-secret
+        run: |
+          c() { docker compose -f deploy/compose/compose.yaml "$@"; }
+          lock() {
+            curl -fsS --aws-sigv4 'aws:amz:us-east-1:s3' --user "$S3_USER" \
+              'http://127.0.0.1:7072/work-replica?object-lock='
+          }
+          for _ in $(seq 1 60); do c logs work-server | grep -q 'replica.prepared' && break; sleep 1; done
+          c logs work-server | grep -q 'replica.prepared'
+          lock | grep -q '<ObjectLockEnabled>Enabled</ObjectLockEnabled>'
+          c restart s3
+          for _ in $(seq 1 60); do lock >/dev/null 2>&1 && break; sleep 1; done
+          lock | grep -q '<ObjectLockEnabled>Enabled</ObjectLockEnabled>'
       - name: Logs on failure
         if: failure()
-        run: docker compose -f deploy/compose/compose.yaml logs --no-color --tail 80 access relay relay-migrate nts-a nts-b roughtime-a roughtime-b roughtime-c witness work-signer work-server
+        run: docker compose -f deploy/compose/compose.yaml logs --no-color --tail 80 access relay relay-migrate nts-a nts-b roughtime-a roughtime-b roughtime-c s3 witness work-signer work-server
       - name: Stop
         if: always()
         run: just dev-down

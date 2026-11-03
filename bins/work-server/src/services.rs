@@ -2,23 +2,74 @@
 //! outbox publisher to NATS JetStream (T-17, T-76, OP-34), the ledgers this process leads with
 //! their group commit writers on ledger time (OP-6, OP-31, OP-41), the checkpointer that signs
 //! their checkpoints through `work-signer` on the OP-33 cadence and mirrors them to the
-//! directory replica before any witness (P-20, OP-4 item 3), and, with witnesses configured,
-//! the witnessing task that sends each mirrored checkpoint to them, puts the counted witnesses'
-//! cosignature times into ledger time and runs the gossip comparison (OP-32, OP-33, SEC-32).
+//! configured replica, a directory or an S3 bucket with Object Lock, before any witness (P-20,
+//! OP-4 item 3, OP-33 item 3), and, with witnesses configured, the witnessing task that sends
+//! each mirrored checkpoint to them, puts the counted witnesses' cosignature times into ledger
+//! time and runs the gossip comparison (OP-32, OP-33, SEC-32).
 
 use std::sync::Arc;
 
+use suiss_crypto::secret::Secret;
 use tokio::task::JoinHandle;
 use work_dispatch::{JetStreamBus, PgOutbox, Publisher};
 use work_ledger::time::{LedgerTime, ProcessMonotonic};
 use work_ledger::{
-    CheckpointSetup, CheckpointStats, DirectoryReplica, Ledgers, SignerClient, WitnessSetup,
-    run_checkpoints, run_witnessing,
+    AnyReplica, CheckpointSetup, CheckpointStats, DirectoryReplica, Ledgers, S3Config,
+    SignerClient, WitnessSetup, WormReplica, WormStore, run_checkpoints, run_witnessing,
+    tls_trusting,
 };
 
-use crate::config::Config;
+use crate::config::{Config, ReplicaTarget};
 use crate::health::Health;
 use crate::startup::{Infrastructure, StartupError};
+
+/// The access key of the replica's bucket, from the environment like the database passwords.
+const S3_KEY_ID: &str = "AWS_ACCESS_KEY_ID";
+const S3_SECRET: &str = "AWS_SECRET_ACCESS_KEY";
+
+fn refused(e: &dyn std::fmt::Display) -> StartupError {
+    StartupError::Config(e.to_string())
+}
+
+/// The configured replica: a directory, or an S3 bucket with Object Lock signed at ledger time.
+fn replica(
+    config: &Config,
+    clock: &LedgerTime<ProcessMonotonic>,
+) -> Result<AnyReplica, StartupError> {
+    match config.replica_target().map_err(|e| refused(&e))? {
+        ReplicaTarget::Directory(directory) => {
+            Ok(DirectoryReplica::new(&config.replica.id, directory).into())
+        }
+        ReplicaTarget::S3(s3, retention) => {
+            let (Ok(key_id), Ok(secret)) = (std::env::var(S3_KEY_ID), std::env::var(S3_SECRET))
+            else {
+                return Err(StartupError::Config(format!(
+                    "replica.s3 needs {S3_KEY_ID} and {S3_SECRET}"
+                )));
+            };
+            let tls = match &s3.ca_roots {
+                Some(path) => {
+                    let pem = std::fs::read(path).map_err(|e| refused(&e))?;
+                    Some(tls_trusting(&pem).map_err(|e| refused(&e))?)
+                }
+                None => None,
+            };
+            let store = WormStore::new(
+                S3Config {
+                    endpoint: s3.endpoint.clone(),
+                    region: s3.region.clone(),
+                    bucket: s3.bucket.clone(),
+                    key_id,
+                    secret: Secret::new(secret),
+                    tls,
+                },
+                retention,
+            )
+            .map_err(|e| refused(&e))?;
+            Ok(WormReplica::new(&config.replica.id, store, clock.clone()).into())
+        }
+    }
+}
 
 /// The ledgers of this process on the ledger time clock.
 pub(crate) type ServerLedgers = Ledgers<LedgerTime<ProcessMonotonic>>;
@@ -48,12 +99,9 @@ impl Services {
             .group_config()
             .map_err(|e| StartupError::Config(e.to_string()))?;
         let sequencer = infrastructure.sequencer.clone();
+        let replica = replica(config, &clock)?;
         let ledgers = Arc::new(Ledgers::new(sequencer, clock.clone(), group));
         let signer = SignerClient::new(&config.signer.socket, config.signer_timeout());
-        let directory = config
-            .replica_directory()
-            .map_err(|e| StartupError::Config(e.to_string()))?;
-        let replica = DirectoryReplica::new(&config.replica.id, directory);
         let declaration = config
             .declaration()
             .map_err(|e| StartupError::Config(e.to_string()))?;

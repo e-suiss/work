@@ -32,7 +32,7 @@ use work_store::{
 #[cfg(feature = "s3")]
 mod s3;
 #[cfg(feature = "s3")]
-pub use s3::{S3Config, S3Store};
+pub use s3::S3Store;
 
 /// The fixed start of every part's AEAD context (OP-45 item 4).
 pub const BODY_CONTEXT: &[u8] = b"work/body/v1\0";

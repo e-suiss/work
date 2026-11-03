@@ -22,7 +22,7 @@ use super::proof::consistency_proof;
 use super::{Witness, WitnessError, cosignatures};
 use crate::time::{LedgerTime, Monotonic, WitnessRound, cosign_round};
 use crate::{
-    CheckpointError, Checkpointer, Clock, Declaration, DirectoryReplica, Ledgers, SignerClient,
+    AnyReplica, CheckpointError, Checkpointer, Clock, Declaration, Ledgers, Replica, SignerClient,
 };
 
 /// How often the led ledgers are looked at.
@@ -231,7 +231,7 @@ impl Checkpointer {
     pub async fn witness_pass(
         &self,
         ledger: &LedgerId,
-        replica: &DirectoryReplica,
+        replica: &impl Replica,
         derived: &Pool,
         witnesses: &[WitnessEndpoint],
         states: &mut WitnessStates,
@@ -336,7 +336,7 @@ pub struct WitnessSetup {
     /// What the checkpoints declare.
     pub declaration: Declaration,
     /// The replica a checkpoint must be mirrored to before a witness gets it (OP-4 item 3).
-    pub replica: DirectoryReplica,
+    pub replica: AnyReplica,
     /// The derived database as `work_deriver`, for the gossip comparison.
     pub derived: Pool,
     /// The configured witnesses.

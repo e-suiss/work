@@ -116,6 +116,7 @@ type SnapshotRow = (i64, Option<Vec<u8>>, Option<i64>, Vec<u8>);
 type StoredCheckpoint = (i64, Vec<u8>, Vec<u8>, i64, Vec<u8>);
 type LogLeaf = (i64, Vec<u8>, Vec<u8>);
 type Received = (i64, String, Vec<u8>);
+type StoredCosignature = (String, i64, Vec<u8>);
 
 fn signed(v: u64) -> Result<i64, StoreError> {
     i64::try_from(v).map_err(|_| StoreError::Corrupt)
@@ -437,6 +438,38 @@ impl CheckpointerPool {
         .map_err(refused)?;
         tx.commit().await?;
         Ok(inserted.rows_affected() == 1)
+    }
+
+    /// The stored witness cosignatures of the checkpoint of `ledger` at `size`, by witness.
+    ///
+    /// # Errors
+    /// [`StoreError::Corrupt`] for an out-of-range row, otherwise [`StoreError::Db`].
+    pub async fn cosignatures(
+        &self,
+        ledger: &LedgerId,
+        size: u64,
+    ) -> Result<Vec<CosignatureRow>, StoreError> {
+        let mut tx = self.begin(ledger).await?;
+        let rows: Vec<StoredCosignature> = sqlx::query_as(
+            "SELECT witness_id::text, (extract(epoch FROM cosigned_at) * 1000)::bigint, signature \
+             FROM ledger.checkpoint_cosignature \
+             WHERE ledger_id = $1 AND size = $2 AND cosign_kind = 'witness' ORDER BY witness_id",
+        )
+        .bind(ledger.as_bytes().as_slice())
+        .bind(signed(size)?)
+        .fetch_all(tx.conn())
+        .await?;
+        tx.commit().await?;
+        rows.into_iter()
+            .map(|(witness_id, at, signature)| {
+                Ok(CosignatureRow {
+                    size,
+                    witness_id,
+                    cosigned_at_ms: unsigned(at)?,
+                    signature,
+                })
+            })
+            .collect()
     }
 }
 

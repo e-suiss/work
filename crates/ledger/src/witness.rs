@@ -6,7 +6,8 @@
 //! equivocation, a security event, and nothing of it is stored. The C2SP `tlog-witness` client
 //! sends each mirrored checkpoint to the configured witnesses with a consistency proof, the
 //! counted witnesses' cosignature times check ledger time, and the checkpoints the witnesses
-//! hold are compared against the ledger's own tree in the derived gossip rows.
+//! hold are compared against the ledger's own tree in the derived gossip rows. Each cosignature
+//! taken is archived in the replica beside its checkpoint (OP-2).
 
 mod client;
 mod gossip;
@@ -26,7 +27,7 @@ use suiss_ledger::checkpoint::{OrderError, Publication};
 use work_kernel::proof::{Checkpoint, NoteError, Verifier, verify_checkpoint};
 use work_store::{CosignatureRow, LedgerId};
 
-use crate::replica::DirectoryReplica;
+use crate::replica::{MirrorError, Replica};
 use crate::{CheckpointError, Checkpointer};
 
 /// A configured witness: the identifier its cosignatures are stored under and its cosigner key.
@@ -62,6 +63,10 @@ pub enum WitnessError {
     /// The checkpointer or the store refused.
     #[error(transparent)]
     Checkpoint(#[from] CheckpointError),
+    /// The cosignatures are stored but the replica did not take them; taking the note again
+    /// archives them.
+    #[error("cosignature archive: {0}")]
+    Archive(MirrorError),
 }
 
 /// The signature lines of `note` that carry the key `key`.
@@ -117,16 +122,17 @@ pub fn cosignatures(
 
 impl Checkpointer {
     /// Takes the witness cosignatures in `note`, a cosigned copy of the stored checkpoint of
-    /// `size` of `ledger`, once `replica` holds that size; returns how many were new.
+    /// `size` of `ledger`, once `replica` holds that size, and archives them in `replica`;
+    /// returns how many were new.
     ///
     /// # Errors
-    /// [`WitnessError`]; nothing is stored then.
+    /// [`WitnessError`]; nothing is stored then, except under [`WitnessError::Archive`].
     pub async fn take_cosignatures(
         &self,
         ledger: &LedgerId,
         size: u64,
         note: &str,
-        replica: &DirectoryReplica,
+        replica: &impl Replica,
         witnesses: &[Witness],
     ) -> Result<usize, WitnessError> {
         let pool = self.pool();
@@ -158,6 +164,9 @@ impl Checkpointer {
                 new = new.saturating_add(1);
             }
         }
+        self.archive_cosignatures(ledger, size, replica)
+            .await
+            .map_err(WitnessError::Archive)?;
         Ok(new)
     }
 }

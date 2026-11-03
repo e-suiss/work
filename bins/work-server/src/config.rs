@@ -19,7 +19,7 @@ use work_ledger::time::{
 use work_ledger::{
     Cadence, CadenceError, DEFAULT_CHECKPOINT_RECORDS, DEFAULT_MAX_BYTES, DEFAULT_MAX_RECORDS,
     DEFAULT_QUEUE, Declaration, DeclarationError, Deployment, GroupConfig, GroupConfigError,
-    Witness, WitnessClient, WitnessEndpoint, WitnessRole, witness_tls,
+    Retention, Witness, WitnessClient, WitnessEndpoint, WitnessRole, witness_tls,
 };
 use work_telemetry::{DEFAULT_MAX_QUEUE_SIZE, InvalidSampleRatio, SampleRatio, TraceConfig};
 
@@ -177,14 +177,41 @@ pub(crate) struct Checkpoint {
     pub(crate) records: u64,
 }
 
-/// The directory replica.
+/// The replica: a directory on a single node or an S3 bucket with Object Lock; exactly one is
+/// configured (OP-33 item 3, OP-46 item 9).
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Replica {
     /// The `replica_id` its progress is stored under.
     pub(crate) id: String,
-    /// The directory it is written to; none configured stops the process.
+    /// The directory it is written to.
     pub(crate) directory: Option<PathBuf>,
+    /// The S3 bucket with Object Lock it is written to; the access key comes from
+    /// `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`.
+    pub(crate) s3: Option<ReplicaS3>,
+}
+
+/// The replica's S3 bucket with Object Lock.
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct ReplicaS3 {
+    /// `http://host:port` or `https://host[:port]`.
+    pub(crate) endpoint: String,
+    /// The signing region.
+    pub(crate) region: String,
+    /// The bucket; created with Object Lock if it does not exist, refused without it.
+    pub(crate) bucket: String,
+    /// Days each object stays locked in compliance mode, 1 to 36,500.
+    pub(crate) retention_days: u32,
+    /// PEM certificates an `https` endpoint is trusted under; required with `https`.
+    pub(crate) ca_roots: Option<PathBuf>,
+}
+
+/// Where the replica is written.
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum ReplicaTarget<'a> {
+    Directory(&'a PathBuf),
+    S3(&'a ReplicaS3, Retention),
 }
 
 /// Outbox publisher settings; the other values are the OP-34 policy defaults.
@@ -335,6 +362,7 @@ impl Default for Config {
             replica: Replica {
                 id: "local".to_owned(),
                 directory: None,
+                s3: None,
             },
             publisher: Publisher {
                 source: String::new(),
@@ -387,8 +415,16 @@ pub(crate) enum ConfigError {
     OriginPrefix,
     #[error("checkpoint: {0}")]
     Cadence(#[from] CadenceError),
-    #[error("replica.id must be a non-empty identifier and replica.directory must be set")]
+    #[error(
+        "replica.id must be a non-empty identifier and exactly one of replica.directory and \
+         replica.s3 must be set"
+    )]
     Replica,
+    #[error(
+        "replica.s3 needs an http(s) endpoint, a region, a bucket, retention_days of 1 to 36500 \
+         and ca_roots with https"
+    )]
+    ReplicaS3,
     #[error("publisher: {0}")]
     Publisher(#[from] work_dispatch::ConfigError),
     #[error("group_commit: {0}")]
@@ -457,7 +493,7 @@ impl Config {
             return Err(ConfigError::OriginPrefix);
         }
         self.cadence()?;
-        self.replica_directory()?;
+        self.replica_target()?;
         self.publisher_config().validate()?;
         self.group_config()?;
         self.declaration()?;
@@ -536,14 +572,28 @@ impl Config {
         )?)
     }
 
-    /// The replica directory.
-    pub(crate) fn replica_directory(&self) -> Result<&PathBuf, ConfigError> {
-        let id_ok = ident_ok(&self.replica.id);
-        self.replica
-            .directory
-            .as_ref()
-            .filter(|d| id_ok && !d.as_os_str().is_empty())
-            .ok_or(ConfigError::Replica)
+    /// Where the replica is written.
+    pub(crate) fn replica_target(&self) -> Result<ReplicaTarget<'_>, ConfigError> {
+        if !ident_ok(&self.replica.id) {
+            return Err(ConfigError::Replica);
+        }
+        match (&self.replica.directory, &self.replica.s3) {
+            (Some(d), None) if !d.as_os_str().is_empty() => Ok(ReplicaTarget::Directory(d)),
+            (None, Some(s3)) => {
+                let tls = s3.endpoint.starts_with("https://");
+                let scheme = tls || s3.endpoint.starts_with("http://");
+                let named = !s3.region.trim().is_empty() && !s3.bucket.trim().is_empty();
+                let roots = !tls || s3.ca_roots.is_some();
+                let retention =
+                    Retention::days(s3.retention_days).map_err(|_| ConfigError::ReplicaS3)?;
+                if scheme && named && roots {
+                    Ok(ReplicaTarget::S3(s3, retention))
+                } else {
+                    Err(ConfigError::ReplicaS3)
+                }
+            }
+            _ => Err(ConfigError::Replica),
+        }
     }
 
     /// The publisher settings: the OP-34 policy defaults with the configured source and stream
@@ -763,6 +813,58 @@ mod tests {
                 )),
         );
         assert!(matches!(without, Err(ConfigError::Replica)));
+    }
+
+    fn with_replica(toml: &str) -> Result<Config, ConfigError> {
+        Config::from_figment(
+            &Figment::from(Serialized::defaults(Config::default()))
+                .merge(Toml::string(&time_sources(2, 3)))
+                .merge(Toml::string(
+                    "[checkpoint]\norigin_prefix = \"work.example/ledger/\"\n[publisher]\nsource = \"https://work.example\"",
+                ))
+                .merge(Toml::string(toml)),
+        )
+    }
+
+    const S3: &str = "[replica.s3]\nendpoint = \"http://s3:7070\"\nregion = \"us-east-1\"\nbucket = \"work-replica\"\nretention_days = 3650\n";
+
+    // OP-33 OP-46 T-93
+    #[test]
+    fn op_33_the_replica_is_a_directory_or_an_object_locked_s3_bucket() {
+        let config = with_replica(S3).unwrap();
+        let Ok(ReplicaTarget::S3(s3, retention)) = config.replica_target() else {
+            panic!("an S3 replica");
+        };
+        assert_eq!(s3.bucket, "work-replica");
+        assert_eq!(retention.get(), 3650);
+        let both = format!("{S3}[replica]\ndirectory = \"/var/lib/work/replica\"\n");
+        assert!(matches!(with_replica(&both), Err(ConfigError::Replica)));
+        assert!(matches!(
+            with_replica("[replica]\nid = \"local\""),
+            Err(ConfigError::Replica)
+        ));
+        for bad in [
+            S3.replace("3650", "0"),
+            S3.replace("3650", "36501"),
+            S3.replace("http://s3:7070", "s3:7070"),
+            S3.replace("http://", "https://"),
+            S3.replace("\"work-replica\"", "\"\""),
+            S3.replace("\"us-east-1\"", "\" \""),
+        ] {
+            assert!(
+                matches!(with_replica(&bad), Err(ConfigError::ReplicaS3)),
+                "{bad}"
+            );
+        }
+        let trusted = S3.replace("http://", "https://") + "ca_roots = \"/etc/work/s3-root.pem\"\n";
+        assert!(matches!(
+            with_replica(&trusted).unwrap().replica_target(),
+            Ok(ReplicaTarget::S3(..))
+        ));
+        assert!(matches!(
+            with("").unwrap().replica_target(),
+            Ok(ReplicaTarget::Directory(_))
+        ));
     }
 
     // T-7 P-20 T-93
