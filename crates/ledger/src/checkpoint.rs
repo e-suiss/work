@@ -476,7 +476,10 @@ mod tests {
             signer.log_key().await
         }
         let missing = SignerClient::new("/nonexistent/work-signer.sock", Duration::from_secs(1));
-        assert!(matches!(key(&missing).await, Err(CheckpointError::Unreachable(_))));
+        assert!(matches!(
+            key(&missing).await,
+            Err(CheckpointError::Unreachable(_))
+        ));
         assert!(matches!(
             Signer::sign_checkpoint(&missing, "body").await,
             Err(CheckpointError::Unreachable(_))
