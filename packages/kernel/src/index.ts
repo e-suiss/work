@@ -345,6 +345,30 @@ export type CheckpointAnswer = Accepted<VerifiedCheckpoint> | Rejected<string>;
 /** The items a record's bytes touch (T-89). */
 export type TouchedAnswer = Accepted<Touches> | Rejected | UnknownProtocol;
 
+/** The envelope actor types of a record's author and principals, and the records its viewer may not see (P-12, EV-12). */
+export interface MappingContext {
+  readonly actor_type: {
+    readonly author: ActorTypeEntry;
+    readonly on_behalf_of?: readonly ActorTypeEntry[];
+  };
+  readonly withheld?: readonly DigestJson[];
+}
+
+/** An Activity Streams 2.0 activity (P-51). */
+export interface As2Activity {
+  readonly type: string;
+  readonly vocabulary: string;
+}
+
+/** A record's PROV-JSON document and Activity Streams 2.0 activity, `null` when it maps to none (P-49, P-51). */
+export interface RecordMapping {
+  readonly prov: JsonObject;
+  readonly as2: As2Activity | null;
+}
+
+/** The external standard mappings of a record's bytes (P-48). */
+export type MappingAnswer = Accepted<RecordMapping> | Rejected | UnknownProtocol;
+
 /** Input the kernel bindings could not map, or a ledger order the kernel refuses; never a decision about a record. */
 export class KernelInputError extends Error {
   readonly code: string;
@@ -359,7 +383,7 @@ export class KernelInputError extends Error {
   }
 }
 
-/** The kernel's record decoding, digest, signature, ledger entry, proof, checkpoint and touched item functions over bytes as received (T-5, T-10, T-88, T-89, X-24). */
+/** The kernel's record decoding, digest, signature, ledger entry, proof, checkpoint and touched item functions and the proto's external standard mappings over bytes as received (T-5, T-10, T-88, T-89, P-48, X-24). */
 export interface Verifier {
   readonly validateRecordCbor: (record: Uint8Array, context: RecordContext) => Validation;
   readonly decodeRecord: (record: Uint8Array) => DecodedRecordAnswer;
@@ -415,6 +439,7 @@ export interface Verifier {
     path: readonly DigestJson[],
   ) => Accepted | Rejected<string>;
   readonly touched: (record: Uint8Array) => TouchedAnswer;
+  readonly mapRecord: (record: Uint8Array, context: MappingContext) => MappingAnswer;
 }
 
 export interface Kernel extends Verifier {
@@ -586,6 +611,7 @@ const verifier: Verifier = {
   checkpointExtendsTo: (older, newer, path) =>
     answer("checkpointExtendsTo", wasm.checkpointExtendsTo(j(older), j(newer), j(path))),
   touched: (record) => answer("touched", wasm.touched(record)),
+  mapRecord: (record, context) => answer("mapRecord", wasm.mapRecord(record, j(context))),
 };
 
 let loading: Promise<Kernel> | undefined;

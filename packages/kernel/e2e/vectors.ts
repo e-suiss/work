@@ -69,6 +69,7 @@ export const byteRecordFiles = [
   "digest.json",
   "evidence.json",
   "genesis.json",
+  "mapping.json",
   "merkle.json",
 ] as const;
 
@@ -118,7 +119,7 @@ export const expectedDerivation = (
   await readFile(new URL("derive-expected.json", kernelDir), "utf8")
 ).trimEnd();
 
-/** Every record format vector file and the touched item vectors, for the byte entry points (T-5, T-37). */
+/** Every record format vector file, the touched item vectors and the mapping vectors, for the byte entry points (T-5, T-37). */
 export const byteVectors: ByteVectors = {
   cbor: await json<ByteVectors["cbor"]>(recordsDir, "cbor-canonical.json"),
   cose: await json<ByteVectors["cose"]>(recordsDir, "cose-sign1.json"),
@@ -130,4 +131,5 @@ export const byteVectors: ByteVectors = {
   quarantine: await json<ByteVectors["quarantine"]>(recordsDir, "records-quarantine.json"),
   rejects: await json<ByteVectors["rejects"]>(recordsDir, "records-reject.json"),
   items: await json<ByteVectors["items"]>(kernelDir, "items-touched.json"),
+  mapping: await json<ByteVectors["mapping"]>(recordsDir, "mapping.json"),
 };

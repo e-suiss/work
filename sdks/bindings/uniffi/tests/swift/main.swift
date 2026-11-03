@@ -667,6 +667,23 @@ func t_89_swift_touched_item_vectors_match(_ records: URL, _ kernel: URL, _ tall
     }
 }
 
+// P-48 P-49 P-51 P-52 T-5 T-37
+func p_49_p_51_swift_mapping_vectors_match(_ records: URL, _ tally: inout Tally) throws {
+    let name = #function
+    let file = try vectorFile(records, "mapping.json")
+    for c in try cases(file, "cases", name) {
+        let id = try text(c["id"], name)
+        let record = try bytes(try text(c["hex"], id), id)
+        let got = mapRecord(record: record, context: try json(c["context"] ?? NSNull(), id))
+        try same(&tally, name, id, got, c["expect"] ?? NSNull())
+    }
+    for c in try cases(file, "reimport", name) {
+        let id = try text(c["id"], name)
+        let got = decodeRecord(record: try bytes(try text(c["hex"], id), id))
+        try same(&tally, name, id, got, c["expect"] ?? NSNull())
+    }
+}
+
 do {
     guard CommandLine.arguments.count == 4 else { throw HarnessError.usage }
     let dir = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
@@ -684,6 +701,7 @@ do {
     try t_10_swift_stored_entries_verify_from_their_bytes(records, &tally)
     try t_4_swift_merkle_and_checkpoint_vectors_match(records, &tally)
     try t_89_swift_touched_item_vectors_match(records, dir, &tally)
+    try p_49_p_51_swift_mapping_vectors_match(records, &tally)
     if tally.failures > 0 {
         print("\(tally.failures) of \(tally.cases) kernel vectors differ through Swift")
         exit(1)

@@ -1,4 +1,4 @@
-//! WebAssembly binding of the Work kernel (T-5): a thin mapping of the kernel API and of the `work-bindings-core` JSON front end to JavaScript, with no logic of its own.
+//! WebAssembly binding of the Work kernel and proto (T-5): a thin mapping of the kernel API and of the `work-bindings-core` JSON front end to JavaScript, with no logic of its own.
 
 #![forbid(unsafe_code)]
 
@@ -392,4 +392,12 @@ pub fn checkpoint_extends_to(older: &str, newer: &str, path: &str) -> String {
 #[must_use]
 pub fn touched(record: &[u8]) -> String {
     work_bindings_core::touched(record)
+}
+
+/// The PROV-JSON document and Activity Streams 2.0 activity of a record's bytes under a mapping context;
+/// returns `{"outcome", "prov"?, "as2"?, "reason"?}` or `{"error": …}` as JSON text (P-49, P-51).
+#[wasm_bindgen(js_name = mapRecord)]
+#[must_use]
+pub fn map_record(record: &[u8], context: &str) -> String {
+    work_bindings_core::map_record(record, context)
 }

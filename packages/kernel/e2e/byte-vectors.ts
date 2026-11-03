@@ -4,6 +4,7 @@ import type {
   DigestJson,
   JsonObject,
   JsonValue,
+  MappingContext,
   RecordContext,
   Touch,
   Validation,
@@ -86,6 +87,19 @@ export interface LedgerVector extends RecordVector {
   readonly envelope: EnvelopeVector;
 }
 
+export interface MappingCase {
+  readonly id: string;
+  readonly hex: string;
+  readonly context: MappingContext;
+  readonly expect: JsonObject;
+}
+
+export interface ReimportCase {
+  readonly id: string;
+  readonly hex: string;
+  readonly expect: Expect;
+}
+
 export interface ItemsCase {
   readonly id: string;
   readonly touches: readonly Touch[];
@@ -166,7 +180,7 @@ export interface ConsistencyCase {
   readonly expect: Expect;
 }
 
-/** The parsed record format and touched item vector files the byte entry points run against. */
+/** The parsed record format, touched item and mapping vector files the byte entry points run against. */
 export interface ByteVectors {
   readonly cbor: { readonly cases: readonly CborCase[] };
   readonly cose: {
@@ -199,6 +213,10 @@ export interface ByteVectors {
   };
   readonly rejects: { readonly cases: readonly RecordVector[] };
   readonly items: { readonly cases: readonly ItemsCase[] };
+  readonly mapping: {
+    readonly cases: readonly MappingCase[];
+    readonly reimport: readonly ReimportCase[];
+  };
 }
 
 /** One answer of a binding entry point next to the answer its vector states, both as compact JSON with sorted keys. */

@@ -1,4 +1,4 @@
-//! uniffi binding of the Work kernel for Swift and Kotlin (T-5): a thin mapping of the kernel API and of the `work-bindings-core` JSON front end, with no logic of its own.
+//! uniffi binding of the Work kernel and proto for Swift and Kotlin (T-5): a thin mapping of the kernel API and of the `work-bindings-core` JSON front end, with no logic of its own.
 
 #![forbid(unsafe_code)]
 #![allow(
@@ -320,4 +320,12 @@ pub fn checkpoint_extends_to(older: &str, newer: &str, path: &str) -> String {
 #[must_use]
 pub fn touched(record: Vec<u8>) -> String {
     work_bindings_core::touched(&record)
+}
+
+/// The PROV-JSON document and Activity Streams 2.0 activity of a record's bytes under a mapping context;
+/// returns `{"outcome", "prov"?, "as2"?, "reason"?}` or `{"error": …}` as JSON text (P-49, P-51).
+#[uniffi::export]
+#[must_use]
+pub fn map_record(record: Vec<u8>, context: &str) -> String {
+    work_bindings_core::map_record(&record, context)
 }

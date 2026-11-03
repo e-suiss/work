@@ -1,4 +1,4 @@
-//! JSON front end shared by the Work kernel bindings (T-5, T-69, T-70): it maps the `decoded` JSON projection of records and their verifier inputs, and record, envelope, signature and proof bytes as received, onto kernel types, calls the kernel's validation, decoding, signature, ledger entry, proof, checkpoint, touched item and derivation functions, and writes the kernel's answer as compact JSON with sorted keys, so every binding returns the same bytes for the same input (T-37, INV-7, INV-8); digests, record IDs and signatures come only from bytes, never from a projection.
+//! JSON front end shared by the Work kernel bindings (T-5, T-69, T-70): it maps the `decoded` JSON projection of records and their verifier inputs, and record, envelope, signature and proof bytes as received, onto kernel types, calls the kernel's validation, decoding, signature, ledger entry, proof, checkpoint, touched item and derivation functions and the proto's external standard mappings, and writes the kernel's answer as compact JSON with sorted keys, so every binding returns the same bytes for the same input (T-37, INV-7, INV-8); digests, record IDs and signatures come only from bytes, never from a projection.
 
 #![forbid(unsafe_code)]
 
@@ -7,6 +7,7 @@ mod decode;
 mod derivation;
 mod items;
 mod ledger;
+mod mapping;
 mod project;
 mod signature;
 
@@ -48,7 +49,7 @@ pub(crate) fn parse(input: &str) -> Option<Value> {
     serde_json::from_str(input).ok()
 }
 
-fn actor_entry(v: &Value) -> Mapped<ActorTypeEntry> {
+pub(crate) fn actor_entry(v: &Value) -> Mapped<ActorTypeEntry> {
     let (actor_type, source) = pair(v)?;
     Ok(ActorTypeEntry {
         actor_type: ActorType::from_wire_name(text(actor_type)?).ok_or(MISSING)?,
@@ -154,6 +155,7 @@ pub use ledger::{
     checkpoint_extends_to, checkpoint_includes, genesis_chain_point, merkle_node_hash, merkle_root,
     verify_checkpoint, verify_consistency, verify_entry, verify_inclusion,
 };
+pub use mapping::map_record;
 pub use signature::{
     check_public_key, evidence_statement, verify_evidence_signature, verify_record_signature,
 };

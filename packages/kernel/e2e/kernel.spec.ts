@@ -164,7 +164,7 @@ test.describe("t_5_t_37_inv_7 browser WebAssembly derivation matches the native 
   });
 });
 
-// T-5 T-37 T-69 INV-7 INV-8 X-24 T-95
+// T-5 T-37 T-69 INV-7 INV-8 X-24 T-95 P-49 P-51
 test.describe("t_5_t_37_inv_7 browser WebAssembly byte entry points match their vectors", () => {
   test("every byte entry point answers as its vector states", async ({ page }) => {
     const checks = await page.evaluate(
@@ -172,7 +172,7 @@ test.describe("t_5_t_37_inv_7 browser WebAssembly byte entry points match their 
       JSON.stringify(byteVectors),
     );
     const files = new Set(checks.map((c) => c.file));
-    expect(files.size).toBe(9);
+    expect(files.size).toBe(10);
     for (const c of checks) {
       expect.soft(c.got, `${c.file} ${c.id}`).toBe(c.want);
     }
