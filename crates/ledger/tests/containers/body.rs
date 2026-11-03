@@ -107,6 +107,29 @@ async fn psql(env: &Env, sql: &str) {
         .unwrap();
 }
 
+/// The database server's wall clock in Unix milliseconds: the object store refuses requests
+/// signed too far from its own time.
+#[cfg(feature = "s3")]
+async fn wall_clock(env: &Env) -> u64 {
+    env.pg
+        .client(&[
+            "psql",
+            "-X",
+            "-q",
+            "-t",
+            "-A",
+            "-d",
+            Cluster::Canonical.database(),
+            "-c",
+            "SELECT (extract(epoch FROM clock_timestamp()) * 1000)::bigint",
+        ])
+        .await
+        .unwrap()
+        .trim()
+        .parse()
+        .unwrap()
+}
+
 async fn read(reader: &BodyReader, ledger: &LedgerId, pos: u64) -> Vec<(String, PartRead)> {
     reader.read(ledger, pos, AT).await.unwrap()
 }
@@ -292,8 +315,9 @@ async fn t_20_a_large_part_is_kept_in_the_object_store_and_reads_back() {
         tls: None,
     };
     let store = S3Store::new(config()).unwrap();
-    store.ensure_bucket(AT).await.unwrap();
     let env = Env::start().await;
+    let now = wall_clock(&env).await;
+    store.ensure_bucket(now).await.unwrap();
     let keys = keys("object");
     let (pool, ledger, group, gate) = writer(&env, [0x46; 32]).await;
     gate.permits.add_permits(100);
@@ -308,7 +332,7 @@ async fn t_20_a_large_part_is_kept_in_the_object_store_and_reads_back() {
             submission(unsigned(&record), &actors),
             &[large.clone(), small.clone()],
             &bodies,
-            AT,
+            now,
         )
         .await
         .unwrap();
@@ -324,7 +348,7 @@ async fn t_20_a_large_part_is_kept_in_the_object_store_and_reads_back() {
         S3Store::new(config()).unwrap(),
     );
     assert_eq!(
-        reader.read(&ledger, committed.pos, AT).await.unwrap(),
+        reader.read(&ledger, committed.pos, now).await.unwrap(),
         vec![
             ("note".to_owned(), PartRead::Readable(large)),
             ("terms".to_owned(), PartRead::Readable(small)),
