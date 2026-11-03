@@ -1516,6 +1516,19 @@ title = ""
 tests = []
 
 [[rule]]
+id = "E-45"
+family = "E"
+status = "frozen-technical"
+acceptance = "to-fill"
+title = ""
+tests = [
+  "crates/http/tests/openapi.rs::e_45_every_api_operation_names_exactly_one_action",
+  "crates/proto/src/action.rs::e_45_effect_classes_and_params_follow_the_table",
+  "crates/proto/src/action.rs::e_45_the_catalog_is_the_23_actions_of_the_work_namespace",
+  "xtask/src/contracts_openapi.rs::e_45_every_mutating_operation_names_one_action",
+]
+
+[[rule]]
 id = "X-2"
 family = "X"
 status = "frozen-product"
@@ -4240,6 +4253,22 @@ tests = [
 ]
 
 [[rule]]
+id = "P-112"
+family = "P"
+status = "frozen-technical"
+acceptance = "filled"
+title = ""
+tests = [
+  "crates/http/src/position.rs::t_97_work_min_position_is_one_pos_token",
+  "crates/proto/src/id.rs::p_112_a_wrong_prefix_is_invalid_id",
+  "crates/proto/src/id.rs::p_112_every_prefix_round_trips_to_its_typed_id",
+  "crates/proto/src/id.rs::p_112_pty_body_is_the_partyref_bytes",
+  "crates/proto/src/id.rs::p_112_uppercase_hex_is_invalid_id",
+  "crates/proto/src/position.rs::t_97_the_token_lays_out_version_key_count_pairs_and_a_16_byte_tag",
+  "crates/query/src/adapters.rs::t_97_a_sealed_token_opens_only_for_its_tenant",
+]
+
+[[rule]]
 id = "PR-2"
 family = "PR"
 status = "frozen-product"
@@ -5702,6 +5731,52 @@ tests = [
   "sdks/bindings/uniffi/tests/swift/main.swift::t_10_swift_stored_entries_verify_from_their_bytes",
   "sdks/bindings/uniffi/tests/swift/main.swift::t_4_swift_merkle_and_checkpoint_vectors_match",
   "sdks/bindings/uniffi/tests/swift/main.swift::t_89_swift_touched_item_vectors_match",
+]
+
+[[rule]]
+id = "T-97"
+family = "T"
+status = "frozen-technical"
+acceptance = "filled"
+pd = "set"
+title = ""
+tests = [
+  "crates/http/src/position.rs::t_97_prefer_wait_is_applied_up_to_the_maximum",
+  "crates/http/src/position.rs::t_97_work_min_position_is_one_pos_token",
+  "crates/proto/src/position.rs::t_97_a_malformed_token_is_read_position_invalid",
+  "crates/proto/src/position.rs::t_97_a_view_reaches_a_token_only_at_every_ledger",
+  "crates/proto/src/position.rs::t_97_the_token_lays_out_version_key_count_pairs_and_a_16_byte_tag",
+  "crates/query/src/adapters.rs::t_97_a_forged_token_is_read_position_invalid",
+  "crates/query/src/adapters.rs::t_97_a_rotated_key_opens_tokens_of_the_previous_key",
+  "crates/query/src/adapters.rs::t_97_a_sealed_token_opens_only_for_its_tenant",
+  "crates/query/src/adapters.rs::t_97_a_token_of_another_tenant_is_invalid",
+  "crates/query/src/app.rs::t_97_a_write_position_is_read_back_after_waiting",
+  "crates/query/src/app.rs::t_97_the_wait_is_capped_at_five_seconds_and_marked_stale",
+  "crates/query/src/domain.rs::t_97_a_position_past_the_head_is_ahead",
+  "crates/query/src/domain.rs::t_97_the_wait_defaults_to_two_seconds_and_never_exceeds_five",
+]
+
+[[rule]]
+id = "T-98"
+family = "T"
+status = "frozen-technical"
+acceptance = "filled"
+title = ""
+tests = [
+  "crates/http/src/problem.rs::t_98_a_problem_is_problem_json_with_its_request_and_retry_after",
+  "crates/http/src/problem.rs::t_98_every_problem_has_a_stable_code_and_type",
+  "crates/http/tests/openapi.rs::e_45_every_api_operation_names_exactly_one_action",
+  "crates/http/tests/openapi.rs::t_98_the_committed_openapi_document_is_the_generated_one",
+  "crates/proto/src/events.rs::t_98_event_names_are_the_item_and_a_past_tense_once_each",
+  "crates/proto/src/events.rs::t_98_every_kernel_wire_name_has_an_event_type_or_waits_for_approval",
+  "xtask/src/contracts_asyncapi.rs::t_98_every_event_type_is_one_message_with_a_versioned_data_schema",
+  "xtask/src/contracts_asyncapi.rs::t_98_yaml_is_block_style_with_sorted_keys_and_quoted_strings",
+  "xtask/src/contracts_openapi.rs::e_45_every_mutating_operation_names_one_action",
+  "xtask/src/contracts_openapi.rs::t_98_changing_operations_take_idempotency_key_and_if_match",
+  "xtask/src/contracts_openapi.rs::t_98_errors_are_problem_json_and_responses_carry_request_id_and_ratelimit",
+  "xtask/src/contracts_source.rs::t_98_a_wire_name_without_an_event_type_is_refused",
+  "xtask/src/contracts_source.rs::t_98_the_committed_tables_agree",
+  "xtask/src/contracts_source.rs::t_98_the_event_table_is_read_from_the_proto_source",
 ]
 
 [[rule]]
