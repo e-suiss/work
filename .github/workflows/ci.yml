@@ -146,6 +146,67 @@ jobs:
           retention-days: 7
           if-no-files-found: error
 
+  # T-98 E-45 P-54
+  contracts:
+    name: contracts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: ./.github/actions/setup
+        with:
+          cache-key: contracts
+          targets: host
+      - name: OpenAPI and AsyncAPI documents regenerate byte for byte and every operation names one action (T-98, E-45)
+        id: check
+        run: |
+          cargo xtask check openapi
+          cargo xtask check asyncapi
+      - name: Regenerate the contracts
+        if: failure() && steps.check.outcome == 'failure'
+        run: |
+          cargo xtask openapi
+          cargo xtask asyncapi
+      - name: Upload the regenerated contracts
+        if: failure() && steps.check.outcome == 'failure'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: contracts
+          path: |
+            sdks/openapi/
+            sdks/asyncapi/
+          retention-days: 7
+          if-no-files-found: error
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+      - name: Lint the documents (T-98)
+        run: |
+          npx --yes @redocly/cli@2.69.0 lint --extends=minimal sdks/openapi/work-v1.json
+          npx --yes @asyncapi/cli@6.2.1 validate sdks/asyncapi/work-events.yaml
+          npx --yes @asyncapi/cli@6.2.1 validate sdks/asyncapi/work-live.yaml
+      - name: No breaking change inside the major version (T-98, P-54)
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [[ -z "$BASE" || "$BASE" =~ ^0+$ ]] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+            BASE="$(git merge-base HEAD origin/main)"
+          fi
+          base="$RUNNER_TEMP/base"
+          mkdir -p "$base"
+          git archive "$BASE" sdks | tar -x -C "$base"
+          if [[ -f "$base/sdks/openapi/work-v1.json" ]]; then
+            docker run --rm -v "$base:/base:ro" -v "$PWD:/head:ro" tufin/oasdiff:v1.34.1@sha256:67a23cfea7d251e2ae34ee703ac8733c5d96bc2e7b90fd0f4d475ec99367b85f breaking /base/sdks/openapi/work-v1.json /head/sdks/openapi/work-v1.json --fail-on ERR
+          fi
+          if [[ -f "$base/sdks/asyncapi/work-events.yaml" ]]; then
+            npx --yes @asyncapi/cli@6.2.1 diff "$base/sdks/asyncapi/work-events.yaml" sdks/asyncapi/work-events.yaml --format json --type breaking
+          fi
+
   cddl:
     name: cddl
     runs-on: ubuntu-24.04
