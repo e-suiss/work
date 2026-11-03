@@ -34,6 +34,7 @@ fn record(pos: u64, prev: [u8; 32], leaf: [u8; 32], at: u64) -> LogRow {
         envelope_bytes: vec![0xa0],
         received: vec![],
         skeleton: None,
+        body: vec![],
     }
 }
 

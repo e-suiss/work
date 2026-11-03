@@ -154,6 +154,7 @@ dev:
     @echo "PostgreSQL     postgres://work_app@127.0.0.1:${WORK_DEV_PG_PORT:-5442}/work and /work_derived  (migrate: just dev-migrate)"
     @echo "NATS           nats://work@127.0.0.1:${WORK_DEV_NATS_PORT:-4232}  (monitor http://127.0.0.1:${WORK_DEV_NATS_MONITOR_PORT:-8232})"
     @echo "SoftHSM        PKCS#11 token 'work-dev': just dev-hsm --show-slots"
+    @echo "S3             http://127.0.0.1:${WORK_DEV_S3_PORT:-7072}  (body store; access key work-dev)"
     @echo "Grafana        http://127.0.0.1:${WORK_DEV_GRAFANA_PORT:-3310}  (user admin, password local-only-not-a-secret)"
     @echo "Jaeger         http://127.0.0.1:${WORK_DEV_JAEGER_UI_PORT:-16696}   Prometheus http://127.0.0.1:${WORK_DEV_PROMETHEUS_PORT:-9099}"
     @echo "OTLP           127.0.0.1:${WORK_DEV_OTLP_GRPC_PORT:-4327} (gRPC), 127.0.0.1:${WORK_DEV_OTLP_HTTP_PORT:-4328} (HTTP)"

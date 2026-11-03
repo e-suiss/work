@@ -2,7 +2,9 @@ use suiss_crypto::dcbor::{self, EncodeError, Limits, Value};
 use suiss_crypto::digest::{Digest, leaf_hash, sha256};
 use suiss_ledger::Hash;
 use suiss_ledger::sequencer::{Entry, Slot};
-use work_store::{CallerRef, Expect, IdempotencyKey, ItemRef, LedgerId, ReceivedRow, Skeleton};
+use work_store::{
+    BodyPartRow, CallerRef, Expect, IdempotencyKey, ItemRef, LedgerId, ReceivedRow, Skeleton, Stored,
+};
 
 /// An admitted record waiting for its slot: what the sequencer needs to seal its
 /// `LedgerEnvelope` (P-11) and to write, in the same transaction, the bytes it was received as,
@@ -24,6 +26,8 @@ pub struct PendingRecord {
     pub(crate) received: Vec<ReceivedRow>,
     /// The skeleton of a decoded record (OP-13).
     pub(crate) skeleton: Option<Skeleton>,
+    /// The encrypted body parts, sealed against the skeleton's commitments (OP-45).
+    pub(crate) body: Vec<BodyPartRow>,
     /// The items the record touches (T-89).
     pub(crate) items: Vec<ItemTouch>,
     /// The outbox pointers the record emits, one per touched item (T-81 item 2).
@@ -88,12 +92,22 @@ impl PendingRecord {
         self.skeleton.as_ref()
     }
 
-    /// The bytes a group commit counts for the record: the record and what it was received as
-    /// (OP-31 item 2, T-90).
+    /// The encrypted body parts (OP-45).
+    #[must_use]
+    pub fn body(&self) -> &[BodyPartRow] {
+        &self.body
+    }
+
+    /// The bytes a group commit counts for the record: the record, what it was received as and
+    /// its inline body ciphertexts (OP-31 item 2, T-90, OP-45).
     #[must_use]
     pub fn size(&self) -> usize {
-        self.received.iter().fold(self.record_bytes.len(), |n, r| {
+        let received = self.received.iter().fold(self.record_bytes.len(), |n, r| {
             n.saturating_add(r.bytes.len())
+        });
+        self.body.iter().fold(received, |n, p| match &p.stored {
+            Stored::Inline(c) => n.saturating_add(c.len()),
+            Stored::Object(_) => n,
         })
     }
 }
@@ -104,6 +118,7 @@ impl std::fmt::Debug for PendingRecord {
             .field("record_bytes", &self.record_bytes.len())
             .field("items", &self.items.len())
             .field("outbox", &self.outbox.len())
+            .field("body", &self.body.len())
             .finish_non_exhaustive()
     }
 }
@@ -254,6 +269,7 @@ mod tests {
                 ingest: v.get("ingest").unwrap().clone(),
                 received: vec![],
                 skeleton: None,
+                body: vec![],
                 items: vec![],
                 outbox: vec![],
                 idempotency: None,
@@ -284,6 +300,7 @@ mod tests {
             ingest: Value::text("admitted"),
             received: vec![],
             skeleton: None,
+            body: vec![],
             items: vec![],
             outbox: vec![],
             idempotency: None,

@@ -59,6 +59,20 @@ services:
       timeout: 3s
       retries: 30
 
+  # T-20, OP-2, OP-33, OP-45
+  s3:
+    <<: *hardening
+    image: versity/versitygw@sha256:eb7f786fcd91e72194e48fcf1ac16302d686bf8e3a71434bdbc067a6efd3fdc7 # v1.9.0
+    read_only: true
+    command: ["--port", ":7070", "posix", "/data"]
+    tmpfs:
+      - /data
+    environment:
+      ROOT_ACCESS_KEY: work-dev
+      ROOT_SECRET_KEY: local-only-not-a-secret
+    ports:
+      - "127.0.0.1:${WORK_DEV_S3_PORT:-7072}:7070"
+
   # T-56
   softhsm:
     <<: *hardening

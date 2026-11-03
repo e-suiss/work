@@ -13,7 +13,7 @@ publish = false
 async-nats = { workspace = true, features = ["jetstream"] }
 testcontainers = { workspace = true }
 thiserror = { workspace = true, features = ["std"] }
-tokio = { workspace = true, features = ["sync"] }
+tokio = { workspace = true, features = ["net", "sync", "time"] }
 
 [dev-dependencies]
 futures-util = { workspace = true }

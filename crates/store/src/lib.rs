@@ -5,6 +5,7 @@
 //! outbox, checkpoint) and the consumer cursors of the derived database (OP-39); the shared `suiss-ledger` crate contributes only a pure engine. All SQL
 //! of the workspace lives in this crate.
 
+mod body;
 mod checkpoint;
 mod cursor;
 mod erasure;
@@ -20,6 +21,10 @@ mod sequencer;
 mod server;
 mod skeleton;
 
+pub use body::{
+    BodyPartRow, DekRow, ERASURE_ROLE, ErasurePool, RetentionClass, Shred, Stored, StoredPart,
+    WRAPPED_LEN,
+};
 pub use checkpoint::{
     CHECKPOINTER_ROLE, CheckpointRow, CheckpointerPool, CosignatureRow, HeadSnapshot, MirrorEntry,
     RecordDurability,

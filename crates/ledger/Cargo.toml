@@ -10,7 +10,7 @@ publish = false
 
 [dependencies]
 suiss-ledger = { workspace = true }
-suiss-crypto = { workspace = true, features = ["verify"] }
+suiss-crypto = { workspace = true, features = ["verify", "pkcs11"] }
 work-kernel = { workspace = true }
 work-proto = { workspace = true }
 work-store = { workspace = true }
@@ -21,6 +21,25 @@ tracing = { workspace = true, features = ["std"] }
 ntp-proto = { workspace = true }
 roughenough-protocol = { workspace = true }
 rustls = { workspace = true, features = ["aws_lc_rs", "std"] }
+hyper = { workspace = true, features = ["client", "http1"], optional = true }
+hyper-util = { workspace = true, features = ["tokio"], optional = true }
+http = { workspace = true, features = ["std"], optional = true }
+http-body-util = { workspace = true, optional = true }
+bytes = { workspace = true, features = ["std"], optional = true }
+hmac = { workspace = true, optional = true }
+tokio-rustls = { workspace = true, optional = true }
+
+# T-20, T-32
+[features]
+s3 = [
+    "dep:hyper",
+    "dep:hyper-util",
+    "dep:http",
+    "dep:http-body-util",
+    "dep:bytes",
+    "dep:hmac",
+    "dep:tokio-rustls",
+]
 
 [dev-dependencies]
 ed25519-dalek = { workspace = true }

@@ -24,17 +24,20 @@ INSERT INTO work.log_received VALUES (decode('{L}', 'hex'), 0, 'author_signature
 INSERT INTO work.work_root VALUES (decode('{L}', 'hex'), '01890a5d-ac96-774b-bcce-b302099a8057', 0);
 INSERT INTO work.log_concerns VALUES (decode('{L}', 'hex'), '01890a5d-ac96-774b-bcce-b302099a8057', 0);
 INSERT INTO work.body_commitment VALUES (decode('{L}', 'hex'), 0, 'note', decode(repeat('44', 32), 'hex'));
-INSERT INTO work.body_dek (ledger_id, subject_ref, retention_class, hsm_key_label, state)
-VALUES (decode('{L}', 'hex'), 'party:alice', 'work_record', 'work-dek-0001', 'active');
+INSERT INTO work.body_dek (ledger_id, subject_ref, retention_class, kek_id, wrapped_key, state)
+VALUES (decode('{L}', 'hex'), 'party:alice', 'work_record', 'work.{L}.kek.v1', decode(repeat('a1', 40), 'hex'), 'active');
 INSERT INTO work.body_part (ledger_id, pos, part, dek_id, retention_class, storage, nonce, ciphertext, ciphertext_digest)
 SELECT decode('{L}', 'hex'), 0, 'note', dek_id, 'work_record', 'inline', decode(repeat('55', 12), 'hex'), '\\xdeadbeef',
        decode(repeat('66', 32), 'hex')
-  FROM work.body_dek WHERE hsm_key_label = 'work-dek-0001';
+  FROM work.body_dek WHERE kek_id = 'work.{L}.kek.v1';
 INSERT INTO work.body_commitment VALUES (decode('{L}', 'hex'), 0, 'attachment', decode(repeat('45', 32), 'hex'));
 INSERT INTO work.body_part (ledger_id, pos, part, dek_id, retention_class, storage, nonce, object_key, ciphertext_digest)
 SELECT decode('{L}', 'hex'), 0, 'attachment', dek_id, 'work_record', 'object_store', decode(repeat('56', 12), 'hex'),
        'ab/0/attachment', decode(repeat('67', 32), 'hex')
-  FROM work.body_dek WHERE hsm_key_label = 'work-dek-0001';
+  FROM work.body_dek WHERE kek_id = 'work.{L}.kek.v1';
+INSERT INTO work.body_part_key (ledger_id, pos, part, wrapped_key)
+VALUES (decode('{L}', 'hex'), 0, 'note', decode(repeat('b1', 40), 'hex')),
+       (decode('{L}', 'hex'), 0, 'attachment', decode(repeat('b2', 40), 'hex'));
 INSERT INTO work.item_head (ledger_id, item_kind, item_id, version, last_pos, heads)
 VALUES (decode('{L}', 'hex'), 'commitment', decode(repeat('01', 32), 'hex'), 1, 0,
         ARRAY[decode(repeat('01', 32), 'hex')]::ledger.digest32[]);
@@ -76,7 +79,7 @@ pub(crate) async fn seeded() -> (Env, String) {
 #[ignore = "needs Docker"]
 async fn t_36_migrations_rerun_as_a_no_op() {
     let env = Env::start().await;
-    for (cluster, applied) in [(Cluster::Canonical, 16), (Cluster::Derived, 7)] {
+    for (cluster, applied) in [(Cluster::Canonical, 17), (Cluster::Derived, 7)] {
         work_store::migrate(&env.pool(cluster, "work_owner"), cluster)
             .await
             .unwrap();
@@ -571,7 +574,8 @@ async fn op_12_a_retention_hold_blocks_crypto_shredding() {
         )],
     )
     .await;
-    let destroy = "UPDATE work.body_dek SET state = 'destroyed', destroyed_at = now()";
+    let destroy =
+        "UPDATE work.body_dek SET wrapped_key = NULL, state = 'destroyed', destroyed_at = now()";
     fails(&erasure, &l, &[destroy], Some("23514")).await;
     let completed = sql(
         "INSERT INTO work.erasure_log (ledger_id, dek_id, cause, state, completed_at) \
@@ -595,15 +599,167 @@ async fn op_12_a_retention_hold_blocks_crypto_shredding() {
     fails(
         &erasure,
         &l,
-        &["UPDATE work.body_dek SET state = 'active', destroyed_at = NULL"],
+        &[&sql(
+            "UPDATE work.body_dek SET wrapped_key = decode(repeat('a1', 40), 'hex'), \
+             state = 'active', destroyed_at = NULL",
+        )],
         Some("23514"),
     )
     .await;
     fails(
         &erasure,
         &l,
-        &["UPDATE work.body_dek SET hsm_key_label = 'x'"],
+        &["UPDATE work.body_dek SET subject_ref = 'party:bob'"],
         Some("42501"),
+    )
+    .await;
+}
+
+// OP-45 OP-12 OP-15 P-25 Access OP-74 Access OP-78
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs Docker"]
+async fn op_45_a_part_key_is_shredded_once_and_never_under_a_hold() {
+    let (env, l) = seeded().await;
+    let erasure = env.canonical("work_erasure");
+    let seq = env.canonical("work_sequencer");
+    let shred = "UPDATE work.body_part_key SET wrapped_key = NULL, shredded_at = now() \
+                 WHERE part = 'note'";
+    let hold = sql(
+        "INSERT INTO work.retention_hold (ledger_id, hold_kind, retention_class, state) \
+         VALUES (decode('{L}', 'hex'), 'regulator', 'work_record', 'active')",
+    );
+    run(&erasure, &l, &[&hold]).await;
+    fails(&erasure, &l, &[shred], Some("23514")).await;
+    run(
+        &erasure,
+        &l,
+        &["UPDATE work.retention_hold SET state = 'released', released_at = now()"],
+    )
+    .await;
+    fails(
+        &seq,
+        &l,
+        &["UPDATE work.body_part_key SET wrapped_key = NULL, shredded_at = now()"],
+        Some("42501"),
+    )
+    .await;
+    let early = sql(
+        "INSERT INTO work.erasure_log (ledger_id, dek_id, cause, state, completed_at, pos, part) \
+         SELECT decode('{L}', 'hex'), dek_id, 'redaction', 'completed', now(), 0, 'note' \
+           FROM work.body_dek",
+    );
+    fails(&erasure, &l, &[&early], Some("23514")).await;
+    run(&erasure, &l, &[shred, &early]).await;
+    fails(&erasure, &l, &[shred], Some("23514")).await;
+    fails(
+        &erasure,
+        &l,
+        &[&sql(
+            "UPDATE work.body_part_key SET wrapped_key = decode(repeat('b1', 40), 'hex'), \
+             shredded_at = NULL WHERE part = 'note'",
+        )],
+        Some("23514"),
+    )
+    .await;
+    fails(
+        &erasure,
+        &l,
+        &["UPDATE work.body_part_key SET wrapped_key = '\\x00', shredded_at = NULL \
+           WHERE part = 'attachment'"],
+        Some("23514"),
+    )
+    .await;
+    let n = scalar(
+        &erasure,
+        &l,
+        "SELECT count(*) FROM work.body_part_key WHERE wrapped_key IS NULL",
+        false,
+    )
+    .await;
+    assert_eq!(n, 1);
+    let part = scalar(
+        &erasure,
+        &l,
+        "SELECT count(*) FROM work.body_part WHERE ciphertext IS NOT NULL",
+        false,
+    )
+    .await;
+    assert_eq!(part, 1);
+}
+
+// OP-45 OP-12 Access OP-74
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs Docker"]
+async fn op_45_a_rewrap_changes_only_the_kek_and_the_wrapped_key_together() {
+    let (env, l) = seeded().await;
+    let erasure = env.canonical("work_erasure");
+    let seq = env.canonical("work_sequencer");
+    fails(
+        &erasure,
+        &l,
+        &[&sql("UPDATE work.body_dek SET kek_id = 'work.{L}.kek.v2'")],
+        Some("23514"),
+    )
+    .await;
+    fails(
+        &erasure,
+        &l,
+        &["UPDATE work.body_dek SET wrapped_key = decode(repeat('a2', 40), 'hex')"],
+        Some("23514"),
+    )
+    .await;
+    fails(
+        &erasure,
+        &l,
+        &["UPDATE work.body_dek SET kek_id = 'hsm-label', \
+           wrapped_key = decode(repeat('a2', 40), 'hex')"],
+        Some("23514"),
+    )
+    .await;
+    run(
+        &erasure,
+        &l,
+        &[&sql(
+            "UPDATE work.body_dek SET kek_id = 'work.{L}.kek.v2', \
+             wrapped_key = decode(repeat('a2', 40), 'hex')",
+        )],
+    )
+    .await;
+    fails(
+        &seq,
+        &l,
+        &[&sql(
+            "INSERT INTO work.body_dek (ledger_id, subject_ref, retention_class, kek_id, \
+             wrapped_key, state) VALUES (decode('{L}', 'hex'), 'party:bob', 'work_record', \
+             'work.{L}.kek.v2', decode(repeat('a3', 39), 'hex'), 'active')",
+        )],
+        Some("23514"),
+    )
+    .await;
+    run(
+        &erasure,
+        &l,
+        &["UPDATE work.body_dek SET wrapped_key = NULL, state = 'destroyed', \
+           destroyed_at = now()"],
+    )
+    .await;
+    fails(
+        &seq,
+        &l,
+        &[
+            &sql(
+                "INSERT INTO work.body_commitment VALUES (decode('{L}', 'hex'), 0, 'late', \
+                 decode(repeat('46', 32), 'hex'))",
+            ),
+            &sql(
+                "INSERT INTO work.body_part (ledger_id, pos, part, dek_id, retention_class, \
+                 storage, nonce, ciphertext, ciphertext_digest) \
+                 SELECT decode('{L}', 'hex'), 0, 'late', dek_id, 'work_record', 'inline', \
+                 decode(repeat('57', 12), 'hex'), '\\xbeef', decode(repeat('68', 32), 'hex') \
+                 FROM work.body_dek",
+            ),
+        ],
+        Some("23514"),
     )
     .await;
 }

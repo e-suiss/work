@@ -12,7 +12,7 @@ publish = false
 suiss-sandbox = { workspace = true }
 work-dispatch = { workspace = true }
 work-kernel = { workspace = true }
-work-ledger = { workspace = true }
+work-ledger = { workspace = true, features = ["s3"] }
 work-parse = { workspace = true }
 work-store = { workspace = true }
 work-telemetry = { workspace = true }

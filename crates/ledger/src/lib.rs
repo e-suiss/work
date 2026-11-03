@@ -11,9 +11,13 @@
 //! log to the replica before any witness cosignature is taken (OP-4, OP-33, T-90); the ledgers a
 //! process leads are checkpointed on the OP-33 cadence. A ledger's rows beside the log are
 //! rebuilt from the canonical log alone through the same append and diffed against the live
-//! rows, a difference being a sev-1 signal (OP-1).
+//! rows, a difference being a sev-1 signal (OP-1). Bodies are sealed under three key tiers,
+//! the ledger KEK in the PKCS#11 token, a class DEK per subject and retention class and a DEK
+//! per part, written with their record and opened, or found unreadable after a crypto-shred, on
+//! the read path (OP-45); large ciphertexts may go to an S3-compatible store (T-20).
 
 mod admit;
+mod body;
 mod checkpoint;
 mod envelope;
 mod error;
@@ -28,6 +32,13 @@ pub mod time;
 mod witness;
 
 pub use admit::{Arrival, AuthContext, MAX_RECEIVED, Submission, admit};
+#[cfg(feature = "s3")]
+pub use body::{S3Config, S3Store};
+pub use body::{
+    BODY_CONTEXT, BodyEraser, BodyError, BodyKeys, BodyOpening, BodyReader, BodyWriter,
+    DEFAULT_CALL_TIMEOUT, DEFAULT_CLASS, InDatabase, MAX_MEDIA_TYPE, MAX_PART, ObjectStore,
+    PartRead, SealedPart, context, kek_label, object_key, open_part, seal_part,
+};
 pub use checkpoint::{
     CheckpointError, Checkpointer, Declaration, DeclarationError, Deployment, SignerClient,
     acknowledgement,

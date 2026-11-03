@@ -2,8 +2,8 @@
 //! T-90, §18 OP-5, OP-7, OP-10; T-36 rule 7, T-37 rule 9): opening a ledger with its genesis,
 //! admitting kernel-verified records into batches behind the head compare-and-set, keeping the
 //! signed bytes as received, versioning the Works they concern, fencing an earlier leader and
-//! refusing a record without stepping down. These tests need Docker; `just test-containers`
-//! runs them.
+//! refusing a record without stepping down, and sealing, reading and shredding bodies. These
+//! tests need Docker; `just test-containers` runs them.
 
 #![allow(
     clippy::unwrap_used,
@@ -41,8 +41,10 @@ use work_store::{
 };
 use work_testkit::Postgres;
 
+mod body;
+
 const PASSWORD: &str = "test-only-not-a-secret";
-const LOGINS: &str = "ALTER ROLE work_owner LOGIN PASSWORD 'test-only-not-a-secret';\nALTER ROLE work_sequencer LOGIN PASSWORD 'test-only-not-a-secret';\nALTER ROLE work_app LOGIN PASSWORD 'test-only-not-a-secret';\nALTER ROLE work_publisher LOGIN PASSWORD 'test-only-not-a-secret';";
+const LOGINS: &str = "ALTER ROLE work_owner LOGIN PASSWORD 'test-only-not-a-secret';\nALTER ROLE work_sequencer LOGIN PASSWORD 'test-only-not-a-secret';\nALTER ROLE work_app LOGIN PASSWORD 'test-only-not-a-secret';\nALTER ROLE work_publisher LOGIN PASSWORD 'test-only-not-a-secret';\nALTER ROLE work_erasure LOGIN PASSWORD 'test-only-not-a-secret';";
 const TRACE: &str = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01";
 const AT: u64 = 1_792_749_600_123;
 const COSE: &str = include_str!("../../../../conformance/vectors/records/cose-sign1.json");

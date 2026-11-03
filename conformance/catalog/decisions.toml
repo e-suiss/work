@@ -3467,6 +3467,10 @@ tests = [
   "crates/kernel/src/record/parts.rs::p_68_part_names_are_lowercase_snake_case_up_to_64_bytes",
   "crates/kernel/tests/codec_vectors.rs::p_101_body_commitment_vector_uses_the_shared_prefix_0x03",
   "crates/kernel/tests/codec_vectors.rs::p_104_large_part_vectors_commit_to_the_digest_of_their_content",
+  "crates/ledger/src/body/tests.rs::op_45_a_part_round_trips_under_the_ledger_kek_its_class_dek_and_its_own_key",
+  "crates/ledger/src/body/tests.rs::op_45_another_ledger_another_part_commit_or_another_class_dek_does_not_open",
+  "crates/ledger/src/body/tests.rs::p_104_a_part_above_64_kib_round_trips_and_commits_by_its_digest",
+  "crates/ledger/src/body/tests.rs::p_68_an_opening_that_does_not_give_its_commitment_is_refused",
 ]
 
 [[rule]]
@@ -3991,6 +3995,7 @@ title = ""
 tests = [
   "crates/kernel/src/codec/mod.rs::p_104_a_part_above_64_kib_commits_to_the_digest_of_its_content",
   "crates/kernel/tests/codec_vectors.rs::p_104_large_part_vectors_commit_to_the_digest_of_their_content",
+  "crates/ledger/src/body/tests.rs::p_104_a_part_above_64_kib_round_trips_and_commits_by_its_digest",
 ]
 
 [[rule]]
@@ -4234,6 +4239,7 @@ tests = [
   "crates/kernel/tests/ledger_vectors.rs::t_10_the_verifier_recomputes_every_record_id_from_the_stored_bytes",
   "crates/ledger/src/envelope.rs::t_10_the_pending_record_id_is_recomputed_from_its_bytes",
   "crates/store/src/rebuild.rs::op_1_a_rebuild_reads_only_canonical_tables",
+  "crates/store/src/rebuild.rs::op_45_body_tables_are_neither_rebuilt_nor_compared",
   "crates/store/src/rebuild.rs::t_10_every_sync_derived_table_is_rebuilt_or_checked_against_the_log",
   "xtask/src/rules_derived.rs::t_75_tables_without_a_valid_label_are_rejected",
 ]
@@ -4307,6 +4313,9 @@ tests = [
   "bins/work-server/src/config.rs::t_20_urls_with_a_password_are_rejected",
   "bins/work-server/src/startup.rs::t_20_postgres_18_and_later_are_accepted",
   "bins/work-server/src/startup.rs::t_20_postgres_older_than_18_is_refused",
+  "crates/ledger/src/body/s3.rs::t_20_request_time_is_the_utc_date_of_the_clock",
+  "crates/ledger/src/body/s3.rs::t_20_requests_are_signed_with_signature_version_4",
+  "crates/ledger/src/body/s3.rs::t_20_the_object_store_endpoint_and_names_are_checked",
 ]
 
 [[rule]]
@@ -4858,6 +4867,9 @@ acceptance = "filled"
 title = "Keys and secrets only through PKCS#11, with SoftHSM locally"
 tests = [
   "bins/work-signer/tests/signer.rs::t_7_the_signer_signs_checkpoints_of_its_ledgers_only",
+  "crates/ledger/src/body/tests.rs::op_45_a_part_round_trips_under_the_ledger_kek_its_class_dek_and_its_own_key",
+  "crates/ledger/src/body/tests.rs::op_45_kek_labels_name_the_ledger_and_the_version",
+  "crates/ledger/src/body/tests.rs::op_45_rotation_rewraps_a_class_dek_under_the_next_kek_version",
   "xtask/src/policy_compat.rs::t_56_kms_emulator_bundle_and_missing_services_are_rejected",
 ]
 
@@ -5370,8 +5382,10 @@ acceptance = "to-fill"
 title = ""
 tests = [
   "bins/work-server/src/config.rs::t_20_both_databases_and_nats_are_configured",
+  "crates/ledger/src/body/s3.rs::t_20_the_object_store_endpoint_and_names_are_checked",
   "crates/store/src/migrate.rs::op_2_tables_live_in_exactly_one_cluster",
   "crates/store/src/rebuild.rs::op_1_a_rebuild_reads_only_canonical_tables",
+  "crates/store/src/rebuild.rs::op_45_body_tables_are_neither_rebuilt_nor_compared",
   "crates/store/src/rebuild.rs::t_10_every_sync_derived_table_is_rebuilt_or_checked_against_the_log",
 ]
 
@@ -5419,6 +5433,7 @@ acceptance = "to-fill"
 pd = "set"
 title = ""
 tests = [
+  "crates/store/src/body.rs::op_45_retention_classes_round_trip_their_stored_names",
   "crates/store/src/erasure.rs::op_14_the_erasure_scope_list_matches_the_migration_tags",
   "crates/store/src/idempotency.rs::op_8_a_caller_reference_is_bounded_and_not_printed",
 ]
@@ -5735,6 +5750,27 @@ tests = [
   "crates/ledger/src/time/domain.rs::op_32_a_sample_older_than_its_lifetime_is_not_used",
   "crates/ledger/src/time/domain.rs::op_42_the_interval_is_the_midpoint_widened_by_radius_and_round_trip",
   "crates/ledger/src/time/domain.rs::op_43_the_majority_of_the_answers_decides",
+]
+
+[[rule]]
+id = "OP-45"
+family = "OP"
+status = "frozen-technical"
+stage = 2
+acceptance = "to-fill"
+title = ""
+tests = [
+  "crates/ledger/src/body/tests.rs::op_45_a_destroyed_class_dek_or_a_retired_kek_opens_nothing",
+  "crates/ledger/src/body/tests.rs::op_45_a_part_round_trips_under_the_ledger_kek_its_class_dek_and_its_own_key",
+  "crates/ledger/src/body/tests.rs::op_45_another_ledger_another_part_commit_or_another_class_dek_does_not_open",
+  "crates/ledger/src/body/tests.rs::op_45_kek_labels_name_the_ledger_and_the_version",
+  "crates/ledger/src/body/tests.rs::op_45_openings_and_sealed_parts_do_not_print_their_content",
+  "crates/ledger/src/body/tests.rs::op_45_rotation_rewraps_a_class_dek_under_the_next_kek_version",
+  "crates/ledger/src/body/tests.rs::p_104_a_part_above_64_kib_round_trips_and_commits_by_its_digest",
+  "crates/ledger/src/body/tests.rs::p_68_an_opening_that_does_not_give_its_commitment_is_refused",
+  "crates/store/src/body.rs::op_45_retention_classes_round_trip_their_stored_names",
+  "crates/store/src/rebuild.rs::op_45_body_tables_are_neither_rebuilt_nor_compared",
+  "xtask/src/rules_migrations.rs::op_45_only_the_two_wrapped_key_columns_pass",
 ]
 
 [[rule]]

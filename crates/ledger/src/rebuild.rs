@@ -1,4 +1,4 @@
-//! The rebuild of a ledger's rows from its canonical log and the rebuild-diff (§18 OP-1 items 2 and 3, T-10, T-11, T-37 item 3, T-89): every stored entry is read back from the log with the bytes it was received as, the kernel decodes its envelope and record, and the admission path's own mapping turns them into the pending record the live append wrote; a leader appends them into an empty target database through the same store code, so the head, Work roots, skeleton rows and item heads are reconstructed without reading any of them. [`rebuild_diff`] reads the live rows at one state, rebuilds through that state's head and compares; any difference is a sev-1 signal and the log decides. Outbox pointers, idempotency keys and inbound events carry what the request said rather than what the record says, so they are not replayed; the keys and events are checked against the log row they answer, and the pointers, a delivery queue whose rows leave on publication, are not compared.
+//! The rebuild of a ledger's rows from its canonical log and the rebuild-diff (§18 OP-1 items 2 and 3, T-10, T-11, T-37 item 3, T-89): every stored entry is read back from the log with the bytes it was received as, the kernel decodes its envelope and record, and the admission path's own mapping turns them into the pending record the live append wrote; a leader appends them into an empty target database through the same store code, so the head, Work roots, skeleton rows and item heads are reconstructed without reading any of them. [`rebuild_diff`] reads the live rows at one state, rebuilds through that state's head and compares; any difference is a sev-1 signal and the log decides. Outbox pointers, idempotency keys and inbound events carry what the request said rather than what the record says, so they are not replayed; the keys and events are checked against the log row they answer, and the pointers, a delivery queue whose rows leave on publication, are not compared. The body store's rows (ciphertexts, part keys, class DEKs, tombstones) are canonical beside the log but are not written in it, so a rebuild writes none of them and the diff does not compare them (OP-2, OP-45).
 
 use suiss_crypto::dcbor::Value;
 use suiss_crypto::digest::{leaf_hash, sha256};
@@ -124,6 +124,7 @@ pub(crate) fn replayed(
         ingest: ingest(quarantine.as_deref()),
         received: e.received.clone(),
         skeleton,
+        body: Vec::new(),
         items: touches,
         outbox: Vec::new(),
         idempotency: None,

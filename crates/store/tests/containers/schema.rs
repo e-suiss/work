@@ -182,12 +182,13 @@ violations (check_id, object) AS (
        AND descr LIKE '%erasure=none%'
     UNION ALL
     SELECT 'no_secret_columns', fq || '.' || attname FROM cols
-     WHERE attname ~ '(password|passwd|passphrase|secret|token|api_?key|private_?key|otp|cookie|session|card|pan$|cvv|cvc|iban|account_number|wrapped_dek|dek_material)'
+     WHERE attname ~ '(password|passwd|passphrase|secret|token|api_?key|private_?key|otp|cookie|session|card|pan$|cvv|cvc|iban|account_number|wrapped|dek_material)'
+       AND fq || '.' || attname NOT IN ('work.body_dek.wrapped_key', 'work.body_part_key.wrapped_key')
     UNION ALL
     SELECT 'no_derived_concept_columns', fq || '.' || attname FROM cols
      WHERE nspname IN ('ledger', 'work', 'derived')
        AND attname ~ '(^|_)(status|progress|attention|blocked|waiting|next_move|handoff|lease_state|clock_state|budget_state|wip|context|perspective|trust|assurance|counterparty|shared_work|track_record|support_chain|ping_pong|priority|urgency|owner|title|name|summary|briefing)($|_)'
-       AND attname NOT IN ('hsm_key_label', 'auth_context_ref')
+       AND attname NOT IN ('auth_context_ref')
     UNION ALL
     SELECT 'work_root_identity_only', fq || '.' || attname FROM cols
      WHERE fq = 'work.work_root' AND attname NOT IN ('ledger_id', 'work_id', 'first_pos')

@@ -32,7 +32,8 @@ use work_store::{
 };
 
 use crate::{
-    Committed, EventPointer, GroupCommit, Inbound, ItemTouch, KeyClaim, PendingRecord, SubmitError,
+    BodyError, BodyOpening, BodyWriter, Committed, EventPointer, GroupCommit, Inbound, ItemTouch,
+    KeyClaim, ObjectStore, PendingRecord, SubmitError,
 };
 
 /// Most bytes of one received item (T-90, P-33).
@@ -574,6 +575,7 @@ pub fn admit<V: SignatureVerifier + ?Sized>(
         record_bytes: a.record_bytes,
         received: a.received,
         skeleton: c.skeleton,
+        body: Vec::new(),
         items: c.touches,
         outbox,
         idempotency: s.idempotency,
@@ -595,6 +597,44 @@ impl GroupCommit {
         s: Submission<'_>,
     ) -> Result<Committed, SubmitError> {
         let record = admit(verifier, self.ledger(), s).map_err(SubmitError::Rejected)?;
+        self.submit(record).await
+    }
+
+    /// Admits `s` as [`GroupCommit::admit`] does and seals `body`, the openings of the parts its
+    /// record commits to, through `writer` before queueing it, so the record, its skeleton and
+    /// its encrypted parts with their keys commit in one transaction (OP-45, P-68). The parts'
+    /// data subject is the record's author (OP-45 item 7); `now_ms` is the time the DEK cache
+    /// and the object store use.
+    ///
+    /// # Errors
+    /// [`SubmitError::Body`] when an opening names no commitment of the record, does not give
+    /// its commitment or cannot be sealed, and when a record without a skeleton comes with a
+    /// body; otherwise as [`GroupCommit::admit`].
+    pub async fn admit_with_body<V: SignatureVerifier + ?Sized, O: ObjectStore>(
+        &self,
+        verifier: &V,
+        s: Submission<'_>,
+        body: &[BodyOpening],
+        writer: &BodyWriter<O>,
+        now_ms: u64,
+    ) -> Result<Committed, SubmitError> {
+        let mut record = admit(verifier, self.ledger(), s).map_err(SubmitError::Rejected)?;
+        if !body.is_empty() {
+            let skeleton = record
+                .skeleton
+                .as_ref()
+                .ok_or(SubmitError::Body(BodyError::NoSkeleton))?;
+            record.body = writer
+                .seal(
+                    self.ledger(),
+                    &skeleton.header.author,
+                    &skeleton.body,
+                    body,
+                    now_ms,
+                )
+                .await
+                .map_err(SubmitError::Body)?;
+        }
         self.submit(record).await
     }
 }

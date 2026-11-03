@@ -35,8 +35,15 @@ pub(crate) const SECRET_COLUMN_TERMS: &[&str] = &[
     "cvc",
     "iban",
     "account_number",
-    "wrapped_dek",
+    "wrapped",
     "dek_material",
+];
+
+/// The wrapped key columns OP-45 item 6 allows, exactly these two; any other wrapped key column
+/// is a violation, as in the `no_secret_columns` schema test.
+pub(crate) const WRAPPED_KEY_COLUMNS: &[(&str, &str)] = &[
+    ("work.body_dek", "wrapped_key"),
+    ("work.body_part_key", "wrapped_key"),
 ];
 
 /// The sqlx directive that runs a migration outside a transaction.
@@ -86,6 +93,7 @@ pub(crate) fn secret_term(column: &str) -> Option<&'static str> {
 pub(crate) fn credential_violations(schema: &Schema) -> Vec<Violation> {
     schema
         .columns()
+        .filter(|(table, column, _, _)| !WRAPPED_KEY_COLUMNS.contains(&(*table, *column)))
         .filter_map(|(table, column, file, line)| {
             secret_term(column).map(|term| {
                 violation(
@@ -304,6 +312,20 @@ ALTER TABLE work.party_login RENAME COLUMN credential_ref TO api_key;
             v.iter().any(|f| f.starts_with(&format!("{CANON}:7:"))),
             "{v:?}"
         );
+    }
+
+    // OP-45 SEC-24
+    #[test]
+    fn op_45_only_the_two_wrapped_key_columns_pass() {
+        let v = columns(
+            "
+CREATE TABLE work.body_dek (ledger_id ledger.digest32 NOT NULL, wrapped_key bytea);
+CREATE TABLE work.body_part_key (ledger_id ledger.digest32 NOT NULL, wrapped_key bytea);
+CREATE TABLE work.other_key (ledger_id ledger.digest32 NOT NULL, wrapped_key bytea, wrapped_dek bytea);
+",
+        );
+        assert_eq!(v.len(), 2, "{v:?}");
+        assert!(v.iter().all(|f| f.contains("`work.other_key.wrapped_")), "{v:?}");
     }
 
     // SEC-24 P-17

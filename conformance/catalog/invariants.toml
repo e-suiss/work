@@ -1477,6 +1477,7 @@ status = "canonical-invariant"
 stage = 2
 title = ""
 tests = [
+  "crates/ledger/src/body/tests.rs::op_45_openings_and_sealed_parts_do_not_print_their_content",
   "crates/parse/src/secret/tests.rs::sec_13_scanned_content_is_redacted_in_debug_output",
 ]
 
@@ -1569,6 +1570,7 @@ tests = [
   "crates/telemetry/src/guard.rs::p_43_content_secret_and_genai_names_are_forbidden",
   "crates/telemetry/tests/content_guard.rs::p_43_content_and_secret_fields_are_never_recorded",
   "crates/telemetry/tests/content_guard.rs::sec_24_the_log_format_redacts_without_the_guard",
+  "xtask/src/rules_migrations.rs::op_45_only_the_two_wrapped_key_columns_pass",
   "xtask/src/rules_migrations.rs::sec_24_credential_and_payment_columns_are_rejected",
   "xtask/src/rules_migrations.rs::sec_24_kind_assurance_and_opaque_reference_columns_pass",
   "xtask/src/rules_migrations.rs::sec_24_terms_match_the_schema_security_test",
@@ -2177,6 +2179,7 @@ status = "canonical-invariant"
 stage = 0
 title = "Records are never physically deleted; personal data is crypto-shredded"
 tests = [
+  "crates/ledger/src/body/tests.rs::op_45_a_destroyed_class_dek_or_a_retired_kek_opens_nothing",
   "crates/store/src/migrate.rs::t_36_every_migration_runs_as_the_owner_with_timeouts_in_one_transaction",
   "xtask/src/rules_source.rs::t_36_allowlisted_job_queue_table_needs_a_reason",
   "xtask/src/rules_source.rs::t_36_drop_schema_and_drop_column_are_rejected",
@@ -2202,7 +2205,9 @@ family = "OP"
 status = "canonical-invariant"
 stage = 1
 title = ""
-tests = []
+tests = [
+  "crates/ledger/src/body/tests.rs::op_45_a_part_round_trips_under_the_ledger_kek_its_class_dek_and_its_own_key",
+]
 
 [[rule]]
 id = "OP-16"

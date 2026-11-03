@@ -11,8 +11,8 @@ use sqlx::PgPool;
 
 use crate::publisher::check_role;
 use crate::{
-    AppendError, CallerRef, IdempotencyKey, InboundRow, ItemRef, LedgerId, LedgerTx, ReceivedRow,
-    Skeleton, StoreError, StoredKey,
+    AppendError, BodyPartRow, CallerRef, IdempotencyKey, InboundRow, ItemRef, LedgerId, LedgerTx,
+    ReceivedRow, Skeleton, StoreError, StoredKey,
 };
 
 /// The login role a [`SequencerPool`] must have.
@@ -102,6 +102,9 @@ pub struct LogRow {
     /// The skeleton of a decoded record; `None` for a record of a protocol version without a
     /// rule set, which is kept as bytes only (P-87).
     pub skeleton: Option<Skeleton>,
+    /// The encrypted body parts the record came with (OP-45); none for a rebuild, which reads
+    /// only the log.
+    pub body: Vec<BodyPartRow>,
 }
 
 impl std::fmt::Debug for LogRow {
@@ -113,6 +116,7 @@ impl std::fmt::Debug for LogRow {
             .field("envelope_bytes", &self.envelope_bytes.len())
             .field("received", &self.received)
             .field("skeleton", &self.skeleton.is_some())
+            .field("body", &self.body.len())
             .finish_non_exhaustive()
     }
 }
@@ -342,7 +346,8 @@ async fn insert_records(
 }
 
 /// The rows each record writes beside its log row, in the T-90 order: the bytes as received,
-/// the skeleton, then the links from the record to its received bytes.
+/// the skeleton, then the links from the record to its received bytes; then its encrypted body
+/// parts and part keys (OP-45).
 async fn insert_record_rows(tx: &mut LedgerTx<'_>, records: &[LogRow]) -> Result<(), AppendError> {
     for r in records {
         tx.insert_received(r.pos, &r.received)
@@ -358,6 +363,9 @@ async fn insert_record_rows(tx: &mut LedgerTx<'_>, records: &[LogRow]) -> Result
         tx.link_received(r.pos, &r.received)
             .await
             .map_err(row_failure)?;
+    }
+    for r in records {
+        tx.insert_body(r.pos, &r.body).await.map_err(row_failure)?;
     }
     Ok(())
 }

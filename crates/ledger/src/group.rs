@@ -6,7 +6,7 @@ use tokio::sync::{mpsc, oneshot};
 use work_kernel::reason::Reason;
 use work_store::{LedgerId, StoreError};
 
-use crate::{Leader, LedgerError, PendingRecord};
+use crate::{BodyError, Leader, LedgerError, PendingRecord};
 
 /// Ledger time (T-32 rule 2, §18 OP-6): no code reads the wall clock directly.
 pub trait Clock: Send {
@@ -133,6 +133,10 @@ pub enum SubmitError {
     /// engine or the store refused; nothing was written (T-85 item 4).
     #[error("ledger not led: {0}")]
     Lead(LedgerError),
+    /// A body opening does not match its commitment or could not be sealed; nothing was
+    /// written (OP-45, P-68).
+    #[error("body: {0}")]
+    Body(BodyError),
 }
 
 struct Request {

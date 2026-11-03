@@ -533,6 +533,25 @@ mod tests {
         }
     }
 
+    // OP-45 OP-2 T-10
+    #[test]
+    fn op_45_body_tables_are_neither_rebuilt_nor_compared() {
+        let labels = labels();
+        let covered = covered_tables();
+        for table in [
+            "work.body_part",
+            "work.body_part_key",
+            "work.body_dek",
+            "work.body_part_tombstone",
+        ] {
+            let label = labels.get(table).map(String::as_str);
+            assert!(matches!(label, Some("CANONICAL" | "OPERATIONAL")), "{table}");
+            assert!(!covered.contains(&table), "{table}");
+            assert!(!CANONICAL_INPUTS.contains(&table), "{table}");
+        }
+        assert!(covered.contains(&"work.body_commitment"));
+    }
+
     fn rows(rows: &[&str]) -> Vec<String> {
         rows.iter().map(|r| (*r).to_owned()).collect()
     }

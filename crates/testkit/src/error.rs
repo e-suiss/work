@@ -33,6 +33,12 @@ pub enum TestkitError {
     /// The database copy counter ran out.
     #[error("database name counter overflowed")]
     Exhausted,
+    /// A service did not accept connections in time.
+    #[error("`{service}` did not become ready")]
+    NotReady {
+        /// Compose service name.
+        service: &'static str,
+    },
     /// Connecting to NATS failed.
     #[error("nats connect: {0}")]
     NatsConnect(#[from] async_nats::ConnectError),
