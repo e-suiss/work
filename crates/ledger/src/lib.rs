@@ -4,8 +4,10 @@
 //! epoch and commits batches behind the head compare-and-set and the durability fence, fed by
 //! an adaptive group commit with a bounded queue (OP-31, OP-41) and the `Clock` port, and the
 //! ledger time adapter behind that port (OP-32, OP-42, OP-43). The engine, the time combiner and
-//! the encoding come from the shared crates; nothing here re-implements them (T-31). Records
-//! enter through the admission path, which builds each pending record from the kernel's
+//! the encoding come from the shared crates; nothing here re-implements them (T-31). A process
+//! leads a ledger as a [`Node`]: only in the cell the ledger is led in, only while it holds the
+//! ledger's sequencer lease, which it renews and releases, and only when it supports every
+//! version the ledger's log has activated (OP-9, OP-28, §17.12). Records enter through the admission path, which builds each pending record from the kernel's
 //! verification, validation and touched items (T-89, T-90). The checkpointer signs each head's
 //! checkpoint through `work-signer` as the ledger acknowledgement (P-20, T-88) and mirrors the
 //! log to the replica before any witness cosignature is taken (OP-4, OP-33, T-90); the ledgers a
@@ -35,6 +37,7 @@ mod group;
 mod leader;
 mod ledgers;
 mod log;
+mod node;
 mod ports;
 mod rebuild;
 mod replica;
@@ -73,6 +76,7 @@ pub use ledgers::{
     DEFAULT_CHECKPOINT_INTERVAL, DEFAULT_CHECKPOINT_RECORDS, Ledgers, run_checkpoints,
 };
 pub use log::PgLog;
+pub use node::{DEFAULT_LEASE, MAX_LEASE, Node};
 pub use ports::{Rng, RngError, Signer, Store, bytes32};
 pub use rebuild::{REBUILD_PAGE, RebuildError, rebuild, rebuild_diff};
 #[cfg(feature = "s3")]

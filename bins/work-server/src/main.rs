@@ -94,7 +94,7 @@ async fn run(config: &Config) -> ExitCode {
         }
     };
     let served = serve(config, health::router(services.health(&infrastructure))).await;
-    services.stop();
+    services.stop().await;
     time.stop();
     infrastructure.close(config.startup_timeout()).await;
     match served {

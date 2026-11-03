@@ -15,8 +15,8 @@ use work_dispatch::{JetStreamBus, PgOutbox, Publisher};
 use work_ledger::time::{LedgerTime, ProcessMonotonic};
 use work_ledger::{
     AnyReplica, CheckpointSetup, CheckpointStats, DirectoryReplica, Ledgers, S3Config,
-    SignerClient, WitnessSetup, WormReplica, WormStore, run_checkpoints, run_witnessing,
-    tls_trusting,
+    SignerClient, SystemRng, WitnessSetup, WormReplica, WormStore, run_checkpoints,
+    run_witnessing, tls_trusting,
 };
 
 use crate::config::{Config, ReplicaTarget};
@@ -100,7 +100,10 @@ impl Services {
             .map_err(|e| StartupError::Config(e.to_string()))?;
         let sequencer = infrastructure.sequencer.clone();
         let replica = replica(config, &clock)?;
-        let ledgers = Arc::new(Ledgers::new(sequencer, clock.clone(), group));
+        let node = config
+            .node(&SystemRng)
+            .map_err(|e| StartupError::Config(e.to_string()))?;
+        let ledgers = Arc::new(Ledgers::new(sequencer, node, clock.clone(), group));
         let signer = SignerClient::new(&config.signer.socket, config.signer_timeout());
         let declaration = config
             .declaration()
@@ -169,9 +172,11 @@ impl Services {
         }
     }
 
-    /// Stops the publisher and the checkpointer; pointers not yet acknowledged stay in the
-    /// outbox (T-21).
-    pub(crate) fn stop(self) {
+    /// Steps down from every led ledger and releases its sequencer lease, then stops the
+    /// publisher and the checkpointer; pointers not yet acknowledged stay in the outbox (T-21,
+    /// §17.12).
+    pub(crate) async fn stop(self) {
+        self.ledgers.step_down().await;
         for handle in self.handles {
             handle.abort();
         }

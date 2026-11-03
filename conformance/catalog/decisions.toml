@@ -3853,6 +3853,7 @@ tests = [
   "crates/ledger/src/admit/tests.rs::op_1_the_golden_ledger_replays_from_its_stored_bytes_to_the_admitted_records",
   "crates/ledger/src/admit/tests.rs::p_100_the_admission_path_seals_the_golden_ledger_byte_for_byte",
   "crates/ledger/src/admit/tests.rs::p_19_a_quarantined_record_is_written_with_its_reason",
+  "crates/ledger/src/node.rs::op_28_a_node_leads_only_a_ledger_whose_activated_versions_it_supports",
   "sdks/bindings/core/tests/bytes.rs::p_100_genesis_envelope_and_record_bytes_decode_through_bindings_core",
   "sdks/bindings/uniffi/tests/swift/main.swift::p_100_swift_genesis_envelope_and_record_bytes_match",
 ]
@@ -5366,6 +5367,7 @@ tests = [
   "crates/dispatch/src/domain.rs::t_81_seq_is_the_item_version_as_a_decimal_string",
   "crates/kernel/src/items.rs::t_89_a_record_that_concerns_no_work_touches_nothing",
   "crates/ledger/src/admit/tests.rs::t_89_the_items_and_pointers_come_from_the_concerned_works",
+  "crates/ledger/src/leader.rs::op_7_each_touch_reaches_the_store_with_its_expectation_and_no_version",
   "crates/store/src/id.rs::t_81_item_kind_and_id_round_trip_with_the_stored_lengths",
 ]
 
@@ -5408,7 +5410,11 @@ status = "frozen-technical"
 stage = 2
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "bins/work-server/src/config.rs::op_9_the_node_leads_in_the_configured_cell_under_a_ten_second_lease",
+  "crates/ledger/src/leader.rs::t_28_a_leader_whose_lease_is_lost_commits_nothing",
+  "crates/ledger/src/node.rs::t_85_a_node_draws_its_holder_once_and_keeps_its_lease_in_range",
+]
 
 [[rule]]
 id = "T-86"
@@ -5481,6 +5487,7 @@ tests = [
   "crates/ledger/src/admit/tests.rs::op_1_the_golden_ledger_replays_from_its_stored_bytes_to_the_admitted_records",
   "crates/ledger/src/admit/tests.rs::p_100_the_admission_path_seals_the_golden_ledger_byte_for_byte",
   "crates/ledger/src/admit/tests.rs::t_89_the_items_and_pointers_come_from_the_concerned_works",
+  "crates/ledger/src/leader.rs::op_7_each_touch_reaches_the_store_with_its_expectation_and_no_version",
   "sdks/bindings/core/tests/bytes.rs::t_89_touched_item_vectors_through_bindings_core",
   "sdks/bindings/uniffi/tests/swift/main.swift::t_89_swift_touched_item_vectors_match",
 ]
@@ -5661,7 +5668,9 @@ stage = 14
 acceptance = "to-fill"
 title = ""
 tests = [
+  "crates/ledger/src/leader.rs::t_28_a_leader_whose_lease_is_lost_commits_nothing",
   "crates/ledger/src/leader.rs::t_32_the_leader_commits_each_batch_through_the_store_port",
+  "crates/ledger/src/node.rs::t_85_a_node_draws_its_holder_once_and_keeps_its_lease_in_range",
 ]
 
 [[rule]]
@@ -5783,6 +5792,7 @@ acceptance = "to-fill"
 title = ""
 tests = [
   "crates/kernel/tests/derivation.rs::t_4_p_87_record_newer_than_the_active_protocol_has_no_effect",
+  "crates/ledger/src/node.rs::op_28_a_node_leads_only_a_ledger_whose_activated_versions_it_supports",
   "crates/store/src/migrate.rs::t_36_foundation_runs_first_and_versions_are_unique",
   "xtask/src/rules_migrations.rs::op_28_concurrent_index_needs_a_no_transaction_migration",
   "xtask/src/rules_migrations.rs::op_28_index_on_a_table_created_in_the_same_migration_may_block",

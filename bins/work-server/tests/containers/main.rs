@@ -31,10 +31,29 @@ use work_kernel::reason::{Reason, Schema};
 use work_kernel::validate::{ActorType, ActorTypeEntry, ActorTypeSource, ActorTypes, Origin};
 use work_kernel::verify::{SignatureCheck, SignatureVerifier};
 use work_ledger::{
-    Arrival, AuthContext, GenesisInput, Leader, PendingRecord, Submission, admit, genesis,
+    Arrival, AuthContext, GenesisInput, Leader, Node, PendingRecord, Rng, RngError, Submission,
+    admit, genesis,
 };
-use work_store::{Cluster, Durability, LedgerId, LedgerTx, Pool, SequencerPool};
+use work_store::{CellId, Cluster, Durability, LedgerId, LedgerTx, Pool, SequencerPool};
 use work_testkit::{Nats, Postgres};
+
+#[derive(Debug)]
+struct Holder(u8);
+
+impl Rng for Holder {
+    fn fill(&self, out: &mut [u8]) -> Result<(), RngError> {
+        out.fill(self.0);
+        Ok(())
+    }
+}
+
+fn cell() -> CellId {
+    CellId::new("local").unwrap()
+}
+
+fn node() -> Node {
+    Node::new(cell(), &Holder(1)).unwrap()
+}
 
 const PASSWORD: &str = "test-only-not-a-secret";
 const ROLES: [&str; 6] = [
@@ -520,8 +539,8 @@ async fn t_17_a_committed_record_reaches_jetstream_through_the_server() {
     )
     .unwrap();
     let ledger = opened.ledger;
-    Leader::open(&sequencer, &opened).await.unwrap();
-    let mut leader = Leader::acquire(sequencer, ledger).await.unwrap();
+    Leader::open(&sequencer, &opened, &cell()).await.unwrap();
+    let mut leader = Leader::acquire(sequencer, ledger, &node()).await.unwrap();
     let actors = ActorTypes {
         author: ActorTypeEntry {
             actor_type: ActorType::Human,

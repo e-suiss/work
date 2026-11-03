@@ -15,6 +15,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
 use serde_json::Value as Json;
@@ -25,6 +26,7 @@ use work_kernel::cose::{Algorithm, AuthorKeys, KeySet, PublicKey, verify_record_
 use work_kernel::id::PartyRef;
 use work_kernel::limits::SemanticLimits;
 use work_kernel::reason::{Reason, Schema};
+use work_kernel::record::ProtocolVersion;
 use work_kernel::uri::TypeUri;
 use work_kernel::validate::{ActorType, ActorTypeEntry, ActorTypeSource, ActorTypes, Origin};
 use work_kernel::verify::{
@@ -32,12 +34,12 @@ use work_kernel::verify::{
 };
 use work_ledger::{
     Arrival, AuthContext, Clock, ClockError, GenesisInput, GroupCommit, GroupConfig, Leader,
-    LedgerError, PendingRecord, RebuildError, Submission, SubmitError, admit, genesis,
-    rebuild_diff,
+    LedgerError, Ledgers, Node, PendingRecord, RebuildError, Rng, RngError, Submission,
+    SubmitError, admit, genesis, rebuild_diff,
 };
 use work_store::{
-    Cluster, Durability, Genesis, ItemRef, LedgerId, LedgerTx, Pool, SequencerPool, Snapshot,
-    StoreError,
+    CellId, Cluster, Durability, Genesis, ItemRef, LedgerId, LedgerTx, Pool, SequencerPool,
+    Snapshot, StoreError,
 };
 use work_testkit::Postgres;
 
@@ -60,6 +62,25 @@ const REBUILD_TARGET: &str = include_str!("../../../store/fixtures/rebuild-targe
 const TAMPER: &str = include_str!("../../../store/fixtures/rebuild-tamper.sql");
 
 /// `sql` without its spec ID comment lines, so `psql -c` sends one statement.
+
+#[derive(Debug)]
+struct Holder(u8);
+
+impl Rng for Holder {
+    fn fill(&self, out: &mut [u8]) -> Result<(), RngError> {
+        out.fill(self.0);
+        Ok(())
+    }
+}
+
+fn cell() -> CellId {
+    CellId::new("cell-a").unwrap()
+}
+
+fn node() -> Node {
+    Node::new(cell(), &Holder(1)).unwrap()
+}
+
 fn statement(sql: &str) -> String {
     sql.lines()
         .filter(|l| !l.trim_start().starts_with("--"))
@@ -306,13 +327,15 @@ async fn t_85_a_leader_opens_commits_and_is_fenced_by_the_next() {
     let pool = env.sequencer().await;
     let opened = opening([0x7e; 32], Durability::SingleNode);
     let ledger = opened.ledger;
-    Leader::open(&pool, &opened).await.unwrap();
+    Leader::open(&pool, &opened, &cell()).await.unwrap();
     assert!(matches!(
-        Leader::open(&pool, &opened).await,
+        Leader::open(&pool, &opened, &cell()).await,
         Err(LedgerError::Store(StoreError::AlreadyOpened))
     ));
 
-    let mut first = Leader::acquire(pool.clone(), ledger).await.unwrap();
+    let mut first = Leader::acquire(pool.clone(), ledger, &node())
+        .await
+        .unwrap();
     assert_eq!(first.epoch(), 1);
     assert_eq!(first.head().pos, 0);
     assert_eq!(first.head().leaf, opened.leaf);
@@ -332,7 +355,9 @@ async fn t_85_a_leader_opens_commits_and_is_fenced_by_the_next() {
     let three = pending(&ledger, &comment(&ledger, 3));
     assert_eq!(first.commit(at, &[three]).await.unwrap(), 3);
 
-    let mut second = Leader::acquire(pool.clone(), ledger).await.unwrap();
+    let mut second = Leader::acquire(pool.clone(), ledger, &node())
+        .await
+        .unwrap();
     assert_eq!(second.epoch(), 2);
     assert_eq!(second.head(), first.head());
 
@@ -348,7 +373,7 @@ async fn t_85_a_leader_opens_commits_and_is_fenced_by_the_next() {
 
     assert_eq!(second.commit(AT, &[four]).await.unwrap(), 4);
     assert_eq!(second.head().recorded_at, at);
-    let third = Leader::acquire(pool, ledger).await.unwrap();
+    let third = Leader::acquire(pool, ledger, &node()).await.unwrap();
     assert_eq!(third.head(), second.head());
 }
 
@@ -360,8 +385,10 @@ async fn inv_33_a_refused_or_failed_commit_leaves_no_pointer() {
     let pool = env.sequencer().await;
     let opened = opening([0x6a; 32], Durability::Quorum);
     let ledger = opened.ledger;
-    Leader::open(&pool, &opened).await.unwrap();
-    let mut first = Leader::acquire(pool.clone(), ledger).await.unwrap();
+    Leader::open(&pool, &opened, &cell()).await.unwrap();
+    let mut first = Leader::acquire(pool.clone(), ledger, &node())
+        .await
+        .unwrap();
     let one = pending(&ledger, &comment(&ledger, 1));
     first.commit(AT, std::slice::from_ref(&one)).await.unwrap();
     let committed = pointers(&env, &ledger).await;
@@ -374,7 +401,7 @@ async fn inv_33_a_refused_or_failed_commit_leaves_no_pointer() {
     ));
     assert_eq!(pointers(&env, &ledger).await, committed);
 
-    let _second = Leader::acquire(pool, ledger).await.unwrap();
+    let _second = Leader::acquire(pool, ledger, &node()).await.unwrap();
     let fenced = pending(&ledger, &comment(&ledger, 3));
     assert!(matches!(
         first.commit(AT, &[fenced]).await,
@@ -411,8 +438,10 @@ impl Clock for Gate {
 async fn writer(env: &Env, tag: [u8; 32]) -> (SequencerPool, LedgerId, GroupCommit, Gate) {
     let pool = env.sequencer().await;
     let g = opening(tag, Durability::Quorum);
-    Leader::open(&pool, &g).await.unwrap();
-    let leader = Leader::acquire(pool.clone(), g.ledger).await.unwrap();
+    Leader::open(&pool, &g, &cell()).await.unwrap();
+    let leader = Leader::acquire(pool.clone(), g.ledger, &node())
+        .await
+        .unwrap();
     let permits = Arc::new(Semaphore::new(0));
     let gate = Gate {
         permits: permits.clone(),
@@ -454,7 +483,7 @@ async fn op_31_concurrent_requests_share_batches_and_get_contiguous_positions() 
     positions.sort_unstable();
     assert_eq!(positions, (1..=100).collect::<Vec<u64>>());
     drop(group);
-    let head = Leader::acquire(pool, ledger).await.unwrap();
+    let head = Leader::acquire(pool, ledger, &node()).await.unwrap();
     assert_eq!(head.head().pos, 100);
     assert!(head.head().recorded_at <= AT.checked_add(100).unwrap());
 }
@@ -466,9 +495,11 @@ async fn op_41_a_full_queue_answers_busy_at_once_and_writes_nothing() {
     let env = Env::start().await;
     let pool = env.sequencer().await;
     let g = opening([0x3e; 32], Durability::Quorum);
-    Leader::open(&pool, &g).await.unwrap();
+    Leader::open(&pool, &g, &cell()).await.unwrap();
     let ledger = g.ledger;
-    let leader = Leader::acquire(pool.clone(), ledger).await.unwrap();
+    let leader = Leader::acquire(pool.clone(), ledger, &node())
+        .await
+        .unwrap();
     let permits = Arc::new(Semaphore::new(0));
     let clock = Gate {
         permits: permits.clone(),
@@ -493,7 +524,8 @@ async fn op_41_a_full_queue_answers_busy_at_once_and_writes_nothing() {
     }
     drop(group);
     task.await.unwrap().unwrap();
-    assert_eq!(Leader::acquire(pool, ledger).await.unwrap().head().pos, 3);
+    let reacquired = Leader::acquire(pool, ledger, &node()).await.unwrap();
+    assert_eq!(reacquired.head().pos, 3);
 }
 
 // OP-31 P-79 T-74
@@ -521,7 +553,8 @@ async fn op_31_a_refused_record_does_not_sink_its_batch() {
     );
     assert_eq!(results.iter().filter(|r| r.is_ok()).count(), 3);
     drop(group);
-    assert_eq!(Leader::acquire(pool, ledger).await.unwrap().head().pos, 3);
+    let reacquired = Leader::acquire(pool, ledger, &node()).await.unwrap();
+    assert_eq!(reacquired.head().pos, 3);
 }
 
 /// The golden comment concerning `work`, made distinct by its `occurred_at`.
@@ -586,7 +619,7 @@ async fn t_32_a_dropped_submit_is_withdrawn_before_its_batch() {
     assert_eq!(last.await.unwrap().unwrap().pos, 2);
     drop(group);
     assert_eq!(pointers(&env, &ledger).await.len(), 2);
-    let head = Leader::acquire(pool, ledger).await.unwrap();
+    let head = Leader::acquire(pool, ledger, &node()).await.unwrap();
     assert_eq!(head.head().pos, 2);
 }
 
@@ -694,8 +727,8 @@ async fn p_5_the_golden_ledger_is_stored_as_received_and_reverifies() {
         durability: Durability::SingleNode,
     };
     let ledger = opened.ledger;
-    Leader::open(&pool, &opened).await.unwrap();
-    let mut leader = Leader::acquire(pool, ledger).await.unwrap();
+    Leader::open(&pool, &opened, &cell()).await.unwrap();
+    let mut leader = Leader::acquire(pool, ledger, &node()).await.unwrap();
     let directory = Directory::golden();
     for g in &entries {
         let arrival = g
@@ -745,8 +778,10 @@ async fn p_80_a_declaration_effective_before_its_ledger_time_is_rejected_in_the_
         durability: Durability::SingleNode,
     };
     let ledger = opened.ledger;
-    Leader::open(&pool, &opened).await.unwrap();
-    let leader = Leader::acquire(pool.clone(), ledger).await.unwrap();
+    Leader::open(&pool, &opened, &cell()).await.unwrap();
+    let leader = Leader::acquire(pool.clone(), ledger, &node())
+        .await
+        .unwrap();
     let permits = Arc::new(Semaphore::new(100));
     let late = AT.checked_mul(2).unwrap();
     let (group, task) =
@@ -760,7 +795,8 @@ async fn p_80_a_declaration_effective_before_its_ledger_time_is_rejected_in_the_
     ));
     drop(group);
     task.await.unwrap().unwrap();
-    assert_eq!(Leader::acquire(pool, ledger).await.unwrap().head().pos, 0);
+    let reacquired = Leader::acquire(pool, ledger, &node()).await.unwrap();
+    assert_eq!(reacquired.head().pos, 0);
 }
 
 /// The golden ledger committed live, one entry per batch at its own ledger time.
@@ -775,8 +811,8 @@ async fn golden_ledger(env: &Env) -> LedgerId {
         durability: Durability::SingleNode,
     };
     let ledger = opened.ledger;
-    Leader::open(&pool, &opened).await.unwrap();
-    let mut leader = Leader::acquire(pool, ledger).await.unwrap();
+    Leader::open(&pool, &opened, &cell()).await.unwrap();
+    let mut leader = Leader::acquire(pool, ledger, &node()).await.unwrap();
     let directory = Directory::golden();
     for g in &entries {
         let arrival = g
@@ -817,7 +853,7 @@ async fn op_1_the_rebuilt_golden_ledger_equals_the_live_rows() {
     let ledger = golden_ledger(&env).await;
     let target = env.target().await;
     let live = env.pool(Cluster::Canonical, "work_app");
-    let outcome = rebuild_diff(&live, &target, ledger, Durability::SingleNode)
+    let outcome = rebuild_diff(&live, &target, &node(), ledger, Durability::SingleNode)
         .await
         .unwrap();
     assert!(outcome.is_clean(), "{outcome:?}");
@@ -829,7 +865,7 @@ async fn op_1_the_rebuilt_golden_ledger_equals_the_live_rows() {
     assert_eq!(live_rows.rows("work.record_header").unwrap().len(), 13);
     assert_eq!(live_rows.rows("work.one_time_flag").unwrap().len(), 0);
     assert!(matches!(
-        rebuild_diff(&live, &target, ledger, Durability::SingleNode).await,
+        rebuild_diff(&live, &target, &node(), ledger, Durability::SingleNode).await,
         Err(RebuildError::Replay { pos: 0, .. })
     ));
 }
@@ -859,7 +895,7 @@ async fn op_1_a_tampered_row_is_a_sev_1_diff_and_never_a_rebuild_input() {
         .unwrap();
     assert_ne!(live_snapshot(&live, &ledger).await, before);
     let target = env.target().await;
-    let outcome = rebuild_diff(&live, &target, ledger, Durability::SingleNode)
+    let outcome = rebuild_diff(&live, &target, &node(), ledger, Durability::SingleNode)
         .await
         .unwrap();
     assert!(!outcome.is_clean());
@@ -878,4 +914,153 @@ async fn op_1_a_tampered_row_is_a_sev_1_diff_and_never_a_rebuild_input() {
         .unwrap();
     assert_eq!(heads.missing.len(), heads.unexpected.len());
     assert_eq!(rebuilt_snapshot(&target, &ledger).await, before);
+}
+
+// OP-28 T-85 P-87
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs Docker"]
+async fn op_28_a_node_of_another_version_set_never_leads_while_the_current_one_commits() {
+    let env = Env::start().await;
+    let pool = env.sequencer().await;
+    let opened = opening([0x51; 32], Durability::SingleNode);
+    let ledger = opened.ledger;
+    Leader::open(&pool, &opened, &cell()).await.unwrap();
+    let mut current = Leader::acquire(pool.clone(), ledger, &node())
+        .await
+        .unwrap();
+    let at = AT.checked_add(1000).unwrap();
+    let one = pending(&ledger, &comment(&ledger, 1));
+    assert_eq!(current.commit(at, &[one]).await.unwrap(), 1);
+    for protocols in [vec![], vec![ProtocolVersion { major: 2, minor: 0 }]] {
+        let other = Node::new(cell(), &Holder(2))
+            .unwrap()
+            .with_protocols(&protocols);
+        assert!(matches!(
+            Leader::acquire(pool.clone(), ledger, &other).await,
+            Err(LedgerError::Store(StoreError::Unsupported))
+        ));
+    }
+    let two = pending(&ledger, &comment(&ledger, 2));
+    assert_eq!(current.commit(at, &[two]).await.unwrap(), 2);
+    assert_eq!(current.epoch(), 1);
+
+    let newer = node().with_protocols(&[
+        ProtocolVersion { major: 1, minor: 0 },
+        ProtocolVersion { major: 1, minor: 1 },
+    ]);
+    let next = Leader::acquire(pool, ledger, &newer).await.unwrap();
+    assert_eq!(next.epoch(), 2);
+    assert_eq!(next.head().pos, 2);
+    let three = pending(&ledger, &comment(&ledger, 3));
+    assert!(matches!(
+        current.commit(at, &[three]).await,
+        Err(LedgerError::Failed(_))
+    ));
+}
+
+/// A ledger clock that moves one millisecond per reading (T-32 rule 2).
+#[derive(Clone)]
+struct Steady(Arc<AtomicU64>);
+
+impl Clock for Steady {
+    async fn now(&mut self) -> Result<u64, ClockError> {
+        let n = self.0.fetch_add(1, Ordering::AcqRel);
+        AT.checked_add(n).ok_or(ClockError("overflow".to_owned()))
+    }
+}
+
+// T-28 T-85 OP-10 OP-5 OP-33
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs Docker"]
+async fn t_28_a_ledger_changes_leader_only_through_its_lease() {
+    let env = Env::start().await;
+    let pool = env.sequencer().await;
+    let opened = opening([0x52; 32], Durability::SingleNode);
+    let ledger = opened.ledger;
+    Leader::open(&pool, &opened, &cell()).await.unwrap();
+    let clock = Steady(Arc::new(AtomicU64::new(1000)));
+    let lease = Duration::from_millis(300);
+    let a = Ledgers::new(
+        pool.clone(),
+        node().with_lease(lease),
+        clock.clone(),
+        GroupConfig::default(),
+    );
+    let b_node = Node::new(cell(), &Holder(2)).unwrap().with_lease(lease);
+    let b = Ledgers::new(pool.clone(), b_node, clock, GroupConfig::default());
+    let record = |n: u8| pending(&ledger, &comment(&ledger, n));
+    let held = |r: &Result<work_ledger::Committed, SubmitError>| {
+        matches!(
+            r,
+            Err(SubmitError::Lead(LedgerError::Store(StoreError::LeaseHeld)))
+        )
+    };
+
+    assert_eq!(a.submit(&ledger, record(1)).await.unwrap().pos, 1);
+    assert!(held(&b.submit(&ledger, record(2)).await));
+    tokio::time::sleep(lease.checked_mul(3).unwrap()).await;
+    assert!(held(&b.submit(&ledger, record(2)).await));
+    assert_eq!(a.led().await, [ledger]);
+    assert!(b.led().await.is_empty());
+
+    a.step_down().await;
+    assert!(a.led().await.is_empty());
+    assert_eq!(b.submit(&ledger, record(2)).await.unwrap().pos, 2);
+    assert!(held(&a.submit(&ledger, record(3)).await));
+
+    drop(b);
+    let mut taken = None;
+    for _ in 0..40 {
+        let outcome = a.submit(&ledger, record(3)).await;
+        if held(&outcome) {
+            tokio::time::sleep(Duration::from_millis(50)).await;
+            continue;
+        }
+        taken = Some(outcome.unwrap());
+        break;
+    }
+    assert_eq!(taken.unwrap().pos, 3);
+    let mut tx = env.read("work_app", &ledger).await;
+    assert_eq!(tx.head().await.unwrap().unwrap().epoch, 3);
+    assert_eq!(tx.entries(0, 10).await.unwrap().len(), 4);
+    tx.rollback().await.unwrap();
+}
+
+// T-28 OP-10 T-85
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs Docker"]
+async fn t_28_a_leader_that_cannot_renew_its_lease_steps_down_and_is_taken_again() {
+    let env = Env::start().await;
+    let pool = env.sequencer().await;
+    let opened = opening([0x53; 32], Durability::SingleNode);
+    let ledger = opened.ledger;
+    Leader::open(&pool, &opened, &cell()).await.unwrap();
+    let clock = Steady(Arc::new(AtomicU64::new(1000)));
+    let lease = Duration::from_millis(300);
+    let a = Ledgers::new(pool, node().with_lease(lease), clock, GroupConfig::default());
+    let record = |n: u8| pending(&ledger, &comment(&ledger, n));
+    assert_eq!(a.submit(&ledger, record(1)).await.unwrap().pos, 1);
+
+    env.pg
+        .client(&[
+            "psql",
+            "-X",
+            "-q",
+            "-v",
+            "ON_ERROR_STOP=1",
+            "-d",
+            Cluster::Canonical.database(),
+            "-c",
+            "UPDATE ledger.sequencer_lease SET epoch = epoch + 100",
+        ])
+        .await
+        .unwrap();
+    tokio::time::sleep(lease).await;
+    assert!(a.led().await.is_empty());
+
+    assert_eq!(a.submit(&ledger, record(2)).await.unwrap().pos, 2);
+    assert_eq!(a.led().await, [ledger]);
+    let mut tx = env.read("work_app", &ledger).await;
+    assert_eq!(tx.head().await.unwrap().unwrap().epoch, 2);
+    tx.rollback().await.unwrap();
 }

@@ -65,6 +65,44 @@ impl std::fmt::Debug for Genesis {
     }
 }
 
+/// A cell, the unit a ledger is led in (OP-9 item 4, C-35): 1 to 63 lower-case ASCII letters,
+/// digits and hyphens, not starting with a hyphen.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct CellId(String);
+
+impl CellId {
+    /// The cell named `name`; `None` outside the form.
+    #[must_use]
+    pub fn new(name: &str) -> Option<Self> {
+        let bytes = name.as_bytes();
+        let first = bytes.first()?;
+        let shaped = bytes.len() <= 63
+            && *first != b'-'
+            && bytes
+                .iter()
+                .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || *b == b'-');
+        shaped.then(|| Self(name.to_owned()))
+    }
+
+    /// The name.
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+/// The node asking to lead a ledger (T-85 item 4, OP-9 item 4, §17.12): the cell it runs in,
+/// the process's lease holder and how long each lease it takes or renews lasts.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Seat {
+    /// The cell the node runs in.
+    pub cell: CellId,
+    /// 16 random bytes drawn once per process.
+    pub holder: [u8; 16],
+    /// Lease length in milliseconds, at least 1.
+    pub lease_ms: u64,
+}
+
 /// The head a new leader starts from (T-85 m.4).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StoredHead {
@@ -518,14 +556,15 @@ impl SequencerPool {
         LedgerTx::begin(&self.pool, ledger).await
     }
 
-    /// Opens the ledger of `g` in one transaction (T-85 m.3): the empty head at epoch 0, the
-    /// durability profile, the genesis at position 0, then the head at position 0 with the
-    /// genesis leaf as its frontier. An empty ledger never commits.
+    /// Opens the ledger of `g` in `cell` in one transaction (T-85 m.3, OP-9): the empty head at
+    /// epoch 0, the cell that leads it, its placement directory entry, the durability profile,
+    /// the genesis at position 0, then the head at position 0 with the genesis leaf as its
+    /// frontier. An empty ledger never commits.
     ///
     /// # Errors
     /// [`StoreError::AlreadyOpened`] if the ledger has a head, [`StoreError::Corrupt`] for a
     /// time beyond `bigint`, otherwise [`StoreError::Db`].
-    pub async fn open_ledger(&self, g: &Genesis) -> Result<(), StoreError> {
+    pub async fn open_ledger(&self, g: &Genesis, cell: &CellId) -> Result<(), StoreError> {
         let id = g.ledger.as_bytes().as_slice();
         let at = signed(g.recorded_at_ms)?;
         let mut tx = self.begin(&g.ledger).await?;
@@ -545,6 +584,20 @@ impl SequencerPool {
                 StoreError::Db(e)
             });
         }
+        sqlx::query!(
+            "INSERT INTO ledger.ledger_cell (ledger_id, cell) VALUES ($1, $2)",
+            id,
+            cell.as_str()
+        )
+        .execute(tx.conn())
+        .await?;
+        sqlx::query!(
+            "INSERT INTO work.placement (ledger_id, cell) VALUES ($1, $2)",
+            id,
+            cell.as_str()
+        )
+        .execute(tx.conn())
+        .await?;
         sqlx::query!(
             "INSERT INTO work.ledger_profile (ledger_id, durability_profile) VALUES ($1, $2)",
             id,
@@ -581,22 +634,88 @@ impl SequencerPool {
         tx.commit().await
     }
 
-    /// Takes leadership of `ledger` (T-85 m.4, OP-10): bumps the epoch, which fences the
-    /// previous leader's next compare-and-set, and returns the head under the new epoch once
-    /// the last log row matches it. On a mismatch nothing is committed.
+    /// Takes leadership of `ledger` for `seat` (T-85 m.4, OP-10, OP-9, OP-28 item 3, §17.12)
+    /// in one transaction: locks the head, refuses a ledger led in another cell and a node that
+    /// does not support the ledger's activation entries, which `supports` is given in log
+    /// order, the genesis first; takes the sequencer lease unless another holder's is live;
+    /// then bumps the epoch, which fences the previous leader's next compare-and-set, and
+    /// returns the head under the new epoch once the last log row matches it. On any refusal
+    /// nothing is committed and the epoch stays.
     ///
     /// # Errors
-    /// [`StoreError::NotOpened`], [`StoreError::Diverged`], [`StoreError::Corrupt`] for an
+    /// [`StoreError::NotOpened`], [`StoreError::Misrouted`], [`StoreError::Unsupported`],
+    /// [`StoreError::LeaseHeld`], [`StoreError::Diverged`], [`StoreError::Corrupt`] for an
     /// out-of-range row, otherwise [`StoreError::Db`].
-    pub async fn acquire(&self, ledger: &LedgerId) -> Result<StoredHead, StoreError> {
+    pub async fn acquire(
+        &self,
+        ledger: &LedgerId,
+        seat: &Seat,
+        supports: impl FnOnce(&[Vec<u8>]) -> bool + Send,
+    ) -> Result<StoredHead, StoreError> {
         let id = ledger.as_bytes().as_slice();
+        let lease_ms = signed(seat.lease_ms)?;
         let mut tx = self.begin(ledger).await?;
+        let locked = sqlx::query_scalar!(
+            r#"SELECT epoch AS "epoch!" FROM ledger.head WHERE ledger_id = $1 FOR UPDATE"#,
+            id
+        )
+        .fetch_optional(tx.conn())
+        .await?;
+        let Some(stored_epoch) = locked else {
+            tx.rollback().await?;
+            return Err(StoreError::NotOpened);
+        };
+        let cell = sqlx::query_scalar!(
+            "SELECT cell FROM ledger.ledger_cell WHERE ledger_id = $1",
+            id
+        )
+        .fetch_optional(tx.conn())
+        .await?;
+        if cell.as_deref() != Some(seat.cell.as_str()) {
+            tx.rollback().await?;
+            return Err(StoreError::Misrouted);
+        }
+        let activations = sqlx::query_scalar!(
+            "SELECT record_bytes FROM ledger.log WHERE ledger_id = $1 AND pos = 0",
+            id
+        )
+        .fetch_all(tx.conn())
+        .await?;
+        if activations.is_empty() || !supports(&activations) {
+            tx.rollback().await?;
+            return Err(StoreError::Unsupported);
+        }
+        let epoch = stored_epoch.checked_add(1).ok_or(StoreError::Corrupt)?;
+        let leased = sqlx::query_scalar!(
+            r#"INSERT INTO ledger.sequencer_lease AS l
+               (ledger_id, holder, epoch, acquired_at, expires_at)
+               VALUES ($1, $2, $3, pg_catalog.now(),
+                       pg_catalog.now() + interval '1 millisecond' * $4::bigint::double precision)
+               ON CONFLICT ON CONSTRAINT sequencer_lease_pk DO UPDATE
+               SET holder = EXCLUDED.holder, epoch = EXCLUDED.epoch,
+                   acquired_at = EXCLUDED.acquired_at, expires_at = EXCLUDED.expires_at,
+                   released_at = NULL
+               WHERE l.expires_at < pg_catalog.now() OR l.released_at IS NOT NULL
+                  OR l.holder = EXCLUDED.holder
+               RETURNING epoch AS "epoch!""#,
+            id,
+            seat.holder.as_slice(),
+            epoch,
+            lease_ms
+        )
+        .fetch_optional(tx.conn())
+        .await?;
+        if leased.is_none() {
+            tx.rollback().await?;
+            return Err(StoreError::LeaseHeld);
+        }
         let row = sqlx::query!(
-            r#"UPDATE ledger.head SET epoch = epoch + 1 WHERE ledger_id = $1
+            r#"UPDATE ledger.head SET epoch = $2 WHERE ledger_id = $1
                RETURNING epoch AS "epoch!", pos AS "pos!", head_leaf::bytea AS "leaf?",
                          (extract(epoch FROM head_recorded_at) * 1000)::bigint AS "at?",
                          frontier AS "frontier!""#,
-            id
+            id,
+            epoch
         )
         .fetch_optional(tx.conn())
         .await?;
@@ -636,6 +755,67 @@ impl SequencerPool {
         }
         tx.commit().await?;
         Ok(head)
+    }
+
+    /// Extends the lease `seat` holds on `ledger` under `epoch` by its lease length (§17.12).
+    ///
+    /// # Errors
+    /// [`StoreError::LeaseLost`] when the lease expired, was released or was taken under a
+    /// later epoch, otherwise [`StoreError::Db`].
+    pub async fn renew(
+        &self,
+        ledger: &LedgerId,
+        seat: &Seat,
+        epoch: u64,
+    ) -> Result<(), StoreError> {
+        let mut tx = self.begin(ledger).await?;
+        let renewed = sqlx::query!(
+            "UPDATE ledger.sequencer_lease
+             SET expires_at = pg_catalog.now()
+               + interval '1 millisecond' * $4::bigint::double precision
+             WHERE ledger_id = $1 AND holder = $2 AND epoch = $3 AND released_at IS NULL
+               AND expires_at >= pg_catalog.now()",
+            ledger.as_bytes().as_slice(),
+            seat.holder.as_slice(),
+            signed(epoch)?,
+            signed(seat.lease_ms)?
+        )
+        .execute(tx.conn())
+        .await?;
+        if renewed.rows_affected() != 1 {
+            tx.rollback().await?;
+            return Err(StoreError::LeaseLost);
+        }
+        tx.commit().await
+    }
+
+    /// Releases the lease `seat` holds on `ledger` under `epoch`, so the next node need not wait
+    /// for it to expire (§17.12).
+    ///
+    /// # Errors
+    /// [`StoreError::LeaseLost`] when the lease is no longer this one, otherwise
+    /// [`StoreError::Db`].
+    pub async fn release(
+        &self,
+        ledger: &LedgerId,
+        seat: &Seat,
+        epoch: u64,
+    ) -> Result<(), StoreError> {
+        let mut tx = self.begin(ledger).await?;
+        let released = sqlx::query!(
+            "UPDATE ledger.sequencer_lease SET released_at = pg_catalog.now()
+             WHERE ledger_id = $1 AND holder = $2 AND epoch = $3 AND released_at IS NULL",
+            ledger.as_bytes().as_slice(),
+            seat.holder.as_slice(),
+            signed(epoch)?
+        )
+        .execute(tx.conn())
+        .await?;
+        if released.rows_affected() != 1 {
+            tx.rollback().await?;
+            return Err(StoreError::LeaseLost);
+        }
+        tx.commit().await
     }
 
     /// Appends `b` to `ledger` in one transaction (T-74 m.1, OP-5, T-90): locks the head and

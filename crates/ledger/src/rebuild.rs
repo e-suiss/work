@@ -11,7 +11,7 @@ use work_store::{
 };
 
 use crate::admit::{Binding, actor_types, auth_context_value, ingest, skeleton, touch};
-use crate::{Leader, LedgerError, PendingRecord};
+use crate::{Leader, LedgerError, Node, PendingRecord};
 
 /// Entries read from the log at a time; at most the engine's batch ceiling, since one page's
 /// entries of one ledger time are appended as one batch.
@@ -135,7 +135,7 @@ pub(crate) fn replayed(
 
 /// Rebuilds `ledger` through position `through` from `live` into `target`, a canonical
 /// database that does not hold the ledger yet (§18 OP-1 item 3): opens it with the stored
-/// genesis and `durability`, takes it as leader and appends every stored entry in position
+/// genesis and `durability` in the cell of `node`, takes it as `node` and appends every stored entry in position
 /// order through the store's append, the entries of one page and one ledger time as one batch.
 /// It reads nothing but the canonical log and returns the head position reached.
 ///
@@ -144,6 +144,7 @@ pub(crate) fn replayed(
 pub async fn rebuild(
     live: &CanonicalLog,
     target: SequencerPool,
+    node: &Node,
     ledger: LedgerId,
     durability: Durability,
     through: u64,
@@ -155,8 +156,12 @@ pub async fn rebuild(
         first.first().ok_or(RebuildError::Gap(0))?,
         durability,
     )?;
-    Leader::open(&target, &opened).await.map_err(replay(0))?;
-    let mut leader = Leader::acquire(target, ledger).await.map_err(replay(0))?;
+    Leader::open(&target, &opened, node.cell())
+        .await
+        .map_err(replay(0))?;
+    let mut leader = Leader::acquire(target, ledger, node)
+        .await
+        .map_err(replay(0))?;
     let mut next: u64 = 1;
     while next <= through {
         let page = live.entries(&ledger, next, REBUILD_PAGE).await?;
@@ -183,15 +188,17 @@ pub async fn rebuild(
 
 /// The rebuild-diff of `ledger` (§18 OP-1 item 3, T-37 item 3, T-89): reads the live rows on
 /// `live`, a pool logged in as `work_app`, at one state, rebuilds the ledger through that
-/// state's head into `target` as [`rebuild`] does, and compares the target's rows with the live
-/// ones; the idempotency keys and inbound events are checked against the log. A difference is
-/// logged as the sev-1 `ledger.rebuild_diff` event and returned; the live rows are then wrong.
+/// state's head into `target` as `node`, as [`rebuild`] does, and compares the target's rows
+/// with the live ones; the idempotency keys and inbound events are checked against the log. A
+/// difference is logged as the sev-1 `ledger.rebuild_diff` event and returned; the live rows
+/// are then wrong.
 ///
 /// # Errors
 /// [`RebuildError`]; [`StoreError::NotOpened`] when the live ledger has no head.
 pub async fn rebuild_diff(
     live: &Pool,
     target: &SequencerPool,
+    node: &Node,
     ledger: LedgerId,
     durability: Durability,
 ) -> Result<RebuildDiff, RebuildError> {
@@ -205,7 +212,7 @@ pub async fn rebuild_diff(
     let live_rows = tx.snapshot().await?;
     let mismatches = tx.log_mismatches().await?;
     tx.rollback().await?;
-    let reached = rebuild(&log, target.clone(), ledger, durability, through).await?;
+    let reached = rebuild(&log, target.clone(), node, ledger, durability, through).await?;
     if reached != through {
         return Err(RebuildError::Gap(reached));
     }

@@ -27,6 +27,20 @@ pub enum StoreError {
     /// The stored head does not match the last log row, so leadership is refused (T-85).
     #[error("stored head diverges from the log")]
     Diverged,
+    /// The ledger is not led in the node's cell: the request was routed here by a wrong
+    /// placement directory entry, so leadership is refused (OP-9 item 5).
+    #[error("ledger is not led in this cell")]
+    Misrouted,
+    /// The node does not support every version the ledger's log has activated, so leadership
+    /// is refused (OP-28 item 3).
+    #[error("node does not support the ledger's active versions")]
+    Unsupported,
+    /// Another node holds a live sequencer lease on the ledger (T-85 item 4, §17.12).
+    #[error("sequencer lease held by another node")]
+    LeaseHeld,
+    /// The sequencer lease expired, was released or was taken under a later epoch (§17.12).
+    #[error("sequencer lease lost")]
+    LeaseLost,
     /// The head is no longer at the expected position under the expected epoch (OP-5, OP-10).
     #[error("head moved or epoch is stale")]
     HeadMoved,

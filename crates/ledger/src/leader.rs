@@ -1,21 +1,26 @@
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+
 use suiss_ledger::fence::Fence;
 use suiss_ledger::merkle::Frontier;
 use suiss_ledger::port::{CommitError, commit};
 use suiss_ledger::sequencer::{Head, PlanError, Sequencer};
-use work_store::{Genesis, LedgerId, SequencerPool, StoredHead};
+use work_store::{CellId, Genesis, LedgerId, SequencerPool, StoredHead};
 
 use crate::envelope::Bound;
 use crate::ports::Store;
-use crate::{LedgerError, PendingRecord, PgLog};
+use crate::{LedgerError, Node, PendingRecord, PgLog};
 
 /// The single writer of one ledger under one epoch (T-85 item 4, §18 OP-5, OP-10): every
-/// committed batch advances the head and the durability fence; a failed commit steps it down.
-/// Batches go to the `Store` port.
+/// committed batch advances the head and the durability fence; a failed commit steps it down,
+/// and so does a lost sequencer lease, after which it commits nothing (§17.12). Batches go to
+/// the `Store` port.
 #[derive(Debug)]
 pub struct Leader<S = PgLog> {
     log: S,
     seq: Sequencer,
     fence: Fence,
+    held: Arc<AtomicBool>,
 }
 
 fn head_of(stored: StoredHead) -> Result<Head, LedgerError> {
@@ -29,21 +34,35 @@ fn head_of(stored: StoredHead) -> Result<Head, LedgerError> {
 }
 
 impl Leader {
-    /// Opens a ledger with its genesis in one transaction (P-100, T-85 item 3).
+    /// Opens a ledger with its genesis in one transaction, led in `cell` and placed there in
+    /// the placement directory (P-100, T-85 item 3, OP-9).
     ///
     /// # Errors
     /// [`LedgerError::Store`]; `AlreadyOpened` for a second genesis of the same ledger.
-    pub async fn open(pool: &SequencerPool, genesis: &Genesis) -> Result<(), LedgerError> {
-        Ok(pool.open_ledger(genesis).await?)
+    pub async fn open(
+        pool: &SequencerPool,
+        genesis: &Genesis,
+        cell: &CellId,
+    ) -> Result<(), LedgerError> {
+        Ok(pool.open_ledger(genesis, cell).await?)
     }
 
-    /// Takes `ledger` under a new epoch, which fences every earlier leader, and leads it from
-    /// the stored head (T-85 item 4).
+    /// Takes `ledger` for `node` under a new epoch, which fences every earlier leader, and
+    /// leads it from the stored head (T-85 item 4): only in the ledger's own cell, only when
+    /// `node` supports the versions its log has activated and only while no other node holds
+    /// a live sequencer lease on it (OP-9 item 5, OP-28 item 3, §17.12). A refusal leaves the
+    /// epoch and the current leader as they were.
     ///
     /// # Errors
-    /// [`LedgerError::Store`] (`NotOpened`, `Diverged`), or [`LedgerError::Head`].
-    pub async fn acquire(pool: SequencerPool, ledger: LedgerId) -> Result<Self, LedgerError> {
-        let stored = pool.acquire(&ledger).await?;
+    /// [`LedgerError::Store`] (`NotOpened`, `Misrouted`, `Unsupported`, `LeaseHeld`,
+    /// `Diverged`), or [`LedgerError::Head`].
+    pub async fn acquire(
+        pool: SequencerPool,
+        ledger: LedgerId,
+        node: &Node,
+    ) -> Result<Self, LedgerError> {
+        let supports = |activations: &[Vec<u8>]| node.supports(activations);
+        let stored = pool.acquire(&ledger, node.seat(), supports).await?;
         let epoch = stored.epoch;
         let head = head_of(stored)?;
         Ok(Self::lead(PgLog::new(pool, ledger), epoch, head))
@@ -58,7 +77,14 @@ impl<S: Store> Leader<S> {
             log,
             seq: Sequencer::lead(epoch, head),
             fence,
+            held: Arc::new(AtomicBool::new(true)),
         }
+    }
+
+    /// The flag that stays set while the leader may commit; clearing it steps the leader down
+    /// before its next batch (§17.12).
+    pub(crate) fn held(&self) -> Arc<AtomicBool> {
+        Arc::clone(&self.held)
     }
 
     /// The last committed head.
@@ -91,11 +117,15 @@ impl<S: Store> Leader<S> {
     /// # Errors
     /// [`LedgerError::Refused`] leaves the leader in place; [`LedgerError::Failed`],
     /// [`LedgerError::Outcome`] and [`LedgerError::SteppedDown`] mean it must be acquired again.
+    /// A leader whose lease was lost answers [`LedgerError::SteppedDown`] and writes nothing.
     pub async fn commit(
         &mut self,
         now_ms: u64,
         records: &[PendingRecord],
     ) -> Result<u64, LedgerError> {
+        if !self.held.load(Ordering::Acquire) {
+            return Err(LedgerError::SteppedDown);
+        }
         let ledger = *self.log.ledger();
         let entries: Vec<Bound<'_>> = records
             .iter()
@@ -120,6 +150,12 @@ impl<S: Store> Leader<S> {
     }
 }
 
+impl<S> Drop for Leader<S> {
+    fn drop(&mut self) {
+        self.held.store(false, Ordering::Release);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     #![allow(clippy::unwrap_used, reason = "test code")]
@@ -129,16 +165,18 @@ mod tests {
     use suiss_crypto::dcbor::Value;
     use suiss_ledger::port::{AppendError, LogStore};
     use suiss_ledger::sequencer::Batch;
-    use work_store::StoreError;
+    use work_store::{Expect, ItemHeadRow, ItemRef, StoreError};
 
     use super::*;
-    use crate::SealedRecord;
+    use crate::log::rows;
+    use crate::{ItemTouch, SealedRecord};
 
     #[derive(Debug)]
     struct Memory {
         ledger: LedgerId,
         refuse: bool,
         appended: Mutex<Vec<(u64, u64)>>,
+        items: Mutex<Vec<ItemHeadRow>>,
     }
 
     impl LogStore<SealedRecord> for Memory {
@@ -155,6 +193,7 @@ mod tests {
                     .lock()
                     .unwrap()
                     .push((batch.epoch, batch.head.pos));
+                self.items.lock().unwrap().extend(rows(batch).items);
                 Ok(())
             };
             std::future::ready(answer)
@@ -172,6 +211,7 @@ mod tests {
             ledger: LedgerId::from_bytes([3; 32]),
             refuse,
             appended: Mutex::new(Vec::new()),
+            items: Mutex::new(Vec::new()),
         }
     }
 
@@ -218,5 +258,66 @@ mod tests {
             Err(LedgerError::Refused(StoreError::RecordExists))
         ));
         assert_eq!(refused.head().pos, 0);
+    }
+
+    // T-28 T-85 OP-10
+    #[tokio::test]
+    async fn t_28_a_leader_whose_lease_is_lost_commits_nothing() {
+        let mut leader = Leader::lead(memory(false), 4, genesis_head());
+        assert_eq!(leader.commit(20, &[record()]).await.unwrap(), 1);
+        let held = leader.held();
+        held.store(false, Ordering::Release);
+        assert!(matches!(
+            leader.commit(30, &[record()]).await,
+            Err(LedgerError::SteppedDown)
+        ));
+        assert_eq!(leader.head().pos, 1);
+        assert_eq!(*leader.log.appended.lock().unwrap(), [(4, 1)]);
+
+        let other = Leader::lead(memory(false), 5, genesis_head());
+        let flag = other.held();
+        assert!(flag.load(Ordering::Acquire));
+        drop(other);
+        assert!(!flag.load(Ordering::Acquire));
+    }
+
+    // OP-7 T-89 T-81
+    #[tokio::test]
+    async fn op_7_each_touch_reaches_the_store_with_its_expectation_and_no_version() {
+        let mut leader = Leader::lead(memory(false), 4, genesis_head());
+        let work = ItemRef::Work([7; 16]);
+        let commitment = ItemRef::Commitment([8; 32]);
+        let mut touching = record();
+        touching.record_bytes = b"touching".to_vec();
+        touching.items = vec![
+            ItemTouch {
+                item: work,
+                expect: Expect::Next,
+                heads: None,
+            },
+            ItemTouch {
+                item: commitment,
+                expect: Expect::Version(3),
+                heads: Some(vec![[9; 32]]),
+            },
+        ];
+        assert_eq!(leader.commit(20, &[record(), touching]).await.unwrap(), 2);
+        assert_eq!(
+            *leader.log.items.lock().unwrap(),
+            [
+                ItemHeadRow {
+                    item: work,
+                    expect: Expect::Next,
+                    last_pos: 2,
+                    heads: None,
+                },
+                ItemHeadRow {
+                    item: commitment,
+                    expect: Expect::Version(3),
+                    last_pos: 2,
+                    heads: Some(vec![[9; 32]]),
+                },
+            ]
+        );
     }
 }

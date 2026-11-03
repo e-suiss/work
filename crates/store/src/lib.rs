@@ -51,8 +51,8 @@ pub use rebuild::{
 };
 pub use scope::{Head, LedgerTx};
 pub use sequencer::{
-    AppendBatch, Durability, Expect, Genesis, ItemHeadRow, KeyRow, LogRow, NewHead, OutboxRow,
-    SEQUENCER_ROLE, SequencerPool, StoredHead,
+    AppendBatch, CellId, Durability, Expect, Genesis, ItemHeadRow, KeyRow, LogRow, NewHead,
+    OutboxRow, SEQUENCER_ROLE, Seat, SequencerPool, StoredHead,
 };
 pub use server::{connect, server_version_num};
 pub use skeleton::{

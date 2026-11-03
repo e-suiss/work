@@ -1,6 +1,6 @@
 use sqlx::{Acquire, PgConnection, PgPool, Postgres, Transaction};
 
-use crate::{LedgerId, StoreError};
+use crate::{CellId, LedgerId, StoreError};
 
 /// A transaction scoped to one ledger (T-13, T-36 rule 3): `begin` sets `app.ledger_id`
 /// with `set_config(…, true)` before anything else, so the scope ends with the transaction.
@@ -126,6 +126,22 @@ impl<'c> LedgerTx<'c> {
             leaf,
             recorded_at_ms,
         }))
+    }
+
+    /// The cell the placement directory routes the ledger to, or `None` without an entry
+    /// (OP-9 item 5): routing only, never an input of a Work transition.
+    ///
+    /// # Errors
+    /// [`StoreError::Db`], or [`StoreError::Corrupt`] for a malformed cell.
+    pub async fn placement(&mut self) -> Result<Option<CellId>, StoreError> {
+        let cell = sqlx::query_scalar!(
+            "SELECT cell FROM work.placement WHERE ledger_id = $1",
+            self.ledger.as_bytes().as_slice()
+        )
+        .fetch_optional(&mut *self.tx)
+        .await?;
+        cell.map(|c| CellId::new(&c).ok_or(StoreError::Corrupt))
+            .transpose()
     }
 
     /// Commits.

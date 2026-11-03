@@ -129,8 +129,11 @@ pub enum SubmitError {
     /// The writer has stopped.
     #[error("writer stopped")]
     Closed,
-    /// The ledger could not be led here: it is not opened, its stored head does not fit the
-    /// engine or the store refused; nothing was written (T-85 item 4).
+    /// The ledger could not be led here: it is not opened, it is led in another cell, this
+    /// node does not support its active versions, another node holds its lease, its stored
+    /// head does not fit the engine, the store refused, or the leader stepped down before the
+    /// record's batch; nothing was written and the caller retries with the same idempotency
+    /// key (T-85 item 4, OP-9 item 5, OP-28 item 3, §17.12).
     #[error("ledger not led: {0}")]
     Lead(LedgerError),
     /// A body opening does not match its commitment or could not be sealed; nothing was
@@ -282,6 +285,10 @@ async fn run<C: Clock>(
                 });
             }
             Err(LedgerError::Refused(_)) => one_by_one(&mut leader, now, batch).await?,
+            Err(LedgerError::SteppedDown) => {
+                answer(batch, |_| Err(SubmitError::Lead(LedgerError::SteppedDown)));
+                return Err(LedgerError::SteppedDown);
+            }
             Err(e) => {
                 answer(batch, |_| Err(SubmitError::Failed));
                 return Err(e);
@@ -305,6 +312,13 @@ async fn one_by_one(leader: &mut Leader, now: u64, batch: Vec<Request>) -> Resul
             }
             Err(LedgerError::Refused(e)) => {
                 let _sent = r.reply.send(Err(SubmitError::Refused(e)));
+            }
+            Err(LedgerError::SteppedDown) => {
+                let _sent = r.reply.send(Err(SubmitError::Lead(LedgerError::SteppedDown)));
+                answer(rest.collect(), |_| {
+                    Err(SubmitError::Lead(LedgerError::SteppedDown))
+                });
+                return Err(LedgerError::SteppedDown);
             }
             Err(e) => {
                 let _sent = r.reply.send(Err(SubmitError::Failed));

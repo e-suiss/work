@@ -19,8 +19,10 @@ use work_ledger::time::{
 use work_ledger::{
     Cadence, CadenceError, DEFAULT_CHECKPOINT_RECORDS, DEFAULT_MAX_BYTES, DEFAULT_MAX_RECORDS,
     DEFAULT_QUEUE, Declaration, DeclarationError, Deployment, GroupConfig, GroupConfigError,
-    Retention, Witness, WitnessClient, WitnessEndpoint, WitnessRole, witness_tls,
+    MAX_LEASE, Node, Retention, Rng, Witness, WitnessClient, WitnessEndpoint, WitnessRole,
+    witness_tls,
 };
+use work_store::CellId;
 use work_telemetry::{DEFAULT_MAX_QUEUE_SIZE, InvalidSampleRatio, SampleRatio, TraceConfig};
 
 /// Validated process configuration.
@@ -53,6 +55,8 @@ pub(crate) struct Config {
     pub(crate) publisher: Publisher,
     /// Group commit values (OP-31, OP-41).
     pub(crate) group_commit: GroupCommitValues,
+    /// The cell this process leads ledgers in and its sequencer lease (OP-9, §17.12).
+    pub(crate) sequencer: SequencerValues,
     /// What every checkpoint declares (OP-32 item 5, OP-33 item 1, OP-46 item 3).
     pub(crate) declaration: DeclarationValues,
     /// The witnesses every mirrored checkpoint is sent to (OP-33 item 1, OP-46 item 10).
@@ -238,6 +242,16 @@ pub(crate) struct GroupCommitValues {
     pub(crate) retry_after_ms: u64,
 }
 
+/// The node this process leads ledgers as (OP-9 item 4, T-85 item 4, §17.12).
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct SequencerValues {
+    /// The cell this process runs in; it leads only ledgers led in this cell.
+    pub(crate) cell: String,
+    /// Sequencer lease length in milliseconds, renewed every third of it.
+    pub(crate) lease_ms: u64,
+}
+
 /// Ledger time sources; none by default, so an installation names its own (OP-32 item 4,
 /// OP-43 item 3).
 #[derive(Debug, Default, Deserialize, Serialize)]
@@ -375,6 +389,11 @@ impl Default for Config {
                 queue: DEFAULT_QUEUE,
                 retry_after_ms: 1_000,
             },
+            // OP-9 T-28
+            sequencer: SequencerValues {
+                cell: "local".to_owned(),
+                lease_ms: 10_000,
+            },
             // OP-46
             declaration: DeclarationValues {
                 deployment: DeploymentWire::SelfHost,
@@ -429,6 +448,11 @@ pub(crate) enum ConfigError {
     Publisher(#[from] work_dispatch::ConfigError),
     #[error("group_commit: {0}")]
     GroupCommit(#[from] GroupConfigError),
+    #[error(
+        "sequencer.cell must be 1 to 63 lower-case letters, digits or hyphens and \
+         sequencer.lease_ms 1 to 3600000"
+    )]
+    Sequencer,
     #[error("declaration: {0}")]
     Declaration(#[from] DeclarationError),
     #[error("declaration.independent_witnesses must be at least 1 with witness = \"independent\"")]
@@ -496,6 +520,7 @@ impl Config {
         self.replica_target()?;
         self.publisher_config().validate()?;
         self.group_config()?;
+        self.sequencer_cell()?;
         self.declaration()?;
         self.witness_endpoints()?;
         Ok(())
@@ -613,6 +638,21 @@ impl Config {
             g.queue,
             Duration::from_millis(g.retry_after_ms),
         )?)
+    }
+
+    /// The cell this process leads ledgers in, with a lease length in range (OP-9, §17.12).
+    pub(crate) fn sequencer_cell(&self) -> Result<CellId, ConfigError> {
+        let lease = Duration::from_millis(self.sequencer.lease_ms);
+        if lease.is_zero() || lease > MAX_LEASE {
+            return Err(ConfigError::Sequencer);
+        }
+        CellId::new(&self.sequencer.cell).ok_or(ConfigError::Sequencer)
+    }
+
+    /// The node this process leads ledgers as, its lease holder drawn from `rng` (T-32 rule 2).
+    pub(crate) fn node(&self, rng: &(impl Rng + ?Sized)) -> Result<Node, ConfigError> {
+        let node = Node::new(self.sequencer_cell()?, rng).map_err(|_| ConfigError::Sequencer)?;
+        Ok(node.with_lease(Duration::from_millis(self.sequencer.lease_ms)))
     }
 
     /// The profile every checkpoint declares (OP-46 item 3).
@@ -1103,6 +1143,28 @@ mod tests {
                 matches!(with(toml), Err(ConfigError::GroupCommit(_))),
                 "{toml}"
             );
+        }
+    }
+
+    // OP-9 T-28 T-85
+    #[test]
+    fn op_9_the_node_leads_in_the_configured_cell_under_a_ten_second_lease() {
+        let config = with("").unwrap();
+        assert_eq!(config.sequencer_cell().unwrap().as_str(), "local");
+        let node = config.node(&work_ledger::SystemRng).unwrap();
+        assert_eq!(node.lease(), work_ledger::DEFAULT_LEASE);
+        let set = with("[sequencer]\ncell = \"eu-1\"\nlease_ms = 3000").unwrap();
+        let node = set.node(&work_ledger::SystemRng).unwrap();
+        assert_eq!(node.cell().as_str(), "eu-1");
+        assert_eq!(node.lease(), Duration::from_secs(3));
+        for toml in [
+            "[sequencer]\ncell = \"\"",
+            "[sequencer]\ncell = \"EU\"",
+            "[sequencer]\ncell = \"-eu\"",
+            "[sequencer]\nlease_ms = 0",
+            "[sequencer]\nlease_ms = 3600001",
+        ] {
+            assert!(matches!(with(toml), Err(ConfigError::Sequencer)), "{toml}");
         }
     }
 

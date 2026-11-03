@@ -45,17 +45,36 @@ use work_ledger::time::WitnessRound;
 use work_ledger::{
     Arrival, AuthContext, Cadence, CheckpointSetup, CheckpointStats, Checkpointer, Clock,
     ClockError, Comparison, DEFAULT_WITNESS_TIMEOUT, Declaration, Deployment, DirectoryReplica,
-    GenesisInput, GroupConfig, Leader, Ledgers, PendingRecord, SignerClient, Submission, Witness,
-    WitnessClient, WitnessEndpoint, WitnessError, WitnessPass, WitnessRole, WitnessStates, admit,
-    genesis, run_checkpoints,
+    GenesisInput, GroupConfig, Leader, Ledgers, Node, PendingRecord, Rng, RngError, SignerClient,
+    Submission, Witness, WitnessClient, WitnessEndpoint, WitnessError, WitnessPass, WitnessRole,
+    WitnessStates, admit, genesis, run_checkpoints,
 };
 use work_store::{
-    CheckpointerPool, Cluster, Durability, Genesis, LedgerId, LedgerTx, Pool, RecordDurability,
-    SequencerPool, WitnessObservation,
+    CellId, CheckpointerPool, Cluster, Durability, Genesis, LedgerId, LedgerTx, Pool,
+    RecordDurability, SequencerPool, WitnessObservation,
 };
 use work_testkit::{LiteWitness, Postgres};
 
 use support::{PIN, PREFIX, Signer, Token, module};
+
+
+#[derive(Debug)]
+struct Holder(u8);
+
+impl Rng for Holder {
+    fn fill(&self, out: &mut [u8]) -> Result<(), RngError> {
+        out.fill(self.0);
+        Ok(())
+    }
+}
+
+fn cell() -> CellId {
+    CellId::new("local").unwrap()
+}
+
+fn node() -> Node {
+    Node::new(cell(), &Holder(1)).unwrap()
+}
 
 const PASSWORD: &str = "test-only-not-a-secret";
 const LOGINS: &str = "ALTER ROLE work_owner LOGIN PASSWORD 'test-only-not-a-secret';\nALTER ROLE work_sequencer LOGIN PASSWORD 'test-only-not-a-secret';\nALTER ROLE work_checkpointer LOGIN PASSWORD 'test-only-not-a-secret';\nALTER ROLE work_app LOGIN PASSWORD 'test-only-not-a-secret';\nALTER ROLE work_deriver LOGIN PASSWORD 'test-only-not-a-secret';";
@@ -167,8 +186,10 @@ async fn opened_ledger(env: &Env, schema: u8) -> (Genesis, Leader) {
         Durability::SingleNode,
     )
     .unwrap();
-    Leader::open(&sequencer, &opened).await.unwrap();
-    let leader = Leader::acquire(sequencer, opened.ledger).await.unwrap();
+    Leader::open(&sequencer, &opened, &cell()).await.unwrap();
+    let leader = Leader::acquire(sequencer, opened.ledger, &node())
+        .await
+        .unwrap();
     (opened, leader)
 }
 
@@ -450,9 +471,9 @@ async fn op_33_a_led_ledger_is_checkpointed_on_its_cadence_and_mirrored() {
     )
     .unwrap();
     let ledger = opened.ledger;
-    Leader::open(&sequencer, &opened).await.unwrap();
+    Leader::open(&sequencer, &opened, &cell()).await.unwrap();
     let clock = Fixed(AT + 5);
-    let ledgers = Arc::new(Ledgers::new(sequencer, clock, GroupConfig::default()));
+    let ledgers = Arc::new(Ledgers::new(sequencer, node(), clock, GroupConfig::default()));
     let actors = ActorTypes {
         author: ActorTypeEntry {
             actor_type: ActorType::Human,

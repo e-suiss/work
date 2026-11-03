@@ -17,7 +17,7 @@ use work_ledger::{
 };
 use work_store::{Cluster, Durability, ErasurePool, LedgerId, RetentionClass, Shred, StoreError};
 
-use crate::{AT, Directory, Env, comment, human, statement, submission, unsigned, writer};
+use crate::{AT, Directory, Env, comment, human, node, statement, submission, unsigned, writer};
 
 const PIN: &str = "4711";
 const HOLD: &str = include_str!("../../../store/fixtures/body-hold.sql");
@@ -285,7 +285,7 @@ async fn op_45_a_shredded_body_is_unreadable_while_its_skeleton_verifies() {
     }
     let target = env.target().await;
     let live = env.pool(Cluster::Canonical, "work_app");
-    let outcome = rebuild_diff(&live, &target, ledger, Durability::Quorum)
+    let outcome = rebuild_diff(&live, &target, &node(), ledger, Durability::Quorum)
         .await
         .unwrap();
     assert!(outcome.is_clean(), "{outcome:?}");

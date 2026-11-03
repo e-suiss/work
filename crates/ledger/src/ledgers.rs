@@ -1,6 +1,8 @@
 //! The ledgers this process leads and the checkpoints they are owed (§18 OP-4 item 3, OP-5,
-//! OP-31, OP-33, T-85 item 4): [`Ledgers`] takes a ledger under a new epoch on first use and runs
-//! its group commit writer on the ledger time [`Clock`], counting the records it commits, and
+//! OP-31, OP-33, T-85 item 4, §17.12): [`Ledgers`] takes a ledger as its [`Node`] under a new
+//! epoch on first use, renews the ledger's sequencer lease every third of its length, steps the
+//! leader down when a renewal fails and releases the lease when the writer stops, and runs its
+//! group commit writer on the ledger time [`Clock`], counting the records it commits, and
 //! [`run_checkpoints`] checkpoints each led ledger through `work-signer` once its [`Cadence`] is
 //! due, 60 s of ledger time or 1,000 records by default, whichever comes first, then mirrors it
 //! to the replica, which a witness cosignature waits for. Until the signer has answered its log
@@ -15,11 +17,11 @@ use std::time::Duration;
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 use tokio::time::MissedTickBehavior;
-use work_store::{CheckpointerPool, LedgerId, SequencerPool};
+use work_store::{CheckpointerPool, LedgerId, Seat, SequencerPool};
 
 use crate::{
     AnyReplica, Checkpointer, Clock, Committed, Declaration, GroupCommit, GroupConfig, Leader,
-    LedgerError, PendingRecord, Replica as _, SignerClient, SubmitError,
+    LedgerError, Node, PendingRecord, Replica as _, SignerClient, SubmitError,
 };
 
 /// Ledger time between checkpoints of a ledger with new records (OP-33 item 4; POLICY DEFAULT,
@@ -85,14 +87,62 @@ impl Cadence {
 struct Led {
     commit: GroupCommit,
     writer: JoinHandle<Result<(), LedgerError>>,
+    keeper: JoinHandle<()>,
+    epoch: u64,
+    held: Arc<AtomicBool>,
     pending: AtomicU64,
     checkpointed_at: AtomicU64,
     mirror: AtomicBool,
 }
 
+impl Led {
+    fn leading(&self) -> bool {
+        !self.writer.is_finished() && self.held.load(Ordering::Acquire)
+    }
+}
+
+/// Renews the lease `seat` holds on `ledger` under `epoch` every third of its length while the
+/// leader holds it; a failed renewal clears `held`, which steps the leader down before its next
+/// batch, and a leader that stopped has its lease released (§17.12).
+async fn keep_lease(
+    pool: SequencerPool,
+    ledger: LedgerId,
+    seat: Seat,
+    epoch: u64,
+    held: Arc<AtomicBool>,
+    lease: Duration,
+) {
+    let period = match lease.checked_div(3) {
+        Some(third) if !third.is_zero() => third,
+        _ => lease,
+    };
+    let mut ticks = tokio::time::interval(period);
+    ticks.set_missed_tick_behavior(MissedTickBehavior::Delay);
+    ticks.tick().await;
+    loop {
+        ticks.tick().await;
+        if !held.load(Ordering::Acquire) {
+            let _released = pool.release(&ledger, &seat, epoch).await;
+            return;
+        }
+        if let Err(error) = pool.renew(&ledger, &seat, epoch).await {
+            held.store(false, Ordering::Release);
+            tracing::warn!(
+                event = "ledger.lease_lost",
+                ledger = %ledger.to_hex(),
+                epoch,
+                %error,
+                "sequencer lease not renewed; the leader steps down"
+            );
+            return;
+        }
+    }
+}
+
 /// The ledgers this process leads, each behind its own group commit writer.
 pub struct Ledgers<C> {
     pool: SequencerPool,
+    node: Node,
     clock: C,
     config: GroupConfig,
     led: Mutex<BTreeMap<LedgerId, Arc<Led>>>,
@@ -101,17 +151,20 @@ pub struct Ledgers<C> {
 impl<C> std::fmt::Debug for Ledgers<C> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Ledgers")
+            .field("node", &self.node)
             .field("config", &self.config)
             .finish_non_exhaustive()
     }
 }
 
 impl<C: Clock + Clone + Sync + 'static> Ledgers<C> {
-    /// No ledger led yet; each is acquired from `pool` on first use and written on `clock`.
+    /// No ledger led yet; each is acquired from `pool` as `node` on first use and written on
+    /// `clock`.
     #[must_use]
-    pub fn new(pool: SequencerPool, clock: C, config: GroupConfig) -> Self {
+    pub fn new(pool: SequencerPool, node: Node, clock: C, config: GroupConfig) -> Self {
         Self {
             pool,
+            node,
             clock,
             config,
             led: Mutex::new(BTreeMap::new()),
@@ -120,14 +173,30 @@ impl<C: Clock + Clone + Sync + 'static> Ledgers<C> {
 
     async fn entry(&self, ledger: &LedgerId) -> Result<Arc<Led>, LedgerError> {
         let mut led = self.led.lock().await;
-        if let Some(entry) = led.get(ledger).filter(|e| !e.writer.is_finished()) {
+        if let Some(entry) = led.get(ledger).filter(|e| e.leading()) {
             return Ok(Arc::clone(entry));
         }
-        let leader = Leader::acquire(self.pool.clone(), *ledger).await?;
+        if let Some(stale) = led.remove(ledger) {
+            stale.held.store(false, Ordering::Release);
+        }
+        let leader = Leader::acquire(self.pool.clone(), *ledger, &self.node).await?;
+        let epoch = leader.epoch();
+        let held = leader.held();
+        let keeper = tokio::spawn(keep_lease(
+            self.pool.clone(),
+            *ledger,
+            self.node.seat().clone(),
+            epoch,
+            Arc::clone(&held),
+            self.node.lease(),
+        ));
         let (commit, writer) = GroupCommit::spawn(leader, self.clock.clone(), self.config);
         let entry = Arc::new(Led {
             commit,
             writer,
+            keeper,
+            epoch,
+            held,
             pending: AtomicU64::new(1),
             checkpointed_at: AtomicU64::new(0),
             mirror: AtomicBool::new(true),
@@ -137,10 +206,13 @@ impl<C: Clock + Clone + Sync + 'static> Ledgers<C> {
     }
 
     /// Leads `ledger`, taking it under a new epoch unless this process already leads it, and
-    /// returns its writer. A writer that stepped down is replaced (T-85 item 4).
+    /// returns its writer. A writer that stepped down, or whose lease was lost, is replaced
+    /// (T-85 item 4, §17.12).
     ///
     /// # Errors
-    /// [`LedgerError`] from [`Leader::acquire`].
+    /// [`LedgerError`] from [`Leader::acquire`]: `Misrouted` for a ledger not led in this
+    /// node's cell, `Unsupported` when this node does not support its active versions,
+    /// `LeaseHeld` while another node leads it.
     pub async fn lead(&self, ledger: &LedgerId) -> Result<GroupCommit, LedgerError> {
         Ok(self.entry(ledger).await?.commit.clone())
     }
@@ -163,7 +235,37 @@ impl<C: Clock + Clone + Sync + 'static> Ledgers<C> {
 
     /// The ledgers led now, in id order.
     pub async fn led(&self) -> Vec<LedgerId> {
-        self.led.lock().await.keys().copied().collect()
+        self.led
+            .lock()
+            .await
+            .iter()
+            .filter(|(_, e)| e.leading())
+            .map(|(l, _)| *l)
+            .collect()
+    }
+
+    /// Steps down from every ledger and releases its lease, so another node takes it at once
+    /// instead of after the lease expires (§17.12). A batch already handed to the store is
+    /// committed or failed as a whole; nothing else is written.
+    pub async fn step_down(&self) {
+        let led = std::mem::take(&mut *self.led.lock().await);
+        for (ledger, entry) in led {
+            entry.held.store(false, Ordering::Release);
+            entry.keeper.abort();
+            if self
+                .pool
+                .release(&ledger, self.node.seat(), entry.epoch)
+                .await
+                .is_ok()
+            {
+                tracing::info!(
+                    event = "ledger.lease_released",
+                    ledger = %ledger.to_hex(),
+                    epoch = entry.epoch,
+                    "sequencer lease released"
+                );
+            }
+        }
     }
 
     async fn snapshot(&self) -> Vec<(LedgerId, Arc<Led>)> {
@@ -171,6 +273,7 @@ impl<C: Clock + Clone + Sync + 'static> Ledgers<C> {
             .lock()
             .await
             .iter()
+            .filter(|(_, e)| e.leading())
             .map(|(l, e)| (*l, Arc::clone(e)))
             .collect()
     }

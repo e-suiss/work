@@ -3,12 +3,15 @@
 use std::process::ExitCode;
 
 use suiss_crypto::secret::Secret;
-use work_ledger::{Retention, S3Config, WormStore, tls_trusting};
-use work_store::{ArchivePool, Cluster, Durability, LedgerId, Pool, SequencerPool};
+use work_ledger::{Node, Retention, S3Config, SystemRng, WormStore, tls_trusting};
+use work_store::{ArchivePool, CellId, Cluster, Durability, LedgerId, Pool, SequencerPool};
 use work_telemetry::{DEFAULT_METRIC_INTERVAL, Meters, MetricConfig, meter_provider};
 
 const USAGE: &str = "usage: work-cli --version | work-cli migrate <canonical|derived> | \
                      work-cli rebuild <ledger hex> <single-node|quorum> | work-cli archive";
+
+/// The cell a rebuild's scratch database leads the rebuilt ledger in (OP-9, OP-1 item 3).
+const REBUILD_CELL: &str = "rebuild";
 
 /// The canonical database the archive job runs in, as a `work_archive` login (OP-35).
 const ARCHIVE_URL: &str = "WORK_ARCHIVE_URL";
@@ -160,7 +163,9 @@ fn rebuild(ledger: LedgerId, profile: Durability) -> Result<work_store::RebuildD
         let target = SequencerPool::new(target)
             .await
             .map_err(|e| e.to_string())?;
-        work_ledger::rebuild_diff(&live, &target, ledger, profile)
+        let cell = CellId::new(REBUILD_CELL).ok_or_else(|| "rebuild cell".to_owned())?;
+        let node = Node::new(cell, &SystemRng).map_err(|e| e.to_string())?;
+        work_ledger::rebuild_diff(&live, &target, &node, ledger, profile)
             .await
             .map_err(|e| e.to_string())
     })

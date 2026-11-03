@@ -1,9 +1,9 @@
 use sqlx::{AssertSqlSafe, Executor};
 use work_store::{
-    AppendBatch, AppendError, CallerRef, Cluster, Durability, Expect, Genesis, HeaderRow,
-    IdempotencyKey, InboundRow, ItemHeadRow, ItemRef, KeyRow, LedgerId, LogRow, NewHead, OutboxRow,
-    ReceivedKind, ReceivedRole, ReceivedRow, SequencerPool, Skeleton, StoreError, StoredHead,
-    StoredKey, StoredOutcome,
+    AppendBatch, AppendError, CallerRef, CellId, Cluster, Durability, Expect, Genesis, HeaderRow,
+    IdempotencyKey, InboundRow, ItemHeadRow, ItemRef, KeyRow, LedgerId, LedgerTx, LogRow, NewHead,
+    OutboxRow, ReceivedKind, ReceivedRole, ReceivedRow, Seat, SequencerPool, Skeleton, StoreError,
+    StoredHead, StoredKey, StoredOutcome,
 };
 
 use crate::env::{Env, L, M, commit_fails, fails, hex, run, scalar, with_ledgers};
@@ -21,6 +21,22 @@ fn genesis(ledger: [u8; 32]) -> Genesis {
         bytes: vec![0xa1, 0x01, 0x02],
         durability: Durability::Quorum,
     }
+}
+
+fn cell() -> CellId {
+    CellId::new("cell-a").unwrap()
+}
+
+fn seat() -> Seat {
+    Seat {
+        cell: cell(),
+        holder: [1; 16],
+        lease_ms: 60_000,
+    }
+}
+
+fn any(_: &[Vec<u8>]) -> bool {
+    true
 }
 
 fn record(pos: u64, prev: [u8; 32], leaf: [u8; 32], at: u64) -> LogRow {
@@ -84,7 +100,7 @@ async fn opened() -> (Env, SequencerPool) {
     let seq = SequencerPool::new(env.canonical("work_sequencer"))
         .await
         .unwrap();
-    seq.open_ledger(&genesis(L)).await.unwrap();
+    seq.open_ledger(&genesis(L), &cell()).await.unwrap();
     (env, seq)
 }
 
@@ -106,7 +122,8 @@ async fn t_85_opening_writes_the_genesis_and_leadership_reads_its_frontier() {
     assert_eq!(scalar(&app, &l, genesis_row, false).await, 1);
     let profile = "SELECT count(*) FROM work.ledger_profile WHERE durability_profile = 'quorum'";
     assert_eq!(scalar(&app, &l, profile, false).await, 1);
-    let head = seq.acquire(&LedgerId::from_bytes(L)).await.unwrap();
+    let ledger = LedgerId::from_bytes(L);
+    let head = seq.acquire(&ledger, &seat(), any).await.unwrap();
     assert_eq!(
         head,
         StoredHead {
@@ -117,16 +134,14 @@ async fn t_85_opening_writes_the_genesis_and_leadership_reads_its_frontier() {
             frontier: vec![GENESIS_LEAF],
         }
     );
-    assert_eq!(
-        seq.acquire(&LedgerId::from_bytes(L)).await.unwrap().epoch,
-        2
-    );
+    let again = seq.acquire(&ledger, &seat(), any).await.unwrap();
+    assert_eq!(again.epoch, 2);
     assert!(matches!(
-        seq.open_ledger(&genesis(L)).await,
+        seq.open_ledger(&genesis(L), &cell()).await,
         Err(StoreError::AlreadyOpened)
     ));
     assert!(matches!(
-        seq.acquire(&LedgerId::from_bytes(M)).await,
+        seq.acquire(&LedgerId::from_bytes(M), &seat(), any).await,
         Err(StoreError::NotOpened)
     ));
     assert!(matches!(
@@ -264,7 +279,7 @@ async fn t_74_an_append_moves_the_head_and_a_stale_batch_fails() {
     let (env, seq) = opened().await;
     let ledger = LedgerId::from_bytes(L);
     let l = hex(&L);
-    let lead = seq.acquire(&ledger).await.unwrap();
+    let lead = seq.acquire(&ledger, &seat(), any).await.unwrap();
     let first = batch(lead.epoch, 0, 1);
     seq.append(&ledger, &first).await.unwrap();
     let app = env.canonical("work_app");
@@ -285,7 +300,7 @@ async fn t_74_an_append_moves_the_head_and_a_stale_batch_fails() {
         seq.append(&ledger, &batch(lead.epoch, 0, 1)).await,
         Err(AppendError::Failed(StoreError::HeadMoved))
     ));
-    let next = seq.acquire(&ledger).await.unwrap();
+    let next = seq.acquire(&ledger, &seat(), any).await.unwrap();
     assert_eq!(next.epoch, 2);
     assert_eq!(next.pos, 1);
     assert_eq!(next.frontier, first.head.frontier);
@@ -330,7 +345,7 @@ async fn t_85_leadership_is_refused_when_the_head_diverges_from_the_log() {
         .await
         .unwrap();
     assert!(matches!(
-        seq.acquire(&LedgerId::from_bytes(L)).await,
+        seq.acquire(&LedgerId::from_bytes(L), &seat(), any).await,
         Err(StoreError::Diverged)
     ));
     let epoch = "SELECT epoch FROM ledger.head";
@@ -361,7 +376,7 @@ fn keyed(mut b: AppendBatch, key: &str) -> AppendBatch {
 async fn op_8_the_key_is_written_with_its_record_and_a_reused_key_is_refused() {
     let (env, seq) = opened().await;
     let ledger = LedgerId::from_bytes(L);
-    let head = seq.acquire(&ledger).await.unwrap();
+    let head = seq.acquire(&ledger, &seat(), any).await.unwrap();
     let key = "0192f0a0-0000-7000-8000-000000000001";
     seq.append(&ledger, &keyed(batch(head.epoch, 0, 1), key))
         .await
@@ -486,7 +501,7 @@ async fn t_89_next_versions_follow_the_stored_head_and_feed_the_outbox() {
     let (env, seq) = opened().await;
     let ledger = LedgerId::from_bytes(L);
     let l = hex(&L);
-    let head = seq.acquire(&ledger).await.unwrap();
+    let head = seq.acquire(&ledger, &seat(), any).await.unwrap();
     seq.append(&ledger, &works(head.epoch, 0, 2)).await.unwrap();
     seq.append(&ledger, &works(head.epoch, 2, 1)).await.unwrap();
     let app = env.canonical("work_app");
@@ -515,7 +530,7 @@ async fn t_89_next_versions_follow_the_stored_head_and_feed_the_outbox() {
 async fn t_81_a_pointer_without_its_item_head_is_refused() {
     let (env, seq) = opened().await;
     let ledger = LedgerId::from_bytes(L);
-    let head = seq.acquire(&ledger).await.unwrap();
+    let head = seq.acquire(&ledger, &seat(), any).await.unwrap();
     let mut b = works(head.epoch, 0, 1);
     b.items.clear();
     assert!(matches!(
@@ -535,7 +550,7 @@ async fn t_81_a_pointer_without_its_item_head_is_refused() {
 async fn t_90_received_bytes_read_back_as_received_and_a_proof_commit_needs_them() {
     let (env, seq) = opened().await;
     let ledger = LedgerId::from_bytes(L);
-    let head = seq.acquire(&ledger).await.unwrap();
+    let head = seq.acquire(&ledger, &seat(), any).await.unwrap();
     let mut signed = works(head.epoch, 0, 1);
     signed.records[0].received.push(received(
         ReceivedKind::CoseSign1,
@@ -595,7 +610,7 @@ async fn t_90_received_bytes_read_back_as_received_and_a_proof_commit_needs_them
 async fn op_38_an_inbound_event_and_a_record_id_are_recorded_once() {
     let (env, seq) = opened().await;
     let ledger = LedgerId::from_bytes(L);
-    let head = seq.acquire(&ledger).await.unwrap();
+    let head = seq.acquire(&ledger, &seat(), any).await.unwrap();
     let inbound = |pos: u64| InboundRow {
         pos,
         source: "https://peer.example/ledgers/x".to_owned(),
@@ -623,5 +638,204 @@ async fn op_38_an_inbound_event_and_a_record_id_are_recorded_once() {
     assert_eq!(
         scalar(&env.canonical("work_app"), &hex(&L), seen, false).await,
         1
+    );
+}
+
+async fn epoch_of(env: &Env) -> i64 {
+    let epoch = "SELECT epoch FROM ledger.head";
+    scalar(&env.canonical("work_app"), &hex(&L), epoch, false).await
+}
+
+// T-28 T-85 OP-10 OP-5
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs Docker"]
+async fn t_28_a_live_lease_keeps_another_node_out_until_it_is_released_or_expires() {
+    let (env, seq) = opened().await;
+    let ledger = LedgerId::from_bytes(L);
+    let a = seat();
+    let b = Seat {
+        holder: [2; 16],
+        ..seat()
+    };
+    let first = seq.acquire(&ledger, &a, any).await.unwrap();
+    assert_eq!(first.epoch, 1);
+    assert!(matches!(
+        seq.acquire(&ledger, &b, any).await,
+        Err(StoreError::LeaseHeld)
+    ));
+    assert_eq!(epoch_of(&env).await, 1);
+    seq.renew(&ledger, &a, 1).await.unwrap();
+    assert!(matches!(seq.renew(&ledger, &b, 1).await, Err(StoreError::LeaseLost)));
+    seq.release(&ledger, &a, 1).await.unwrap();
+    assert!(matches!(seq.release(&ledger, &a, 1).await, Err(StoreError::LeaseLost)));
+
+    let second = seq.acquire(&ledger, &b, any).await.unwrap();
+    assert_eq!(second.epoch, 2);
+    assert!(matches!(seq.renew(&ledger, &a, 1).await, Err(StoreError::LeaseLost)));
+    assert!(matches!(
+        seq.append(&ledger, &batch(1, 0, 1)).await,
+        Err(AppendError::Failed(StoreError::HeadMoved))
+    ));
+    seq.append(&ledger, &batch(2, 0, 1)).await.unwrap();
+
+    let brief = Seat { lease_ms: 50, ..b };
+    assert_eq!(seq.acquire(&ledger, &brief, any).await.unwrap().epoch, 3);
+    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+    let third = seq.acquire(&ledger, &a, any).await.unwrap();
+    assert_eq!(third.epoch, 4);
+    assert_eq!(third.pos, 1);
+    assert!(matches!(
+        seq.renew(&ledger, &brief, 3).await,
+        Err(StoreError::LeaseLost)
+    ));
+    let log = "SELECT count(*) FROM ledger.log";
+    assert_eq!(
+        scalar(&env.canonical("work_app"), &hex(&L), log, false).await,
+        2
+    );
+}
+
+// OP-9 C-35 T-85
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs Docker"]
+async fn op_9_a_wrong_directory_entry_is_refused_by_the_sequencer() {
+    let (env, seq) = opened().await;
+    let ledger = LedgerId::from_bytes(L);
+    let app = env.canonical("work_app");
+    let mut tx = LedgerTx::begin(&app, &ledger).await.unwrap();
+    assert_eq!(tx.placement().await.unwrap(), Some(cell()));
+    tx.rollback().await.unwrap();
+    let unknown = LedgerId::from_bytes(M);
+    let mut other = LedgerTx::begin(&app, &unknown).await.unwrap();
+    assert_eq!(other.placement().await.unwrap(), None);
+    other.rollback().await.unwrap();
+
+    run(
+        &env.canonical("work_owner"),
+        &hex(&L),
+        &["UPDATE work.placement SET cell = 'cell-b'"],
+    )
+    .await;
+    let mut tx = LedgerTx::begin(&app, &ledger).await.unwrap();
+    let routed = tx.placement().await.unwrap().unwrap();
+    tx.rollback().await.unwrap();
+    assert_eq!(routed.as_str(), "cell-b");
+    let elsewhere = Seat {
+        cell: routed,
+        holder: [3; 16],
+        lease_ms: 60_000,
+    };
+    assert!(matches!(
+        seq.acquire(&ledger, &elsewhere, any).await,
+        Err(StoreError::Misrouted)
+    ));
+    assert!(matches!(
+        seq.acquire(&unknown, &elsewhere, any).await,
+        Err(StoreError::NotOpened)
+    ));
+    assert_eq!(epoch_of(&env).await, 0);
+    let lease = "SELECT count(*) FROM ledger.sequencer_lease";
+    assert_eq!(scalar(&app, &hex(&L), lease, false).await, 0);
+    assert_eq!(seq.acquire(&ledger, &seat(), any).await.unwrap().epoch, 1);
+    fails(
+        &env.canonical("work_owner"),
+        &hex(&L),
+        &["UPDATE ledger.ledger_cell SET cell = 'cell-b'"],
+        None,
+    )
+    .await;
+}
+
+// OP-28 P-87 T-85
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs Docker"]
+async fn op_28_a_node_without_the_active_versions_never_takes_the_ledger() {
+    let (env, seq) = opened().await;
+    let ledger = LedgerId::from_bytes(L);
+    let seen = std::sync::Mutex::new(Vec::new());
+    let refuse = |activations: &[Vec<u8>]| {
+        seen.lock().unwrap().extend_from_slice(activations);
+        false
+    };
+    assert!(matches!(
+        seq.acquire(&ledger, &seat(), refuse).await,
+        Err(StoreError::Unsupported)
+    ));
+    assert_eq!(*seen.lock().unwrap(), [genesis(L).bytes]);
+    assert_eq!(epoch_of(&env).await, 0);
+
+    let current = seq.acquire(&ledger, &seat(), any).await.unwrap();
+    assert_eq!(current.epoch, 1);
+    let older = Seat {
+        holder: [4; 16],
+        ..seat()
+    };
+    assert!(matches!(
+        seq.acquire(&ledger, &older, |_: &[Vec<u8>]| false).await,
+        Err(StoreError::Unsupported)
+    ));
+    assert_eq!(epoch_of(&env).await, 1);
+    seq.renew(&ledger, &seat(), 1).await.unwrap();
+    seq.append(&ledger, &batch(1, 0, 1)).await.unwrap();
+}
+
+/// A small deterministic generator, so the interleaving below is the same on every run.
+fn step(state: &mut u64) -> u64 {
+    *state = state
+        .wrapping_mul(6_364_136_223_846_793_005)
+        .wrapping_add(1_442_695_040_888_963_407);
+    state.checked_shr(33).unwrap()
+}
+
+// OP-7 T-89 P-28 P-29
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs Docker"]
+async fn op_7_no_transition_on_a_stale_conflict_area_head_is_ever_committed() {
+    let (env, seq) = opened().await;
+    let ledger = LedgerId::from_bytes(L);
+    let head = seq.acquire(&ledger, &seat(), any).await.unwrap();
+    let mut state = 0x5eed_u64;
+    let mut stored = 0_u64;
+    let mut after = 0_u64;
+    let mut refused = 0_u64;
+    for _ in 0..120 {
+        let roll = step(&mut state).checked_rem(4).unwrap();
+        let expect = match roll {
+            0 if stored > 0 => Expect::Version(step(&mut state).checked_rem(stored).unwrap()),
+            1 => Expect::Next,
+            2 => Expect::Version(plus(stored, 1)),
+            _ => Expect::Version(stored),
+        };
+        let mut b = batch(head.epoch, after, 1);
+        b.items[0].expect = expect;
+        let outcome = seq.append(&ledger, &b).await;
+        let current = matches!(expect, Expect::Next) || expect == Expect::Version(stored);
+        if current {
+            outcome.unwrap();
+            stored = plus(stored, 1);
+            after = plus(after, 1);
+        } else {
+            assert!(
+                matches!(
+                    outcome,
+                    Err(AppendError::Refused(StoreError::ItemConflict(ITEM)))
+                ),
+                "{expect:?} against {stored}"
+            );
+            refused = plus(refused, 1);
+        }
+    }
+    assert!(refused > 0);
+    assert!(after > 0);
+    let app = env.canonical("work_app");
+    let mut tx = LedgerTx::begin(&app, &ledger).await.unwrap();
+    assert_eq!(tx.item_version(&ITEM).await.unwrap(), Some(stored));
+    assert_eq!(tx.head().await.unwrap().unwrap().pos, Some(after));
+    tx.rollback().await.unwrap();
+    let pointers = "SELECT count(*) FROM ledger.outbox";
+    let publisher = env.canonical("work_publisher");
+    assert_eq!(
+        scalar(&publisher, &hex(&L), pointers, false).await,
+        i64::try_from(after).unwrap()
     );
 }

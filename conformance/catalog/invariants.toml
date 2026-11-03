@@ -1976,6 +1976,7 @@ tests = [
   "crates/kernel/tests/properties.rs::t_4_position_overflow_is_typed",
   "crates/kernel/tests/records.rs::t_4_p_87_unknown_protocol_version_is_quarantined_before_any_rule",
   "crates/kernel/tests/records.rs::t_4_rule_set_is_selected_from_the_record_version_only",
+  "crates/ledger/src/node.rs::op_28_a_node_leads_only_a_ledger_whose_activated_versions_it_supports",
   "sdks/bindings/core/tests/bytes.rs::t_4_merkle_vectors_through_bindings_core",
   "sdks/bindings/core/tests/bytes.rs::t_88_checkpoint_vectors_through_bindings_core",
   "sdks/bindings/core/tests/vectors.rs::t_10_derivation_takes_record_ids_from_the_stored_bytes_through_bindings_core",
@@ -2128,7 +2129,10 @@ family = "T"
 status = "canonical-invariant"
 stage = 3
 title = ""
-tests = []
+tests = [
+  "bins/work-server/src/config.rs::op_9_the_node_leads_in_the_configured_cell_under_a_ten_second_lease",
+  "crates/ledger/src/leader.rs::t_28_a_leader_whose_lease_is_lost_commits_nothing",
+]
 
 [[rule]]
 id = "OP-1"
@@ -2179,7 +2183,9 @@ family = "OP"
 status = "canonical-invariant"
 stage = 2
 title = ""
-tests = []
+tests = [
+  "crates/ledger/src/leader.rs::op_7_each_touch_reaches_the_store_with_its_expectation_and_no_version",
+]
 
 [[rule]]
 id = "OP-9"
@@ -2188,7 +2194,9 @@ status = "canonical-invariant"
 stage = 2
 title = ""
 tests = [
+  "bins/work-server/src/config.rs::op_9_the_node_leads_in_the_configured_cell_under_a_ten_second_lease",
   "crates/ledger/src/admit/tests.rs::op_9_a_record_declaring_another_ledger_is_refused",
+  "crates/ledger/src/node.rs::t_85_a_node_draws_its_holder_once_and_keeps_its_lease_in_range",
 ]
 
 [[rule]]
