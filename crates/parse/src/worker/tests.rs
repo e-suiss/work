@@ -214,7 +214,11 @@ fn answers(request_len: usize, answers: &[Vec<u8>]) -> Command {
         for b in answer {
             write!(escaped, "\\{b:03o}").unwrap();
         }
-        write!(script, "head -c {request_len} >/dev/null; printf '{escaped}'; ").unwrap();
+        write!(
+            script,
+            "head -c {request_len} >/dev/null; printf '{escaped}'; "
+        )
+        .unwrap();
     }
     script.push_str("exec cat >/dev/null");
     let mut command = Command::new("sh");

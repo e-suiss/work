@@ -75,7 +75,11 @@ fn main() -> ExitCode {
 
     let _parsers = match parsers {
         Ok(pool) => {
-            tracing::info!(event = "parser.workers_started", workers = pool.live(), "parser workers started");
+            tracing::info!(
+                event = "parser.workers_started",
+                workers = pool.live(),
+                "parser workers started"
+            );
             Some(pool)
         }
         Err(error) => {

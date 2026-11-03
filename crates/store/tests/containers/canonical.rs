@@ -649,12 +649,10 @@ async fn op_45_a_part_key_is_shredded_once_and_never_under_a_hold() {
         Some("42501"),
     )
     .await;
-    let early = sql(
-        "INSERT INTO work.erasure_log \
+    let early = sql("INSERT INTO work.erasure_log \
          (ledger_id, dek_id, cause, state, settles_at, completed_at, pos, part) \
          SELECT decode('{L}', 'hex'), dek_id, 'redaction', 'completed', now(), now(), 0, 'note' \
-           FROM work.body_dek",
-    );
+           FROM work.body_dek");
     fails(&erasure, &l, &[&early], Some("23514")).await;
     run(&erasure, &l, &[shred, &early]).await;
     fails(&erasure, &l, &[shred], Some("23514")).await;
@@ -775,14 +773,18 @@ async fn op_45_an_erasure_waits_on_a_hold_and_completes_only_after_it_settles() 
     let twice = pool.shred_part(&ledger, 0, "note", hour).await.unwrap();
     assert_eq!(twice, Erased::Nothing);
     let destroyed = pool
-        .destroy_dek(&ledger, subject, class, Shred::SubjectErasure, Duration::ZERO)
+        .destroy_dek(
+            &ledger,
+            subject,
+            class,
+            Shred::SubjectErasure,
+            Duration::ZERO,
+        )
         .await
         .unwrap();
     let (erasure_id, key) = match destroyed {
         Erased::Shredded {
-            erasure_id,
-            key,
-            ..
+            erasure_id, key, ..
         } => (erasure_id, key),
         other => panic!("{other:?}"),
     };
@@ -847,12 +849,10 @@ async fn op_45_an_erasure_waits_on_a_hold_and_completes_only_after_it_settles() 
     fails(
         &erasure,
         &l,
-        &[&sql(
-            "INSERT INTO work.erasure_log \
+        &[&sql("INSERT INTO work.erasure_log \
              (ledger_id, dek_id, cause, state, settles_at, pos, part) \
              SELECT decode('{L}', 'hex'), dek_id, 'redaction', 'shredded', now(), 0, 'attachment' \
-               FROM work.body_dek",
-        )],
+               FROM work.body_dek")],
         Some("23514"),
     )
     .await;

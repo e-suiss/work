@@ -485,7 +485,10 @@ async fn shredded(
     .fetch_all(tx.conn())
     .await
     .map_err(refused)?;
-    if let Some(first) = resumed.into_iter().min_by(|a, b| a.erasure_id.cmp(&b.erasure_id)) {
+    if let Some(first) = resumed
+        .into_iter()
+        .min_by(|a, b| a.erasure_id.cmp(&b.erasure_id))
+    {
         return Ok((first.erasure_id, first.settles_at));
     }
     let row = sqlx::query!(
@@ -939,8 +942,13 @@ impl ErasurePool {
         .fetch_one(tx.conn())
         .await?;
         if held {
-            let erasure_id =
-                waiting(&mut tx, &row.dek_id, Some((at, part)), ErasureCause::Redaction).await?;
+            let erasure_id = waiting(
+                &mut tx,
+                &row.dek_id,
+                Some((at, part)),
+                ErasureCause::Redaction,
+            )
+            .await?;
             tx.commit().await?;
             return Ok(Erased::Held { erasure_id });
         }
