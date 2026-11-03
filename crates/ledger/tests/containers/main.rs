@@ -60,6 +60,7 @@ const CONTEXT: &[u8] = b"work-vector:access:auth-context:alice";
 const TARGET: &str = "work_rebuild";
 const REBUILD_TARGET: &str = include_str!("../../../store/fixtures/rebuild-target.sql");
 const TAMPER: &str = include_str!("../../../store/fixtures/rebuild-tamper.sql");
+const LEASE_TAMPER: &str = include_str!("../../../store/fixtures/lease-tamper.sql");
 
 /// `sql` without its spec ID comment lines, so `psql -c` sends one statement.
 
@@ -1046,6 +1047,7 @@ async fn t_28_a_leader_that_cannot_renew_its_lease_steps_down_and_is_taken_again
     let record = |n: u8| pending(&ledger, &comment(&ledger, n));
     assert_eq!(a.submit(&ledger, record(1)).await.unwrap().pos, 1);
 
+    let lease_tamper = statement(LEASE_TAMPER);
     env.pg
         .client(&[
             "psql",
@@ -1056,7 +1058,7 @@ async fn t_28_a_leader_that_cannot_renew_its_lease_steps_down_and_is_taken_again
             "-d",
             Cluster::Canonical.database(),
             "-c",
-            "UPDATE ledger.sequencer_lease SET epoch = epoch + 100",
+            lease_tamper.as_str(),
         ])
         .await
         .unwrap();
