@@ -63,6 +63,27 @@ pub(crate) struct Config {
     pub(crate) witnesses: Vec<WitnessValues>,
     /// Witness client settings.
     pub(crate) witnessing: Witnessing,
+    /// The parser workers (T-72, T-94).
+    pub(crate) parser: Parser,
+}
+
+/// The most parser workers one server starts (T-94 item 8).
+pub(crate) const MAX_PARSER_WORKERS: usize = 64;
+
+/// The longest exchange with a parser worker, in milliseconds (T-94 item 4).
+pub(crate) const MAX_PARSER_TIMEOUT_MS: u64 = 60_000;
+
+/// The parser workers the server starts before anything else (T-94 items 2, 4, 5 and 8).
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Parser {
+    /// How many workers start, 1 to [`MAX_PARSER_WORKERS`].
+    pub(crate) workers: usize,
+    /// Upper bound on one exchange with a worker, in milliseconds; a worker past it is killed
+    /// and not used again.
+    pub(crate) call_timeout_ms: u64,
+    /// The `uid:gid` a worker started as root switches to; neither may be `0`.
+    pub(crate) run_as: Option<String>,
 }
 
 /// A witness: where it takes checkpoints, the key its cosignatures verify under and how it
@@ -407,6 +428,12 @@ impl Default for Config {
                 call_timeout_ms: 5_000,
                 tls_roots: None,
             },
+            // T-94
+            parser: Parser {
+                workers: 2,
+                call_timeout_ms: 5_000,
+                run_as: None,
+            },
         }
     }
 }
@@ -467,6 +494,11 @@ pub(crate) enum ConfigError {
     WitnessTimeout,
     #[error("witnessing.tls_roots: {0}")]
     WitnessRoots(String),
+    #[error(
+        "parser needs 1 to 64 workers, a call_timeout_ms of 1 to 60000 and a run_as of two \
+         non-zero numbers `uid:gid`"
+    )]
+    Parser,
 }
 
 impl Config {
@@ -523,7 +555,28 @@ impl Config {
         self.sequencer_cell()?;
         self.declaration()?;
         self.witness_endpoints()?;
+        self.parser_timeout()?;
         Ok(())
+    }
+
+    /// The bound on one exchange with a parser worker, after checking the parser settings
+    /// (T-94 items 4, 5 and 8).
+    pub(crate) fn parser_timeout(&self) -> Result<Duration, ConfigError> {
+        let p = &self.parser;
+        let identity = p.run_as.as_deref().is_none_or(|ids| {
+            ids.split_once(':').is_some_and(|(uid, gid)| {
+                [uid, gid]
+                    .into_iter()
+                    .all(|id| id.parse::<u32>().is_ok_and(|n| n != 0))
+            })
+        });
+        if !(1..=MAX_PARSER_WORKERS).contains(&p.workers)
+            || !(1..=MAX_PARSER_TIMEOUT_MS).contains(&p.call_timeout_ms)
+            || !identity
+        {
+            return Err(ConfigError::Parser);
+        }
+        Ok(Duration::from_millis(p.call_timeout_ms))
     }
 
     /// The configured witnesses; under `witness = "independent"` at least as many counted ones
@@ -806,6 +859,31 @@ mod tests {
     #[test]
     fn default_listen_address_is_loopback() {
         assert!(Config::default().listen.ip().is_loopback());
+    }
+
+    // T-94 T-72 SEC-35
+    #[test]
+    fn t_94_parser_workers_default_to_two_with_a_five_second_exchange() {
+        let config = with("").unwrap();
+        assert_eq!(config.parser.workers, 2);
+        assert_eq!(config.parser_timeout().unwrap(), Duration::from_secs(5));
+        assert_eq!(config.parser.run_as, None);
+        let toml = "[parser]\nworkers = 4\ncall_timeout_ms = 250\nrun_as = \"65532:65533\"";
+        let set = with(toml).unwrap();
+        assert_eq!(set.parser.workers, 4);
+        assert_eq!(set.parser_timeout().unwrap(), Duration::from_millis(250));
+        for toml in [
+            "[parser]\nworkers = 0",
+            "[parser]\nworkers = 65",
+            "[parser]\ncall_timeout_ms = 0",
+            "[parser]\ncall_timeout_ms = 60001",
+            "[parser]\nrun_as = \"0:0\"",
+            "[parser]\nrun_as = \"65532:0\"",
+            "[parser]\nrun_as = \"65532\"",
+            "[parser]\nrun_as = \"a:b\"",
+        ] {
+            assert!(matches!(with(toml), Err(ConfigError::Parser)), "{toml}");
+        }
     }
 
     // T-39 OP-18 T-93

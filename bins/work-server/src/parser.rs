@@ -1,10 +1,11 @@
-//! The parser worker mode of the server binary (T-72, SEC-35): `work-server parser-worker` builds the secret scanner, locks itself down with the shared parser worker profile before it reads a byte of input (no sockets, no path, no port, two-phase seccomp, no `io_uring`, an empty capability set) and then answers scan requests on its standard input and output until the input closes; if any step fails it does not start. A process started as root needs `--run-as <uid>:<gid>`; an unprivileged one needs an empty capability bounding set, as in its container.
+//! The parser worker mode of the server binary (T-72, SEC-35): `work-server parser-worker` builds the secret scanner, locks itself down with the shared parser worker profile before it reads a byte of input (no sockets, no path, no port, two-phase seccomp, no `io_uring`, an empty capability set) and then answers scan requests on its standard input and output until the input closes; if any step fails it does not start. A process started as root needs `--run-as <uid>:<gid>`; an unprivileged one needs an empty capability bounding set, as in its container. The server starts its pool of such workers from its own binary before anything else (T-94 items 2 and 8).
 
-use std::process::ExitCode;
+use std::process::{Command, ExitCode};
+use std::time::Duration;
 
 use suiss_sandbox::{LandlockAbi, Lockdown, Profile, RunAs};
 use work_parse::secret::{BuildError, SecretScanner};
-use work_parse::worker::{ServeError, serve};
+use work_parse::worker::{Pool, ServeError, WorkerError as PoolError, serve};
 
 /// The first argument that starts the binary as a parser worker.
 pub(crate) const MODE: &str = "parser-worker";
@@ -32,6 +33,32 @@ enum WorkerError {
 )]
 fn say(line: &str) {
     eprintln!("work-server parser-worker: {line}");
+}
+
+/// The command of one parser worker of this binary: `<exe> parser-worker`, with `--run-as
+/// <uid>:<gid>` when `run_as` names one (T-94 items 1 and 5).
+pub(crate) fn command(exe: &std::path::Path, run_as: Option<&str>) -> Command {
+    let mut command = Command::new(exe);
+    command.arg(MODE);
+    if let Some(ids) = run_as {
+        command.args(["--run-as", ids]);
+    }
+    command
+}
+
+/// Starts `workers` parser workers of this binary, every exchange bounded by `timeout` (T-94
+/// items 2, 4 and 8); the server calls it before anything else, since no lockdown profile may
+/// create processes.
+///
+/// # Errors
+/// [`PoolError::Spawn`] when this binary's path is unknown or a worker cannot be started.
+pub(crate) fn pool(
+    workers: usize,
+    timeout: Duration,
+    run_as: Option<&str>,
+) -> Result<Pool, PoolError> {
+    let exe = std::env::current_exe().map_err(PoolError::Spawn)?;
+    Pool::spawn(workers, || command(&exe, run_as), timeout)
 }
 
 /// The lockdown of a parser worker: the parser worker profile, nothing declared.
@@ -133,6 +160,19 @@ mod tests {
         let switched = format!("{:?}", lockdown(Some(id)));
         assert!(switched.contains("uid: 65532, gid: 65533"), "{switched}");
         assert!(switched.contains("read_only: []"), "{switched}");
+    }
+
+    // T-94 T-72
+    #[test]
+    fn t_94_the_server_starts_its_workers_from_its_own_binary() {
+        let exe = std::path::Path::new("/usr/local/bin/work-server");
+        let plain = command(exe, None);
+        assert_eq!(plain.get_program(), exe.as_os_str());
+        let args: Vec<_> = plain.get_args().collect();
+        assert_eq!(args, [MODE]);
+        let switched = command(exe, Some("65532:65533"));
+        let args: Vec<_> = switched.get_args().collect();
+        assert_eq!(args, [MODE, "--run-as", "65532:65533"]);
     }
 
     // T-72 T-94

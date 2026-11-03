@@ -1,6 +1,6 @@
-//! Work server (T-1). Reads configuration, installs telemetry and composes crates;
-//! business logic lives in `crates/` (T-31). Started as `work-server parser-worker` it is a
-//! locked-down parser worker instead (T-72).
+//! Work server (T-1). Reads configuration, starts its parser workers before anything else,
+//! installs telemetry and composes crates; business logic lives in `crates/` (T-31). Started as
+//! `work-server parser-worker` it is a locked-down parser worker instead (T-72, T-94).
 
 mod config;
 mod health;
@@ -30,6 +30,14 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
+
+    let run_as = config.parser.run_as.as_deref();
+    let parsers = config
+        .parser_timeout()
+        .map_err(|e| e.to_string())
+        .and_then(|timeout| {
+            parser::pool(config.parser.workers, timeout, run_as).map_err(|e| e.to_string())
+        });
 
     let runtime = match tokio::runtime::Builder::new_multi_thread()
         .enable_all()
@@ -62,6 +70,17 @@ fn main() -> ExitCode {
                 eprintln!("work-server: {error}");
             }
             return ExitCode::FAILURE;
+        }
+    };
+
+    let _parsers = match parsers {
+        Ok(pool) => {
+            tracing::info!(event = "parser.workers_started", workers = pool.live(), "parser workers started");
+            Some(pool)
+        }
+        Err(error) => {
+            tracing::error!(event = "parser.workers_unavailable", %error, "parser workers did not start; nothing can be scanned");
+            None
         }
     };
 

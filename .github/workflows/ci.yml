@@ -376,6 +376,8 @@ jobs:
           c logs work-server | grep 'ledger_time.roughtime_round' | grep -q '3'
           if c logs work-server | grep -q 'ledger_time.roughtime_unreachable'; then exit 1; fi
           c logs work-signer | grep -q 'serving on /run/work-signer/signer.sock, lockdown'
+          c logs work-server | grep 'parser.workers_started' | grep -q '"workers":2'
+          test "$(c logs work-server 2>&1 | grep -c 'work-server parser-worker: serving, lockdown')" -ge 2
       - name: The witness speaks C2SP tlog-witness and the server is configured with it (OP-33, OP-46, T-41)
         run: |
           c() { docker compose -f deploy/compose/compose.yaml "$@"; }

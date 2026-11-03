@@ -19,8 +19,8 @@ use std::time::Duration;
 
 use work_kernel::record::PartName;
 use work_parse::secret::{ScanOutcome, ScanPart};
-use work_parse::worker::{Worker, WorkerError};
-use work_proto::parser::{self as frames, Kind, Status, refusal};
+use work_parse::worker::{Pool, Worker, WorkerError};
+use work_proto::parser::{self as frames, Kind, Scan, ScanFailure, Status, Verdict, refusal};
 
 const EXE: &str = env!("CARGO_BIN_EXE_work-server");
 
@@ -42,13 +42,17 @@ fn ids() -> (u32, u32) {
     (field("Uid:"), field("Gid:"))
 }
 
-fn locked_worker() -> Worker {
+fn locked() -> Command {
     let (uid, gid) = ids();
     let mut command = Command::new("sudo");
     command
         .args(["-n", EXE, "parser-worker", "--run-as"])
         .arg(format!("{uid}:{gid}"));
-    Worker::spawn(&mut command, Duration::from_secs(20)).unwrap()
+    command
+}
+
+fn locked_worker() -> Worker {
+    Worker::spawn(&mut locked(), Duration::from_secs(20)).unwrap()
 }
 
 fn worker_pid(sudo: u32) -> u32 {
@@ -139,4 +143,28 @@ fn t_72_the_parser_worker_refuses_to_start_when_its_lockdown_cannot_be_set_up() 
     assert!(matches!(scanned, Err(WorkerError::Io(_))), "{scanned:?}");
     let again = worker.scan(&[ScanPart::new(&note, b"fine")]);
     assert!(matches!(again, Err(WorkerError::Gone)), "{again:?}");
+}
+
+// T-94 SEC-35 P-95 T-72
+#[test]
+fn t_94_sec_35_a_pool_of_locked_workers_gives_the_scan_verdict() {
+    let pool = Pool::spawn(2, locked, Duration::from_secs(20)).unwrap();
+    assert_eq!(pool.live(), 2);
+    let report: &[u8] = b"weekly report";
+    assert_eq!(pool.scan(&[("title", report)]), Ok(Verdict::Clean));
+    let secret = ["ghp_", FILL36].concat();
+    let found = pool.scan(&[("title", report), ("note", secret.as_bytes())]);
+    assert_eq!(
+        found,
+        Ok(Verdict::Detected {
+            part: "note".to_owned(),
+            rule: "github-pat".to_owned(),
+        })
+    );
+    assert!(!format!("{found:?}").contains(FILL36));
+    let big = vec![b'x'; OVER_PART];
+    let oversized = pool.scan(&[("note", big.as_slice())]);
+    assert_eq!(oversized, Err(ScanFailure::Refused(refusal::TOO_LARGE)));
+    assert_eq!(pool.live(), 2);
+    assert_eq!(pool.scan(&[("title", report)]), Ok(Verdict::Clean));
 }
