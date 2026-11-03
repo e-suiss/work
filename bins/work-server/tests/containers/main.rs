@@ -208,7 +208,7 @@ fn server(dbs: &Databases, launch: Launch<'_>) -> Child {
     let sequencer = dbs.url("work_sequencer", &dbs.canonical);
     let checkpointer = dbs.url("work_checkpointer", &dbs.canonical);
     let publisher = dbs.url(launch.publisher_role, &dbs.canonical);
-    let deriver = dbs.url("work_deriver", &dbs.derived);
+    let deriver_url = dbs.url("work_deriver", &dbs.derived);
     let config = format!(
         "{UNANSWERED_TIME_SOURCES}\n[signer]\nsocket = \"{}\"\n\n[checkpoint]\norigin_prefix = \"{PREFIX}\"\n\n[replica]\ndirectory = \"{}\"\n\n[publisher]\nsource = \"https://work.test\"\n",
         socket.display(),
@@ -226,7 +226,7 @@ fn server(dbs: &Databases, launch: Launch<'_>) -> Child {
         .env("WORK_POSTGRES__SEQUENCER", sequencer)
         .env("WORK_POSTGRES__CHECKPOINTER", checkpointer)
         .env("WORK_POSTGRES__PUBLISHER", publisher)
-        .env("WORK_POSTGRES__DERIVER", deriver)
+        .env("WORK_POSTGRES__DERIVER", deriver_url)
         .env("WORK_NATS__URL", launch.nats)
         .env("WORK_STARTUP_TIMEOUT_MS", "5000")
         .env("PGPASSWORD", PASSWORD)
