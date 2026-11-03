@@ -3,6 +3,7 @@ use std::time::Duration;
 use testcontainers::core::IntoContainerPort;
 use testcontainers::runners::AsyncRunner;
 use testcontainers::{ContainerAsync, GenericImage, ImageExt};
+use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
 
 use crate::{TestkitError, compose_image};
 
@@ -30,6 +31,19 @@ impl std::fmt::Debug for S3 {
     }
 }
 
+/// Whether an HTTP request to `address` gets a status line back: the port mapping accepts
+/// connections before the server inside listens.
+async fn answers(address: &str) -> bool {
+    let Ok(mut stream) = tokio::net::TcpStream::connect(address).await else {
+        return false;
+    };
+    if stream.write_all(b"GET / HTTP/1.0\r\n\r\n").await.is_err() {
+        return false;
+    }
+    let mut head = [0_u8; 5];
+    stream.read_exact(&mut head).await.is_ok() && head == *b"HTTP/"
+}
+
 impl S3 {
     /// Starts the object store and waits until it accepts connections.
     ///
@@ -50,12 +64,10 @@ impl S3 {
         let address = format!("{host}:{port}");
         let mut ready = false;
         for _ in 0..240 {
-            let probe = tokio::time::timeout(
-                Duration::from_secs(1),
-                tokio::net::TcpStream::connect(address.as_str()),
-            )
-            .await;
-            if matches!(probe, Ok(Ok(_))) {
+            if tokio::time::timeout(Duration::from_secs(1), answers(&address))
+                .await
+                .is_ok_and(|a| a)
+            {
                 ready = true;
                 break;
             }

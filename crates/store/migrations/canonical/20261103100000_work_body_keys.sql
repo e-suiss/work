@@ -66,8 +66,7 @@ CREATE FUNCTION work.body_part_guard() RETURNS trigger
 AS $$
 BEGIN
     PERFORM 1 FROM work.body_dek d
-     WHERE d.ledger_id = NEW.ledger_id AND d.dek_id = NEW.dek_id AND d.state = 'active'
-       FOR SHARE;
+     WHERE d.ledger_id = NEW.ledger_id AND d.dek_id = NEW.dek_id AND d.state = 'active';
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = 'check_violation', MESSAGE = 'body_part_dek_not_active';
     END IF;
