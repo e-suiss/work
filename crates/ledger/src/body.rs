@@ -465,7 +465,9 @@ pub trait ObjectStore: Send + Sync + 'static {
 pub struct InDatabase;
 
 fn no_object_store<T>() -> std::future::Ready<Result<T, BodyError>> {
-    std::future::ready(Err(BodyError::Object("no object store configured".to_owned())))
+    std::future::ready(Err(BodyError::Object(
+        "no object store configured".to_owned(),
+    )))
 }
 
 impl ObjectStore for InDatabase {
@@ -594,7 +596,8 @@ impl<O: ObjectStore> BodyWriter<O> {
             let (kek_id, wrapped) = blocking(self.limit, move || keys.new_class_dek(&id)).await?;
             bounded(
                 self.limit,
-                self.pool.class_dek(ledger, author, class, &kek_id, &wrapped),
+                self.pool
+                    .class_dek(ledger, author, class, &kek_id, &wrapped),
             )
             .await?
         };
