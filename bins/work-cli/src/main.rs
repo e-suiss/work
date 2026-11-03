@@ -5,7 +5,7 @@ use std::process::ExitCode;
 use suiss_crypto::secret::Secret;
 use work_ledger::{Retention, S3Config, WormStore, tls_trusting};
 use work_store::{ArchivePool, Cluster, Durability, LedgerId, Pool, SequencerPool};
-use work_telemetry::{DEFAULT_METRIC_INTERVAL, MetricConfig, Meters, meter_provider};
+use work_telemetry::{DEFAULT_METRIC_INTERVAL, Meters, MetricConfig, meter_provider};
 
 const USAGE: &str = "usage: work-cli --version | work-cli migrate <canonical|derived> | \
                      work-cli rebuild <ledger hex> <single-node|quorum> | work-cli archive";
@@ -229,7 +229,9 @@ fn count_diff() -> Result<(), String> {
     };
     Meters::new(&provider).rebuild_diff().add(1, &[]);
     runtime
-        .block_on(tokio::task::spawn_blocking(move || provider.shutdown()))
+        .block_on(async move {
+            tokio::task::spawn_blocking(move || provider.shutdown()).await
+        })
         .map_err(|e| e.to_string())?
         .map_err(|e| e.to_string())
 }

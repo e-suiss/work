@@ -34,7 +34,7 @@ pub use logs::{
     otel_log_layer,
 };
 pub use metrics::{
-    DEFAULT_METRIC_INTERVAL, IDENTIFIER_WORDS, Label, MetricConfig, Meters, REBUILD_DIFF,
+    DEFAULT_METRIC_INTERVAL, IDENTIFIER_WORDS, Label, Meters, MetricConfig, REBUILD_DIFF,
     WorkCounter, WorkGauge, forbidden_label, meter_provider, meter_provider_with_exporter,
 };
 pub use propagation::{

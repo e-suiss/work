@@ -157,7 +157,9 @@ where
 /// Fails when an endpoint is set outside a Tokio runtime or the exporter rejects it.
 pub fn meter_provider(config: &MetricConfig) -> Result<SdkMeterProvider, TraceError> {
     let Some(endpoint) = &config.endpoint else {
-        return Ok(meter_provider_with_exporter::<opentelemetry_otlp::MetricExporter>(config, None));
+        return Ok(meter_provider_with_exporter::<
+            opentelemetry_otlp::MetricExporter,
+        >(config, None));
     };
     tokio::runtime::Handle::try_current().map_err(|_| TraceError::NoRuntime)?;
     let exporter = opentelemetry_otlp::MetricExporter::builder()

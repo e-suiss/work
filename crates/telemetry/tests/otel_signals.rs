@@ -17,8 +17,8 @@ use opentelemetry_sdk::metrics::data::{AggregatedMetrics, MetricData, ResourceMe
 use opentelemetry_sdk::metrics::exporter::PushMetricExporter;
 use tracing_opentelemetry::OpenTelemetrySpanExt as _;
 use work_telemetry::{
-    DEFAULT_MAX_QUEUE_SIZE, DEFAULT_METRIC_INTERVAL, Discard, Label, LogConfig, MetricConfig,
-    Meters, REBUILD_DIFF, REDACTED, SampleRatio, TraceConfig, forbidden_label,
+    DEFAULT_MAX_QUEUE_SIZE, DEFAULT_METRIC_INTERVAL, Discard, Label, LogConfig, Meters,
+    MetricConfig, REBUILD_DIFF, REDACTED, SampleRatio, TraceConfig, forbidden_label,
     logger_provider_with_exporter, meter_provider_with_exporter, otel_subscriber, provider,
 };
 
@@ -120,7 +120,10 @@ fn t_39_exported_metrics_carry_only_bounded_labels() {
 
     let exported = points.named("work.dependency.up");
     assert_eq!(exported.len(), 1, "{exported:?}");
-    assert_eq!(exported[0].labels, [("dependency".to_owned(), "nats".to_owned())]);
+    assert_eq!(
+        exported[0].labels,
+        [("dependency".to_owned(), "nats".to_owned())]
+    );
     for (key, _) in &exported[0].labels {
         assert!(!forbidden_label(key), "{key}");
     }

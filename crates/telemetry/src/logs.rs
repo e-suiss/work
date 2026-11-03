@@ -102,7 +102,9 @@ where
 /// Fails when an endpoint is set outside a Tokio runtime or the exporter rejects it.
 pub fn logger_provider(config: &LogConfig) -> Result<SdkLoggerProvider, TraceError> {
     let Some(endpoint) = &config.endpoint else {
-        return Ok(logger_provider_with_exporter::<opentelemetry_otlp::LogExporter>(config, None));
+        return Ok(logger_provider_with_exporter::<
+            opentelemetry_otlp::LogExporter,
+        >(config, None));
     };
     tokio::runtime::Handle::try_current().map_err(|_| TraceError::NoRuntime)?;
     let exporter = opentelemetry_otlp::LogExporter::builder()
