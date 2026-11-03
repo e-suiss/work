@@ -70,8 +70,12 @@ pub(crate) struct WitnessValues {
     pub(crate) id: String,
     /// Its submission prefix, `http(s)://host[:port][/prefix]`.
     pub(crate) url: String,
-    /// Its `tlog-cosignature/v1` verifier key, `name+id+base64`.
-    pub(crate) key: String,
+    /// Its `tlog-cosignature/v1` verifier key, `name+id+base64`; exactly one of `key` and
+    /// `key_file` is set.
+    pub(crate) key: Option<String>,
+    /// A file holding its verifier key, read when the configuration is loaded, for a witness
+    /// whose key is made when it starts.
+    pub(crate) key_file: Option<PathBuf>,
     /// How it counts; `counted` unless it serves gossip only.
     #[serde(default)]
     pub(crate) role: WitnessRoleWire,
@@ -484,7 +488,13 @@ impl Config {
             if !ident_ok(&w.id) || repeated {
                 return Err(ConfigError::Witness(i, "id"));
             }
-            let key = Verifier::parse(w.key.trim())
+            let vkey = match (&w.key, &w.key_file) {
+                (Some(key), None) => key.clone(),
+                (None, Some(path)) => std::fs::read_to_string(path)
+                    .map_err(|_| ConfigError::Witness(i, "key_file"))?,
+                _ => return Err(ConfigError::Witness(i, "key")),
+            };
+            let key = Verifier::parse(vkey.trim())
                 .ok()
                 .filter(Verifier::is_cosigner)
                 .ok_or(ConfigError::Witness(i, "key"))?;
@@ -896,6 +906,28 @@ mod tests {
                 "{toml}"
             );
         }
+        let path =
+            std::env::temp_dir().join(format!("work-witness-{}.vkey", std::process::id()));
+        std::fs::write(&path, format!("{WITNESS_A}\n")).unwrap();
+        let from_file = format!(
+            "[[witnesses]]\nid = \"w\"\nurl = \"http://w\"\nkey_file = \"{}\"\n",
+            path.display()
+        );
+        let endpoints = with(&from_file).unwrap().witness_endpoints().unwrap();
+        std::fs::remove_file(&path).unwrap();
+        assert_eq!(endpoints[0].witness.key.to_vkey(), WITNESS_A);
+        assert!(matches!(with(&from_file), Err(ConfigError::Witness(0, "key_file"))));
+        assert!(matches!(
+            with("[[witnesses]]\nid = \"w\"\nurl = \"http://w\"\n"),
+            Err(ConfigError::Witness(0, "key"))
+        ));
+        assert!(matches!(
+            with(&format!(
+                "{}key_file = \"/run/witness/vkey\"\n",
+                witness("w", "http://w", WITNESS_A, "counted")
+            )),
+            Err(ConfigError::Witness(0, "key"))
+        ));
         assert!(matches!(
             with(&witness("w", "http://w", WITNESS_A, "trusted")),
             Err(ConfigError::Parse(_))
