@@ -1,5 +1,5 @@
 //! The Roughtime client over UDP (OP-42 item 3): one request per query with a fresh nonce from
-//! the process random source, the answer verified by the shared wire module and turned into the
+//! the `Rng` port, the answer verified by the shared wire module and turned into the
 //! interval the bound check uses.
 
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
@@ -9,6 +9,7 @@ use std::time::Duration;
 use tokio::net::UdpSocket;
 use tokio::time::timeout;
 
+use crate::ports::{Rng, bytes32};
 use crate::time::adapters::ProcessMonotonic;
 use crate::time::domain::RoughtimeAnswer;
 use crate::time::ports::{Monotonic, QueryError, RoughtimeQuery};
@@ -36,22 +37,23 @@ pub struct RoughtimeServer {
 pub struct RoughtimeUdp {
     servers: Vec<RoughtimeServer>,
     mono: Arc<ProcessMonotonic>,
+    rng: Arc<dyn Rng>,
 }
 
 impl RoughtimeUdp {
-    /// A client for `servers`, timing round trips on `mono`.
+    /// A client for `servers`, timing round trips on `mono` and drawing nonces from `rng`.
     #[must_use]
-    pub const fn new(servers: Vec<RoughtimeServer>, mono: Arc<ProcessMonotonic>) -> Self {
-        Self { servers, mono }
+    pub fn new(
+        servers: Vec<RoughtimeServer>,
+        mono: Arc<ProcessMonotonic>,
+        rng: Arc<dyn Rng>,
+    ) -> Self {
+        Self { servers, mono, rng }
     }
 
     async fn exchange(&self, server: &RoughtimeServer) -> Result<RoughtimeAnswer, QueryError> {
         let fail = |what: &str, e: &dyn std::fmt::Display| QueryError(format!("{what}: {e}"));
-        let mut challenge = [0_u8; 32];
-        rustls::crypto::aws_lc_rs::default_provider()
-            .secure_random
-            .fill(&mut challenge)
-            .map_err(|_| QueryError("nonce: no randomness".to_owned()))?;
+        let challenge = bytes32(self.rng.as_ref()).map_err(|e| fail("nonce", &e))?;
         let request = wire::request(server.version, &challenge, &server.public_key)
             .map_err(|e| fail("request", &e))?;
         let peer = tokio::net::lookup_host(server.address.as_str())

@@ -6,6 +6,7 @@ use work_store::{
 };
 
 use crate::SealedRecord;
+use crate::ports::Store;
 
 /// One ledger's log in PostgreSQL, written as `work_sequencer` (T-74 item 1).
 #[derive(Debug, Clone)]
@@ -123,5 +124,11 @@ impl LogStore<SealedRecord> for PgLog {
                 work_store::AppendError::Refused(e) => AppendError::Refused(e),
                 work_store::AppendError::Failed(e) => AppendError::Failed(e),
             })
+    }
+}
+
+impl Store for PgLog {
+    fn ledger(&self) -> &LedgerId {
+        &self.ledger
     }
 }

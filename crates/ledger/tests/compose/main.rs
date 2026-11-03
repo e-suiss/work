@@ -14,6 +14,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use tokio::sync::mpsc;
+use work_ledger::SystemRng;
 use work_ledger::time::{
     LedgerTime, NTS_EVENT_QUEUE, NtsServer, ProcessMonotonic, RoughtimeQuery, RoughtimeServer,
     RoughtimeUdp, RoughtimeVersion, Round, read_roots, spawn_nts,
@@ -45,6 +46,10 @@ const ROUGHTIME: [(u16, [u8; 32]); 3] = [
         ],
     ),
 ];
+
+fn udp(servers: Vec<RoughtimeServer>, mono: Arc<ProcessMonotonic>) -> RoughtimeUdp {
+    RoughtimeUdp::new(servers, mono, Arc::new(SystemRng))
+}
 
 fn roughtime() -> Vec<RoughtimeServer> {
     ROUGHTIME
@@ -92,7 +97,7 @@ async fn ledger_time(
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "needs the local environment"]
 async fn op_42_rfc_answers_of_the_three_compose_servers_verify() {
-    let q = RoughtimeUdp::new(roughtime(), Arc::new(ProcessMonotonic::start()));
+    let q = udp(roughtime(), Arc::new(ProcessMonotonic::start()));
     for server in 0..q.servers() {
         let answer = q.query(server).await.unwrap();
         assert!(answer.radius_ms >= 1_000, "{answer:?}");
@@ -107,7 +112,7 @@ async fn op_42_another_key_or_version_gives_no_answer() {
     let mut servers = roughtime();
     servers[0].public_key = servers[1].public_key;
     servers[1].version = RoughtimeVersion::Draft11;
-    let q = RoughtimeUdp::new(servers, Arc::new(ProcessMonotonic::start()));
+    let q = udp(servers, Arc::new(ProcessMonotonic::start()));
     assert!(q.query(0).await.is_err());
     assert!(q.query(1).await.is_err());
     assert!(q.query(2).await.is_ok());
@@ -135,14 +140,14 @@ async fn op_32_two_compose_nts_servers_give_ledger_time_that_follows_the_monoton
 async fn op_43_the_three_compose_servers_bound_ledger_time_and_a_silent_round_keeps_nts() {
     let mono = Arc::new(ProcessMonotonic::start());
     let (time, handles) = ledger_time(&mono).await;
-    let q = RoughtimeUdp::new(roughtime(), Arc::clone(&mono));
+    let q = udp(roughtime(), Arc::clone(&mono));
     assert_eq!(time.round(&q).await, Round::Answered(3));
     assert!(time.read().is_ok());
     let mut silent = roughtime();
     for server in &mut silent {
         server.address = "127.0.0.1:9".to_owned();
     }
-    let silent = RoughtimeUdp::new(silent, Arc::clone(&mono));
+    let silent = udp(silent, Arc::clone(&mono));
     assert_eq!(time.round(&silent).await, Round::Unanswered);
     assert!(time.read().is_ok());
     for handle in handles {

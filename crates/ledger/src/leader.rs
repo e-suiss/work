@@ -5,13 +5,15 @@ use suiss_ledger::sequencer::{Head, PlanError, Sequencer};
 use work_store::{Genesis, LedgerId, SequencerPool, StoredHead};
 
 use crate::envelope::Bound;
+use crate::ports::Store;
 use crate::{LedgerError, PendingRecord, PgLog};
 
 /// The single writer of one ledger under one epoch (T-85 item 4, §18 OP-5, OP-10): every
 /// committed batch advances the head and the durability fence; a failed commit steps it down.
+/// Batches go to the `Store` port.
 #[derive(Debug)]
-pub struct Leader {
-    log: PgLog,
+pub struct Leader<S = PgLog> {
+    log: S,
     seq: Sequencer,
     fence: Fence,
 }
@@ -44,12 +46,19 @@ impl Leader {
         let stored = pool.acquire(&ledger).await?;
         let epoch = stored.epoch;
         let head = head_of(stored)?;
+        Ok(Self::lead(PgLog::new(pool, ledger), epoch, head))
+    }
+}
+
+impl<S: Store> Leader<S> {
+    /// Leads the ledger of `log` under `epoch` from `head`.
+    pub(crate) fn lead(log: S, epoch: u64, head: Head) -> Self {
         let fence = Fence::at(head.pos);
-        Ok(Self {
-            log: PgLog::new(pool, ledger),
+        Self {
+            log,
             seq: Sequencer::lead(epoch, head),
             fence,
-        })
+        }
     }
 
     /// The last committed head.
@@ -72,7 +81,7 @@ impl Leader {
 
     /// The ledger.
     #[must_use]
-    pub const fn ledger(&self) -> &LedgerId {
+    pub fn ledger(&self) -> &LedgerId {
         self.log.ledger()
     }
 
@@ -108,5 +117,101 @@ impl Leader {
                 CommitError::Failed(e) => LedgerError::Failed(e),
                 CommitError::Outcome(_) | _ => LedgerError::Outcome,
             })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used, reason = "test code")]
+
+    use std::sync::Mutex;
+
+    use suiss_crypto::dcbor::Value;
+    use suiss_ledger::port::{AppendError, LogStore};
+    use suiss_ledger::sequencer::Batch;
+    use work_store::StoreError;
+
+    use super::*;
+    use crate::SealedRecord;
+
+    #[derive(Debug)]
+    struct Memory {
+        ledger: LedgerId,
+        refuse: bool,
+        appended: Mutex<Vec<(u64, u64)>>,
+    }
+
+    impl LogStore<SealedRecord> for Memory {
+        type Error = StoreError;
+
+        async fn append(&self, batch: &Batch<SealedRecord>) -> Result<(), AppendError<StoreError>> {
+            if self.refuse {
+                return Err(AppendError::Refused(StoreError::RecordExists));
+            }
+            self.appended
+                .lock()
+                .unwrap()
+                .push((batch.epoch, batch.head.pos));
+            Ok(())
+        }
+    }
+
+    impl Store for Memory {
+        fn ledger(&self) -> &LedgerId {
+            &self.ledger
+        }
+    }
+
+    fn memory(refuse: bool) -> Memory {
+        Memory {
+            ledger: LedgerId::from_bytes([3; 32]),
+            refuse,
+            appended: Mutex::new(Vec::new()),
+        }
+    }
+
+    fn genesis_head() -> Head {
+        Head {
+            pos: 0,
+            leaf: [1; 32],
+            recorded_at: 10,
+            frontier: Frontier::from_parts(1, vec![[1; 32]]).unwrap(),
+        }
+    }
+
+    fn record() -> PendingRecord {
+        PendingRecord {
+            record_bytes: b"record".to_vec(),
+            actor_type: Value::Map(Vec::new()),
+            proof_commit: None,
+            auth_context: None,
+            ingest: Value::text("admitted"),
+            received: Vec::new(),
+            skeleton: None,
+            body: Vec::new(),
+            items: Vec::new(),
+            outbox: Vec::new(),
+            idempotency: None,
+            inbound: None,
+            effective_at: None,
+        }
+    }
+
+    // T-32 OP-5 OP-10
+    #[tokio::test]
+    async fn t_32_the_leader_commits_each_batch_through_the_store_port() {
+        let mut leader = Leader::lead(memory(false), 4, genesis_head());
+        assert_eq!(leader.ledger(), &LedgerId::from_bytes([3; 32]));
+        assert_eq!(leader.commit(20, &[record(), record()]).await.unwrap(), 2);
+        assert_eq!(leader.commit(30, &[record()]).await.unwrap(), 3);
+        assert_eq!(leader.head().pos, 3);
+        assert_eq!(*leader.log.appended.lock().unwrap(), [(4, 2), (4, 3)]);
+
+        let mut refused = Leader::lead(memory(true), 4, genesis_head());
+        assert!(matches!(
+            refused.commit(20, &[record()]).await,
+            Err(LedgerError::Refused(StoreError::RecordExists))
+        ));
+        assert_eq!(refused.head().pos, 0);
     }
 }

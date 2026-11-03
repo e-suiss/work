@@ -135,6 +135,7 @@ mod tests {
             "std::time::Instant::now",
             "rand::thread_rng",
             "uuid::Uuid::new_v4",
+            "rustls::crypto::SecureRandom::fill",
         ] {
             assert!(disallowed.contains(&path), "{path} is not disallowed");
         }

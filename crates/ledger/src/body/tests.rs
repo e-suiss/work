@@ -160,6 +160,29 @@ fn op_45_another_ledger_another_part_commit_or_another_class_dek_does_not_open()
     ));
 }
 
+// P-68 T-32
+#[test]
+fn p_68_each_part_takes_a_fresh_salt_from_the_rng_port() {
+    let rng = crate::adapters::SeededRng::new([6; 32]);
+    let part = || {
+        BodyOpening::new(
+            &rng,
+            "note".to_owned(),
+            "text/plain".to_owned(),
+            b"same".to_vec(),
+        )
+        .unwrap()
+    };
+    let (a, b) = (part(), part());
+    assert_ne!(a.salt, b.salt);
+    assert_ne!(a.commitment().unwrap(), b.commitment().unwrap());
+    let name = PartName::parse("note").unwrap();
+    let kernel = body_commitment(&a.salt, &name, &a.media_type, &a.content).unwrap();
+    assert_eq!(a.commitment().unwrap(), *kernel.as_bytes());
+    let class = Dek::generate().unwrap();
+    assert!(seal_part(&class, &ledger(0x06), &a.commitment().unwrap(), &a).is_ok());
+}
+
 // P-68 OP-45
 #[test]
 fn p_68_an_opening_that_does_not_give_its_commitment_is_refused() {

@@ -4,6 +4,7 @@ use suiss_crypto::digest::{Digest, leaf_hash};
 use work_store::{Durability, Genesis, LedgerId};
 
 use crate::LedgerError;
+use crate::ports::{Rng, RngError, bytes32};
 
 /// What a ledger opens with (P-100 item 2).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -16,6 +17,26 @@ pub struct GenesisInput {
     pub schema: [u8; 32],
     /// 32 bytes from the `Rng` port (T-32 rule 2).
     pub nonce: [u8; 32],
+}
+
+impl GenesisInput {
+    /// The input of a new ledger with a fresh nonce from `rng` (P-100 item 2, T-32 rule 2).
+    ///
+    /// # Errors
+    /// [`RngError`]; no ledger opens without a nonce.
+    pub fn fresh(
+        rng: &(impl Rng + ?Sized),
+        recorded_at_ms: u64,
+        protocol: (u64, u64),
+        schema: [u8; 32],
+    ) -> Result<Self, RngError> {
+        Ok(Self {
+            recorded_at_ms,
+            protocol,
+            schema,
+            nonce: bytes32(rng)?,
+        })
+    }
 }
 
 /// The genesis record for `input` (P-100): its det-CBOR bytes, the `LedgerID` as their unprefixed
@@ -96,5 +117,30 @@ mod tests {
             &bytes32(&case["ledger_id"]["digest_hex"])
         );
         assert_eq!(g.leaf, bytes32(&case["leaf_hash"]));
+    }
+
+    #[derive(Debug)]
+    struct Empty;
+
+    impl Rng for Empty {
+        fn fill(&self, _out: &mut [u8]) -> Result<(), RngError> {
+            Err(RngError)
+        }
+    }
+
+    // P-100 T-32
+    #[test]
+    fn p_100_every_new_ledger_takes_a_fresh_nonce_from_the_rng_port() {
+        let rng = crate::adapters::SeededRng::new([5; 32]);
+        let first = GenesisInput::fresh(&rng, 1_000, (1, 0), [9; 32]).unwrap();
+        let second = GenesisInput::fresh(&rng, 1_000, (1, 0), [9; 32]).unwrap();
+        assert_ne!(first.nonce, second.nonce);
+        let a = genesis(&first, Durability::SingleNode).unwrap();
+        let b = genesis(&second, Durability::SingleNode).unwrap();
+        assert_ne!(a.ledger, b.ledger);
+        assert_eq!(
+            GenesisInput::fresh(&Empty, 1_000, (1, 0), [9; 32]),
+            Err(RngError)
+        );
     }
 }

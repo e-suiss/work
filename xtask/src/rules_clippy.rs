@@ -23,6 +23,10 @@ pub(crate) const ADAPTERS: &[(&str, &str)] = &[
         "crates/ledger/src/time/adapters/mono.rs",
         "the monotonic clock of the ledger time driver (OP-32)",
     ),
+    (
+        "crates/ledger/src/adapters.rs",
+        "the Rng adapter over the operating system's CSPRNG",
+    ),
 ];
 
 fn v(path: String, message: String) -> Violation {

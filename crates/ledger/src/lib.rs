@@ -19,8 +19,10 @@
 //! the read path (OP-45); large ciphertexts may go to an S3-compatible store (T-20). The replica
 //! is a directory on a single node or an S3 bucket with Object Lock whose objects are written
 //! once (OP-33 item 3), and cold idempotency partitions are copied to such a bucket and verified
-//! before the archive role drops them (OP-35).
+//! before the archive role drops them (OP-35). Random bytes, the log key's signatures and the log
+//! itself are reached through the `Rng`, `Signer` and `Store` ports (T-32 rule 2).
 
+mod adapters;
 mod admit;
 #[cfg(feature = "s3")]
 mod archive;
@@ -33,6 +35,7 @@ mod group;
 mod leader;
 mod ledgers;
 mod log;
+mod ports;
 mod rebuild;
 mod replica;
 #[cfg(feature = "s3")]
@@ -42,6 +45,7 @@ mod witness;
 #[cfg(feature = "s3")]
 mod worm;
 
+pub use adapters::SystemRng;
 pub use admit::{Arrival, AuthContext, MAX_RECEIVED, Submission, admit};
 #[cfg(feature = "s3")]
 pub use archive::{ArchiveError, archive_cold, archive_key, archive_manifest, archive_partition};
@@ -69,6 +73,7 @@ pub use ledgers::{
     DEFAULT_CHECKPOINT_INTERVAL, DEFAULT_CHECKPOINT_RECORDS, Ledgers, run_checkpoints,
 };
 pub use log::PgLog;
+pub use ports::{Rng, RngError, Signer, Store, bytes32};
 pub use rebuild::{REBUILD_PAGE, RebuildError, rebuild, rebuild_diff};
 #[cfg(feature = "s3")]
 pub use replica::WormReplica;

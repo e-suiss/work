@@ -29,6 +29,8 @@ use work_store::{
     SequencerPool, Shred, StoreError, Stored, StoredPart, WRAPPED_LEN,
 };
 
+use crate::ports::{Rng, RngError, bytes32};
+
 #[cfg(feature = "s3")]
 mod s3;
 #[cfg(feature = "s3")]
@@ -128,6 +130,35 @@ impl std::fmt::Debug for BodyOpening {
             .field("media_type", &self.media_type.len())
             .field("content", &self.content.len())
             .finish_non_exhaustive()
+    }
+}
+
+impl BodyOpening {
+    /// A part with a fresh 32-byte salt from `rng` (P-68 item 3, T-32 rule 2): each part takes its
+    /// own salt and none is reused.
+    ///
+    /// # Errors
+    /// [`RngError`]; no part is committed without its salt.
+    pub fn new(
+        rng: &(impl Rng + ?Sized),
+        part: String,
+        media_type: String,
+        content: Vec<u8>,
+    ) -> Result<Self, RngError> {
+        Ok(Self {
+            part,
+            media_type,
+            content,
+            salt: bytes32(rng)?,
+        })
+    }
+
+    /// The commitment the part's record carries (P-68, P-101, P-104).
+    ///
+    /// # Errors
+    /// [`BodyError::UnknownPart`] for a name the schema cannot carry, [`BodyError::TooLarge`].
+    pub fn commitment(&self) -> Result<[u8; 32], BodyError> {
+        commitment(self)
     }
 }
 

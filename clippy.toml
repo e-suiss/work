@@ -20,6 +20,8 @@ disallowed-methods = [
     { path = "uuid::Uuid::now_v7", reason = "T-32: identifiers come from the Clock and Rng ports" },
     { path = "getrandom::getrandom", reason = "T-32: randomness comes from the Rng port" },
     { path = "getrandom::fill", reason = "T-32: randomness comes from the Rng port" },
+    { path = "rustls::crypto::SecureRandom::fill", reason = "T-32: randomness comes from the Rng port" },
+    { path = "aws_lc_rs::rand::SecureRandom::fill", reason = "T-32: randomness comes from the Rng port" },
     { path = "tokio::sync::mpsc::unbounded_channel", reason = "T-32 rule 7: channels are bounded; use tokio::sync::mpsc::channel" },
     { path = "futures_channel::mpsc::unbounded", reason = "T-32 rule 7: channels are bounded; use futures_channel::mpsc::channel" },
     { path = "std::sync::mpsc::channel", reason = "T-32 rule 7: channels are bounded; use std::sync::mpsc::sync_channel" },

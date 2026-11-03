@@ -22,6 +22,8 @@ use work_kernel::proof::{
 use work_proto::signer::{self as frames, FrameError, Kind, Status};
 use work_store::{CheckpointRow, CheckpointerPool, Durability, LedgerId, StoreError};
 
+use crate::ports::Signer;
+
 /// Where the installation runs, which bounds what its checkpoints may declare (OP-33 item 1,
 /// OP-46 item 3).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -203,6 +205,16 @@ impl SignerClient {
     }
 }
 
+impl Signer for SignerClient {
+    async fn log_key(&self) -> Result<Verifier, CheckpointError> {
+        Self::log_key(self).await
+    }
+
+    async fn sign_checkpoint(&self, body: &str) -> Result<String, CheckpointError> {
+        Self::sign_checkpoint(self, body).await
+    }
+}
+
 /// The signed note of `body` and the signer's `line`, after it verified under `log` as the
 /// checkpoint `expected` of `origin` (T-88 item 2).
 ///
@@ -225,17 +237,18 @@ pub fn acknowledgement(
     }
 }
 
-/// Builds, signs, verifies and stores the checkpoints of the ledgers of one installation.
+/// Builds, signs, verifies and stores the checkpoints of the ledgers of one installation; the
+/// signature comes through the `Signer` port.
 #[derive(Debug)]
-pub struct Checkpointer {
+pub struct Checkpointer<S = SignerClient> {
     pool: CheckpointerPool,
-    signer: SignerClient,
+    signer: S,
     log: Verifier,
     origin_prefix: String,
     declaration: Declaration,
 }
 
-impl Checkpointer {
+impl<S: Signer> Checkpointer<S> {
     /// A checkpointer for ledgers whose origin is `origin_prefix` followed by the ledger id in
     /// hex, whose checkpoints declare `declaration`; it asks the signer for its log key once.
     ///
@@ -243,7 +256,7 @@ impl Checkpointer {
     /// [`CheckpointError`].
     pub async fn connect(
         pool: CheckpointerPool,
-        signer: SignerClient,
+        signer: S,
         origin_prefix: &str,
         declaration: Declaration,
     ) -> Result<Self, CheckpointError> {
@@ -454,6 +467,20 @@ mod tests {
             acknowledgement(&bare, &signed, ORIGIN, &log(&key)).unwrap_err(),
             NoteError::Checkpoint
         );
+    }
+
+    // T-32 T-92
+    #[tokio::test]
+    async fn t_32_the_signer_client_answers_through_the_signer_port() {
+        async fn key<S: Signer>(signer: &S) -> Result<Verifier, CheckpointError> {
+            signer.log_key().await
+        }
+        let missing = SignerClient::new("/nonexistent/work-signer.sock", Duration::from_secs(1));
+        assert!(matches!(key(&missing).await, Err(CheckpointError::Unreachable(_))));
+        assert!(matches!(
+            Signer::sign_checkpoint(&missing, "body").await,
+            Err(CheckpointError::Unreachable(_))
+        ));
     }
 
     // OP-46 OP-33 OP-32

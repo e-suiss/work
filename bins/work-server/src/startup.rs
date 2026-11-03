@@ -15,6 +15,7 @@ use std::time::Duration;
 
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
+use work_ledger::SystemRng;
 use work_ledger::time::{
     LedgerTime, NTS_EVENT_QUEUE, ProcessMonotonic, RoughtimeUdp, read_roots, spawn_nts,
 };
@@ -91,9 +92,8 @@ impl TimeDriver {
             .map_err(|e| StartupError::LedgerTime(e.to_string()))?;
         handles.push(tokio::spawn(time.clone().follow_nts(received)));
         let rounds = time.clone();
-        handles.push(tokio::spawn(
-            rounds.run_roughtime(RoughtimeUdp::new(roughtime, mono)),
-        ));
+        let udp = RoughtimeUdp::new(roughtime, mono, Arc::new(SystemRng));
+        handles.push(tokio::spawn(rounds.run_roughtime(udp)));
         tracing::info!(
             event = "ledger_time.started",
             nts = config.ledger_time.nts.len(),
