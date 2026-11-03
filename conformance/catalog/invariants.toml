@@ -1523,6 +1523,8 @@ tests = [
   "crates/kernel/tests/records.rs::p_33_sec_18_semantic_limits_accept_the_bound_and_reject_one_more",
   "crates/kernel/tests/records.rs::p_7_cddl_list_and_map_bounds_reject_one_more_than_256",
   "crates/kernel/tests/records.rs::p_7_cddl_string_bounds_are_enforced",
+  "crates/parse/src/worker/tests.rs::t_72_malformed_or_oversized_requests_are_refused_with_stable_codes",
+  "crates/proto/src/parser.rs::t_72_the_frame_ceiling_holds_the_largest_scan_request_and_no_more",
 ]
 
 [[rule]]

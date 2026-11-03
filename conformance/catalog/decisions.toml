@@ -2866,6 +2866,7 @@ acceptance = "to-fill"
 pd = "set"
 title = ""
 tests = [
+  "bins/work-server/tests/parser.rs::t_72_sec_35_the_parser_worker_scans_only_inside_its_lockdown",
   "crates/parse/src/secret/tests.rs::sec_35_a_large_part_scans_within_the_default_limit",
   "crates/parse/src/secret/tests.rs::sec_35_a_rule_change_changes_the_digest",
   "crates/parse/src/secret/tests.rs::sec_35_account_numbers_need_a_brand_and_the_luhn_check",
@@ -2881,6 +2882,7 @@ tests = [
   "crates/parse/src/secret/tests.rs::sec_35_rule_set_digest_is_stable",
   "crates/parse/src/secret/tests.rs::sec_35_vendored_rule_file_is_checked_against_its_recorded_digest",
   "crates/parse/src/secret/tests.rs::sec_35_work_rule_ids_may_not_shadow_gitleaks_rules",
+  "crates/parse/src/worker/tests.rs::sec_35_p_95_the_worker_answers_clean_or_the_part_and_rule_of_a_detection_only",
   "crates/telemetry/tests/collector_redaction.rs::sec_35_collector_redacts_with_the_scanner_pattern_set",
   "crates/telemetry/tests/trace_export.rs::op_19_forbidden_fields_are_dropped_before_the_exporter",
 ]
@@ -3189,6 +3191,7 @@ tests = [
   "crates/kernel/tests/records.rs::p_33_sec_18_semantic_limits_accept_the_bound_and_reject_one_more",
   "crates/kernel/tests/records.rs::t_65_a_narrower_configured_limit_rejects_what_the_default_accepts",
   "crates/ledger/src/admit/tests.rs::t_91_received_bytes_above_262_144_are_limit_exceeded_request",
+  "crates/proto/src/parser.rs::t_72_the_frame_ceiling_holds_the_largest_scan_request_and_no_more",
 ]
 
 [[rule]]
@@ -3853,8 +3856,12 @@ stage = 2
 acceptance = "to-fill"
 title = ""
 tests = [
+  "bins/work-server/tests/parser.rs::t_72_sec_35_the_parser_worker_scans_only_inside_its_lockdown",
   "crates/parse/src/secret/tests.rs::p_95_detection_rejects_on_the_api_path_and_quarantines_otherwise",
   "crates/parse/src/secret/tests.rs::p_95_the_outcome_carries_only_the_rule_id_and_the_part_name",
+  "crates/parse/src/worker/tests.rs::sec_35_p_95_the_worker_answers_clean_or_the_part_and_rule_of_a_detection_only",
+  "crates/parse/src/worker/tests.rs::t_72_an_answer_that_does_not_belong_to_the_request_retires_the_worker",
+  "crates/proto/src/parser.rs::t_72_a_detection_carries_the_part_name_and_the_rule_id_only",
 ]
 
 [[rule]]
@@ -5043,8 +5050,21 @@ stage = 2
 acceptance = "to-fill"
 title = ""
 tests = [
+  "bins/work-server/src/parser.rs::t_72_the_parser_worker_lockdown_declares_no_path_and_no_port",
+  "bins/work-server/src/parser.rs::t_72_the_parser_worker_takes_only_an_unprivileged_run_as_identity",
+  "bins/work-server/tests/parser.rs::t_72_sec_35_the_parser_worker_scans_only_inside_its_lockdown",
+  "bins/work-server/tests/parser.rs::t_72_the_parser_worker_refuses_to_start_when_its_lockdown_cannot_be_set_up",
   "bins/work-signer/tests/signer.rs::t_72_the_signer_refuses_to_start_when_its_lockdown_cannot_be_set_up",
   "bins/work-signer/tests/signer.rs::t_72_the_signer_serves_only_inside_its_lockdown",
+  "crates/parse/src/worker/tests.rs::sec_35_p_95_the_worker_answers_clean_or_the_part_and_rule_of_a_detection_only",
+  "crates/parse/src/worker/tests.rs::t_72_a_worker_that_does_not_answer_in_time_is_killed_and_not_used_again",
+  "crates/parse/src/worker/tests.rs::t_72_an_answer_that_does_not_belong_to_the_request_retires_the_worker",
+  "crates/parse/src/worker/tests.rs::t_72_malformed_or_oversized_requests_are_refused_with_stable_codes",
+  "crates/parse/src/worker/tests.rs::t_72_the_worker_loop_answers_until_its_input_closes_and_stops_at_an_untrusted_frame",
+  "crates/proto/src/parser.rs::t_72_a_detection_carries_the_part_name_and_the_rule_id_only",
+  "crates/proto/src/parser.rs::t_72_a_scan_request_decodes_only_in_its_exact_shape",
+  "crates/proto/src/parser.rs::t_72_only_the_scan_kind_is_answered_and_the_status_bytes_round_trip",
+  "crates/proto/src/parser.rs::t_72_the_frame_ceiling_holds_the_largest_scan_request_and_no_more",
 ]
 
 [[rule]]
