@@ -78,16 +78,46 @@ fn entries(records: &[(RecordId, Record)]) -> Vec<Entry<'_>> {
     records
         .iter()
         .zip(100_u64..)
-        .map(|((id, record), position)| Entry {
-            id: *id,
-            record,
-            position,
-            recorded_at: Time(position * 1000),
-            ingest: Ingest::Admitted,
-            restriction: Restriction::NoObjection,
-            issuer: AuthorityIssuer::Local,
+        .map(|((id, record), position)| {
+            Entry::unverified(
+                *id,
+                record,
+                position,
+                Time(position * 1000),
+                Ingest::Admitted,
+                Restriction::NoObjection,
+                AuthorityIssuer::Local,
+            )
         })
         .collect()
+}
+
+struct Facts {
+    position: u64,
+    recorded_at: Time,
+    ingest: Ingest,
+    restriction: Restriction,
+    issuer: AuthorityIssuer,
+}
+
+fn changed<'a>(e: &Entry<'a>, change: impl FnOnce(&mut Facts)) -> Entry<'a> {
+    let mut f = Facts {
+        position: e.position(),
+        recorded_at: e.recorded_at(),
+        ingest: e.ingest(),
+        restriction: e.restriction(),
+        issuer: e.issuer().clone(),
+    };
+    change(&mut f);
+    Entry::unverified(
+        e.id(),
+        e.record(),
+        f.position,
+        f.recorded_at,
+        f.ingest,
+        f.restriction,
+        f.issuer,
+    )
 }
 
 fn inputs(trusted: &[PartyRef]) -> DerivationInputs<'_> {
@@ -297,7 +327,7 @@ fn p_86_a_declaration_without_effect_consumes_no_version() {
         (rid(3), op(ALICE, "amend", Some(rid(1)), &[rid(1)])),
     ];
     let mut e = entries(&records);
-    e[1].restriction = Restriction::Deny;
+    e[1] = changed(&e[1], |f| f.restriction = Restriction::Deny);
     let d = run(&e);
     assert_eq!(d.records[1].effect, Effect::None(NoEffect::Denied));
     assert_eq!(d.records[2].admission, Admission::Admitted);
@@ -314,7 +344,7 @@ fn p_86_a_root_without_effect_starts_no_chain() {
         (rid(2), op(ALICE, "amend", Some(rid(1)), &[rid(1)])),
     ];
     let mut e = entries(&records);
-    e[0].restriction = Restriction::Deny;
+    e[0] = changed(&e[0], |f| f.restriction = Restriction::Deny);
     let d = run(&e);
     assert_eq!(d.records[0].effect, Effect::None(NoEffect::Denied));
     assert_eq!(d.records[1].effect, Effect::None(NoEffect::UnknownTarget));
@@ -460,11 +490,11 @@ fn t_23_restriction_results_gate_normative_effect() {
         (rid(3), op(ALICE, "amend", Some(rid(1)), &[rid(1)])),
     ];
     let mut e = entries(&records[..2]);
-    e[1].restriction = Restriction::Deny;
+    e[1] = changed(&e[1], |f| f.restriction = Restriction::Deny);
     let d = run(&e);
     assert_eq!(d.records[1].effect, Effect::None(NoEffect::Denied));
     assert_eq!(d.chains[0].heads, vec![rid(1)]);
-    e[1].restriction = Restriction::Require;
+    e[1] = changed(&e[1], |f| f.restriction = Restriction::Require);
     let d = run(&e);
     assert_eq!(
         d.records[1].effect,
@@ -480,7 +510,7 @@ fn t_6_different_trust_inputs_diverge_explicitly() {
         (rid(2), op(BOB, "accept", Some(rid(1)), &[rid(1)])),
     ];
     let mut e = entries(&records);
-    e[1].issuer = AuthorityIssuer::Federated(party(PEER));
+    e[1] = changed(&e[1], |f| f.issuer = AuthorityIssuer::Federated(party(PEER)));
     let trusted = [party(PEER)];
     let with = derive(&e, &inputs(&trusted)).unwrap();
     let without = derive(&e, &inputs(&[])).unwrap();
@@ -548,7 +578,9 @@ fn p_27_ledger_time_input_decides_pending_effect() {
 fn p_19_quarantined_record_has_no_effect() {
     let records = [(rid(1), op(ALICE, "promise", None, &[]))];
     let mut e = entries(&records);
-    e[0].ingest = Ingest::Quarantined(QuarantineReason::ExtensionCriticalUnknown);
+    e[0] = changed(&e[0], |f| {
+        f.ingest = Ingest::Quarantined(QuarantineReason::ExtensionCriticalUnknown);
+    });
     let d = run(&e);
     assert_eq!(
         d.records[0].admission,
@@ -573,8 +605,8 @@ fn t_4_position_overflow_is_a_typed_error() {
         (rid(2), op(ALICE, "amend", Some(rid(1)), &[rid(1)])),
     ];
     let mut e = entries(&records);
-    e[0].position = u64::MAX;
-    e[1].position = 0;
+    e[0] = changed(&e[0], |f| f.position = u64::MAX);
+    e[1] = changed(&e[1], |f| f.position = 0);
     assert_eq!(derive(&e, &inputs(&[])), Err(DeriveError::Overflow));
 }
 
@@ -586,13 +618,13 @@ fn p_11_ledger_order_violations_are_errors() {
         (rid(2), op(ALICE, "amend", Some(rid(1)), &[rid(1)])),
     ];
     let mut e = entries(&records);
-    e[1].position = 105;
+    e[1] = changed(&e[1], |f| f.position = 105);
     assert_eq!(
         derive(&e, &inputs(&[])),
         Err(DeriveError::PositionGap { position: 105 })
     );
     let mut e = entries(&records);
-    e[1].recorded_at = Time(0);
+    e[1] = changed(&e[1], |f| f.recorded_at = Time(0));
     assert_eq!(
         derive(&e, &inputs(&[])),
         Err(DeriveError::RecordedAtOutOfOrder { position: 101 })

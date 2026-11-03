@@ -8,7 +8,7 @@
 )]
 
 use serde_json::{Value, json};
-use work_bindings_core::{derive_records, validate_record, validate_record_cbor};
+use work_bindings_core::{derive_records, record_id, validate_record, validate_record_cbor};
 use work_kernel::reason::Reason;
 
 const RECORDS: &str = include_str!("../../../../conformance/vectors/records/records.json");
@@ -18,6 +18,8 @@ const QUARANTINE: &str =
 const CBOR: &str = include_str!("../../../../conformance/vectors/records/cbor-canonical.json");
 const DIGEST: &str = include_str!("../../../../conformance/vectors/records/digest.json");
 const DIGEST_PREFIX: &str = "822f5820";
+const DERIVE_ENTRIES: &str =
+    include_str!("../../../../conformance/vectors/records/derive-entries.json");
 const DERIVE_INPUTS: &str =
     include_str!("../../../../conformance/vectors/kernel/derive-inputs.json");
 const DERIVE_EXPECTED: &str =
@@ -82,35 +84,15 @@ fn t_69_cbor_entry_point_answers_like_the_json_projection() {
     );
 }
 
-/// The accepted records with their chained envelopes, as ledger entries in order.
-fn entries() -> String {
-    let records: Value = serde_json::from_str(RECORDS).unwrap();
-    let pairs = records["records"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .zip(records["envelopes"].as_array().unwrap());
-    let entries: Vec<Value> = pairs
-        .map(|(r, e)| {
-            let e = &e["decoded"];
-            json!({
-                "id": e["record"],
-                "record": r["decoded"],
-                "position": e["pos"],
-                "recorded_at": e["recorded_at"],
-                "ingest": e["ingest"],
-                "restriction": "no_objection",
-                "issuer": "local",
-            })
-        })
-        .collect();
-    Value::from(entries).to_string()
+/// The accepted records of `records.json` as stored entries chained from the genesis.
+fn entries() -> Value {
+    serde_json::from_str(DERIVE_ENTRIES).unwrap()
 }
 
 // T-5 T-37 T-69 INV-7 P-31
 #[test]
 fn t_5_t_37_inv_7_native_derivation_through_bindings_core() {
-    let derived = derive_records(&entries(), DERIVE_INPUTS);
+    let derived = derive_records(DERIVE_ENTRIES, DERIVE_INPUTS);
     if std::env::var_os("WORK_WRITE_GENERATED").is_some() {
         std::fs::write(
             "../../../conformance/vectors/kernel/derive-expected.json",
@@ -124,6 +106,32 @@ fn t_5_t_37_inv_7_native_derivation_through_bindings_core() {
         DERIVE_EXPECTED.trim_end(),
         "conformance/vectors/kernel/derive-expected.json is stale: WORK_WRITE_GENERATED=1 cargo test -p work-bindings-core --test vectors"
     );
+}
+
+// T-10 T-4 P-79 T-95 T-37
+#[test]
+fn t_10_derivation_takes_record_ids_from_the_stored_bytes_through_bindings_core() {
+    let text = derive_records(DERIVE_ENTRIES, DERIVE_INPUTS);
+    let derived: Value = serde_json::from_str(&text).unwrap();
+    let ids: Vec<Value> = derived["derivation"]["records"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|r| r["id"].clone())
+        .collect();
+    let stored = entries();
+    let from_bytes: Vec<Value> = stored["entries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| {
+            let bytes = hex(e["record"].as_str().unwrap());
+            let digest: Value = serde_json::from_str(&record_id(&bytes)).unwrap();
+            digest["digest"].clone()
+        })
+        .collect();
+    assert_eq!(ids.len(), 11);
+    assert_eq!(ids, from_bytes);
 }
 
 // T-5 T-37 T-69
@@ -148,24 +156,43 @@ fn t_5_t_37_input_errors_are_not_decisions() {
     );
     assert_eq!(
         derive_records("[]", DERIVE_INPUTS),
+        r#"{"error":{"code":"invalid_entries"}}"#
+    );
+    let empty = json!({ "at": entries()["at"], "entries": [] }).to_string();
+    assert_eq!(
+        derive_records(&empty, DERIVE_INPUTS),
         r#"{"derivation":{"chains":[],"records":[]}}"#
+    );
+    let nowhere = json!({ "at": {}, "entries": [] }).to_string();
+    assert_eq!(
+        derive_records(&nowhere, DERIVE_INPUTS),
+        r#"{"error":{"code":"invalid_chain_point"}}"#
     );
 }
 
-// T-5 T-37 T-69 P-31
+// T-5 T-10 T-37 T-69 P-31 P-11
 #[test]
-fn t_5_t_37_kernel_derivation_errors_cross_the_binding() {
-    let mut entries: Vec<Value> = serde_json::from_str(&entries()).unwrap();
-    entries[1]["position"] = json!(99);
+fn t_5_t_10_entries_that_do_not_verify_cross_the_binding_as_input_errors() {
+    let mut dropped = entries();
+    dropped["entries"].as_array_mut().unwrap().remove(1);
     assert_eq!(
-        derive_records(&Value::from(entries.clone()).to_string(), DERIVE_INPUTS),
-        r#"{"error":{"code":"position_gap","position":99}}"#
+        derive_records(&dropped.to_string(), DERIVE_INPUTS),
+        r#"{"error":{"code":"invalid_entry","index":1,"reason":"envelope_mismatch:prev"}}"#
     );
-    entries[1]["position"] = json!(2);
-    entries[1]["record"]["kind"] = json!("note");
+    let mut changed = entries();
+    let mut record = changed["entries"][1]["record"].as_str().unwrap().to_owned();
+    let last = record.pop().unwrap();
+    record.push(if last == '0' { '1' } else { '0' });
+    changed["entries"][1]["record"] = json!(record);
     assert_eq!(
-        derive_records(&Value::from(entries).to_string(), DERIVE_INPUTS),
-        r#"{"error":{"code":"invalid_entry","index":1,"reason":"schema:kind"}}"#
+        derive_records(&changed.to_string(), DERIVE_INPUTS),
+        r#"{"error":{"code":"invalid_entry","index":1,"reason":"envelope_mismatch:record"}}"#
+    );
+    let mut unshaped = entries();
+    unshaped["entries"][0]["position"] = json!(1);
+    assert_eq!(
+        derive_records(&unshaped.to_string(), DERIVE_INPUTS),
+        r#"{"error":{"code":"invalid_entry","index":0}}"#
     );
 }
 

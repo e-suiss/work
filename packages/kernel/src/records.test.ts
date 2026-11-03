@@ -4,9 +4,8 @@ import { describe, expect, it } from "vitest";
 
 import type {
   DecodedRecord,
-  DerivationEntry,
+  DerivationEntries,
   DerivationInputs,
-  DigestJson,
   RecordContext,
   Validation,
 } from "./index.js";
@@ -18,15 +17,6 @@ interface RecordCase {
   readonly decoded: DecodedRecord;
   readonly context: RecordContext;
   readonly expect: Validation;
-}
-
-interface Envelope {
-  readonly decoded: {
-    readonly pos: number;
-    readonly record: DigestJson;
-    readonly recorded_at: number;
-    readonly ingest: DerivationEntry["ingest"];
-  };
 }
 
 const vectors = new URL("../../../conformance/vectors/records/", import.meta.url);
@@ -51,29 +41,14 @@ async function load<T>(name: string): Promise<T> {
 const kernel = await loadKernel(
   await readFile(new URL("../wasm/work_kernel_wasm_bg.wasm", import.meta.url)),
 );
-const records = await load<{ records: RecordCase[]; envelopes: Envelope[] }>("records.json");
+const records = await load<{ records: RecordCase[] }>("records.json");
 const rejects = await load<{ cases: RecordCase[] }>("records-reject.json");
 const quarantine = await load<{ cases: RecordCase[] }>("records-quarantine.json");
 const cases = [...records.records, ...rejects.cases, ...quarantine.cases];
 const inputs = JSON.parse(await text(fixtures, "derive-inputs.json")) as DerivationInputs;
 const expectedDerivation = (await text(fixtures, "derive-expected.json")).trimEnd();
 
-const entries: DerivationEntry[] = records.records.map((r, i) => {
-  const envelope = records.envelopes[i];
-  if (envelope === undefined) {
-    throw new Error(`no envelope for ${r.id}`);
-  }
-  const e = envelope.decoded;
-  return {
-    id: e.record,
-    record: r.decoded,
-    position: e.pos,
-    recorded_at: e.recorded_at,
-    ingest: e.ingest,
-    restriction: "no_objection",
-    issuer: "local",
-  };
-});
+const entries = await load<DerivationEntries>("derive-entries.json");
 
 // T-5 T-37 INV-7 INV-8 X-24
 describe("t_5_t_37_inv_7 WebAssembly kernel matches every record vector", () => {
@@ -113,7 +88,7 @@ describe("t_5_t_37_inv_7 WebAssembly derivation matches the native bytes", () =>
   });
 
   it("raises kernel input errors instead of deciding", () => {
-    const gap = entries.map((e, i) => (i === 1 ? { ...e, position: 99 } : e));
+    const gap = { ...entries, entries: entries.entries.filter((_, i) => i !== 1) };
     expect(() => kernel.deriveRecords(gap, inputs)).toThrow(KernelInputError);
     const origin = "elsewhere" as unknown as "direct";
     const first = cases[0];

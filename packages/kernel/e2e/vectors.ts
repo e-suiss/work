@@ -4,9 +4,8 @@ import { readdir, readFile } from "node:fs/promises";
 import type {
   ChangeOutcome,
   DecodedRecord,
-  DerivationEntry,
+  DerivationEntries,
   DerivationInputs,
-  DigestJson,
   PolicyDirection,
   RecordContext,
   SwitchBasis,
@@ -52,29 +51,21 @@ export interface RecordCase {
   readonly expect: Validation;
 }
 
-interface Envelope {
-  readonly decoded: {
-    readonly pos: number;
-    readonly record: DigestJson;
-    readonly recorded_at: number;
-    readonly ingest: DerivationEntry["ingest"];
-  };
-}
-
 const kernelDir = new URL("../../../conformance/vectors/kernel/", import.meta.url);
 const recordsDir = new URL("../../../conformance/vectors/records/", import.meta.url);
 
-/** Record vector files the browser runs through `validateRecord` and `deriveRecords` on their `decoded` projection. */
+/** Record vector files the browser runs through `validateRecord` on their `decoded` projection. */
 export const recordFiles = [
   "records.json",
   "records-reject.json",
   "records-quarantine.json",
 ] as const;
 
-/** Record vector files the browser runs only through the byte entry points. */
+/** Record vector files the browser runs only through the byte entry points and the derivation. */
 export const byteRecordFiles = [
   "cbor-canonical.json",
   "cose-sign1.json",
+  "derive-entries.json",
   "digest.json",
   "evidence.json",
   "genesis.json",
@@ -106,10 +97,7 @@ export async function vectorFiles(): Promise<{ kernel: string[]; records: string
 export const api = await json<ApiVectors>(kernelDir, "api-version.json");
 export const policy = await json<PolicyVectors>(kernelDir, "policy-default.json");
 
-const records = await json<{ records: RecordCase[]; envelopes: Envelope[] }>(
-  recordsDir,
-  "records.json",
-);
+const records = await json<{ records: RecordCase[] }>(recordsDir, "records.json");
 const rejects = await json<{ cases: RecordCase[] }>(recordsDir, "records-reject.json");
 const quarantine = await json<{ cases: RecordCase[] }>(recordsDir, "records-quarantine.json");
 
@@ -120,23 +108,8 @@ export const recordCases: Readonly<Record<(typeof recordFiles)[number], readonly
   "records-quarantine.json": quarantine.cases,
 };
 
-/** The accepted records of `records.json` with their envelope facts, as the derivation golden feeds them. */
-export const entries: readonly DerivationEntry[] = records.records.map((r, i) => {
-  const envelope = records.envelopes[i];
-  if (envelope === undefined) {
-    throw new Error(`no envelope for ${r.id}`);
-  }
-  const e = envelope.decoded;
-  return {
-    id: e.record,
-    record: r.decoded,
-    position: e.pos,
-    recorded_at: e.recorded_at,
-    ingest: e.ingest,
-    restriction: "no_objection",
-    issuer: "local",
-  };
-});
+/** The stored entries of the `records.json` records chained from the genesis, as the derivation golden feeds them. */
+export const entries = await json<DerivationEntries>(recordsDir, "derive-entries.json");
 
 export const inputs = await json<DerivationInputs>(kernelDir, "derive-inputs.json");
 

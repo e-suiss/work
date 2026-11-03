@@ -106,18 +106,20 @@ fn entries<'a>(records: &'a [(RecordId, Record)], steps: &[Step], start: u64) ->
         .iter()
         .zip(steps)
         .zip(0_u64..)
-        .map(|(((id, record), s), offset)| Entry {
-            id: *id,
-            record,
-            position: start.wrapping_add(offset),
-            recorded_at: Time(offset),
-            ingest: Ingest::Admitted,
-            restriction: if s.deny {
-                Restriction::Deny
-            } else {
-                Restriction::NoObjection
-            },
-            issuer: AuthorityIssuer::Local,
+        .map(|(((id, record), s), offset)| {
+            Entry::unverified(
+                *id,
+                record,
+                start.wrapping_add(offset),
+                Time(offset),
+                Ingest::Admitted,
+                if s.deny {
+                    Restriction::Deny
+                } else {
+                    Restriction::NoObjection
+                },
+                AuthorityIssuer::Local,
+            )
         })
         .collect()
 }

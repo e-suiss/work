@@ -153,15 +153,20 @@ export type Validation =
   | { readonly outcome: "reject"; readonly reason: ReasonCode }
   | { readonly outcome: "quarantine"; readonly reason: QuarantineCode };
 
-/** One ledger record with the envelope facts derivation needs. */
+/** One stored ledger entry as derivation takes it: its bytes in lowercase hex and the keys Access binds to its author; the record ID, position, time and ingest come from the verified bytes (T-10). */
 export interface DerivationEntry {
-  readonly id: DigestJson;
-  readonly record: DecodedRecord;
-  readonly position: UintJson;
-  readonly recorded_at: UintJson;
-  readonly ingest: "admitted" | readonly ["quarantined", WithSubCode<QuarantineCode>];
+  readonly envelope: string;
+  readonly record: string;
+  readonly cose_sign1?: string;
+  readonly author_keys: PartyKeys;
   readonly restriction: "no_objection" | "deny" | "require";
   readonly issuer: "local" | readonly ["federated", string];
+}
+
+/** Stored ledger entries in ledger order after the chain point `at` (T-10, P-100). */
+export interface DerivationEntries {
+  readonly at: ChainPoint;
+  readonly entries: readonly DerivationEntry[];
 }
 
 /** Every input besides the records that the normative result depends on (P-31, T-6). */
@@ -426,10 +431,7 @@ export interface Kernel extends Verifier {
     basis: SwitchBasis,
   ) => SwitchOutcome;
   readonly validateRecord: (decoded: DecodedRecord, context: RecordContext) => Validation;
-  readonly deriveRecords: (
-    entries: readonly DerivationEntry[],
-    inputs: DerivationInputs,
-  ) => Derivation;
+  readonly deriveRecords: (entries: DerivationEntries, inputs: DerivationInputs) => Derivation;
 }
 
 const U16_MAX = 0xffff;
@@ -504,7 +506,7 @@ function validateRecord(decoded: DecodedRecord, context: RecordContext): Validat
   return unwrap(JSON.parse(text) as Validation | InputError);
 }
 
-function deriveRecords(entries: readonly DerivationEntry[], inputs: DerivationInputs): Derivation {
+function deriveRecords(entries: DerivationEntries, inputs: DerivationInputs): Derivation {
   const text = wasmDeriveRecords(JSON.stringify(entries), JSON.stringify(inputs));
   return unwrap(JSON.parse(text) as { readonly derivation: Derivation } | InputError).derivation;
 }

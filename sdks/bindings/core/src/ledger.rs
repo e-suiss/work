@@ -23,7 +23,7 @@ fn point_json(p: &ChainPoint) -> Value {
     json!({ "ledger": digest_json(&p.ledger.0), "prev": digest_json(&p.prev) })
 }
 
-fn point(v: &Value) -> Mapped<ChainPoint> {
+pub(crate) fn point(v: &Value) -> Mapped<ChainPoint> {
     let m = object(v)?;
     exact_keys(m, POINT_FIELDS)?;
     Ok(ChainPoint {

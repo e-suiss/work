@@ -196,8 +196,8 @@ fn t_10_the_verifier_recomputes_every_record_id_from_the_stored_bytes() {
         .collect();
     assert_eq!(entries.len(), 13);
     for (entry, v) in entries.iter().zip(&verified) {
-        assert_eq!(entry.id, v.verification().record);
-        assert!(matches!(v.record(), Decoded::Record(r) if **r == *entry.record));
+        assert_eq!(entry.id(), v.verification().record);
+        assert!(matches!(v.record(), Decoded::Record(r) if **r == *entry.record()));
     }
 }
 

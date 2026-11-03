@@ -207,26 +207,13 @@ func t_5_t_37_inv_7_swift_derivation_matches_native_bytes(
     _ dir: URL, _ fixtures: URL, _ tally: inout Tally
 ) throws {
     let name = #function
-    let file = try object(try Data(contentsOf: dir.appendingPathComponent("records.json")), name)
-    let records = try cases(file, "records", name)
-    let envelopes = try cases(file, "envelopes", name)
-    guard records.count == envelopes.count else { throw HarnessError.malformed(name) }
-    var entries: [[String: Any]] = []
-    for (r, e) in zip(records, envelopes) {
-        guard let env = e["decoded"] as? [String: Any], let record = r["decoded"] else {
-            throw HarnessError.malformed(name)
-        }
-        entries.append([
-            "id": env["record"] as Any, "record": record, "position": env["pos"] as Any,
-            "recorded_at": env["recorded_at"] as Any, "ingest": env["ingest"] as Any,
-            "restriction": "no_objection", "issuer": "local",
-        ])
-    }
+    let entries = try String(
+        contentsOf: dir.appendingPathComponent("derive-entries.json"), encoding: .utf8)
     let inputs = try String(
         contentsOf: fixtures.appendingPathComponent("derive-inputs.json"), encoding: .utf8)
     let expected = try String(
         contentsOf: fixtures.appendingPathComponent("derive-expected.json"), encoding: .utf8)
-    let actual = deriveRecords(entries: try json(entries, name), inputs: inputs)
+    let actual = deriveRecords(entries: entries, inputs: inputs)
     check(
         &tally, name, "records.json", actual,
         expected.trimmingCharacters(in: .newlines))

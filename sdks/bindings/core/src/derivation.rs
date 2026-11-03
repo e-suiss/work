@@ -1,29 +1,35 @@
-//! Maps ledger entries and derivation inputs from JSON onto the kernel fold and writes the derived view back as JSON.
+//! Verifies stored ledger entries from their bytes, folds them with the derivation inputs from JSON through the kernel and writes the derived view back as JSON; every record ID, position, time and ingest comes from the verified bytes, never from the caller (T-10).
 
 use serde_json::{Map, Value, json};
+use work_kernel::codec::Decoded;
+use work_kernel::cose::AuthorKeys;
 use work_kernel::derive::{
     Admission, AuthorityIssuer, BusinessCalendar, Chain, ChainStatus, DerivationInputs,
-    DeriveError, DerivedRecord, Effect, Entry, Ingest, NoEffect, ProfileVersion, Restriction,
-    TrustInputs, derive,
+    DeriveError, DerivedRecord, Effect, Entry, NoEffect, ProfileVersion, Restriction, TrustInputs,
+    derive,
 };
 use work_kernel::id::{PartyRef, RecordId, Time};
-use work_kernel::reason::{QuarantineReason, Reason, Schema};
-use work_kernel::record::{PracticePin, ProtocolVersion, Record};
+use work_kernel::reason::{Reason, Schema};
+use work_kernel::record::{PracticePin, ProtocolVersion};
+use work_kernel::verify::{StoredEntry, VerifiedEntry, verify_entry};
 
 use crate::decode::{
-    self, Mapped, digest, exact_keys, list, object, pair, party, required, text, uint,
+    self, Mapped, exact_keys, hex, list, object, optional, pair, party, required, text, uint,
 };
+use crate::ledger::point;
 use crate::project::digest_json;
+use crate::signature::keys;
 use crate::{error, input_error, parse};
 
 const MISSING: Reason = Reason::Schema(Schema::RequiredField);
 
+const ENTRIES_FIELDS: &[&str] = &["at", "entries"];
+
 const ENTRY_FIELDS: &[&str] = &[
-    "id",
+    "envelope",
     "record",
-    "position",
-    "recorded_at",
-    "ingest",
+    "cose_sign1",
+    "author_keys",
     "restriction",
     "issuer",
 ];
@@ -38,10 +44,10 @@ const INPUT_FIELDS: &[&str] = &[
 ];
 
 struct EntryParts {
-    id: RecordId,
-    position: u64,
-    recorded_at: Time,
-    ingest: Ingest,
+    envelope: Vec<u8>,
+    record: Vec<u8>,
+    cose_sign1: Option<Vec<u8>>,
+    author_keys: String,
     restriction: Restriction,
     issuer: AuthorityIssuer,
 }
@@ -53,19 +59,6 @@ struct Inputs {
     trusted_publishers: Vec<PartyRef>,
     ledger_time: Time,
     calendar: BusinessCalendar,
-}
-
-fn ingest(v: &Value) -> Mapped<Ingest> {
-    if v == "admitted" {
-        return Ok(Ingest::Admitted);
-    }
-    let (tag, code) = pair(v)?;
-    if tag != "quarantined" {
-        return Err(MISSING);
-    }
-    QuarantineReason::from_code(text(code)?)
-        .map(Ingest::Quarantined)
-        .ok_or(MISSING)
 }
 
 fn restriction(v: &Value) -> Mapped<Restriction> {
@@ -91,10 +84,10 @@ fn issuer(v: &Value) -> Mapped<AuthorityIssuer> {
 fn entry_parts(m: &Map<String, Value>) -> Mapped<EntryParts> {
     exact_keys(m, ENTRY_FIELDS)?;
     Ok(EntryParts {
-        id: RecordId(digest(required(m, "id")?)?),
-        position: uint(required(m, "position")?)?,
-        recorded_at: Time(uint(required(m, "recorded_at")?)?),
-        ingest: ingest(required(m, "ingest")?)?,
+        envelope: hex(required(m, "envelope")?)?,
+        record: hex(required(m, "record")?)?,
+        cose_sign1: optional(m, "cose_sign1", hex)?,
+        author_keys: required(m, "author_keys")?.to_string(),
         restriction: restriction(required(m, "restriction")?)?,
         issuer: issuer(required(m, "issuer")?)?,
     })
@@ -205,11 +198,59 @@ fn invalid_entry(index: usize, reason: Option<Reason>) -> String {
     error("invalid_entry", extra)
 }
 
-/// Folds ledger entries into the derived view (P-31, T-6).
+struct Verified {
+    entry: VerifiedEntry,
+    restriction: Restriction,
+    issuer: AuthorityIssuer,
+}
+
+fn shape(v: &Value) -> Option<(&Value, &[Value])> {
+    let m = v.as_object()?;
+    exact_keys(m, ENTRIES_FIELDS).ok()?;
+    let items = m.get("entries")?.as_array()?;
+    Some((m.get("at")?, items.as_slice()))
+}
+
+fn verified_entries(at: &Value, items: &[Value]) -> Result<Vec<Verified>, String> {
+    let Ok(mut at) = point(at) else {
+        return Err(input_error("invalid_chain_point"));
+    };
+    let mut out = Vec::with_capacity(items.len());
+    for (index, item) in items.iter().enumerate() {
+        let Ok(p) = object(item).and_then(entry_parts) else {
+            return Err(invalid_entry(index, None));
+        };
+        let Ok(k) = keys(&p.author_keys) else {
+            return Err(invalid_entry(index, None));
+        };
+        let port = AuthorKeys {
+            author: &k.party,
+            keys: &k.set,
+        };
+        let stored = StoredEntry {
+            envelope: &p.envelope,
+            record: &p.record,
+            cose_sign1: p.cose_sign1.as_deref(),
+        };
+        let entry = match verify_entry(&port, &at, &stored) {
+            Ok(v) => v,
+            Err(reason) => return Err(invalid_entry(index, Some(reason))),
+        };
+        at = entry.next();
+        out.push(Verified {
+            entry,
+            restriction: p.restriction,
+            issuer: p.issuer,
+        });
+    }
+    Ok(out)
+}
+
+/// Verifies stored ledger entries from their bytes and folds them into the derived view (P-31, T-6, T-10).
 ///
-/// `entries` is a JSON array in ledger order of `{"id", "record", "position", "recorded_at", "ingest", "restriction", "issuer"}`: `record` is the `decoded` projection, `ingest` is `"admitted"` or `["quarantined", <code>]`, `restriction` is `"no_objection"`, `"deny"` or `"require"`, and `issuer` is `"local"` or `["federated", <PartyRef>]`. `inputs` is `{"protocol": [major, minor], "profile", "practices": {<namespace>: <digest>}, "trusted_publishers", "ledger_time", "calendar": "continuous"}`.
+/// `entries` is `{"at": {"ledger": [-16, <hex>], "prev": [-16, <hex>]}, "entries": [...]}`: `at` is the chain point the first entry continues (from [`crate::genesis_chain_point`] or an earlier entry's `next`), and each entry in ledger order is `{"envelope": <hex>, "record": <hex>, "cose_sign1"?: <hex>, "author_keys", "restriction", "issuer"}` with `author_keys` in the shape of [`crate::verify_record_signature`]'s keys, `restriction` `"no_objection"`, `"deny"` or `"require"`, and `issuer` `"local"` or `["federated", <PartyRef>]`. Each entry is verified as [`crate::verify_entry`] verifies it; the record ID, record, position, time and ingest the fold reads come from the verified bytes, never from the caller. `inputs` is `{"protocol": [major, minor], "profile", "practices": {<namespace>: <digest>}, "trusted_publishers", "ledger_time", "calendar": "continuous"}`.
 ///
-/// Returns `{"derivation":{"records":[…],"chains":[…]}}`, or `{"error":{"code":…}}` with `invalid_json`, `invalid_inputs`, `invalid_entry` (with `index`, and `reason` when the record does not map) or a kernel derivation error (`position_gap`, `recorded_at_out_of_order`, `duplicate_record`, `ledger_mismatch`, `overflow`).
+/// Returns `{"derivation":{"records":[…],"chains":[…]}}`, or `{"error":{"code":…}}` with `invalid_json`, `invalid_inputs`, `invalid_entries`, `invalid_chain_point`, `invalid_entry` (with `index`, and `reason` when the entry does not verify or its record is of an unknown protocol version) or a kernel derivation error (`position_gap`, `recorded_at_out_of_order`, `duplicate_record`, `ledger_mismatch`, `overflow`).
 #[must_use]
 pub fn derive_records(entries: &str, inputs_json: &str) -> String {
     let (Some(entries), Some(inputs_value)) = (parse(entries), parse(inputs_json)) else {
@@ -218,40 +259,21 @@ pub fn derive_records(entries: &str, inputs_json: &str) -> String {
     let Ok(inputs) = inputs(&inputs_value) else {
         return input_error("invalid_inputs");
     };
-    let Some(items) = entries.as_array() else {
-        return input_error("invalid_json");
+    let Some((at, items)) = shape(&entries) else {
+        return input_error("invalid_entries");
     };
-    let mut parts = Vec::with_capacity(items.len());
-    let mut records: Vec<Record> = Vec::with_capacity(items.len());
-    for (index, item) in items.iter().enumerate() {
-        let Ok(m) = object(item) else {
-            return invalid_entry(index, None);
+    let verified = match verified_entries(at, items) {
+        Ok(v) => v,
+        Err(answer) => return answer,
+    };
+    let mut entries: Vec<Entry<'_>> = Vec::with_capacity(verified.len());
+    for (index, v) in verified.iter().enumerate() {
+        let Some(entry) = Entry::verified(&v.entry, v.restriction, v.issuer.clone()) else {
+            let unknown = matches!(v.entry.record(), Decoded::UnknownProtocol(_));
+            return invalid_entry(index, unknown.then_some(Reason::ProtocolVersionUnknown));
         };
-        let Ok(p) = entry_parts(m) else {
-            return invalid_entry(index, None);
-        };
-        let record = match required(m, "record")
-            .and_then(|r| decode::structure(r).and_then(|()| decode::record(r)))
-        {
-            Ok(r) => r,
-            Err(reason) => return invalid_entry(index, Some(reason)),
-        };
-        parts.push(p);
-        records.push(record);
+        entries.push(entry);
     }
-    let entries: Vec<Entry<'_>> = parts
-        .into_iter()
-        .zip(&records)
-        .map(|(p, record)| Entry {
-            id: p.id,
-            record,
-            position: p.position,
-            recorded_at: p.recorded_at,
-            ingest: p.ingest,
-            restriction: p.restriction,
-            issuer: p.issuer,
-        })
-        .collect();
     let kernel_inputs = DerivationInputs {
         protocol: inputs.protocol,
         profile: inputs.profile,

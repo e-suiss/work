@@ -1,6 +1,6 @@
 import type {
   DecodedRecord,
-  DerivationEntry,
+  DerivationEntries,
   DerivationInputs,
   RecordContext,
 } from "../src/index.js";
@@ -112,7 +112,7 @@ test.describe("t_5_t_37_inv_7 browser WebAssembly derivation matches the native 
           raw: window.workKernel.raw.deriveRecords(entries, inputs),
           wrapped: JSON.stringify(
             kernel.deriveRecords(
-              JSON.parse(entries) as DerivationEntry[],
+              JSON.parse(entries) as DerivationEntries,
               JSON.parse(inputs) as DerivationInputs,
             ),
           ),
@@ -131,11 +131,11 @@ test.describe("t_5_t_37_inv_7 browser WebAssembly derivation matches the native 
     if (first === undefined) {
       throw new Error("no record vectors");
     }
-    const gap = entries.map((e, i) => (i === 1 ? { ...e, position: 99 } : e));
+    const gap = { ...entries, entries: entries.entries.filter((_, i) => i !== 1) };
     const got = await page.evaluate(
       async (texts) => {
         const kernel = await window.workKernel.load();
-        const gap = JSON.parse(texts.gap) as DerivationEntry[];
+        const gap = JSON.parse(texts.gap) as DerivationEntries;
         const inputs = JSON.parse(texts.inputs) as DerivationInputs;
         const decoded = JSON.parse(texts.decoded) as DecodedRecord;
         const context = JSON.parse(texts.context) as RecordContext;

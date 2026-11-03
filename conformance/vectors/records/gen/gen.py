@@ -1978,6 +1978,35 @@ write_json("evidence.json", {
               "a signed case is checked against the keys of its presenter party with Ed25519, ESP256 and ES256 allowed; evidence-reject cases are records the decoder rejects"],
     "cases": evidence_cases})
 
+# T-10 P-31 P-108
+def written(name):
+    with open(os.path.join(OUT, name)) as f:
+        return json.load(f)
+
+
+derive_records_file = written("records.json")
+derive_cose = written("cose-sign1.json")
+derive_genesis = written("genesis.json")["cases"][0]
+derive_signed = {c["envelope"]: c["cose_hex"] for c in derive_cose["cases"] if c.get("envelope")}
+derive_keys = {}
+for k in derive_cose["keys"]:
+    derive_keys.setdefault(k["party"], []).append(
+        {"kid": k["kid_hex"], "alg": k["alg"], "public_key": k["public_key_hex"]})
+derive_entries = []
+for r, e in zip(derive_records_file["records"], derive_records_file["envelopes"]):
+    author = r["decoded"]["author"]
+    entry = {"envelope": e["hex"], "record": r["hex"]}
+    cose_hex = derive_signed.get("records.json " + e["id"])
+    if cose_hex is not None:
+        entry["cose_sign1"] = cose_hex
+    entry["author_keys"] = {"party": author, "allowed": [-19, -9, -7], "keys": derive_keys.get(author, [])}
+    entry["restriction"] = "no_objection"
+    entry["issuer"] = "local"
+    derive_entries.append(entry)
+write_json("derive-entries.json", {
+    "at": {"ledger": [-16, derive_genesis["ledger_id"]["digest_hex"]], "prev": [-16, derive_genesis["leaf_hash"]]},
+    "entries": derive_entries})
+
 if CBOR_OUT is not None:
     with open(os.path.join(CBOR_OUT, "manifest"), "w") as f:
         f.write("\n".join(manifest) + "\n")

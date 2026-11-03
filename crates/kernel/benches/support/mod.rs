@@ -194,14 +194,16 @@ pub(crate) fn entries(records: &[(RecordId, Record)]) -> Vec<Entry<'_>> {
     records
         .iter()
         .zip(0_u64..)
-        .map(|((id, record), position)| Entry {
-            id: *id,
-            record,
-            position,
-            recorded_at: Time(position),
-            ingest: Ingest::Admitted,
-            restriction: Restriction::NoObjection,
-            issuer: AuthorityIssuer::Local,
+        .map(|((id, record), position)| {
+            Entry::unverified(
+                *id,
+                record,
+                position,
+                Time(position),
+                Ingest::Admitted,
+                Restriction::NoObjection,
+                AuthorityIssuer::Local,
+            )
         })
         .collect()
 }

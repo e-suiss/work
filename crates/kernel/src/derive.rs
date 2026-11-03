@@ -41,23 +41,16 @@ pub enum Ingest {
     Quarantined(QuarantineReason),
 }
 
-/// One ledger record with the envelope facts derivation needs.
+/// One ledger record with the envelope facts derivation needs; its record ID comes from the verified stored bytes, never from the caller (T-10).
 #[derive(Clone, Debug)]
 pub struct Entry<'a> {
-    /// The record identifier.
-    pub id: RecordId,
-    /// The decoded, validated record.
-    pub record: &'a Record,
-    /// The ledger position; positions are contiguous.
-    pub position: u64,
-    /// The trusted record time (P-27).
-    pub recorded_at: Time,
-    /// How the record was admitted.
-    pub ingest: Ingest,
-    /// The restriction result for this record (T-23).
-    pub restriction: Restriction,
-    /// The issuer of the authority proof.
-    pub issuer: AuthorityIssuer,
+    id: RecordId,
+    record: &'a Record,
+    position: u64,
+    recorded_at: Time,
+    ingest: Ingest,
+    restriction: Restriction,
+    issuer: AuthorityIssuer,
 }
 
 impl<'a> Entry<'a> {
@@ -86,6 +79,70 @@ impl<'a> Entry<'a> {
             restriction,
             issuer,
         })
+    }
+
+    /// An entry over a record a caller built without bytes, under the record ID it names; only the kernel's own tests and benchmarks fold such entries, which the xtask `derivation-entry` check enforces (T-10). A stored entry goes through [`Entry::verified`].
+    #[must_use]
+    pub const fn unverified(
+        id: RecordId,
+        record: &'a Record,
+        position: u64,
+        recorded_at: Time,
+        ingest: Ingest,
+        restriction: Restriction,
+        issuer: AuthorityIssuer,
+    ) -> Self {
+        Self {
+            id,
+            record,
+            position,
+            recorded_at,
+            ingest,
+            restriction,
+            issuer,
+        }
+    }
+
+    /// The record identifier.
+    #[must_use]
+    pub const fn id(&self) -> RecordId {
+        self.id
+    }
+
+    /// The decoded, validated record.
+    #[must_use]
+    pub const fn record(&self) -> &'a Record {
+        self.record
+    }
+
+    /// The ledger position; positions are contiguous.
+    #[must_use]
+    pub const fn position(&self) -> u64 {
+        self.position
+    }
+
+    /// The trusted record time (P-27).
+    #[must_use]
+    pub const fn recorded_at(&self) -> Time {
+        self.recorded_at
+    }
+
+    /// How the record was admitted.
+    #[must_use]
+    pub const fn ingest(&self) -> Ingest {
+        self.ingest
+    }
+
+    /// The restriction result for this record (T-23).
+    #[must_use]
+    pub const fn restriction(&self) -> Restriction {
+        self.restriction
+    }
+
+    /// The issuer of the authority proof.
+    #[must_use]
+    pub const fn issuer(&self) -> &AuthorityIssuer {
+        &self.issuer
     }
 }
 
