@@ -1,7 +1,10 @@
 //! uniffi binding of the Work kernel for Swift and Kotlin (T-5): a thin mapping of the kernel API and of the `work-bindings-core` JSON front end, with no logic of its own.
 
 #![forbid(unsafe_code)]
-#![allow(clippy::needless_pass_by_value, reason = "uniffi passes byte strings as owned vectors")]
+#![allow(
+    clippy::needless_pass_by_value,
+    reason = "uniffi passes byte strings as owned vectors"
+)]
 
 use core::cmp::Ordering;
 

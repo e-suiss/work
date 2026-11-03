@@ -82,7 +82,10 @@ pub(crate) fn keys(json: &str) -> Result<Keys, String> {
             return Err(invalid_key(index, None));
         };
         if let Err(e) = set.insert(kid, key) {
-            return Err(invalid_key(index, Some(Reason::Signature(signature_detail(e)))));
+            return Err(invalid_key(
+                index,
+                Some(Reason::Signature(signature_detail(e))),
+            ));
         }
     }
     Ok(Keys { party, set })

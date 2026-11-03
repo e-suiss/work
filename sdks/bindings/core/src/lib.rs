@@ -145,8 +145,8 @@ pub fn validate_record_cbor(record: &[u8], context_json: &str) -> String {
 }
 
 pub use cbor::{
-    body_commitment, check_cbor, decode_digest, decode_envelope, decode_record_cbor, ledger_id,
-    leaf_hash, parse_cose_container, proof_commit, record_id,
+    body_commitment, check_cbor, decode_digest, decode_envelope, decode_record_cbor, leaf_hash,
+    ledger_id, parse_cose_container, proof_commit, record_id,
 };
 pub use derivation::derive_records;
 pub use items::touched;

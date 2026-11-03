@@ -233,8 +233,8 @@ function need<T>(value: T | undefined, what: string): T {
   return value;
 }
 
-function accept(fields: object = {}): JsonObject {
-  return { ...fields, outcome: "accept" } as JsonObject;
+function accept(fields: object = {}): object {
+  return { ...fields, outcome: "accept" };
 }
 
 function unknownProtocol(expect: Expect): boolean {
@@ -486,7 +486,7 @@ function entryChecks(kernel: Kernel, raw: typeof Raw, vectors: ByteVectors): Che
     const e = v.envelope.decoded;
     const leaf = digest(v.envelope.leaf_hash);
     const next = { ledger: e.ledger, prev: leaf };
-    let want: JsonObject = { outcome: "reject", reason: "protocol_version_unknown" };
+    let want: object = { outcome: "reject", reason: "protocol_version_unknown" };
     if (cose !== undefined || !unknownProtocol(v.expect)) {
       want = accept({
         record: e.record,

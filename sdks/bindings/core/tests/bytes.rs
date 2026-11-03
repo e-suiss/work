@@ -92,7 +92,10 @@ fn key_sets() -> BTreeMap<String, Vec<Value>> {
 }
 
 fn keys_of(sets: &BTreeMap<String, Vec<Value>>, party: &Value) -> String {
-    let keys = sets.get(party.as_str().unwrap()).cloned().unwrap_or_default();
+    let keys = sets
+        .get(party.as_str().unwrap())
+        .cloned()
+        .unwrap_or_default();
     json!({ "party": party, "allowed": ALLOWED, "keys": keys }).to_string()
 }
 
@@ -160,7 +163,11 @@ fn p_79_digest_vectors_through_bindings_core() {
                 part["media_type"].as_str().unwrap(),
                 &content(part),
             );
-            same(id, &got, &accept(json!({ "digest": digest(&case["digest_hex"]) })));
+            same(
+                id,
+                &got,
+                &accept(json!({ "digest": digest(&case["digest_hex"]) })),
+            );
         } else if id == "digest/record-id" {
             let got = record_id(&bytes(&first["hex"]));
             same(id, &got, &found(&digest(&case["digest_hex"])));
@@ -169,7 +176,11 @@ fn p_79_digest_vectors_through_bindings_core() {
             same(id, &got, &found(&digest(&case["digest_hex"])));
         } else if id == "digest/proof-commit" {
             let cose = bytes(&case["cose_hex"]);
-            same(id, &proof_commit(&cose), &found(&digest(&case["digest_hex"])));
+            same(
+                id,
+                &proof_commit(&cose),
+                &found(&digest(&case["digest_hex"])),
+            );
             let keys = json!({
                 "party": first["decoded"]["author"],
                 "allowed": [-19],
@@ -183,7 +194,11 @@ fn p_79_digest_vectors_through_bindings_core() {
                 "author": first["decoded"]["author"],
                 "record": digest(&case["record_id_hex"]),
             }));
-            same(id, &verify_record_signature(&cose, &keys.to_string()), &want);
+            same(
+                id,
+                &verify_record_signature(&cose, &keys.to_string()),
+                &want,
+            );
         } else {
             panic!("{id}: no binding check");
         }
@@ -237,11 +252,19 @@ fn p_100_genesis_envelope_and_record_bytes_decode_through_bindings_core() {
             accept(json!({ "decoded": record["decoded"] }))
         };
         same(id, &decode_record_cbor(&input), &want);
-        same(id, &record_id(&input), &found(&encoded_digest(&record["record_digest"])));
+        same(
+            id,
+            &record_id(&input),
+            &found(&encoded_digest(&record["record_digest"])),
+        );
         let input = bytes(&envelope["hex"]);
         let want = accept(json!({ "decoded": envelope["decoded"] }));
         same(id, &decode_envelope(&input), &want);
-        same(id, &leaf_hash(&input), &found(&digest(&envelope["leaf_hash"])));
+        same(
+            id,
+            &leaf_hash(&input),
+            &found(&digest(&envelope["leaf_hash"])),
+        );
     }
 }
 
@@ -260,17 +283,28 @@ fn p_32_cose_sign1_and_key_vectors_through_bindings_core() {
                 "record": digest(&case["record_id_hex"]),
             }));
             same(id, &got, &want);
-            same(id, &proof_commit(&input), &found(&digest(&case["proof_commit_hex"])));
+            same(
+                id,
+                &proof_commit(&input),
+                &found(&digest(&case["proof_commit_hex"])),
+            );
         } else {
             same(id, &got, &case["expect"]);
         }
     }
     for key in cases(&cose, "keys") {
         let got = check_public_key(key["alg"].as_i64().unwrap(), &bytes(&key["public_key_hex"]));
-        same(key["id"].as_str().unwrap(), &got, &json!({ "outcome": "accept" }));
+        same(
+            key["id"].as_str().unwrap(),
+            &got,
+            &json!({ "outcome": "accept" }),
+        );
     }
     for case in cases(&cose, "key_cases") {
-        let got = check_public_key(case["alg"].as_i64().unwrap(), &bytes(&case["public_key_hex"]));
+        let got = check_public_key(
+            case["alg"].as_i64().unwrap(),
+            &bytes(&case["public_key_hex"]),
+        );
         same(case["id"].as_str().unwrap(), &got, &case["expect"]);
     }
 }
@@ -319,7 +353,10 @@ fn signatures() -> BTreeMap<String, Vec<u8>> {
 fn envelope_name(record: &Value, envelope: &Value) -> String {
     match envelope.get("id") {
         Some(id) => format!("records.json {}", id.as_str().unwrap()),
-        None => format!("records-quarantine.json {} envelope", record["id"].as_str().unwrap()),
+        None => format!(
+            "records-quarantine.json {} envelope",
+            record["id"].as_str().unwrap()
+        ),
     }
 }
 
@@ -354,7 +391,11 @@ fn t_10_stored_entries_verify_from_their_bytes_through_bindings_core() {
             json!({ "outcome": "reject", "reason": "protocol_version_unknown" })
         } else {
             verified += 1;
-            let binding = if cose.is_some() { "signature_valid" } else { "auth_context" };
+            let binding = if cose.is_some() {
+                "signature_valid"
+            } else {
+                "auth_context"
+            };
             accept(json!({
                 "record": e["record"],
                 "author": author,
@@ -375,7 +416,11 @@ fn t_10_stored_entries_verify_from_their_bytes_through_bindings_core() {
 
 fn leaves() -> Vec<Value> {
     let mut out = vec![file(GENESIS)["cases"][0]["hex"].clone()];
-    out.extend(records_and_envelopes().into_iter().map(|(_, e)| e["hex"].clone()));
+    out.extend(
+        records_and_envelopes()
+            .into_iter()
+            .map(|(_, e)| e["hex"].clone()),
+    );
     out
 }
 
@@ -392,13 +437,21 @@ fn t_4_merkle_vectors_through_bindings_core() {
             &digest(&node["left_hex"]).to_string(),
             &digest(&node["right_hex"]).to_string(),
         );
-        same(node["id"].as_str().unwrap(), &got, &found(&digest(&node["digest_hex"])));
+        same(
+            node["id"].as_str().unwrap(),
+            &got,
+            &found(&digest(&node["digest_hex"])),
+        );
     }
     let leaves = leaves();
     for case in cases(&merkle, "roots") {
         let size = usize::try_from(case["size"].as_u64().unwrap()).unwrap();
         let got = merkle_root(&Value::from(leaves[..size].to_vec()).to_string());
-        same(&format!("root {size}"), &got, &found(&digest(&case["root_hex"])));
+        same(
+            &format!("root {size}"),
+            &got,
+            &found(&digest(&case["root_hex"])),
+        );
     }
     for case in cases(&merkle, "inclusion") {
         let proof = json!({
@@ -431,7 +484,12 @@ fn note_key(key: &Value) -> Value {
 fn checkpoint(case: &Value, witnesses: bool) -> String {
     let keys = &file(MERKLE)["keys"];
     let witnesses: Vec<Value> = if witnesses {
-        keys["witnesses"].as_array().unwrap().iter().map(note_key).collect()
+        keys["witnesses"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(note_key)
+            .collect()
     } else {
         Vec::new()
     };
@@ -477,12 +535,20 @@ fn t_88_checkpoint_vectors_through_bindings_core() {
             "path": path(&case["path_hex"]),
         });
         let got = checkpoint_includes(&signed, &proof.to_string());
-        same(case["id"].as_str().unwrap(), &got, &json!({ "outcome": "accept" }));
+        same(
+            case["id"].as_str().unwrap(),
+            &got,
+            &json!({ "outcome": "accept" }),
+        );
         included += 1;
     }
     assert_eq!(included, 17);
     let older = checkpoint(&notes[0], false);
-    same("extends", &checkpoint_extends_to(&older, &signed, "[]"), &json!({ "outcome": "accept" }));
+    same(
+        "extends",
+        &checkpoint_extends_to(&older, &signed, "[]"),
+        &json!({ "outcome": "accept" }),
+    );
 }
 
 fn record_hex(files: &[Value], id: &str) -> Vec<u8> {
@@ -520,25 +586,73 @@ fn t_5_t_37_byte_entry_points_answer_input_errors_without_deciding() {
     let error = |code: &str| json!({ "error": { "code": code } });
     same("tags", &check_cbor(&[0], "{"), &error("invalid_json"));
     same("tags", &check_cbor(&[0], "[-1]"), &error("invalid_tags"));
-    same("salt", &body_commitment(&[0; 31], "terms", "text/plain", &[]), &error("invalid_salt"));
+    same(
+        "salt",
+        &body_commitment(&[0; 31], "terms", "text/plain", &[]),
+        &error("invalid_salt"),
+    );
     let named = body_commitment(&[0; 32], "Terms", "text/plain", &[]);
     same("name", &named, &error("invalid_part_name"));
-    same("key", &check_public_key(-19, &[0; 31]), &error("invalid_key"));
-    same("alg", &check_public_key(-1, &[0; 32]), &error("invalid_key"));
-    same("keys", &verify_record_signature(&[], "{"), &error("invalid_json"));
-    same("keys", &verify_record_signature(&[], "{}"), &error("invalid_keys"));
+    same(
+        "key",
+        &check_public_key(-19, &[0; 31]),
+        &error("invalid_key"),
+    );
+    same(
+        "alg",
+        &check_public_key(-1, &[0; 32]),
+        &error("invalid_key"),
+    );
+    same(
+        "keys",
+        &verify_record_signature(&[], "{"),
+        &error("invalid_json"),
+    );
+    same(
+        "keys",
+        &verify_record_signature(&[], "{}"),
+        &error("invalid_keys"),
+    );
     let bad = json!({ "party": "party:acme:alice", "allowed": [-19], "keys": [{ "kid": "00" }] });
     let indexed = json!({ "error": { "code": "invalid_keys", "index": 0 } });
-    same("keys", &verify_record_signature(&[], &bad.to_string()), &indexed);
+    same(
+        "keys",
+        &verify_record_signature(&[], &bad.to_string()),
+        &indexed,
+    );
     let empty = json!({ "party": "party:acme:alice", "allowed": [], "keys": [] }).to_string();
-    same("at", &verify_entry("{}", &[], &[], None, &empty), &error("invalid_chain_point"));
-    same("node", &merkle_node_hash("[]", "[]"), &error("invalid_digest"));
+    same(
+        "at",
+        &verify_entry("{}", &[], &[], None, &empty),
+        &error("invalid_chain_point"),
+    );
+    same(
+        "node",
+        &merkle_node_hash("[]", "[]"),
+        &error("invalid_digest"),
+    );
     same("root", &merkle_root("[1]"), &error("invalid_envelopes"));
     same("inclusion", &verify_inclusion("{"), &error("invalid_json"));
-    same("inclusion", &verify_inclusion(r#"{"position":0}"#), &error("invalid_proof"));
-    same("consistency", &verify_consistency("{}"), &error("invalid_proof"));
-    same("checkpoint", &verify_checkpoint(r#"{"note":""}"#), &error("invalid_checkpoint"));
-    same("extends", &checkpoint_extends_to("{}", "{}", "{"), &error("invalid_json"));
+    same(
+        "inclusion",
+        &verify_inclusion(r#"{"position":0}"#),
+        &error("invalid_proof"),
+    );
+    same(
+        "consistency",
+        &verify_consistency("{}"),
+        &error("invalid_proof"),
+    );
+    same(
+        "checkpoint",
+        &verify_checkpoint(r#"{"note":""}"#),
+        &error("invalid_checkpoint"),
+    );
+    same(
+        "extends",
+        &checkpoint_extends_to("{}", "{}", "{"),
+        &error("invalid_json"),
+    );
     let sha256_of_nothing = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
     let empty_root = found(&json!([-16, sha256_of_nothing]));
     same("empty", &merkle_root("[]"), &empty_root);
