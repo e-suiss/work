@@ -1,5 +1,5 @@
 -- OP-45 OP-12 OP-15 P-25 P-68 T-56 T-79 Access OP-73 Access OP-74 Access OP-145
--- squawk-ignore-file adding-foreign-key-constraint, constraint-missing-not-valid, renaming-column
+-- squawk-ignore-file adding-foreign-key-constraint, constraint-missing-not-valid, renaming-column, ban-drop-constraint
 SET LOCAL ROLE work_owner;
 SET LOCAL lock_timeout = '10s';
 SET LOCAL statement_timeout = '5min';
