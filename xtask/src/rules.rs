@@ -71,6 +71,10 @@ pub(crate) fn checks() -> Vec<Check> {
             run: source::check_unsafe,
         },
         Check {
+            name: "derivation-entry",
+            run: source::check_unverified_entry,
+        },
+        Check {
             name: "todo-has-issue",
             run: source::check_todo,
         },

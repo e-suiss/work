@@ -1,6 +1,7 @@
 //! Source-level rules: kernel and domain purity (T-4, T-31 rule 5, T-32 rule 1),
 //! SQL only in `store` (T-36 rule 2), no physical delete (T-36 rule 4, OP-12),
-//! tracked TODOs (T-33 rule 8, T-53) and the `unsafe` allowlist (T-33 rule 3).
+//! tracked TODOs (T-33 rule 8, T-53), the `unsafe` allowlist (T-33 rule 3) and derivation
+//! entries under a caller's record ID only in the kernel's tests and benchmarks (T-10).
 
 use std::path::{Path, PathBuf};
 
@@ -978,9 +979,80 @@ pub(crate) fn check_unsafe(root: &Path) -> Result<Vec<Violation>, String> {
     Ok(out)
 }
 
+const DERIVATION_ENTRY: &str = "derivation-entry";
+
+/// Where the derivation's `Entry::unverified` may appear: its definition and the kernel's own
+/// tests and benchmarks (T-10).
+pub(crate) const UNVERIFIED_ENTRY_ALLOWED: &[&str] = &[
+    "crates/kernel/src/derive.rs",
+    "crates/kernel/tests/",
+    "crates/kernel/benches/",
+];
+
+/// True where `Entry::unverified` may appear.
+pub(crate) fn unverified_entry_allowed(rel_path: &str) -> bool {
+    UNVERIFIED_ENTRY_ALLOWED
+        .iter()
+        .any(|p| rel_path == *p || (p.ends_with('/') && rel_path.starts_with(p)))
+}
+
+/// Lines of `src` that name `Entry::unverified`, a derivation entry under a record ID the caller
+/// names instead of one verified from stored bytes.
+pub(crate) fn unverified_entry_lines(src: &str) -> Vec<usize> {
+    let code = lex(src).code;
+    find_token(&code, "unverified")
+        .into_iter()
+        .filter(|&at| {
+            code.get(..at)
+                .unwrap_or_default()
+                .trim_end()
+                .strip_suffix("::")
+                .is_some_and(|path| path.trim_end().ends_with("Entry"))
+        })
+        .map(|at| line_at(&code, at))
+        .collect()
+}
+
+pub(crate) fn check_unverified_entry(root: &Path) -> Result<Vec<Violation>, String> {
+    let mut out = Vec::new();
+    for (rel_path, path) in rust_files(root)? {
+        if is_rule_definition(&rel_path) || unverified_entry_allowed(&rel_path) {
+            continue;
+        }
+        for line in unverified_entry_lines(&read(&path)?) {
+            out.push(violation(
+                DERIVATION_ENTRY,
+                &rel_path,
+                line,
+                "`Entry::unverified` folds a record under a caller's record ID; outside the kernel's tests and benchmarks a derivation entry comes from `Entry::verified` (T-10)".to_owned(),
+            ));
+        }
+    }
+    Ok(out)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // T-10
+    #[test]
+    fn t_10_unverified_derivation_entries_are_found_outside_the_kernel_tests() {
+        let src = "let e = Entry::unverified(id, r, 0, t, i, x, y);\n\
+                   // Entry::unverified in a comment\n\
+                   let s = \"Entry::unverified\";\n\
+                   let v = Entry::verified(&s, x, y);\n\
+                   let w = work_kernel::derive::Entry ::\n    unverified(id);\n\
+                   let u = unverified(id);\n";
+        assert_eq!(unverified_entry_lines(src), vec![1, 6]);
+        assert!(unverified_entry_allowed("crates/kernel/src/derive.rs"));
+        assert!(unverified_entry_allowed("crates/kernel/tests/derivation.rs"));
+        assert!(unverified_entry_allowed("crates/kernel/benches/support/mod.rs"));
+        assert!(!unverified_entry_allowed("crates/kernel/src/derive.rs.bak"));
+        assert!(!unverified_entry_allowed("crates/kernel/src/verify.rs"));
+        assert!(!unverified_entry_allowed("sdks/bindings/core/src/derivation.rs"));
+        assert!(!unverified_entry_allowed("crates/ledger/src/rebuild.rs"));
+    }
 
     // T-32 T-4
     #[test]
