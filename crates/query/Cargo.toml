@@ -10,6 +10,7 @@ publish = false
 
 [dependencies]
 suiss-crypto = { workspace = true, features = ["pkcs11"] }
+suiss-restriction = { workspace = true }
 work-kernel = { workspace = true }
 work-proto = { workspace = true }
 serde = { workspace = true, features = ["derive", "std"] }

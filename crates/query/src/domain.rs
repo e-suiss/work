@@ -7,6 +7,8 @@ use serde::Deserialize;
 use work_kernel::id::LedgerId;
 use work_proto::position::Positions;
 
+pub mod restriction;
+
 /// The `freshness` value of a read answered before its view reached the asked position
 /// (T-97 item 3, T-14).
 pub const STALE: &str = "stale";
