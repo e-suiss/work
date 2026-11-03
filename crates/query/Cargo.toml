@@ -8,5 +8,17 @@ license.workspace = true
 repository.workspace = true
 publish = false
 
+[dependencies]
+suiss-crypto = { workspace = true, features = ["pkcs11"] }
+work-kernel = { workspace = true }
+work-proto = { workspace = true }
+serde = { workspace = true, features = ["derive", "std"] }
+thiserror = { workspace = true, features = ["std"] }
+tokio = { workspace = true, features = ["sync", "time"] }
+
+[dev-dependencies]
+serde_json = { workspace = true, features = ["std"] }
+tokio = { workspace = true, features = ["macros", "rt", "sync", "test-util", "time"] }
+
 [lints]
 workspace = true
