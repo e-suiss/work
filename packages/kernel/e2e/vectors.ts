@@ -14,7 +14,7 @@ import type {
   Validation,
   VersionOrder,
 } from "../src/index.js";
-import type { ByteVectors } from "./suite.js";
+import type { ByteVectors } from "./byte-vectors.js";
 
 export interface ApiVectors {
   readonly api_version: string;

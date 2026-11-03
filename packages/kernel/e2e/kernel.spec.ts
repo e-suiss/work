@@ -6,7 +6,7 @@ import type {
 } from "../src/index.js";
 
 import { expect, test } from "./fixtures.js";
-import type { ByteVectors } from "./suite.js";
+import type { ByteVectors } from "./byte-vectors.js";
 import {
   api,
   byteRecordFiles,

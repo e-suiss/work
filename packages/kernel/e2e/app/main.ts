@@ -3,7 +3,7 @@ import type { DecodedRecord, Kernel, RecordContext, Validation } from "../../src
 import { loadKernel } from "../../src/index.js";
 import * as raw from "../../wasm/work_kernel_wasm.js";
 import { deriveRecords, validateRecord } from "../../wasm/work_kernel_wasm.js";
-import type { ByteVectors, Check } from "../suite.js";
+import type { ByteVectors, Check } from "../byte-vectors.js";
 import { byteChecks } from "../suite.js";
 
 /** Milliseconds from page code to a usable kernel, and to the first answer after it (T-44). */
