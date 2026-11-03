@@ -51,7 +51,7 @@ fn main() -> ExitCode {
             .trace_config()
             .map_err(|e| e.to_string())
             .and_then(|trace| {
-                work_telemetry::init_with_traces(&config.log, &trace).map_err(|e| e.to_string())
+                work_telemetry::init_with_otel(&config.log, &trace).map_err(|e| e.to_string())
             })
     };
     let _telemetry = match telemetry {

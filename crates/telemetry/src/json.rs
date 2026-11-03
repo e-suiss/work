@@ -74,7 +74,7 @@ impl Visit for Fields {
     }
 }
 
-fn record<R: RecordFields>(fields: R) -> Map<String, Value> {
+pub(crate) fn record<R: RecordFields>(fields: R) -> Map<String, Value> {
     let mut visitor = Fields::default();
     fields.record(&mut visitor);
     visitor.0

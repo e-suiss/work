@@ -90,22 +90,22 @@ pub struct TraceConfig {
     pub max_queue_size: NonZeroUsize,
 }
 
-/// Why trace export could not be set up.
+/// Why trace, metric or log export could not be set up.
 #[derive(Debug, thiserror::Error)]
 pub enum TraceError {
     /// An endpoint is configured but no Tokio runtime is entered.
-    #[error("trace export needs an entered Tokio runtime")]
+    #[error("telemetry export needs an entered Tokio runtime")]
     NoRuntime,
     /// The OTLP exporter rejected its configuration.
-    #[error("trace exporter: {0}")]
+    #[error("telemetry exporter: {0}")]
     Exporter(#[from] opentelemetry_otlp::ExporterBuildError),
 }
 
-fn resource(config: &TraceConfig) -> Resource {
+pub(crate) fn resource(service: &str, version: &str) -> Resource {
     Resource::builder_empty()
         .with_attributes([
-            KeyValue::new("service.name", config.service.clone()),
-            KeyValue::new("service.version", config.version.clone()),
+            KeyValue::new("service.name", service.to_owned()),
+            KeyValue::new("service.version", version.to_owned()),
         ])
         .build()
 }
@@ -119,7 +119,7 @@ where
 {
     let builder = SdkTracerProvider::builder()
         .with_sampler(config.sample_ratio.sampler())
-        .with_resource(resource(config));
+        .with_resource(resource(&config.service, &config.version));
     match exporter {
         Some(exporter) => builder
             .with_span_processor(

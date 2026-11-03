@@ -1,6 +1,6 @@
 [package]
 name = "work-telemetry"
-description = "Structured logging, tracing and metrics for Work (T-39, OP-18)."
+description = "Structured logging and OpenTelemetry traces, metrics and logs for Work (T-39, OP-18)."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -14,9 +14,9 @@ tracing-subscriber = { workspace = true, features = ["std", "fmt", "env-filter",
 serde_json = { workspace = true, features = ["std"] }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["rt"] }
-opentelemetry = { workspace = true, features = ["trace"] }
-opentelemetry_sdk = { workspace = true, features = ["trace"] }
-opentelemetry-otlp = { workspace = true, features = ["trace", "grpc-tonic"] }
+opentelemetry = { workspace = true, features = ["trace", "metrics", "logs"] }
+opentelemetry_sdk = { workspace = true, features = ["trace", "metrics", "logs"] }
+opentelemetry-otlp = { workspace = true, features = ["trace", "metrics", "logs", "grpc-tonic"] }
 tracing-opentelemetry = { workspace = true }
 
 [dev-dependencies]
