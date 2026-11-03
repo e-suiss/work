@@ -180,3 +180,90 @@ fn t_72_an_answer_that_does_not_belong_to_the_request_retires_the_worker() {
         "{refused:?}"
     );
 }
+
+// SEC-35 P-95 T-94
+#[test]
+fn sec_35_p_95_the_in_process_scan_answers_as_a_worker_does() {
+    let s = scanner();
+    let secret = token();
+    let title: &[u8] = b"weekly report";
+    assert_eq!(Scan::scan(&s, &[("title", title)]), Ok(Verdict::Clean));
+    assert_eq!(Scan::scan(&s, &[]), Ok(Verdict::Clean));
+    let found = Scan::scan(&s, &[("title", title), ("note", secret.as_bytes())]);
+    assert_eq!(
+        found,
+        Ok(Verdict::Detected {
+            part: "note".to_owned(),
+            rule: "github-pat".to_owned(),
+        })
+    );
+    assert!(!format!("{found:?}").contains(FILL36));
+    let malformed = Err(ScanFailure::Refused(refusal::MALFORMED));
+    let twice = Scan::scan(&s, &[("note", title), ("note", title)]);
+    assert_eq!(twice, malformed);
+    assert_eq!(Scan::scan(&s, &[("Not A Name", title)]), malformed);
+    let over = vec![b'a'; OVER_PART];
+    let too_large = Err(ScanFailure::Refused(refusal::TOO_LARGE));
+    assert_eq!(Scan::scan(&s, &[("note", over.as_slice())]), too_large);
+}
+
+fn answers(request_len: usize, answers: &[Vec<u8>]) -> Command {
+    let mut script = String::new();
+    for answer in answers {
+        let mut escaped = String::new();
+        for b in answer {
+            write!(escaped, "\\{b:03o}").unwrap();
+        }
+        write!(script, "head -c {request_len} >/dev/null; printf '{escaped}'; ").unwrap();
+    }
+    script.push_str("exec cat >/dev/null");
+    let mut command = Command::new("sh");
+    command.arg("-c").arg(script);
+    command
+}
+
+// T-94 T-72 SEC-35
+#[test]
+fn t_94_a_pool_keeps_a_worker_that_answered_and_retires_one_that_failed() {
+    let fine: &[u8] = b"fine";
+    let len = frames::frame(scan_kind(), &request(&[("note", fine)]))
+        .unwrap()
+        .len();
+    let frame = |status: u8, payload: &[u8]| frames::frame(status, payload).unwrap();
+    let clean = frame(Status::Clean.as_byte(), b"");
+    let too_large = frame(Status::Refused.as_byte(), refusal::TOO_LARGE.as_bytes());
+    let mut commands = [answers(len, &[clean, too_large])].into_iter();
+    let pool = Pool::spawn(1, || commands.next().unwrap(), Duration::from_secs(2)).unwrap();
+    assert_eq!(pool.live(), 1);
+    assert_eq!(pool.scan(&[("note", fine)]), Ok(Verdict::Clean));
+    assert_eq!(
+        pool.scan(&[("note", fine)]),
+        Err(ScanFailure::Refused(refusal::TOO_LARGE))
+    );
+    assert_eq!(pool.live(), 1);
+    assert_eq!(pool.scan(&[("note", fine)]), Err(ScanFailure::Unavailable));
+    assert_eq!(pool.live(), 0);
+    assert_eq!(pool.scan(&[("note", fine)]), Err(ScanFailure::Unavailable));
+    assert_eq!(
+        pool.scan(&[("note", fine), ("note", fine)]),
+        Err(ScanFailure::Refused(refusal::MALFORMED))
+    );
+}
+
+// T-94 T-72
+#[test]
+fn t_94_a_pool_that_cannot_start_a_worker_does_not_start() {
+    let started = Pool::spawn(
+        2,
+        || Command::new("/nonexistent/work-server"),
+        Duration::from_secs(1),
+    );
+    assert!(matches!(started, Err(WorkerError::Spawn(_))), "{started:?}");
+    let mut sleeper = Command::new("sleep");
+    sleeper.arg("30");
+    let mut commands = [sleeper].into_iter();
+    let pool = Pool::spawn(1, || commands.next().unwrap(), Duration::from_millis(300)).unwrap();
+    let fine: &[u8] = b"fine";
+    assert_eq!(pool.scan(&[("note", fine)]), Err(ScanFailure::Unavailable));
+    assert_eq!(pool.live(), 0);
+}

@@ -2,8 +2,10 @@
 //! (T-72, SEC-35, P-95): a request is a version byte, a kind byte, a big-endian `u32` length and
 //! that many payload bytes; the answer has the same shape with a status byte in place of the
 //! kind. The one kind is a secret scan of decoded body parts, and a detection is answered with the
-//! part name and the rule id only, never with the matched bytes.
+//! part name and the rule id only, never with the matched bytes. [`Scan`] is that scan as the
+//! write path sees it: a verdict or a failure, whoever answers.
 
+use alloc::string::String;
 use alloc::vec::Vec;
 
 /// The frame version.
@@ -263,6 +265,43 @@ pub fn parse_detection(payload: &[u8]) -> Result<(&str, &str), FrameError> {
         return Err(FrameError::Malformed);
     }
     Ok((part, rule_id))
+}
+
+/// What a secret scan of a record's decoded body parts found (SEC-35 item 2, P-95): the part name
+/// and the rule id of a detection, never the matched bytes.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum Verdict {
+    /// No rule matched.
+    Clean,
+    /// A rule matched in a part.
+    Detected {
+        /// The part that matched.
+        part: String,
+        /// The rule that matched.
+        rule: String,
+    },
+}
+
+/// Why a scan has no verdict.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+pub enum ScanFailure {
+    /// The scanner refused the request with a stable code from [`refusal`].
+    #[error("the scan was refused: {0}")]
+    Refused(&'static str),
+    /// No parser worker answered: none is left, or the exchange failed and retired the worker
+    /// (T-94 item 4).
+    #[error("no parser worker answered")]
+    Unavailable,
+}
+
+/// A scanner of decoded body parts (SEC-35 item 2): in a server, the parser workers it started
+/// before its lockdown (T-94 item 2). A call blocks until the verdict.
+pub trait Scan: Send + Sync {
+    /// Scans `parts`, each a part name and its decoded bytes.
+    ///
+    /// # Errors
+    /// [`ScanFailure`] when no verdict could be had; nothing is written then.
+    fn scan(&self, parts: &[(&str, &[u8])]) -> Result<Verdict, ScanFailure>;
 }
 
 #[cfg(test)]

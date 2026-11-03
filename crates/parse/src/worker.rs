@@ -1,12 +1,15 @@
-//! The parser worker's request loop and the server's handle on a worker process (T-72, SEC-35, P-95, SEC-18): the worker reads `work_proto::parser` frames from its standard input, scans the decoded body parts of each scan request with the built-in rule set and answers on its standard output with clean, the part and rule id of a detection, or a stable refusal code; a frame it cannot trust ends the loop. The handle starts the worker process, bounds every exchange by a deadline after which it kills the process, checks every answer against the request and never uses a worker again once an exchange failed. The worker process locks itself down at its entry point; this crate does not (T-72 rule 2).
+//! The parser worker's request loop and the server's handle on a worker process (T-72, SEC-35, P-95, SEC-18): the worker reads `work_proto::parser` frames from its standard input, scans the decoded body parts of each scan request with the built-in rule set and answers on its standard output with clean, the part and rule id of a detection, or a stable refusal code; a frame it cannot trust ends the loop. The handle starts the worker process, bounds every exchange by a deadline after which it kills the process, checks every answer against the request and never uses a worker again once an exchange failed. A pool holds the workers a server started before its own lockdown and gives each scan to an idle one, retiring a worker whose exchange failed without replacing it (T-94). Both the pool and the in-process scanner answer the write path's [`Scan`]. The worker process locks itself down at its entry point; this crate does not (T-72 rule 2).
 
 use std::io::{Read, Write};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 use std::sync::mpsc::{RecvTimeoutError, sync_channel};
+use std::sync::{Condvar, Mutex, MutexGuard, PoisonError};
 use std::time::Duration;
 
 use work_kernel::record::PartName;
-use work_proto::parser::{self as frames, FrameError, Kind, Status, refusal};
+use work_proto::parser::{
+    self as frames, FrameError, Kind, Scan, ScanFailure, Status, Verdict, refusal,
+};
 
 use crate::secret::{RuleId, ScanError, ScanOutcome, ScanPart, SecretScanner};
 
@@ -288,6 +291,162 @@ impl Drop for Worker {
         drop(self.stdin.take());
         let _ = self.child.kill();
         let _ = self.child.wait();
+    }
+}
+
+fn named<'a>(parts: &[(&str, &'a [u8])]) -> Result<Vec<(PartName, &'a [u8])>, ScanFailure> {
+    let mut named: Vec<(PartName, &[u8])> = Vec::with_capacity(parts.len());
+    for &(name, content) in parts {
+        let name = PartName::parse(name).ok_or(ScanFailure::Refused(refusal::MALFORMED))?;
+        if named.iter().any(|(seen, _)| *seen == name) {
+            return Err(ScanFailure::Refused(refusal::MALFORMED));
+        }
+        named.push((name, content));
+    }
+    Ok(named)
+}
+
+fn verdict(outcome: ScanOutcome) -> Verdict {
+    match outcome {
+        ScanOutcome::Clean => Verdict::Clean,
+        ScanOutcome::Detected { rule_id, part } => Verdict::Detected {
+            part: part.as_str().to_owned(),
+            rule: rule_id.as_str().to_owned(),
+        },
+    }
+}
+
+/// The scan in this process, as a worker answers it (SEC-35): the parser worker's own loop and
+/// tests; a server scans through a [`Pool`].
+impl Scan for SecretScanner {
+    fn scan(&self, parts: &[(&str, &[u8])]) -> Result<Verdict, ScanFailure> {
+        let named = named(parts)?;
+        let views: Vec<ScanPart<'_>> = named
+            .iter()
+            .map(|(name, content)| ScanPart::new(name, content))
+            .collect();
+        Self::scan(self, &views)
+            .map(verdict)
+            .map_err(|_| ScanFailure::Refused(refusal::TOO_LARGE))
+    }
+}
+
+#[derive(Debug)]
+struct Workers {
+    idle: Vec<Worker>,
+    live: usize,
+}
+
+/// The parser workers a server started before its own lockdown (T-94 items 2, 4 and 8): each
+/// scan takes one idle worker and waits as long as one exchange may take for it; a worker whose
+/// exchange failed is retired and not replaced, since no lockdown profile may create processes,
+/// and once none is left every scan is [`ScanFailure::Unavailable`].
+#[derive(Debug)]
+pub struct Pool {
+    state: Mutex<Workers>,
+    returned: Condvar,
+    wait: Duration,
+}
+
+impl Pool {
+    /// Starts `count` workers, each from a fresh `command()`, every exchange bounded by
+    /// `timeout`.
+    ///
+    /// # Errors
+    /// [`WorkerError::Spawn`] or [`WorkerError::Pipes`] for the first worker that does not
+    /// start; the ones started before it are stopped.
+    pub fn spawn(
+        count: usize,
+        mut command: impl FnMut() -> Command,
+        timeout: Duration,
+    ) -> Result<Self, WorkerError> {
+        let mut idle = Vec::with_capacity(count);
+        for _ in 0..count {
+            idle.push(Worker::spawn(&mut command(), timeout)?);
+        }
+        Ok(Self {
+            state: Mutex::new(Workers {
+                live: idle.len(),
+                idle,
+            }),
+            returned: Condvar::new(),
+            wait: timeout,
+        })
+    }
+
+    /// The workers not retired.
+    #[must_use]
+    pub fn live(&self) -> usize {
+        self.lock().live
+    }
+
+    fn lock(&self) -> MutexGuard<'_, Workers> {
+        self.state.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    fn take(&self) -> Option<Worker> {
+        let mut state = self.lock();
+        loop {
+            if let Some(worker) = state.idle.pop() {
+                return Some(worker);
+            }
+            if state.live == 0 {
+                return None;
+            }
+            let (next, waited) = self
+                .returned
+                .wait_timeout(state, self.wait)
+                .unwrap_or_else(PoisonError::into_inner);
+            state = next;
+            if waited.timed_out() && state.idle.is_empty() {
+                return None;
+            }
+        }
+    }
+
+    fn give_back(&self, worker: Worker) {
+        self.lock().idle.push(worker);
+        self.returned.notify_one();
+    }
+
+    fn retire(&self, worker: Worker) {
+        drop(worker);
+        let mut state = self.lock();
+        state.live = state.live.saturating_sub(1);
+        drop(state);
+        self.returned.notify_all();
+    }
+}
+
+impl Scan for Pool {
+    fn scan(&self, parts: &[(&str, &[u8])]) -> Result<Verdict, ScanFailure> {
+        let named = named(parts)?;
+        let views: Vec<ScanPart<'_>> = named
+            .iter()
+            .map(|(name, content)| ScanPart::new(name, content))
+            .collect();
+        let mut worker = self.take().ok_or(ScanFailure::Unavailable)?;
+        match worker.scan(&views) {
+            Ok(outcome) => {
+                self.give_back(worker);
+                Ok(verdict(outcome))
+            }
+            Err(WorkerError::Refused(code)) if code != refusal::FRAME => {
+                self.give_back(worker);
+                Err(ScanFailure::Refused(code))
+            }
+            Err(WorkerError::Request(e)) => {
+                self.give_back(worker);
+                Err(ScanFailure::Refused(match e {
+                    FrameError::TooLarge => refusal::TOO_LARGE,
+                    _ => refusal::MALFORMED,
+                }))
+            }
+            Err(_) => {
+                self.retire(worker);
+                Err(ScanFailure::Unavailable)
+            }
+        }
     }
 }
 
