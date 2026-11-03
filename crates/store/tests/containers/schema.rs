@@ -60,6 +60,7 @@ funcs AS (
 ),
 definer_allowed (fq, rolname) AS (
     VALUES ('work.drop_archived_partition', 'work_archive'),
+           ('work.partition_ledgers', 'work_archive'),
            ('ledger.outbox_ledgers', 'work_publisher'),
            ('ledger.outbox_ledgers', 'work_deriver')
 ),
@@ -266,7 +267,7 @@ violations (check_id, object) AS (
      WHERE config LIKE '%outbox_scan%' AND fq <> 'ledger.outbox_ledgers'
     UNION ALL
     SELECT 'definer_result_ids_only', fq FROM funcs
-     WHERE fq = 'ledger.outbox_ledgers'
+     WHERE fq IN ('ledger.outbox_ledgers', 'work.partition_ledgers')
        AND pg_catalog.pg_get_function_result(oid) <> 'SETOF ledger.digest32'
     UNION ALL
     SELECT 'role_attributes', rolname FROM pg_catalog.pg_roles

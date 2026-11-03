@@ -18,9 +18,12 @@
 //! per part, written with their record and opened, or found unreadable after a crypto-shred, on
 //! the read path (OP-45); large ciphertexts may go to an S3-compatible store (T-20). The replica
 //! is a directory on a single node or an S3 bucket with Object Lock whose objects are written
-//! once (OP-33 item 3).
+//! once (OP-33 item 3), and cold idempotency partitions are copied to such a bucket and verified
+//! before the archive role drops them (OP-35).
 
 mod admit;
+#[cfg(feature = "s3")]
+mod archive;
 mod body;
 mod checkpoint;
 mod envelope;
@@ -40,6 +43,8 @@ mod witness;
 mod worm;
 
 pub use admit::{Arrival, AuthContext, MAX_RECEIVED, Submission, admit};
+#[cfg(feature = "s3")]
+pub use archive::{ArchiveError, archive_cold, archive_key, archive_manifest, archive_partition};
 pub use body::{
     BODY_CONTEXT, BodyEraser, BodyError, BodyKeys, BodyOpening, BodyReader, BodyWriter,
     DEFAULT_CALL_TIMEOUT, DEFAULT_CLASS, InDatabase, MAX_MEDIA_TYPE, MAX_PART, ObjectStore,

@@ -2,10 +2,25 @@
 
 use std::process::ExitCode;
 
-use work_store::{Cluster, Durability, LedgerId, Pool, SequencerPool};
+use suiss_crypto::secret::Secret;
+use work_ledger::{Retention, S3Config, WormStore, tls_trusting};
+use work_store::{ArchivePool, Cluster, Durability, LedgerId, Pool, SequencerPool};
 
 const USAGE: &str = "usage: work-cli --version | work-cli migrate <canonical|derived> | \
-                     work-cli rebuild <ledger hex> <single-node|quorum>";
+                     work-cli rebuild <ledger hex> <single-node|quorum> | work-cli archive";
+
+/// The canonical database the archive job runs in, as a `work_archive` login (OP-35).
+const ARCHIVE_URL: &str = "WORK_ARCHIVE_URL";
+
+/// The archive bucket with Object Lock: endpoint, region, bucket, the days each copy stays
+/// locked, and the PEM roots of an `https` endpoint (OP-35, OP-33 item 3).
+const ARCHIVE_ENDPOINT: &str = "WORK_ARCHIVE_S3_ENDPOINT";
+const ARCHIVE_REGION: &str = "WORK_ARCHIVE_S3_REGION";
+const ARCHIVE_BUCKET: &str = "WORK_ARCHIVE_S3_BUCKET";
+const ARCHIVE_RETENTION: &str = "WORK_ARCHIVE_RETENTION_DAYS";
+const ARCHIVE_ROOTS: &str = "WORK_ARCHIVE_S3_CA_ROOTS";
+const KEY_ID: &str = "AWS_ACCESS_KEY_ID";
+const SECRET: &str = "AWS_SECRET_ACCESS_KEY";
 
 /// The live canonical database a rebuild reads, as a `work_app` login (OP-1).
 const LIVE_URL: &str = "WORK_REBUILD_LIVE_URL";
@@ -16,6 +31,7 @@ const TARGET_URL: &str = "WORK_REBUILD_TARGET_URL";
 enum Command {
     Migrate(Cluster),
     Rebuild(LedgerId, Durability),
+    Archive,
 }
 
 fn durability(name: &str) -> Option<Durability> {
@@ -45,6 +61,7 @@ fn main() -> ExitCode {
         ["rebuild", ledger, profile] => LedgerId::from_hex(ledger)
             .zip(durability(profile))
             .map(|(l, d)| Command::Rebuild(l, d)),
+        ["archive"] => Some(Command::Archive),
         _ => None,
     };
     match command {
@@ -91,6 +108,19 @@ fn main() -> ExitCode {
                 ExitCode::FAILURE
             }
         },
+        Some(Command::Archive) => match archive() {
+            Ok(dropped) => {
+                for (part, rows) in &dropped {
+                    println!("archived {part}: {rows} rows copied, verified and dropped");
+                }
+                println!("{} cold partitions archived", dropped.len());
+                ExitCode::SUCCESS
+            }
+            Err(e) => {
+                eprintln!("archive: {e}");
+                ExitCode::FAILURE
+            }
+        },
     }
 }
 
@@ -123,6 +153,43 @@ fn rebuild(ledger: LedgerId, profile: Durability) -> Result<work_store::RebuildD
             .await
             .map_err(|e| e.to_string())?;
         work_ledger::rebuild_diff(&live, &target, ledger, profile)
+            .await
+            .map_err(|e| e.to_string())
+    })
+}
+
+/// The cold archive (§18 OP-35, OP-34 item 5): every partition of `work.idempotency_key` and
+/// `work.inbound_seen` whose month ended 30 days ago is copied slice by slice to the bucket with
+/// Object Lock, verified, recorded and dropped by the archive role.
+fn archive() -> Result<Vec<(String, u64)>, String> {
+    let var = |name: &str| std::env::var(name).map_err(|_| format!("{name} is not set"));
+    let url = var(ARCHIVE_URL)?;
+    let days: u32 = var(ARCHIVE_RETENTION)?
+        .parse()
+        .map_err(|_| format!("{ARCHIVE_RETENTION} is not a number of days"))?;
+    let retention = Retention::days(days).map_err(|e| e.to_string())?;
+    let tls = match std::env::var(ARCHIVE_ROOTS) {
+        Ok(path) => {
+            let pem = std::fs::read(&path).map_err(|e| format!("{path}: {e}"))?;
+            Some(tls_trusting(&pem).map_err(|e| e.to_string())?)
+        }
+        Err(_) => None,
+    };
+    let config = S3Config {
+        endpoint: var(ARCHIVE_ENDPOINT)?,
+        region: var(ARCHIVE_REGION)?,
+        bucket: var(ARCHIVE_BUCKET)?,
+        key_id: var(KEY_ID)?,
+        secret: Secret::new(var(SECRET)?),
+        tls,
+    };
+    let store = WormStore::new(config, retention).map_err(|e| e.to_string())?;
+    runtime()?.block_on(async move {
+        let pool = Pool::connect(&url).await.map_err(|e| e.to_string())?;
+        let pool = ArchivePool::new(pool).await.map_err(|e| e.to_string())?;
+        let now = pool.now_ms().await.map_err(|e| e.to_string())?;
+        store.prepare(now).await.map_err(|e| e.to_string())?;
+        work_ledger::archive_cold(&pool, &store)
             .await
             .map_err(|e| e.to_string())
     })

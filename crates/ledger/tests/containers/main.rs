@@ -41,10 +41,12 @@ use work_store::{
 };
 use work_testkit::Postgres;
 
+#[cfg(feature = "s3")]
+mod archive;
 mod body;
 
 const PASSWORD: &str = "test-only-not-a-secret";
-const LOGINS: &str = "ALTER ROLE work_owner LOGIN PASSWORD 'test-only-not-a-secret';\nALTER ROLE work_sequencer LOGIN PASSWORD 'test-only-not-a-secret';\nALTER ROLE work_app LOGIN PASSWORD 'test-only-not-a-secret';\nALTER ROLE work_publisher LOGIN PASSWORD 'test-only-not-a-secret';\nALTER ROLE work_erasure LOGIN PASSWORD 'test-only-not-a-secret';";
+const LOGINS: &str = "ALTER ROLE work_owner LOGIN PASSWORD 'test-only-not-a-secret';\nALTER ROLE work_sequencer LOGIN PASSWORD 'test-only-not-a-secret';\nALTER ROLE work_app LOGIN PASSWORD 'test-only-not-a-secret';\nALTER ROLE work_publisher LOGIN PASSWORD 'test-only-not-a-secret';\nALTER ROLE work_erasure LOGIN PASSWORD 'test-only-not-a-secret';\nALTER ROLE work_archive LOGIN PASSWORD 'test-only-not-a-secret';";
 const TRACE: &str = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01";
 const AT: u64 = 1_792_749_600_123;
 const COSE: &str = include_str!("../../../../conformance/vectors/records/cose-sign1.json");

@@ -6,6 +6,12 @@ function = "work.drop_archived_partition"
 id = "OP-12"
 reason = "Access OP-73 rule 4: a cold monthly partition of work.idempotency_key or work.inbound_seen is removed only by the archive role through this SECURITY DEFINER function, after the WORM copy's per-ledger manifest digest matches the partition"
 
+[[drop]]
+file = "crates/store/migrations/canonical/20261103110000_work_partition_archive_record.sql"
+function = "work.drop_archived_partition"
+id = "OP-35"
+reason = "OP-35 rule 2: the same drop path, which now also requires a verified WORM archive record in work.partition_archive for every ledger slice of the partition before the DROP"
+
 [[table]]
 name = "outbox"
 reason = "OP-12 rule 6, OP-34 rule 2: work_publisher removes an outbox pointer (identity only, no personal data) after the JetStream ack; the log record is the durable result"

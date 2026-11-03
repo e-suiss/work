@@ -4750,6 +4750,7 @@ dependencies = [
 name = "work-cli"
 version = "0.1.0"
 dependencies = [
+ "esuiss-crypto",
  "tokio",
  "work-ledger",
  "work-store",

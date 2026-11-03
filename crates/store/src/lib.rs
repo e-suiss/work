@@ -5,6 +5,7 @@
 //! outbox, checkpoint) and the consumer cursors of the derived database (OP-39); the shared `suiss-ledger` crate contributes only a pure engine. All SQL
 //! of the workspace lives in this crate.
 
+mod archive;
 mod body;
 mod checkpoint;
 mod cursor;
@@ -22,6 +23,7 @@ mod server;
 mod skeleton;
 mod witness;
 
+pub use archive::{ARCHIVE_ROLE, ARCHIVED_TABLES, ArchivePool, ArchiveRecord, PartitionSlice};
 pub use body::{
     BodyPartRow, DekRow, ERASURE_ROLE, ErasurePool, RetentionClass, Shred, Stored, StoredPart,
     WRAPPED_LEN,
