@@ -23,10 +23,14 @@ interface Filler {
   readonly fill_count: number;
 }
 
+interface CborGenerator extends Filler {
+  readonly head_hex: string;
+}
+
 interface CborCase {
   readonly id: string;
   readonly hex?: string;
-  readonly generator?: Filler & { readonly head_hex: string };
+  readonly generator?: CborGenerator;
   readonly context: { readonly tag_allowlist: readonly number[] };
   readonly expect: Expect;
 }
@@ -58,17 +62,19 @@ interface GenesisCase {
   readonly leaf_hash?: string;
 }
 
+interface EnvelopeDecoded {
+  readonly pos: number;
+  readonly record: DigestJson;
+  readonly ledger: DigestJson;
+  readonly recorded_at: number;
+  readonly ingest: JsonValue;
+}
+
 interface EnvelopeVector {
   readonly id?: string;
   readonly hex: string;
   readonly leaf_hash: string;
-  readonly decoded: JsonObject & {
-    readonly pos: number;
-    readonly record: DigestJson;
-    readonly ledger: DigestJson;
-    readonly recorded_at: number;
-    readonly ingest: JsonValue;
-  };
+  readonly decoded: EnvelopeDecoded;
 }
 
 interface RecordVector {
@@ -78,6 +84,10 @@ interface RecordVector {
   readonly context: RecordContext;
   readonly record_digest: string;
   readonly expect: Validation;
+}
+
+interface LedgerVector extends RecordVector {
+  readonly envelope: EnvelopeVector;
 }
 
 interface CoseKey {
@@ -121,16 +131,18 @@ interface NoteKeyVector {
   readonly public_key_hex: string;
 }
 
+interface CheckpointExpect extends Expect {
+  readonly size?: number;
+  readonly root_hex?: string;
+  readonly profile?: readonly string[];
+  readonly cosignatures?: readonly JsonObject[];
+}
+
 interface CheckpointCase {
   readonly id: string;
   readonly origin: string;
   readonly note: string;
-  readonly expect: Expect & {
-    readonly size?: number;
-    readonly root_hex?: string;
-    readonly profile?: readonly string[];
-    readonly cosignatures?: readonly JsonObject[];
-  };
+  readonly expect: CheckpointExpect;
 }
 
 interface InclusionCase {
@@ -182,7 +194,7 @@ export interface ByteVectors {
     readonly envelopes: readonly EnvelopeVector[];
   };
   readonly quarantine: {
-    readonly cases: readonly (RecordVector & { readonly envelope: EnvelopeVector })[];
+    readonly cases: readonly LedgerVector[];
   };
   readonly rejects: { readonly cases: readonly RecordVector[] };
   readonly items: { readonly cases: readonly { readonly id: string; readonly touches: Touch[] }[] };
@@ -272,7 +284,7 @@ function keysOf(sets: Map<string, PartyKey[]>, party: string): PartyKeys {
   return { party, allowed: ALLOWED, keys: sets.get(party) ?? [] };
 }
 
-function ledger(vectors: ByteVectors): (RecordVector & { readonly envelope: EnvelopeVector })[] {
+function ledger(vectors: ByteVectors): LedgerVector[] {
   const out = vectors.records.records.map((r, i) => ({
     ...r,
     envelope: need(vectors.records.envelopes[i], `envelope ${r.id}`),

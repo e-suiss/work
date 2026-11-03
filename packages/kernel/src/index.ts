@@ -258,10 +258,7 @@ export interface EntryVerification {
   readonly ledger: DigestJson;
   readonly position: UintJson;
   readonly recorded_at: UintJson;
-  readonly ingest:
-    | "admitted"
-    | readonly ["quarantined", QuarantineCode]
-    | readonly ["rejected", ReasonCode];
+  readonly ingest: Admission;
   readonly leaf: DigestJson;
   readonly next: ChainPoint;
 }
