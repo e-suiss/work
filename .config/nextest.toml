@@ -11,3 +11,11 @@ fail-fast = false
 
 [profile.ci.junit]
 path = "junit.xml"
+
+# T-56
+[test-groups]
+softhsm = { max-threads = 1 }
+
+[[profile.default.overrides]]
+filter = "package(work-signer) | (package(work-ledger) & test(/^body::/)) | (package(work-server) & test(/^signer::/))"
+test-group = "softhsm"
