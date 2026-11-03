@@ -398,7 +398,7 @@ DECLARATIONS = (
     "offer reassign renew_lease gate_decision stop_request stop_response open_condition withdraw_condition "
     "resume_after_stop practice_adoption disclosure queue_definition control_lease handoff_note "
     "conflict_resolution admission autonomy_policy implicit_acceptance_terms waiver attention_request "
-    "acknowledgement"
+    "acknowledgement redact"
 ).split()
 CORE_TYPES = ({DECLARATION + n for n in DECLARATIONS} | {ACT + "action"}
               | {CLAIM + n for n in ("observation", "assessment", "assumption")})
@@ -425,6 +425,9 @@ PARAM_REQUIRED = {
     "open_condition": ("condition_type", "wait_reason", "address", "deadline", "criterion"),
 }
 REASON_KEYS = {"reason", "notice_type"}
+# P-111
+REDACT_REASONS = {"personal_data", "secret_exposure", "legal_order", "author_request"}
+REDACT_KEYS = {"target", "parts", "reason"}
 CORE_ROLES = {ROLE + n for n in ("source", "fulfills", "supports")}
 CORE_EVIDENCE = {EVIDENCE + n for n in ("artifact", "external_event", "measurement", "human_verification")}
 CONSENT = CLINIC + "ext/patient_consent"
@@ -598,6 +601,22 @@ def scalar_ok(v):
     return isinstance(v, (int, bytes)) or (isinstance(v, list) and v[:1] == [-16])
 
 
+# P-111 P-68 P-72
+def part_name_ok(v):
+    return (isinstance(v, str) and 1 <= len(v) <= 64 and "a" <= v[0] <= "z"
+            and all(c in "abcdefghijklmnopqrstuvwxyz0123456789_" for c in v))
+
+
+def redact_params_ok(params):
+    if set(params) != REDACT_KEYS:
+        return False
+    target, parts = params["target"], params["parts"]
+    return (isinstance(target, list) and target[:1] == [-16]
+            and isinstance(parts, list) and parts[:1] != [-16] and len(parts) >= 1
+            and all(part_name_ok(p) for p in parts) and ordered(parts)
+            and isinstance(params["reason"], str) and params["reason"] in REDACT_REASONS)
+
+
 def params_ok(rec):
     params = rec.get("params")
     if params is None and not rec["type"].startswith(DECLARATION):
@@ -612,6 +631,8 @@ def params_ok(rec):
     if not rec["type"].startswith(DECLARATION):
         return not core_subtype or set(params) <= {"effective_at"}
     name = rec["type"][len(DECLARATION):]
+    if name == "redact":
+        return redact_params_ok(params)
     schema = PARAMS.get(name, {})
     if not set(PARAM_REQUIRED.get(name, ())) <= set(params):
         return False
@@ -692,6 +713,8 @@ def semantic(rec, ctx):
     for e in rec.get("evidence", []):
         if e["type"] not in CORE_EVIDENCE and not pinned(e["type"], rec):
             return ("reject", "unmapped_extension_value")
+    if rec["type"] == DECLARATION + "redact" and any(r["rel"] == "supersedes" for r in rec.get("relations", [])):
+        return ("reject", "schema:relation")
     if not params_ok(rec):
         return ("reject", "schema:params")
     if rec.get("params", {}).get("effective_at", ctx.get("recorded_at", 0)) < ctx.get("recorded_at", 0):
@@ -904,6 +927,40 @@ rec_inspection = {
     "versions": {"protocol": [1, 0], "schema": label("schema:procurement.inspection"), "practices": PROC_PIN},
 }
 
+# P-111 P-25 P-79
+PROMISE_ID = [-16, sha(enc(rec_promise))]
+rec_redact = {
+    "kind": "declaration",
+    "type": DECLARATION + "redact",
+    "author": ALICE,
+    "capacity": "own",
+    "basis": [],
+    "visibility": vis(),
+    "ledger": LEDGER,
+    "concerns": [W1],
+    "authority": {"proof": "decision_receipt", "digest": label("access:decision-receipt:7")},
+    "params": {"target": PROMISE_ID, "parts": ["terms"], "reason": "personal_data"},
+    "versions": {"protocol": [1, 0], "schema": label("schema:declaration.redact")},
+}
+REDACT_ID = [-16, sha(enc(rec_redact))]
+rec_redact_absent = dict(rec_redact, params=dict(rec_redact["params"], target=label("record:absent"),
+                                                 reason="legal_order"))
+rec_redact_unknown_part = dict(rec_redact, params=dict(rec_redact["params"], parts=["note", "terms"],
+                                                       reason="author_request"))
+rec_after_redact = {
+    "kind": "declaration",
+    "type": DECLARATION + "amend",
+    "author": ALICE,
+    "capacity": "own",
+    "basis": [REDACT_ID],
+    "visibility": vis(),
+    "ledger": LEDGER,
+    "concerns": [W1],
+    "relations": [{"rel": "supersedes", "target": ["record", REDACT_ID]}],
+    "authority": {"proof": "decision_receipt", "digest": label("access:decision-receipt:8")},
+    "versions": {"protocol": [1, 0], "schema": label("schema:declaration.amend")},
+}
+
 records = [
     ("declaration-promise-for-principal", rec_promise, {},
      ["P-9", "P-10", "P-13", "P-15", "P-16", "P-17", "P-68", "P-71", "P-83", "E-13", "C-32"],
@@ -938,6 +995,18 @@ records = [
     ("claim-practice-params-digest-and-list", rec_inspection, {},
      ["P-80", "P-70", "C-27"] + D5,
      "Practice Claim whose params carry a digest scalar written as [-16, bytes] and a list of text scalars, with a Practice qualifier on references under the pinned namespace."),
+    ("declaration-redact", rec_redact, {},
+     ["P-111", "P-25", "P-79", "P-80", "P-83", "P-92"],
+     "Redaction of the terms part of the promise at position 1, named by its record ID; the reason class is in params, so it stays readable after the redaction."),
+    ("declaration-redact-target-absent", rec_redact_absent, {},
+     ["P-111", "P-86"],
+     "Redaction naming a record this ledger does not hold; it is admitted and derivation gives it no effect (unknown_target)."),
+    ("declaration-redact-part-unknown", rec_redact_unknown_part, {},
+     ["P-111"],
+     "Redaction naming a part the promise body does not commit; it is admitted and derivation gives it no effect (unknown_target)."),
+    ("declaration-supersedes-redact", rec_after_redact, {},
+     ["P-111", "P-24"],
+     "Amendment superseding the redaction; it is admitted, restores no part and derivation gives it no effect (terminal_outcome)."),
 ]
 
 # P-6 P-7 P-75 P-76 P-102 P-105
@@ -1197,8 +1266,150 @@ write_json("genesis.json", {
     "notes": ["ledger_id.digest_hex = SHA-256(det-CBOR(GenesisEnvelope)), no prefix; ledger_id.encoded_digest_hex is its det-CBOR Digest [-16, bstr]",
               "leaf_hash = SHA-256(0x00 || det-CBOR(GenesisEnvelope)); records.json envelope 0 carries it as prev",
               "versions.schema is the Digest of the work-record.cddl bytes (P-100 item 7); nonce is a work-vector:* placeholder for the Rng port value",
-              "the kernel picks the envelope schema by pos: 0 is GenesisEnvelope, above 0 is LedgerEnvelope (P-100 item 6)"],
+              "the kernel picks the envelope schema by pos: 0 is GenesisEnvelope, above 0 is ActivationEnvelope when the map carries activation and LedgerEnvelope otherwise (P-100 item 6, P-110 item 3)"],
     "cases": genesis_cases})
+
+
+# P-110 P-100 P-108 OP-28
+def walk_reason(m, schema):
+    keys = sorted(m, key=enc)
+    i = 0
+    for name, needed in schema:
+        if i < len(keys) and enc(keys[i]) < enc(name):
+            return "schema:unknown_core_field"
+        if i < len(keys) and keys[i] == name:
+            i += 1
+        elif needed:
+            return "schema:required_field"
+    return "schema:unknown_core_field" if i < len(keys) else None
+
+
+ACTIVATION_SCHEMA = [("pos", True), ("prev", True), ("ledger", True), ("activation", True),
+                     ("recorded_at", True), ("auth_context", True)]
+ACTIVATED_SCHEMA = [("schema", True), ("protocol", True)]
+GENESIS_SCHEMA = [("pos", True), ("nonce", True), ("versions", True), ("recorded_at", True)]
+
+
+def activation_reason(e):
+    if e["pos"] == 0:
+        return walk_reason(e, GENESIS_SCHEMA)
+    return walk_reason(e, ACTIVATION_SCHEMA) or walk_reason(e["activation"], ACTIVATED_SCHEMA)
+
+
+ACTIVATION_RULES = ["P-110", "P-100", "P-11", "P-21", "P-27", "OP-28"]
+OPERATOR_CONTEXT = {"ref": label("access:auth-context:operator"), "assurance": "aal3", "step_up": True}
+ACTIVATION_AT = 1792109050000
+
+
+def activation_of(protocol, schema, prev=None, pos=1, ledger=None):
+    return {"activation": {"protocol": protocol, "schema": schema}, "ledger": ledger or LEDGER, "pos": pos,
+            "prev": prev or [-16, GENESIS_LEAF], "recorded_at": ACTIVATION_AT, "auth_context": OPERATOR_CONTEXT}
+
+
+def activation_json(a):
+    return {"protocol": a["protocol"], "schema": [-16, a["schema"][1].hex()]}
+
+
+ACTIVATION = activation_of([1, 1], label("schema:protocol-1.1"))
+ACTIVATION_BYTES = enc(ACTIVATION)
+ACTIVATION_LEAF = sha(b"\x00" + ACTIVATION_BYTES)
+assert activation_reason(ACTIVATION) is None
+write_cbor("ActivationEnvelope", "activation-accept", ACTIVATION_BYTES, "pass")
+activation_cases = [{
+    "id": "activation/accept", "rules": ACTIVATION_RULES,
+    "purpose": "An activation of protocol 1.1 right after the genesis of genesis.json; this kernel carries no 1.1 rule set, so the sequence rule cannot check its schema digest, a work-vector placeholder.",
+    "diag": diag(ACTIVATION), "hex": ACTIVATION_BYTES.hex(), "decoded": decoded(ACTIVATION_BYTES),
+    "entry_id": sha(ACTIVATION_BYTES).hex(), "leaf_hash": ACTIVATION_LEAF.hex(), "cddl": "pass",
+    "expect": {"outcome": "accept", "decoded": decoded(ACTIVATION_BYTES)}}]
+practices_version = dict(ACTIVATION["activation"], practices={PROC: label("practice:procurement:2.1.0")})
+activation_rejects = [
+    ("pos-0", variant(ACTIVATION, pos=0), ["P-110", "P-100"], "pass", "schema:unknown_core_field",
+     "An activation at position 0 is read as the genesis, whose schema has no activation key."),
+    ("auth-context-missing", variant(ACTIVATION, auth_context=None), ["P-110", "P-21"], "fail",
+     "schema:required_field", "An activation without the operator's Access context."),
+    ("prev-missing", variant(ACTIVATION, prev=None), ["P-110", "P-11"], "fail", "schema:required_field",
+     "An activation without prev; it continues the chain like any later entry."),
+    ("ledger-missing", variant(ACTIVATION, ledger=None), ["P-110", "P-11"], "fail", "schema:required_field",
+     "An activation without its ledger."),
+    ("record-present", variant(ACTIVATION, record=label("record:activation")), ["P-110"], "fail",
+     "schema:unknown_core_field", "An activation carrying a record digest; it is not a record."),
+    ("practices-present", variant(ACTIVATION, activation=practices_version), ["P-110", "PR-13"], "fail",
+     "schema:unknown_core_field", "An activated version carrying practices; a Practice is adopted by practice_adoption."),
+]
+for name, a, rules, cddl, reason, purpose in activation_rejects:
+    b = enc(a)
+    check(b)
+    assert activation_reason(a) == reason, (name, activation_reason(a))
+    write_cbor("ActivationEnvelope", "activation-reject-" + name, b, cddl)
+    activation_cases.append({"id": "activation-reject/" + name, "rules": rules, "purpose": purpose,
+                             "diag": diag(a), "hex": b.hex(), "decoded": decoded(b, a), "cddl": cddl,
+                             "expect": {"outcome": "reject", "reason": reason}})
+
+
+def accepted_sequence(entries):
+    out = []
+    for b in entries:
+        e = check(b)
+        version = e["versions"] if e["pos"] == 0 else e["activation"]
+        out.append({"position": e["pos"], "protocol": version["protocol"],
+                    "schema": [-16, version["schema"][1].hex()]})
+    return {"outcome": "accept", "activations": out}
+
+
+wrong_genesis = enc(dict(GENESIS, versions={"protocol": [1, 0], "schema": label("schema:not-protocol-1.0")}))
+same_version = enc(activation_of([1, 0], CDDL_DIGEST))
+older_version = enc(activation_of([0, 9], label("schema:protocol-0.9")))
+back_in_place = enc(activation_of([1, 2], label("schema:protocol-1.2"), prev=[-16, ACTIVATION_LEAF]))
+MISMATCH = {"outcome": "reject", "reason": "envelope_mismatch:activation"}
+sequences = [
+    ("sequence/genesis", [GENESIS_BYTES], ["P-110", "P-100"], accepted_sequence([GENESIS_BYTES]),
+     "The genesis alone is the first activation; its schema is the protocol 1.0 CDDL digest."),
+    ("sequence/genesis-then-activation", [GENESIS_BYTES, ACTIVATION_BYTES], ["P-110", "P-87"],
+     accepted_sequence([GENESIS_BYTES, ACTIVATION_BYTES]),
+     "A later version this kernel does not know passes the sequence rule; its records are quarantined by P-87."),
+    ("sequence-reject/same-version", [GENESIS_BYTES, same_version], ["P-110", "OP-28"], MISMATCH,
+     "Activating the version that is already active."),
+    ("sequence-reject/older-version", [GENESIS_BYTES, older_version], ["P-110", "OP-28"], MISMATCH,
+     "Activating an older version; going back needs a new version value."),
+    ("sequence-reject/genesis-schema", [wrong_genesis], ["P-110", "P-100"], MISMATCH,
+     "A genesis of protocol 1.0 whose schema is not the protocol 1.0 CDDL digest."),
+    ("sequence-reject/position-not-rising", [GENESIS_BYTES, ACTIVATION_BYTES, back_in_place], ["P-110"],
+     MISMATCH, "A later activation at the position of the one before it."),
+    ("sequence-reject/no-genesis", [ACTIVATION_BYTES], ["P-110", "P-100"], MISMATCH,
+     "A sequence whose first entry is not a genesis."),
+]
+sequence_cases = [{"id": i, "rules": r, "purpose": p, "entries": [b.hex() for b in es], "expect": x}
+                  for i, es, r, x, p in sequences]
+genesis_point = {"ledger": [-16, LEDGER[1].hex()], "prev": [-16, GENESIS_LEAF.hex()]}
+verify_cases = [
+    {"id": "verify/activation", "rules": ["P-110", "P-108", "T-95"],
+     "purpose": "The activation verified after the genesis: it names the ledger and the genesis leaf, its record bytes are its envelope bytes, and the next entry continues from its leaf.",
+     "at": genesis_point, "envelope": ACTIVATION_BYTES.hex(), "record": ACTIVATION_BYTES.hex(),
+     "expect": {"outcome": "accept", "record": [-16, sha(ACTIVATION_BYTES).hex()], "binding": "auth_context",
+                "ledger": [-16, LEDGER[1].hex()], "position": 1, "recorded_at": ACTIVATION_AT,
+                "activation": activation_json(ACTIVATION["activation"]), "leaf": [-16, ACTIVATION_LEAF.hex()],
+                "next": {"ledger": [-16, LEDGER[1].hex()], "prev": [-16, ACTIVATION_LEAF.hex()]}}},
+    {"id": "verify-reject/prev", "rules": ["P-110", "P-108"],
+     "purpose": "The activation after a chain point whose leaf is not its prev.",
+     "at": dict(genesis_point, prev=[-16, ACTIVATION_LEAF.hex()]), "envelope": ACTIVATION_BYTES.hex(),
+     "record": ACTIVATION_BYTES.hex(), "expect": {"outcome": "reject", "reason": "envelope_mismatch:prev"}},
+    {"id": "verify-reject/ledger", "rules": ["P-110", "P-108"],
+     "purpose": "The activation after the chain point of another ledger.",
+     "at": dict(genesis_point, ledger=[-16, label("ledger:other")[1].hex()]), "envelope": ACTIVATION_BYTES.hex(),
+     "record": ACTIVATION_BYTES.hex(), "expect": {"outcome": "reject", "reason": "envelope_mismatch:ledger"}},
+    {"id": "verify-reject/record", "rules": ["P-110", "P-108"],
+     "purpose": "The activation stored with record bytes other than its envelope bytes.",
+     "at": genesis_point, "envelope": ACTIVATION_BYTES.hex(), "record": GENESIS_BYTES.hex(),
+     "expect": {"outcome": "reject", "reason": "envelope_mismatch:record"}},
+]
+write_json("activation.json", {
+    "file": "activation.json",
+    "notes": ["an ActivationEnvelope is an authorless log entry the sequencer writes to activate a protocol version after the genesis, which is the first activation; its identifier is SHA-256(det-CBOR(ActivationEnvelope)) without prefix and its leaf hash SHA-256(0x00 || det-CBOR(ActivationEnvelope)) (P-110 items 1, 4)",
+              "cases are decode_envelope inputs; expect is the binding answer, the decoded projection for an accepted case",
+              "sequences are check_activations inputs, the envelope bytes of a ledger's activations in log order with the genesis first; expect is the binding answer",
+              "verify cases are verify_entry inputs after the chain point at with no COSE_Sign1 and no keys; expect is the binding answer",
+              "the activation names the LedgerID of genesis.json genesis/accept; schema digests labelled work-vector:* are placeholders of versions this kernel does not know"],
+    "cases": activation_cases, "sequences": sequence_cases, "verify": verify_cases})
 
 
 amend_top_ext = variant(rec_amend, ext=None)
@@ -1515,11 +1726,30 @@ rejects = [
 ] + [
     ("declaration-without-authority-" + name, family_declaration(name), {}, ["P-13", "P-83", "C-32", rule], "authority_missing")
     for name, rule in AUTHORITY_FAMILIES
+] + [
+    ("redact-" + name, variant(rec_redact, **changes), {}, ["P-111"] + rules, reason)
+    for name, changes, rules, reason in (
+        ("parts-empty", {"params": dict(rec_redact["params"], parts=[])}, ["P-92"], "schema:params"),
+        ("parts-unsorted", {"params": dict(rec_redact["params"], parts=["terms", "note"])}, ["P-92", "P-72"],
+         "schema:params"),
+        ("parts-repeated", {"params": dict(rec_redact["params"], parts=["terms", "terms"])}, ["P-92", "P-72"],
+         "schema:params"),
+        ("part-name-invalid", {"params": dict(rec_redact["params"], parts=["Terms"])}, ["P-92", "P-68"],
+         "schema:params"),
+        ("reason-unknown", {"params": dict(rec_redact["params"], reason="takedown")}, ["P-92"], "schema:params"),
+        ("target-not-digest", {"params": dict(rec_redact["params"], target="record:declaration-promise")},
+         ["P-92", "P-79"], "schema:params"),
+        ("effective-at", {"params": dict(rec_redact["params"], effective_at=1792195200000)}, ["P-92", "P-80"],
+         "schema:params"),
+        ("authority-missing", {"authority": None}, ["P-13", "P-83"], "authority_missing"),
+        ("supersedes", {"relations": [{"rel": "supersedes", "target": ["record", PROMISE_ID]}]}, ["P-24"],
+         "schema:relation"),
+    )
 ]
 CDDL_FAIL = ("schema:empty", "schema:relation", "schema:required_field", "schema:unknown_core_field",
              "schema:ext_key", "schema:type_uri", "schema:kind", "limit_exceeded:", "capacity_missing")
-CDDL_FAIL_CASES = {"params-map-value", "practice-param-text-too-long"}
-CDDL_PASS_CASES = {"core-qualifier-on-references"}
+CDDL_FAIL_CASES = {"params-map-value", "practice-param-text-too-long", "redact-parts-empty"}
+CDDL_PASS_CASES = {"core-qualifier-on-references", "redact-supersedes"}
 DECODER_REASONS = ("schema:empty", "schema:relation", "schema:required_field", "schema:unknown_core_field",
                    "schema:ext_key", "schema:type_uri", "schema:kind", "limit_exceeded:items",
                    "limit_exceeded:string", "limit_exceeded:depth")
@@ -1965,7 +2195,7 @@ log_leaves = [GENESIS_BYTES] + [bytes.fromhex(e["hex"]) for e in out_envs] + \
     [bytes.fromhex(q["envelope"]["hex"]) for q in out_q]
 LOG_SIZE = len(log_leaves)
 leaf_hashes = [sha(b"\x00" + leaf) for leaf in log_leaves]
-assert leaf_hashes[0] == GENESIS_LEAF and [h.hex() for h in leaf_hashes[1:12]] == [e["leaf_hash"] for e in out_envs]
+assert leaf_hashes[0] == GENESIS_LEAF and [h.hex() for h in leaf_hashes[1:1 + len(out_envs)]] == [e["leaf_hash"] for e in out_envs]
 roots = {n: merkle_root(log_leaves[:n]) for n in range(LOG_SIZE + 1)}
 MERKLE_RULES = ["P-11", "P-100", "P-101", "T-4"]
 

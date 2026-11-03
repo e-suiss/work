@@ -1,4 +1,4 @@
-//! The ledger envelopes as the normative CDDL writes them: the genesis at position 0 and a `LedgerEnvelope` at every later position, the schema chosen by `pos` (P-11, P-12, P-21, P-75, P-100, EV-35).
+//! The ledger envelopes as the normative CDDL writes them: the genesis at position 0, and at every later position an `ActivationEnvelope` when the map carries `activation` and a `LedgerEnvelope` otherwise, the schema chosen by `pos` and that key (P-11, P-12, P-21, P-75, P-100, P-110, EV-35).
 
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -6,12 +6,12 @@ use alloc::vec::Vec;
 use suiss_crypto::dcbor::{Limits, Value};
 
 use crate::codec::{
-    MISSING, Mapped, UNKNOWN_FIELD, bytes_exact, decode, digest_value, entries, list, pair, text,
-    uint, versions,
+    MISSING, Mapped, UNKNOWN_FIELD, bytes_exact, decode, digest_value, entries, list, pair,
+    protocol, text, uint, versions,
 };
 use crate::id::{Digest, LedgerId, RecordId, Time, canonical_text_cmp};
 use crate::reason::{Limit, QuarantineReason, Reason, Schema};
-use crate::record::VersionVector;
+use crate::record::{ProtocolVersion, VersionVector};
 use crate::validate::{ActorType, ActorTypeEntry, ActorTypeSource, ActorTypes};
 
 /// The authorless first entry of every ledger; its digest is the `LedgerID` (P-100, Access CR-1).
@@ -70,12 +70,40 @@ pub struct LedgerEnvelope {
     pub ingest: EnvelopeIngest,
 }
 
-/// An envelope, by the schema its position selects (P-100 item 6).
+/// The protocol version an activation turns on and the digest of that version's normative CDDL bytes (P-110 item 2, P-100 item 7).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ActivatedVersion {
+    /// The protocol version.
+    pub protocol: ProtocolVersion,
+    /// The digest of its normative CDDL bytes.
+    pub schema: Digest,
+}
+
+/// The authorless entry the sequencer writes after the genesis to activate a protocol version, at the operator's Access-authorised request (P-110, OP-28 items 2, 3).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ActivationEnvelope {
+    /// The version it activates.
+    pub activation: ActivatedVersion,
+    /// The ledger.
+    pub ledger: LedgerId,
+    /// The position, above 0.
+    pub position: u64,
+    /// The leaf hash of the previous entry (P-11).
+    pub prev: Digest,
+    /// The sequencer's trusted time (P-27).
+    pub recorded_at: Time,
+    /// The Access context of the operator who asked for the activation (P-21).
+    pub auth_context: AuthContextRef,
+}
+
+/// An envelope, by the schema its position and its `activation` key select (P-100 item 6, P-110 item 3).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Envelope {
     /// Position 0.
     Genesis(GenesisEnvelope),
-    /// Any later position.
+    /// A later position whose map carries `activation`.
+    Activation(ActivationEnvelope),
+    /// Any other later position.
     Ledger(LedgerEnvelope),
 }
 
@@ -85,6 +113,17 @@ const GENESIS_FIELDS: &[(&str, bool)] = &[
     ("versions", true),
     ("recorded_at", true),
 ];
+
+const ACTIVATION_FIELDS: &[(&str, bool)] = &[
+    ("pos", true),
+    ("prev", true),
+    ("ledger", true),
+    ("activation", true),
+    ("recorded_at", true),
+    ("auth_context", true),
+];
+
+const ACTIVATED_FIELDS: &[(&str, bool)] = &[("schema", true), ("protocol", true)];
 
 const LEDGER_FIELDS: &[(&str, bool)] = &[
     ("pos", true),
@@ -243,21 +282,48 @@ fn ledger(v: &Value, position: u64) -> Mapped<LedgerEnvelope> {
     })
 }
 
-/// Maps a decoded envelope by its position: `pos = 0` is read as the genesis and any other position as a `LedgerEnvelope`, so a misplaced one fails with the selected schema's own code (P-100 item 6).
+fn activated(v: &Value) -> Mapped<ActivatedVersion> {
+    let f = walk(v, ACTIVATED_FIELDS)?;
+    Ok(ActivatedVersion {
+        schema: digest_value(field(&f, 0)?)?,
+        protocol: protocol(field(&f, 1)?)?,
+    })
+}
+
+fn activation(v: &Value, position: u64) -> Mapped<ActivationEnvelope> {
+    let f = walk(v, ACTIVATION_FIELDS)?;
+    Ok(ActivationEnvelope {
+        prev: digest_value(field(&f, 1)?)?,
+        ledger: LedgerId(digest_value(field(&f, 2)?)?),
+        activation: activated(field(&f, 3)?)?,
+        recorded_at: Time(uint(field(&f, 4)?)?),
+        auth_context: auth_context(field(&f, 5)?)?,
+        position,
+    })
+}
+
+fn has_key(m: &[(Value, Value)], key: &str) -> bool {
+    m.iter()
+        .any(|(k, _)| matches!(k, Value::Text(t) if t == key))
+}
+
+/// Maps a decoded envelope by its position and its keys: `pos = 0` is read as the genesis, a later position whose map carries `activation` as an `ActivationEnvelope` and any other as a `LedgerEnvelope`, so a misplaced one fails with the selected schema's own code (P-100 item 6, P-110 item 3).
 ///
 /// # Errors
 ///
 /// A schema or limit reason.
 pub fn envelope_from_value(v: &Value) -> Result<Envelope, Reason> {
+    let m = entries(v)?;
     let position = uint(
-        entries(v)?
-            .iter()
+        m.iter()
             .find(|(k, _)| matches!(k, Value::Text(t) if t == "pos"))
             .map(|(_, p)| p)
             .ok_or(MISSING)?,
     )?;
     if position == 0 {
         genesis(v).map(Envelope::Genesis)
+    } else if has_key(m, "activation") {
+        activation(v, position).map(Envelope::Activation)
     } else {
         ledger(v, position).map(Envelope::Ledger)
     }
@@ -278,6 +344,7 @@ impl Envelope {
     pub const fn position(&self) -> u64 {
         match self {
             Self::Genesis(_) => 0,
+            Self::Activation(a) => a.position,
             Self::Ledger(e) => e.position,
         }
     }
@@ -323,6 +390,8 @@ mod tests {
         assert_eq!(walk(&non_text, schema), Err(UNKNOWN_FIELD));
         for fields in [
             GENESIS_FIELDS,
+            ACTIVATION_FIELDS,
+            ACTIVATED_FIELDS,
             LEDGER_FIELDS,
             ACTOR_FIELDS,
             AUTH_CONTEXT_FIELDS,
@@ -356,6 +425,88 @@ mod tests {
         assert_eq!(ingest(&pair("quarantined", "authority_missing")), invalid);
         assert_eq!(ingest(&pair("rejected", "nope")), invalid);
         assert_eq!(ingest(&Value::text("accepted")), invalid);
+    }
+
+    // P-95
+    #[test]
+    fn p_95_a_quarantined_secret_detected_ingest_decodes() {
+        let quarantined = Value::Array(vec![
+            Value::text("quarantined"),
+            Value::text("secret_detected"),
+        ]);
+        assert_eq!(
+            ingest(&quarantined),
+            Ok(EnvelopeIngest::Quarantined(
+                QuarantineReason::SecretDetected
+            ))
+        );
+    }
+
+    fn digest(byte: u8) -> Value {
+        Value::Array(vec![Value::int(-16), Value::Bytes(vec![byte; 32])])
+    }
+
+    fn activation_map(extra: &[(&str, Value)], without: &str) -> Value {
+        let version = map(&[
+            ("schema", digest(7)),
+            (
+                "protocol",
+                Value::Array(vec![Value::Unsigned(1), Value::Unsigned(1)]),
+            ),
+        ]);
+        let context = map(&[
+            ("ref", digest(8)),
+            ("step_up", Value::Bool(false)),
+            ("assurance", Value::text("aal2")),
+        ]);
+        let mut fields = vec![
+            ("pos", Value::Unsigned(4)),
+            ("prev", digest(1)),
+            ("ledger", digest(2)),
+            ("activation", version),
+            ("recorded_at", Value::Unsigned(9)),
+            ("auth_context", context),
+        ];
+        fields.retain(|(k, _)| *k != without);
+        fields.extend(extra.iter().cloned());
+        fields.sort_by(|a, b| canonical_text_cmp(a.0, b.0));
+        map(&fields)
+    }
+
+    // P-110 P-100
+    #[test]
+    fn p_110_the_activation_key_selects_the_activation_envelope_above_position_0() {
+        let Ok(Envelope::Activation(a)) = envelope_from_value(&activation_map(&[], "")) else {
+            panic!("activation");
+        };
+        assert_eq!(a.position, 4);
+        assert_eq!(
+            a.activation.protocol,
+            ProtocolVersion { major: 1, minor: 1 }
+        );
+        assert_eq!(a.activation.schema, Digest::sha256([7; 32]));
+        let unknown = Err(Reason::Schema(Schema::UnknownCoreField));
+        let missing = Err(Reason::Schema(Schema::RequiredField));
+        for extra in ["record", "ingest", "actor_type", "proof_commit"] {
+            let v = activation_map(&[(extra, digest(3))], "");
+            assert_eq!(envelope_from_value(&v), unknown, "{extra}");
+        }
+        for absent in ["ledger", "prev", "auth_context"] {
+            let v = activation_map(&[], absent);
+            assert_eq!(envelope_from_value(&v), missing, "{absent}");
+        }
+        let at_genesis = activation_map(&[("pos", Value::Unsigned(0))], "pos");
+        assert_eq!(envelope_from_value(&at_genesis), unknown);
+        let practices = map(&[
+            ("schema", digest(7)),
+            (
+                "protocol",
+                Value::Array(vec![Value::Unsigned(1), Value::Unsigned(1)]),
+            ),
+            ("practices", map(&[])),
+        ]);
+        let with_practices = activation_map(&[("activation", practices)], "activation");
+        assert_eq!(envelope_from_value(&with_practices), unknown);
     }
 
     // P-21

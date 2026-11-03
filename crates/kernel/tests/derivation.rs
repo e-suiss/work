@@ -47,6 +47,31 @@ fn op(author: &str, name: &str, supersedes: Option<RecordId>, basis: &[RecordId]
     )
 }
 
+fn redaction(target: RecordId, parts: &[&str]) -> Record {
+    let mut record = op(ALICE, "redact", None, &[]);
+    let names = parts.iter().map(|p| ParamScalar::Text((*p).to_owned()));
+    core_mut(&mut record).params = Some(vec![
+        Param {
+            name: PartName::parse("parts").unwrap(),
+            value: ParamValue::List(names.collect()),
+        },
+        Param {
+            name: PartName::parse("reason").unwrap(),
+            value: ParamValue::Scalar(ParamScalar::Text("personal_data".to_owned())),
+        },
+        Param {
+            name: PartName::parse("target").unwrap(),
+            value: ParamValue::Scalar(ParamScalar::Digest(target.0)),
+        },
+    ]);
+    record
+}
+
+fn with_body(mut record: Record, parts: &[&str]) -> Record {
+    core_mut(&mut record).body = Some(parts.iter().map(|p| body(p, 0x40)).collect());
+    record
+}
+
 fn superseding(author: &str, targets: &[RecordId], basis: &[RecordId]) -> Record {
     let mut record = op(author, "amend", None, basis);
     core_mut(&mut record).relations = Some(
@@ -122,7 +147,7 @@ fn changed<'a>(e: &Entry<'a>, change: impl FnOnce(&mut Facts)) -> Entry<'a> {
 
 fn inputs(trusted: &[PartyRef]) -> DerivationInputs<'_> {
     DerivationInputs {
-        protocol: ProtocolVersion { major: 1, minor: 0 },
+        activations: &[(0, ProtocolVersion { major: 1, minor: 0 })],
         profile: ProfileVersion(1),
         practices: &[],
         trust: TrustInputs {
@@ -710,10 +735,55 @@ fn t_4_p_87_record_newer_than_the_active_protocol_has_no_effect() {
     let records = [(rid(1), op(ALICE, "promise", None, &[]))];
     let e = entries(&records);
     let mut older = inputs(&[]);
-    older.protocol = ProtocolVersion { major: 0, minor: 9 };
+    older.activations = &[(0, ProtocolVersion { major: 0, minor: 9 })];
     let d = derive(&e, &older).unwrap();
     assert_eq!(d.records[0].admission, Admission::Admitted);
     assert_eq!(d.records[0].effect, Effect::None(NoEffect::ProtocolVersion));
+}
+
+// P-110 P-87 OP-28
+#[test]
+fn p_110_the_active_version_is_read_at_each_record_s_position() {
+    let records = [(rid(1), op(ALICE, "promise", None, &[]))];
+    let e = entries(&records);
+    let mut later = inputs(&[]);
+    later.activations = &[
+        (0, ProtocolVersion { major: 0, minor: 9 }),
+        (99, ProtocolVersion { major: 1, minor: 0 }),
+    ];
+    assert_eq!(derive(&e, &later).unwrap(), run(&e));
+    later.activations = &[
+        (0, ProtocolVersion { major: 0, minor: 9 }),
+        (100, ProtocolVersion { major: 1, minor: 0 }),
+    ];
+    let d = derive(&e, &later).unwrap();
+    assert_eq!(d.records[0].effect, Effect::None(NoEffect::ProtocolVersion));
+    later.activations = &[];
+    let d = derive(&e, &later).unwrap();
+    assert_eq!(d.records[0].effect, Effect::None(NoEffect::ProtocolVersion));
+}
+
+// P-110 T-6
+#[test]
+fn p_110_the_fold_steps_over_an_activation_position() {
+    let records = [
+        (rid(1), op(ALICE, "promise", None, &[])),
+        (rid(2), op(ALICE, "amend", Some(rid(1)), &[rid(1)])),
+    ];
+    let first = entries(&records);
+    let moved = changed(&first[1], |f| f.position = 102);
+    let e = [first[0].clone(), moved];
+    let mut stepping = inputs(&[]);
+    stepping.activations = &[
+        (0, ProtocolVersion { major: 1, minor: 0 }),
+        (101, ProtocolVersion { major: 1, minor: 0 }),
+    ];
+    let d = derive(&e, &stepping).unwrap();
+    assert_eq!(d.records[1].effect, Effect::Normative);
+    assert_eq!(
+        derive(&e, &inputs(&[])),
+        Err(DeriveError::PositionGap { position: 102 })
+    );
 }
 
 // T-4 P-87
@@ -725,7 +795,7 @@ fn t_4_p_87_older_record_keeps_its_own_rules_under_a_newer_active_protocol() {
     ];
     let e = entries(&records);
     let mut newer = inputs(&[]);
-    newer.protocol = ProtocolVersion { major: 2, minor: 0 };
+    newer.activations = &[(0, ProtocolVersion { major: 2, minor: 0 })];
     let d = derive(&e, &newer).unwrap();
     assert_eq!(d, run(&e));
     assert_eq!(d.records[1].effect, Effect::Normative);
@@ -734,4 +804,52 @@ fn t_4_p_87_older_record_keeps_its_own_rules_under_a_newer_active_protocol() {
             .iter()
             .all(|(_, r)| RuleSet::of(r) == Some(RuleSet::V1_0))
     );
+}
+
+// P-111 P-25 P-79
+#[test]
+fn p_111_a_redaction_of_parts_an_earlier_record_commits_takes_effect() {
+    let target = with_body(op(ALICE, "promise", None, &[]), &["note", "terms"]);
+    let records = [
+        (rid(1), target),
+        (rid(2), redaction(rid(1), &["note", "terms"])),
+        (rid(3), redaction(rid(1), &["terms"])),
+    ];
+    let d = run(&entries(&records));
+    assert_eq!(d.records[1].effect, Effect::Normative);
+    assert_eq!(d.records[2].effect, Effect::Normative);
+    assert_eq!(d.chains[1].status, ChainStatus::Terminal);
+}
+
+// P-111 FD-27
+#[test]
+fn p_111_a_redaction_without_its_target_or_part_has_no_effect() {
+    let target = with_body(op(ALICE, "promise", None, &[]), &["terms"]);
+    let records = [
+        (rid(1), redaction(rid(2), &["terms"])),
+        (rid(2), target),
+        (rid(3), redaction(rid(2), &["note"])),
+        (rid(4), redaction(rid(9), &["terms"])),
+    ];
+    let d = run(&entries(&records));
+    for i in [0, 2, 3] {
+        assert_eq!(d.records[i].admission, Admission::Admitted);
+        assert_eq!(d.records[i].effect, Effect::None(NoEffect::UnknownTarget));
+    }
+    assert_eq!(d.chains.len(), 1);
+}
+
+// P-111 P-24
+#[test]
+fn p_111_a_declaration_superseding_a_redaction_restores_nothing() {
+    let target = with_body(op(ALICE, "promise", None, &[]), &["terms"]);
+    let records = [
+        (rid(1), target),
+        (rid(2), redaction(rid(1), &["terms"])),
+        (rid(3), superseding(ALICE, &[rid(2)], &[rid(2)])),
+    ];
+    let d = run(&entries(&records));
+    assert_eq!(d.records[2].admission, Admission::Admitted);
+    assert_eq!(d.records[2].effect, Effect::None(NoEffect::TerminalOutcome));
+    assert_eq!(d.records[1].superseded_by, vec![rid(3)]);
 }

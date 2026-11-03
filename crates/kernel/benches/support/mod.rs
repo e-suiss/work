@@ -211,7 +211,7 @@ pub(crate) fn entries(records: &[(RecordId, Record)]) -> Vec<Entry<'_>> {
 /// Derivation inputs at protocol 1.0 with no trusted publishers.
 pub(crate) fn inputs() -> DerivationInputs<'static> {
     DerivationInputs {
-        protocol: ProtocolVersion { major: 1, minor: 0 },
+        activations: &[(0, ProtocolVersion { major: 1, minor: 0 })],
         profile: ProfileVersion(1),
         practices: &[],
         trust: TrustInputs {

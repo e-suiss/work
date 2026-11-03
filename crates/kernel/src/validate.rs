@@ -5,8 +5,8 @@ use core::cmp::Ordering;
 
 use crate::catalog::{
     ActSubtype, CancelReason, ClaimSubtype, ConditionType, Consequence, CoreEvidenceType,
-    DeclarationSubtype, DeclineReason, GateForm, NoticeType, StopAnswer, StopType, WaitReason,
-    consequence,
+    DeclarationSubtype, DeclineReason, GateForm, NoticeType, RedactReason, StopAnswer, StopType,
+    WaitReason, consequence,
 };
 use crate::id::{PartyRef, Time, canonical_text_cmp};
 use crate::limits::SemanticLimits;
@@ -15,7 +15,7 @@ use crate::reason::{
     wire_enum,
 };
 use crate::record::{
-    Audience, Capacity, ClaimType, EvidenceSubject, EvidenceType, ParamScalar, ParamValue,
+    Audience, Capacity, ClaimType, EvidenceSubject, EvidenceType, ParamScalar, ParamValue, PartName,
     PracticePin, Record, RecordCore, Visibility,
 };
 use crate::relation::{DerivedRole, DerivedTarget, ReferenceTarget, Relation, RelationName};
@@ -109,11 +109,17 @@ pub enum Outcome {
 pub fn validate(record: &Record, ctx: &ValidationContext<'_>) -> Outcome {
     match RuleSet::of(record) {
         None => Outcome::Quarantined(QuarantineReason::ProtocolVersionUnknown),
-        Some(RuleSet::V1_0) => match check_v1_0(record, ctx) {
-            Err(reason) => Outcome::Rejected(reason),
-            Ok(()) => quarantine(record.core(), ctx.understood_extensions)
-                .map_or(Outcome::Accepted, Outcome::Quarantined),
-        },
+        Some(RuleSet::V1_0) => outcome_v1_0(record, ctx),
+        #[cfg(test)]
+        Some(RuleSet::TestV1_1) => outcome_v1_0(record, ctx),
+    }
+}
+
+fn outcome_v1_0(record: &Record, ctx: &ValidationContext<'_>) -> Outcome {
+    match check_v1_0(record, ctx) {
+        Err(reason) => Outcome::Rejected(reason),
+        Ok(()) => quarantine(record.core(), ctx.understood_extensions)
+            .map_or(Outcome::Accepted, Outcome::Quarantined),
     }
 }
 
@@ -226,6 +232,9 @@ enum ParamKind {
     Address,
     Deadline,
     Criterion,
+    RedactTarget,
+    RedactParts,
+    RedactReason,
 }
 
 struct ParamKey {
@@ -257,6 +266,13 @@ const OPEN_CONDITION: &[ParamKey] = &[
     key("criterion", ParamKind::Criterion, true),
 ];
 
+// P-111 P-92
+const REDACT: &[ParamKey] = &[
+    key("parts", ParamKind::RedactParts, true),
+    key("reason", ParamKind::RedactReason, true),
+    key("target", ParamKind::RedactTarget, true),
+];
+
 const fn param_keys(subtype: DeclarationSubtype) -> &'static [ParamKey] {
     match subtype {
         DeclarationSubtype::Decline => DECLINE,
@@ -265,7 +281,31 @@ const fn param_keys(subtype: DeclarationSubtype) -> &'static [ParamKey] {
         DeclarationSubtype::StopRequest => STOP_REQUEST,
         DeclarationSubtype::StopResponse => STOP_RESPONSE,
         DeclarationSubtype::OpenCondition => OPEN_CONDITION,
+        DeclarationSubtype::Redact => REDACT,
         _ => &[],
+    }
+}
+
+/// Whether the subtype's closed `params` map takes the optional `effective_at`; `redact`'s does not (P-80 item 4, P-111 item 2).
+fn takes_effective_at(subtype: Option<DeclarationSubtype>) -> bool {
+    subtype != Some(DeclarationSubtype::Redact)
+}
+
+// P-111 P-68 P-72
+fn part_names_ok(value: &ParamValue) -> bool {
+    let ParamValue::List(items) = value else {
+        return false;
+    };
+    let named = items
+        .iter()
+        .all(|s| matches!(s, ParamScalar::Text(t) if PartName::parse(t).is_some()));
+    named && strictly_ascending(items, text_scalar_cmp)
+}
+
+fn text_scalar_cmp(a: &ParamScalar, b: &ParamScalar) -> Ordering {
+    match (a, b) {
+        (ParamScalar::Text(a), ParamScalar::Text(b)) => canonical_text_cmp(a, b),
+        _ => Ordering::Equal,
     }
 }
 
@@ -289,6 +329,9 @@ fn kind_ok(kind: ParamKind, value: &ParamValue, practices: &[PracticePin]) -> bo
                 || matches!(value, ParamValue::Scalar(ParamScalar::Text(t)) if t == DEADLINE_NONE)
         }
         ParamKind::Criterion => catalog_text(value, TypeUri::parse),
+        ParamKind::RedactTarget => matches!(value, ParamValue::Scalar(ParamScalar::Digest(_))),
+        ParamKind::RedactParts => part_names_ok(value),
+        ParamKind::RedactReason => catalog_text(value, RedactReason::from_wire_name),
     }
 }
 
@@ -340,7 +383,7 @@ fn gate_form_ok(record: &Record) -> bool {
     }
 }
 
-// P-80 P-85
+// P-80 P-85 P-111
 fn params(record: &Record) -> Result<(), Reason> {
     let core = record.core();
     let practices = core.versions.practices.as_deref().unwrap_or_default();
@@ -350,6 +393,10 @@ fn params(record: &Record) -> Result<(), Reason> {
         Record::Declaration(d) => DeclarationSubtype::from_uri(d.subtype.as_str()),
         Record::Act(_) | Record::Claim(_) => None,
     };
+    reject_if(
+        declaration == Some(DeclarationSubtype::Redact) && record.supersedes().next().is_some(),
+        Reason::Schema(Schema::Relation),
+    )?;
     for param in core.params.iter().flatten() {
         let name = param.name.as_str();
         let value = &param.value;
@@ -357,6 +404,7 @@ fn params(record: &Record) -> Result<(), Reason> {
         let ok = shape_ok
             && if name == EFFECTIVE_AT {
                 matches!(record, Record::Declaration(_))
+                    && takes_effective_at(declaration)
                     && matches!(value, ParamValue::Scalar(ParamScalar::Uint(_)))
             } else if let Some(d) = declaration {
                 param_keys(d)

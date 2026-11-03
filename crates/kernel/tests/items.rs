@@ -66,7 +66,7 @@ fn t_89_every_golden_record_touches_the_works_it_concerns() {
         .collect();
     let vectors: Value = serde_json::from_str(ITEMS).unwrap();
     let cases = vectors["cases"].as_array().unwrap();
-    assert_eq!(cases.len(), 13);
+    assert_eq!(cases.len(), 17);
     for case in cases {
         let id = case["id"].as_str().unwrap();
         let Ok(Decoded::Record(record)) = decode_record(&record_bytes(&files, id)) else {

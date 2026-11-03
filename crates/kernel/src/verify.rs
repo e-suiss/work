@@ -1,7 +1,9 @@
 //! Verification results that state only "the author signature is valid" and "present in the ledger at this position", never truth or authorisation (SEC-5, P-22); signature checking is a port the shared crypto crate fills (P-8, [`crate::cose::AuthorKeys`]), and a stored ledger entry is verified from its bytes alone: the record ID, envelope binding and author binding are recomputed, never taken from the caller (T-10, P-11, P-75, P-79).
 
 use crate::codec::{Decoded, decode_record, leaf_hash, ledger_id, proof_commit, record_id};
-use crate::envelope::{Envelope, EnvelopeIngest, LedgerEnvelope, decode_envelope};
+use crate::envelope::{
+    ActivationEnvelope, Envelope, EnvelopeIngest, LedgerEnvelope, decode_envelope,
+};
 use crate::id::{Digest, LedgerId, PartyRef, RecordId, Time};
 use crate::reason::{EnvelopeField, Reason, Schema};
 use crate::validate::{ActorType, actor_rings};
@@ -147,7 +149,9 @@ impl ChainPoint {
                 ledger: ledger_id(bytes),
                 prev: leaf_hash(bytes),
             }),
-            Envelope::Ledger(_) => Err(Reason::Schema(Schema::UnknownCoreField)),
+            Envelope::Activation(_) | Envelope::Ledger(_) => {
+                Err(Reason::Schema(Schema::UnknownCoreField))
+            }
         }
     }
 }
@@ -196,11 +200,113 @@ impl VerifiedEntry {
     }
 }
 
+/// A stored activation entry the kernel verified from its bytes (P-110 item 8, P-108): it names the ledger and the previous leaf; it has no author, record or signature, and its binding is the operator's Access context.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct VerifiedActivation {
+    id: RecordId,
+    envelope: ActivationEnvelope,
+    leaf: Digest,
+}
+
+impl VerifiedActivation {
+    /// The entry identifier: the unprefixed digest of the envelope bytes, which are also its record bytes (P-110 item 4).
+    #[must_use]
+    pub const fn id(&self) -> RecordId {
+        self.id
+    }
+
+    /// The decoded envelope.
+    #[must_use]
+    pub const fn envelope(&self) -> &ActivationEnvelope {
+        &self.envelope
+    }
+
+    /// The leaf hash of the envelope (P-101).
+    #[must_use]
+    pub const fn leaf(&self) -> Digest {
+        self.leaf
+    }
+
+    /// The chain point the next entry continues.
+    #[must_use]
+    pub const fn next(&self) -> ChainPoint {
+        ChainPoint {
+            ledger: self.envelope.ledger,
+            prev: self.leaf,
+        }
+    }
+}
+
+/// A stored entry above position 0 the kernel verified: a record, or a version activation (P-108, P-110).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Verified {
+    /// A record entry.
+    Record(VerifiedEntry),
+    /// An activation entry.
+    Activation(VerifiedActivation),
+}
+
+impl Verified {
+    /// The leaf hash of the envelope (P-101).
+    #[must_use]
+    pub const fn leaf(&self) -> Digest {
+        match self {
+            Self::Record(r) => r.leaf(),
+            Self::Activation(a) => a.leaf(),
+        }
+    }
+
+    /// The chain point the next entry continues.
+    #[must_use]
+    pub const fn next(&self) -> ChainPoint {
+        match self {
+            Self::Record(r) => r.next(),
+            Self::Activation(a) => a.next(),
+        }
+    }
+
+    /// The record entry; `None` for an activation.
+    #[must_use]
+    pub const fn as_record(&self) -> Option<&VerifiedEntry> {
+        match self {
+            Self::Record(r) => Some(r),
+            Self::Activation(_) => None,
+        }
+    }
+}
+
 const fn mismatch(field: EnvelopeField) -> Reason {
     Reason::EnvelopeMismatch(field)
 }
 
+/// Verifies an activation entry after `at` in the P-108 order without the record and signature steps: the envelope names the ledger, then the previous leaf; its record bytes are its envelope bytes and it carries no `COSE_Sign1` (P-110 items 4, 8).
+fn activation(
+    at: &ChainPoint,
+    entry: &StoredEntry<'_>,
+    envelope: ActivationEnvelope,
+) -> Result<VerifiedActivation, Reason> {
+    if envelope.ledger != at.ledger {
+        return Err(mismatch(EnvelopeField::Ledger));
+    }
+    if envelope.prev != at.prev {
+        return Err(mismatch(EnvelopeField::Prev));
+    }
+    if entry.record != entry.envelope {
+        return Err(mismatch(EnvelopeField::Record));
+    }
+    if entry.cose_sign1.is_some() {
+        return Err(mismatch(EnvelopeField::ProofCommit));
+    }
+    Ok(VerifiedActivation {
+        id: record_id(entry.envelope),
+        leaf: leaf_hash(entry.envelope),
+        envelope,
+    })
+}
+
 /// Verifies one stored ledger entry after `at`: the envelope names the ledger and the previous leaf, its `record` is the digest of the stored record bytes, a signed record's `proof_commit` is the digest of the `COSE_Sign1` bytes and its signature, through the port, covers exactly those record bytes, an unsigned record is a human record with an authentication context, and the `actor_type` annotation of an admitted or quarantined record of a known protocol has one entry per `on_behalf_of` ring and per evidence presenter (P-11, P-12, P-21, P-75, P-79, P-100, T-10, EV-35).
+///
+/// An activation entry is verified in the same order without the record and signature steps: it names the ledger and the previous leaf, and its record bytes are its envelope bytes (P-110 item 8).
 ///
 /// # Errors
 ///
@@ -209,9 +315,11 @@ pub fn verify_entry<V: SignatureVerifier + ?Sized>(
     verifier: &V,
     at: &ChainPoint,
     entry: &StoredEntry<'_>,
-) -> Result<VerifiedEntry, Reason> {
-    let Envelope::Ledger(envelope) = decode_envelope(entry.envelope)? else {
-        return Err(mismatch(EnvelopeField::Prev));
+) -> Result<Verified, Reason> {
+    let envelope = match decode_envelope(entry.envelope)? {
+        Envelope::Genesis(_) => return Err(mismatch(EnvelopeField::Prev)),
+        Envelope::Activation(a) => return activation(at, entry, a).map(Verified::Activation),
+        Envelope::Ledger(e) => e,
     };
     if envelope.ledger != at.ledger {
         return Err(mismatch(EnvelopeField::Ledger));
@@ -268,12 +376,12 @@ pub fn verify_entry<V: SignatureVerifier + ?Sized>(
     {
         actor_rings(decoded.core(), &envelope.actor_types)?;
     }
-    Ok(VerifiedEntry {
+    Ok(Verified::Record(VerifiedEntry {
         verification,
         leaf: leaf_hash(entry.envelope),
         envelope,
         record,
-    })
+    }))
 }
 
 #[cfg(test)]

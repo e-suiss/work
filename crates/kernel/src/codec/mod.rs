@@ -12,8 +12,8 @@ pub use record::{Decoded, check_record, decode_record, decode_record_with, recor
 pub use suiss_crypto::dcbor::{Limits, TagAllowlist, Value};
 
 pub(crate) use read::{
-    MISSING, Mapped, UNKNOWN_FIELD, bytes_exact, digest_value, entries, list, pair, text, uint,
-    versions,
+    MISSING, Mapped, UNKNOWN_FIELD, bytes_exact, digest_value, entries, list, pair, protocol, text,
+    uint, versions,
 };
 
 use crate::id::{Digest, LedgerId, RecordId};

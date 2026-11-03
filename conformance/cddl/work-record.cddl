@@ -146,6 +146,7 @@ CoreDeclarationType = "https://suiss.app/ns/work/declaration/request"
                     / "https://suiss.app/ns/work/declaration/waiver"
                     / "https://suiss.app/ns/work/declaration/attention_request"
                     / "https://suiss.app/ns/work/declaration/acknowledgement"
+                    / "https://suiss.app/ns/work/declaration/redact"
 
 ; P-80 P-84 P-85 P-92
 DeclarationTyped = (
@@ -155,6 +156,7 @@ DeclarationTyped = (
   (type: DeclarationStopRequest, params: StopRequestParams) //
   (type: DeclarationStopResponse, params: StopResponseParams) //
   (type: DeclarationOpenCondition, params: OpenConditionParams) //
+  (type: DeclarationRedact, params: RedactParams) //
   (type: DeclarationType, ? params: Params)
 )
 DeclarationDecline = "https://suiss.app/ns/work/declaration/decline"
@@ -163,6 +165,7 @@ DeclarationNotice = "https://suiss.app/ns/work/declaration/notice"
 DeclarationStopRequest = "https://suiss.app/ns/work/declaration/stop_request"
 DeclarationStopResponse = "https://suiss.app/ns/work/declaration/stop_response"
 DeclarationOpenCondition = "https://suiss.app/ns/work/declaration/open_condition"
+DeclarationRedact = "https://suiss.app/ns/work/declaration/redact"
 
 ; P-71 C-16
 ClaimType = CoreClaimType / TypeURI
@@ -189,6 +192,20 @@ GenesisEnvelope = {
   recorded_at: Time,
   versions: VersionVector,
   nonce: bstr .size 32,
+}
+
+; P-110 OP-28 P-18 P-21 P-27 P-100
+ActivationEnvelope = {
+  activation: ActivatedVersion,
+  ledger: LedgerID,
+  pos: uint,
+  prev: Digest,
+  recorded_at: Time,
+  auth_context: AuthContextRef,
+}
+ActivatedVersion = {
+  protocol: [major: uint, minor: uint],
+  schema: Digest,
 }
 
 ; P-12 C-17 EV-35
@@ -432,6 +449,14 @@ ConditionForm = (
   (condition_type: TypeURI, ? gate_form: GateForm)
 )
 NoDeadline = "none"
+
+; P-111 P-25 P-80 P-92 OP-15 OP-45
+RedactParams = {
+  target: Digest,
+  parts: [1*256 PartName],
+  reason: RedactReason,
+}
+RedactReason = "personal_data" / "secret_exposure" / "legal_order" / "author_request"
 
 ; P-71 P-85 P-93
 DeclineReasonCode = DeclineReason / tstr .regexp "(no_capacity|no_authority|out_of_scope|missing_information|unacceptable_terms|other):https://[a-z0-9.-]+(:[0-9]+)?/[!-~]*"

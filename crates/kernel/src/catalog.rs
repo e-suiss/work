@@ -166,6 +166,22 @@ wire_enum! {
         AttentionRequest => "attention_request",
         /// `acknowledgement` (ST-48).
         Acknowledgement => "acknowledgement",
+        /// `redact` (P-111, P-25).
+        Redact => "redact",
+    }
+}
+
+wire_enum! {
+    /// Why a body is redacted (P-111 item 2).
+    RedactReason {
+        /// Personal data.
+        PersonalData => "personal_data",
+        /// An exposed secret (SEC-13, SEC-35).
+        SecretExposure => "secret_exposure",
+        /// A legal order.
+        LegalOrder => "legal_order",
+        /// The author's request.
+        AuthorRequest => "author_request",
     }
 }
 
@@ -362,10 +378,14 @@ pub const fn consequence(record: &Record) -> Consequence {
 mod tests {
     use super::*;
 
-    // P-71 P-83
+    // P-71 P-83 P-111
     #[test]
     fn p_71_core_declaration_catalog_is_closed() {
-        assert_eq!(DeclarationSubtype::ALL.len(), 52);
+        assert_eq!(DeclarationSubtype::ALL.len(), 53);
+        assert_eq!(
+            DeclarationSubtype::from_uri("https://suiss.app/ns/work/declaration/redact"),
+            Some(DeclarationSubtype::Redact)
+        );
         assert_eq!(
             DeclarationSubtype::from_uri("https://suiss.app/ns/work/declaration/promise"),
             Some(DeclarationSubtype::Promise)

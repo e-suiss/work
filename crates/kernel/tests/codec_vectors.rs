@@ -228,7 +228,7 @@ fn p_100_envelope_vectors_decode_and_chain_from_the_genesis() {
         assert_eq!(leaf, digest_of(&envelope["leaf_hash"]), "{}", record["id"]);
         prev = leaf;
     }
-    assert_eq!(position, 16);
+    assert_eq!(position, 20);
 }
 
 fn count(v: &Value) -> usize {
@@ -260,7 +260,7 @@ fn p_79_record_ids_are_the_unprefixed_digest_of_the_signed_record_bytes() {
         );
         checked += 1;
     }
-    assert_eq!(checked, 16);
+    assert_eq!(checked, 20);
     let first = record_id(&hex_of(&records["records"][0]["hex"]));
     let case = digest_case("digest/record-id");
     assert_eq!(first.0, digest_of(&case["digest_hex"]));

@@ -193,6 +193,8 @@ wire_enum! {
         ProofCommit => "proof_commit",
         /// `actor_type`.
         ActorType => "actor_type",
+        /// `activation`: an activation that breaks the sequence rule (P-110).
+        Activation => "activation",
     }
 }
 
@@ -326,6 +328,8 @@ reason_enum! {
         RetroactiveDeclaration => "retroactive_declaration",
         /// A `supersedes` target of another kind than the record (P-24, P-86); only derivation knows the target, so only derivation rejects with it.
         SupersedesKindMismatch => "supersedes_kind_mismatch",
+        /// A high-confidence secret match in the record body (P-95, SEC-35); the parser worker's scanner finds it, the kernel never derives it, and in an envelope it is a quarantine.
+        SecretDetected => "secret_detected",
     }
 }
 
@@ -363,16 +367,34 @@ impl fmt::Display for Reason {
 }
 
 wire_enum! {
-    /// A reason that quarantines a record and never rejects it (P-19, P-87).
+    /// A reason that quarantines a record and never rejects it (P-19, P-87, P-95).
     QuarantineReason {
         /// `critical` names a key the verifier does not understand (P-19).
         ExtensionCriticalUnknown => "extension_critical_unknown",
         /// The record's protocol version has no rule set in this kernel (P-87).
         ProtocolVersionUnknown => "protocol_version_unknown",
+        /// The parser worker's scanner found a secret in the body of a record that cannot be changed (P-95 items 2, 4).
+        SecretDetected => "secret_detected",
     }
 }
 
 impl QuarantineReason {
+    /// The order in which the sequencer picks the one `ingest` it writes when several quarantine reasons hold, the first winning; a kernel rejection precedes them all, since a rejected record is not stored (P-95 item 4, P-94).
+    pub const PRECEDENCE: &'static [Self] = &[
+        Self::SecretDetected,
+        Self::ProtocolVersionUnknown,
+        Self::ExtensionCriticalUnknown,
+    ];
+
+    /// The reason among `reasons` the sequencer writes, by [`Self::PRECEDENCE`]; `None` when there is none.
+    #[must_use]
+    pub fn first_of(reasons: &[Self]) -> Option<Self> {
+        Self::PRECEDENCE
+            .iter()
+            .copied()
+            .find(|r| reasons.contains(r))
+    }
+
     /// Parses a full reason code that names a quarantine reason, with the sub-code rule of [`Reason::from_code`].
     #[must_use]
     pub fn from_code(code: &str) -> Option<Self> {
@@ -385,6 +407,7 @@ impl From<QuarantineReason> for Reason {
         match reason {
             QuarantineReason::ExtensionCriticalUnknown => Self::ExtensionCriticalUnknown,
             QuarantineReason::ProtocolVersionUnknown => Self::ProtocolVersionUnknown,
+            QuarantineReason::SecretDetected => Self::SecretDetected,
         }
     }
 }
@@ -396,6 +419,7 @@ impl TryFrom<Reason> for QuarantineReason {
         match reason {
             Reason::ExtensionCriticalUnknown => Ok(Self::ExtensionCriticalUnknown),
             Reason::ProtocolVersionUnknown => Ok(Self::ProtocolVersionUnknown),
+            Reason::SecretDetected => Ok(Self::SecretDetected),
             other => Err(other),
         }
     }
@@ -463,9 +487,9 @@ mod tests {
         );
     }
 
-    // P-19 P-87
+    // P-19 P-87 P-95
     #[test]
-    fn p_19_quarantine_reasons_are_exactly_the_two_that_never_reject() {
+    fn p_19_quarantine_reasons_are_exactly_the_three_that_never_reject() {
         for q in QuarantineReason::ALL {
             let reason = Reason::from(*q);
             assert_eq!(QuarantineReason::try_from(reason), Ok(*q));
@@ -478,5 +502,41 @@ mod tests {
             .count();
         assert_eq!(quarantines, QuarantineReason::ALL.len());
         assert_eq!(QuarantineReason::from_code("authority_missing"), None);
+        assert_eq!(
+            QuarantineReason::from_code("secret_detected"),
+            Some(QuarantineReason::SecretDetected)
+        );
+    }
+
+    // P-95 P-94
+    #[test]
+    fn p_95_secret_detected_precedes_the_unknown_version_and_the_unknown_extension() {
+        assert_eq!(
+            QuarantineReason::PRECEDENCE.len(),
+            QuarantineReason::ALL.len()
+        );
+        assert!(
+            QuarantineReason::ALL
+                .iter()
+                .all(|q| QuarantineReason::PRECEDENCE.contains(q))
+        );
+        let all = [
+            QuarantineReason::ExtensionCriticalUnknown,
+            QuarantineReason::ProtocolVersionUnknown,
+            QuarantineReason::SecretDetected,
+        ];
+        assert_eq!(
+            QuarantineReason::first_of(&all),
+            Some(QuarantineReason::SecretDetected)
+        );
+        assert_eq!(
+            QuarantineReason::first_of(&all[..2]),
+            Some(QuarantineReason::ProtocolVersionUnknown)
+        );
+        assert_eq!(
+            QuarantineReason::first_of(&all[..1]),
+            Some(QuarantineReason::ExtensionCriticalUnknown)
+        );
+        assert_eq!(QuarantineReason::first_of(&[]), None);
     }
 }

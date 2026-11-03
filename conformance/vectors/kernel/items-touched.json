@@ -160,6 +160,62 @@
       ]
     },
     {
+      "id": "record/declaration-redact",
+      "source": "records.json",
+      "touches": [
+        {
+          "item": [
+            "work",
+            "019a2f4c8e1b7c3da5e6f70812345678"
+          ],
+          "expect": "next",
+          "heads": null
+        }
+      ]
+    },
+    {
+      "id": "record/declaration-redact-target-absent",
+      "source": "records.json",
+      "touches": [
+        {
+          "item": [
+            "work",
+            "019a2f4c8e1b7c3da5e6f70812345678"
+          ],
+          "expect": "next",
+          "heads": null
+        }
+      ]
+    },
+    {
+      "id": "record/declaration-redact-part-unknown",
+      "source": "records.json",
+      "touches": [
+        {
+          "item": [
+            "work",
+            "019a2f4c8e1b7c3da5e6f70812345678"
+          ],
+          "expect": "next",
+          "heads": null
+        }
+      ]
+    },
+    {
+      "id": "record/declaration-supersedes-redact",
+      "source": "records.json",
+      "touches": [
+        {
+          "item": [
+            "work",
+            "019a2f4c8e1b7c3da5e6f70812345678"
+          ],
+          "expect": "next",
+          "heads": null
+        }
+      ]
+    },
+    {
       "id": "record-quarantine/critical-ext-not-understood",
       "source": "records-quarantine.json",
       "touches": [

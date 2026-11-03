@@ -1,0 +1,634 @@
+{
+  "file": "activation.json",
+  "notes": [
+    "an ActivationEnvelope is an authorless log entry the sequencer writes to activate a protocol version after the genesis, which is the first activation; its identifier is SHA-256(det-CBOR(ActivationEnvelope)) without prefix and its leaf hash SHA-256(0x00 || det-CBOR(ActivationEnvelope)) (P-110 items 1, 4)",
+    "cases are decode_envelope inputs; expect is the binding answer, the decoded projection for an accepted case",
+    "sequences are check_activations inputs, the envelope bytes of a ledger's activations in log order with the genesis first; expect is the binding answer",
+    "verify cases are verify_entry inputs after the chain point at with no COSE_Sign1 and no keys; expect is the binding answer",
+    "the activation names the LedgerID of genesis.json genesis/accept; schema digests labelled work-vector:* are placeholders of versions this kernel does not know"
+  ],
+  "cases": [
+    {
+      "id": "activation/accept",
+      "rules": [
+        "P-110",
+        "P-100",
+        "P-11",
+        "P-21",
+        "P-27",
+        "OP-28"
+      ],
+      "purpose": "An activation of protocol 1.1 right after the genesis of genesis.json; this kernel carries no 1.1 rule set, so the sequence rule cannot check its schema digest, a work-vector placeholder.",
+      "diag": "{\n  \"pos\": 1,\n  \"prev\": [-16, h'6f606f42e9ff33bb2f56772d274ed7f154398f282234f27fd66407be77b10f6c'],\n  \"ledger\": [-16, h'8a857bdd56af2bcd917842a55c135b212b3ca54490c09291e6b393aa0efac3fd'],\n  \"activation\": {\n    \"schema\": [-16, h'd1bcb1396977f09d79d2a62c9febfbf33c694875ce692f3c8a71dbf2608ed50e'],\n    \"protocol\": [1, 1]\n  },\n  \"recorded_at\": 1792109050000,\n  \"auth_context\": {\n    \"ref\": [-16, h'ad641bbab00aae348b2b35a25ca94b4594f1d1d365824d78f3ec86462062018c'],\n    \"step_up\": true,\n    \"assurance\": \"aal3\"\n  }\n}",
+      "hex": "a663706f73016470726576822f58206f606f42e9ff33bb2f56772d274ed7f154398f282234f27fd66407be77b10f6c666c6564676572822f58208a857bdd56af2bcd917842a55c135b212b3ca54490c09291e6b393aa0efac3fd6a61637469766174696f6ea266736368656d61822f5820d1bcb1396977f09d79d2a62c9febfbf33c694875ce692f3c8a71dbf2608ed50e6870726f746f636f6c8201016b7265636f726465645f61741b000001a14205f8906c617574685f636f6e74657874a363726566822f5820ad641bbab00aae348b2b35a25ca94b4594f1d1d365824d78f3ec86462062018c67737465705f7570f5696173737572616e63656461616c33",
+      "decoded": {
+        "pos": 1,
+        "prev": [
+          -16,
+          "6f606f42e9ff33bb2f56772d274ed7f154398f282234f27fd66407be77b10f6c"
+        ],
+        "ledger": [
+          -16,
+          "8a857bdd56af2bcd917842a55c135b212b3ca54490c09291e6b393aa0efac3fd"
+        ],
+        "activation": {
+          "schema": [
+            -16,
+            "d1bcb1396977f09d79d2a62c9febfbf33c694875ce692f3c8a71dbf2608ed50e"
+          ],
+          "protocol": [
+            1,
+            1
+          ]
+        },
+        "recorded_at": 1792109050000,
+        "auth_context": {
+          "ref": [
+            -16,
+            "ad641bbab00aae348b2b35a25ca94b4594f1d1d365824d78f3ec86462062018c"
+          ],
+          "step_up": true,
+          "assurance": "aal3"
+        }
+      },
+      "entry_id": "e1b38f0e2a384f9fd1e260c7629cf080bfabe123b1599bfcef0d0eef6e85dff2",
+      "leaf_hash": "57aa626a3ff09eb39c25c0e36d71b08f1c3c893519e4469c4f46b28f5fb76c0d",
+      "cddl": "pass",
+      "expect": {
+        "outcome": "accept",
+        "decoded": {
+          "pos": 1,
+          "prev": [
+            -16,
+            "6f606f42e9ff33bb2f56772d274ed7f154398f282234f27fd66407be77b10f6c"
+          ],
+          "ledger": [
+            -16,
+            "8a857bdd56af2bcd917842a55c135b212b3ca54490c09291e6b393aa0efac3fd"
+          ],
+          "activation": {
+            "schema": [
+              -16,
+              "d1bcb1396977f09d79d2a62c9febfbf33c694875ce692f3c8a71dbf2608ed50e"
+            ],
+            "protocol": [
+              1,
+              1
+            ]
+          },
+          "recorded_at": 1792109050000,
+          "auth_context": {
+            "ref": [
+              -16,
+              "ad641bbab00aae348b2b35a25ca94b4594f1d1d365824d78f3ec86462062018c"
+            ],
+            "step_up": true,
+            "assurance": "aal3"
+          }
+        }
+      }
+    },
+    {
+      "id": "activation-reject/pos-0",
+      "rules": [
+        "P-110",
+        "P-100"
+      ],
+      "purpose": "An activation at position 0 is read as the genesis, whose schema has no activation key.",
+      "diag": "{\n  \"pos\": 0,\n  \"prev\": [-16, h'6f606f42e9ff33bb2f56772d274ed7f154398f282234f27fd66407be77b10f6c'],\n  \"ledger\": [-16, h'8a857bdd56af2bcd917842a55c135b212b3ca54490c09291e6b393aa0efac3fd'],\n  \"activation\": {\n    \"schema\": [-16, h'd1bcb1396977f09d79d2a62c9febfbf33c694875ce692f3c8a71dbf2608ed50e'],\n    \"protocol\": [1, 1]\n  },\n  \"recorded_at\": 1792109050000,\n  \"auth_context\": {\n    \"ref\": [-16, h'ad641bbab00aae348b2b35a25ca94b4594f1d1d365824d78f3ec86462062018c'],\n    \"step_up\": true,\n    \"assurance\": \"aal3\"\n  }\n}",
+      "hex": "a663706f73006470726576822f58206f606f42e9ff33bb2f56772d274ed7f154398f282234f27fd66407be77b10f6c666c6564676572822f58208a857bdd56af2bcd917842a55c135b212b3ca54490c09291e6b393aa0efac3fd6a61637469766174696f6ea266736368656d61822f5820d1bcb1396977f09d79d2a62c9febfbf33c694875ce692f3c8a71dbf2608ed50e6870726f746f636f6c8201016b7265636f726465645f61741b000001a14205f8906c617574685f636f6e74657874a363726566822f5820ad641bbab00aae348b2b35a25ca94b4594f1d1d365824d78f3ec86462062018c67737465705f7570f5696173737572616e63656461616c33",
+      "decoded": {
+        "pos": 0,
+        "prev": [
+          -16,
+          "6f606f42e9ff33bb2f56772d274ed7f154398f282234f27fd66407be77b10f6c"
+        ],
+        "ledger": [
+          -16,
+          "8a857bdd56af2bcd917842a55c135b212b3ca54490c09291e6b393aa0efac3fd"
+        ],
+        "activation": {
+          "schema": [
+            -16,
+            "d1bcb1396977f09d79d2a62c9febfbf33c694875ce692f3c8a71dbf2608ed50e"
+          ],
+          "protocol": [
+            1,
+            1
+          ]
+        },
+        "recorded_at": 1792109050000,
+        "auth_context": {
+          "ref": [
+            -16,
+            "ad641bbab00aae348b2b35a25ca94b4594f1d1d365824d78f3ec86462062018c"
+          ],
+          "step_up": true,
+          "assurance": "aal3"
+        }
+      },
+      "cddl": "pass",
+      "expect": {
+        "outcome": "reject",
+        "reason": "schema:unknown_core_field"
+      }
+    },
+    {
+      "id": "activation-reject/auth-context-missing",
+      "rules": [
+        "P-110",
+        "P-21"
+      ],
+      "purpose": "An activation without the operator's Access context.",
+      "diag": "{\n  \"pos\": 1,\n  \"prev\": [-16, h'6f606f42e9ff33bb2f56772d274ed7f154398f282234f27fd66407be77b10f6c'],\n  \"ledger\": [-16, h'8a857bdd56af2bcd917842a55c135b212b3ca54490c09291e6b393aa0efac3fd'],\n  \"activation\": {\n    \"schema\": [-16, h'd1bcb1396977f09d79d2a62c9febfbf33c694875ce692f3c8a71dbf2608ed50e'],\n    \"protocol\": [1, 1]\n  },\n  \"recorded_at\": 1792109050000\n}",
+      "hex": "a563706f73016470726576822f58206f606f42e9ff33bb2f56772d274ed7f154398f282234f27fd66407be77b10f6c666c6564676572822f58208a857bdd56af2bcd917842a55c135b212b3ca54490c09291e6b393aa0efac3fd6a61637469766174696f6ea266736368656d61822f5820d1bcb1396977f09d79d2a62c9febfbf33c694875ce692f3c8a71dbf2608ed50e6870726f746f636f6c8201016b7265636f726465645f61741b000001a14205f890",
+      "decoded": {
+        "pos": 1,
+        "prev": [
+          -16,
+          "6f606f42e9ff33bb2f56772d274ed7f154398f282234f27fd66407be77b10f6c"
+        ],
+        "ledger": [
+          -16,
+          "8a857bdd56af2bcd917842a55c135b212b3ca54490c09291e6b393aa0efac3fd"
+        ],
+        "activation": {
+          "schema": [
+            -16,
+            "d1bcb1396977f09d79d2a62c9febfbf33c694875ce692f3c8a71dbf2608ed50e"
+          ],
+          "protocol": [
+            1,
+            1
+          ]
+        },
+        "recorded_at": 1792109050000
+      },
+      "cddl": "fail",
+      "expect": {
+        "outcome": "reject",
+        "reason": "schema:required_field"
+      }
+    },
+    {
+      "id": "activation-reject/prev-missing",
+      "rules": [
+        "P-110",
+        "P-11"
+      ],
+      "purpose": "An activation without prev; it continues the chain like any later entry.",
+      "diag": "{\n  \"pos\": 1,\n  \"ledger\": [-16, h'8a857bdd56af2bcd917842a55c135b212b3ca54490c09291e6b393aa0efac3fd'],\n  \"activation\": {\n    \"schema\": [-16, h'd1bcb1396977f09d79d2a62c9febfbf33c694875ce692f3c8a71dbf2608ed50e'],\n    \"protocol\": [1, 1]\n  },\n  \"recorded_at\": 1792109050000,\n  \"auth_context\": {\n    \"ref\": [-16, h'ad641bbab00aae348b2b35a25ca94b4594f1d1d365824d78f3ec86462062018c'],\n    \"step_up\": true,\n    \"assurance\": \"aal3\"\n  }\n}",
+      "hex": "a563706f7301666c6564676572822f58208a857bdd56af2bcd917842a55c135b212b3ca54490c09291e6b393aa0efac3fd6a61637469766174696f6ea266736368656d61822f5820d1bcb1396977f09d79d2a62c9febfbf33c694875ce692f3c8a71dbf2608ed50e6870726f746f636f6c8201016b7265636f726465645f61741b000001a14205f8906c617574685f636f6e74657874a363726566822f5820ad641bbab00aae348b2b35a25ca94b4594f1d1d365824d78f3ec86462062018c67737465705f7570f5696173737572616e63656461616c33",
+      "decoded": {
+        "pos": 1,
+        "ledger": [
+          -16,
+          "8a857bdd56af2bcd917842a55c135b212b3ca54490c09291e6b393aa0efac3fd"
+        ],
+        "activation": {
+          "schema": [
+            -16,
+            "d1bcb1396977f09d79d2a62c9febfbf33c694875ce692f3c8a71dbf2608ed50e"
+          ],
+          "protocol": [
+            1,
+            1
+          ]
+        },
+        "recorded_at": 1792109050000,
+        "auth_context": {
+          "ref": [
+            -16,
+            "ad641bbab00aae348b2b35a25ca94b4594f1d1d365824d78f3ec86462062018c"
+          ],
+          "step_up": true,
+          "assurance": "aal3"
+        }
+      },
+      "cddl": "fail",
+      "expect": {
+        "outcome": "reject",
+        "reason": "schema:required_field"
+      }
+    },
+    {
+      "id": "activation-reject/ledger-missing",
+      "rules": [
+        "P-110",
+        "P-11"
+      ],
+      "purpose": "An activation without its ledger.",
+      "diag": "{\n  \"pos\": 1,\n  \"prev\": [-16, h'6f606f42e9ff33bb2f56772d274ed7f154398f282234f27fd66407be77b10f6c'],\n  \"activation\": {\n    \"schema\": [-16, h'd1bcb1396977f09d79d2a62c9febfbf33c694875ce692f3c8a71dbf2608ed50e'],\n    \"protocol\": [1, 1]\n  },\n  \"recorded_at\": 1792109050000,\n  \"auth_context\": {\n    \"ref\": [-16, h'ad641bbab00aae348b2b35a25ca94b4594f1d1d365824d78f3ec86462062018c'],\n    \"step_up\": true,\n    \"assurance\": \"aal3\"\n  }\n}",
+      "hex": "a563706f73016470726576822f58206f606f42e9ff33bb2f56772d274ed7f154398f282234f27fd66407be77b10f6c6a61637469766174696f6ea266736368656d61822f5820d1bcb1396977f09d79d2a62c9febfbf33c694875ce692f3c8a71dbf2608ed50e6870726f746f636f6c8201016b7265636f726465645f61741b000001a14205f8906c617574685f636f6e74657874a363726566822f5820ad641bbab00aae348b2b35a25ca94b4594f1d1d365824d78f3ec86462062018c67737465705f7570f5696173737572616e63656461616c33",
+      "decoded": {
+        "pos": 1,
+        "prev": [
+          -16,
+          "6f606f42e9ff33bb2f56772d274ed7f154398f282234f27fd66407be77b10f6c"
+        ],
+        "activation": {
+          "schema": [
+            -16,
+            "d1bcb1396977f09d79d2a62c9febfbf33c694875ce692f3c8a71dbf2608ed50e"
+          ],
+          "protocol": [
+            1,
+            1
+          ]
+        },
+        "recorded_at": 1792109050000,
+        "auth_context": {
+          "ref": [
+            -16,
+            "ad641bbab00aae348b2b35a25ca94b4594f1d1d365824d78f3ec86462062018c"
+          ],
+          "step_up": true,
+          "assurance": "aal3"
+        }
+      },
+      "cddl": "fail",
+      "expect": {
+        "outcome": "reject",
+        "reason": "schema:required_field"
+      }
+    },
+    {
+      "id": "activation-reject/record-present",
+      "rules": [
+        "P-110"
+      ],
+      "purpose": "An activation carrying a record digest; it is not a record.",
+      "diag": "{\n  \"pos\": 1,\n  \"prev\": [-16, h'6f606f42e9ff33bb2f56772d274ed7f154398f282234f27fd66407be77b10f6c'],\n  \"ledger\": [-16, h'8a857bdd56af2bcd917842a55c135b212b3ca54490c09291e6b393aa0efac3fd'],\n  \"record\": [-16, h'442c33bfb03538b4acba9fe084dc179f83f3df30cf22d02009d3e311b963faf5'],\n  \"activation\": {\n    \"schema\": [-16, h'd1bcb1396977f09d79d2a62c9febfbf33c694875ce692f3c8a71dbf2608ed50e'],\n    \"protocol\": [1, 1]\n  },\n  \"recorded_at\": 1792109050000,\n  \"auth_context\": {\n    \"ref\": [-16, h'ad641bbab00aae348b2b35a25ca94b4594f1d1d365824d78f3ec86462062018c'],\n    \"step_up\": true,\n    \"assurance\": \"aal3\"\n  }\n}",
+      "hex": "a763706f73016470726576822f58206f606f42e9ff33bb2f56772d274ed7f154398f282234f27fd66407be77b10f6c666c6564676572822f58208a857bdd56af2bcd917842a55c135b212b3ca54490c09291e6b393aa0efac3fd667265636f7264822f5820442c33bfb03538b4acba9fe084dc179f83f3df30cf22d02009d3e311b963faf56a61637469766174696f6ea266736368656d61822f5820d1bcb1396977f09d79d2a62c9febfbf33c694875ce692f3c8a71dbf2608ed50e6870726f746f636f6c8201016b7265636f726465645f61741b000001a14205f8906c617574685f636f6e74657874a363726566822f5820ad641bbab00aae348b2b35a25ca94b4594f1d1d365824d78f3ec86462062018c67737465705f7570f5696173737572616e63656461616c33",
+      "decoded": {
+        "pos": 1,
+        "prev": [
+          -16,
+          "6f606f42e9ff33bb2f56772d274ed7f154398f282234f27fd66407be77b10f6c"
+        ],
+        "ledger": [
+          -16,
+          "8a857bdd56af2bcd917842a55c135b212b3ca54490c09291e6b393aa0efac3fd"
+        ],
+        "record": [
+          -16,
+          "442c33bfb03538b4acba9fe084dc179f83f3df30cf22d02009d3e311b963faf5"
+        ],
+        "activation": {
+          "schema": [
+            -16,
+            "d1bcb1396977f09d79d2a62c9febfbf33c694875ce692f3c8a71dbf2608ed50e"
+          ],
+          "protocol": [
+            1,
+            1
+          ]
+        },
+        "recorded_at": 1792109050000,
+        "auth_context": {
+          "ref": [
+            -16,
+            "ad641bbab00aae348b2b35a25ca94b4594f1d1d365824d78f3ec86462062018c"
+          ],
+          "step_up": true,
+          "assurance": "aal3"
+        }
+      },
+      "cddl": "fail",
+      "expect": {
+        "outcome": "reject",
+        "reason": "schema:unknown_core_field"
+      }
+    },
+    {
+      "id": "activation-reject/practices-present",
+      "rules": [
+        "P-110",
+        "PR-13"
+      ],
+      "purpose": "An activated version carrying practices; a Practice is adopted by practice_adoption.",
+      "diag": "{\n  \"pos\": 1,\n  \"prev\": [-16, h'6f606f42e9ff33bb2f56772d274ed7f154398f282234f27fd66407be77b10f6c'],\n  \"ledger\": [-16, h'8a857bdd56af2bcd917842a55c135b212b3ca54490c09291e6b393aa0efac3fd'],\n  \"activation\": {\n    \"schema\": [-16, h'd1bcb1396977f09d79d2a62c9febfbf33c694875ce692f3c8a71dbf2608ed50e'],\n    \"protocol\": [1, 1],\n    \"practices\": {\n      \"https://procurement.example/ns/\": [-16, h'a44f23f8a3aae2c1d733a4008c1cf213f87d9af3baa57d378183828971574efe']\n    }\n  },\n  \"recorded_at\": 1792109050000,\n  \"auth_context\": {\n    \"ref\": [-16, h'ad641bbab00aae348b2b35a25ca94b4594f1d1d365824d78f3ec86462062018c'],\n    \"step_up\": true,\n    \"assurance\": \"aal3\"\n  }\n}",
+      "hex": "a663706f73016470726576822f58206f606f42e9ff33bb2f56772d274ed7f154398f282234f27fd66407be77b10f6c666c6564676572822f58208a857bdd56af2bcd917842a55c135b212b3ca54490c09291e6b393aa0efac3fd6a61637469766174696f6ea366736368656d61822f5820d1bcb1396977f09d79d2a62c9febfbf33c694875ce692f3c8a71dbf2608ed50e6870726f746f636f6c82010169707261637469636573a1781f68747470733a2f2f70726f637572656d656e742e6578616d706c652f6e732f822f5820a44f23f8a3aae2c1d733a4008c1cf213f87d9af3baa57d378183828971574efe6b7265636f726465645f61741b000001a14205f8906c617574685f636f6e74657874a363726566822f5820ad641bbab00aae348b2b35a25ca94b4594f1d1d365824d78f3ec86462062018c67737465705f7570f5696173737572616e63656461616c33",
+      "decoded": {
+        "pos": 1,
+        "prev": [
+          -16,
+          "6f606f42e9ff33bb2f56772d274ed7f154398f282234f27fd66407be77b10f6c"
+        ],
+        "ledger": [
+          -16,
+          "8a857bdd56af2bcd917842a55c135b212b3ca54490c09291e6b393aa0efac3fd"
+        ],
+        "activation": {
+          "schema": [
+            -16,
+            "d1bcb1396977f09d79d2a62c9febfbf33c694875ce692f3c8a71dbf2608ed50e"
+          ],
+          "protocol": [
+            1,
+            1
+          ],
+          "practices": {
+            "https://procurement.example/ns/": [
+              -16,
+              "a44f23f8a3aae2c1d733a4008c1cf213f87d9af3baa57d378183828971574efe"
+            ]
+          }
+        },
+        "recorded_at": 1792109050000,
+        "auth_context": {
+          "ref": [
+            -16,
+            "ad641bbab00aae348b2b35a25ca94b4594f1d1d365824d78f3ec86462062018c"
+          ],
+          "step_up": true,
+          "assurance": "aal3"
+        }
+      },
+      "cddl": "fail",
+      "expect": {
+        "outcome": "reject",
+        "reason": "schema:unknown_core_field"
+      }
+    }
+  ],
+  "sequences": [
+    {
+      "id": "sequence/genesis",
+      "rules": [
+        "P-110",
+        "P-100"
+      ],
+      "purpose": "The genesis alone is the first activation; its schema is the protocol 1.0 CDDL digest.",
+      "entries": [
+        "a463706f7300656e6f6e636558202025e173fb03d476f4de998999fec78a671204faf5875e5e8ef5f3cd02b236e46876657273696f6e73a266736368656d61822f58207057a7757d5c94ff3efca643736d2dc6e616c19ccc04710ec9538444b8a2d35c6870726f746f636f6c8201006b7265636f726465645f61741b000001a142053540"
+      ],
+      "expect": {
+        "outcome": "accept",
+        "activations": [
+          {
+            "position": 0,
+            "protocol": [
+              1,
+              0
+            ],
+            "schema": [
+              -16,
+              "7057a7757d5c94ff3efca643736d2dc6e616c19ccc04710ec9538444b8a2d35c"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "sequence/genesis-then-activation",
+      "rules": [
+        "P-110",
+        "P-87"
+      ],
+      "purpose": "A later version this kernel does not know passes the sequence rule; its records are quarantined by P-87.",
+      "entries": [
+        "a463706f7300656e6f6e636558202025e173fb03d476f4de998999fec78a671204faf5875e5e8ef5f3cd02b236e46876657273696f6e73a266736368656d61822f58207057a7757d5c94ff3efca643736d2dc6e616c19ccc04710ec9538444b8a2d35c6870726f746f636f6c8201006b7265636f726465645f61741b000001a142053540",
+        "a663706f73016470726576822f58206f606f42e9ff33bb2f56772d274ed7f154398f282234f27fd66407be77b10f6c666c6564676572822f58208a857bdd56af2bcd917842a55c135b212b3ca54490c09291e6b393aa0efac3fd6a61637469766174696f6ea266736368656d61822f5820d1bcb1396977f09d79d2a62c9febfbf33c694875ce692f3c8a71dbf2608ed50e6870726f746f636f6c8201016b7265636f726465645f61741b000001a14205f8906c617574685f636f6e74657874a363726566822f5820ad641bbab00aae348b2b35a25ca94b4594f1d1d365824d78f3ec86462062018c67737465705f7570f5696173737572616e63656461616c33"
+      ],
+      "expect": {
+        "outcome": "accept",
+        "activations": [
+          {
+            "position": 0,
+            "protocol": [
+              1,
+              0
+            ],
+            "schema": [
+              -16,
+              "7057a7757d5c94ff3efca643736d2dc6e616c19ccc04710ec9538444b8a2d35c"
+            ]
+          },
+          {
+            "position": 1,
+            "protocol": [
+              1,
+              1
+            ],
+            "schema": [
+              -16,
+              "d1bcb1396977f09d79d2a62c9febfbf33c694875ce692f3c8a71dbf2608ed50e"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "sequence-reject/same-version",
+      "rules": [
+        "P-110",
+        "OP-28"
+      ],
+      "purpose": "Activating the version that is already active.",
+      "entries": [
+        "a463706f7300656e6f6e636558202025e173fb03d476f4de998999fec78a671204faf5875e5e8ef5f3cd02b236e46876657273696f6e73a266736368656d61822f58207057a7757d5c94ff3efca643736d2dc6e616c19ccc04710ec9538444b8a2d35c6870726f746f636f6c8201006b7265636f726465645f61741b000001a142053540",
+        "a663706f73016470726576822f58206f606f42e9ff33bb2f56772d274ed7f154398f282234f27fd66407be77b10f6c666c6564676572822f58208a857bdd56af2bcd917842a55c135b212b3ca54490c09291e6b393aa0efac3fd6a61637469766174696f6ea266736368656d61822f58207057a7757d5c94ff3efca643736d2dc6e616c19ccc04710ec9538444b8a2d35c6870726f746f636f6c8201006b7265636f726465645f61741b000001a14205f8906c617574685f636f6e74657874a363726566822f5820ad641bbab00aae348b2b35a25ca94b4594f1d1d365824d78f3ec86462062018c67737465705f7570f5696173737572616e63656461616c33"
+      ],
+      "expect": {
+        "outcome": "reject",
+        "reason": "envelope_mismatch:activation"
+      }
+    },
+    {
+      "id": "sequence-reject/older-version",
+      "rules": [
+        "P-110",
+        "OP-28"
+      ],
+      "purpose": "Activating an older version; going back needs a new version value.",
+      "entries": [
+        "a463706f7300656e6f6e636558202025e173fb03d476f4de998999fec78a671204faf5875e5e8ef5f3cd02b236e46876657273696f6e73a266736368656d61822f58207057a7757d5c94ff3efca643736d2dc6e616c19ccc04710ec9538444b8a2d35c6870726f746f636f6c8201006b7265636f726465645f61741b000001a142053540",
+        "a663706f73016470726576822f58206f606f42e9ff33bb2f56772d274ed7f154398f282234f27fd66407be77b10f6c666c6564676572822f58208a857bdd56af2bcd917842a55c135b212b3ca54490c09291e6b393aa0efac3fd6a61637469766174696f6ea266736368656d61822f5820ab80735b7f26b471644748739f2d646de915e340f364881125ec5237f8bac77c6870726f746f636f6c8200096b7265636f726465645f61741b000001a14205f8906c617574685f636f6e74657874a363726566822f5820ad641bbab00aae348b2b35a25ca94b4594f1d1d365824d78f3ec86462062018c67737465705f7570f5696173737572616e63656461616c33"
+      ],
+      "expect": {
+        "outcome": "reject",
+        "reason": "envelope_mismatch:activation"
+      }
+    },
+    {
+      "id": "sequence-reject/genesis-schema",
+      "rules": [
+        "P-110",
+        "P-100"
+      ],
+      "purpose": "A genesis of protocol 1.0 whose schema is not the protocol 1.0 CDDL digest.",
+      "entries": [
+        "a463706f7300656e6f6e636558202025e173fb03d476f4de998999fec78a671204faf5875e5e8ef5f3cd02b236e46876657273696f6e73a266736368656d61822f582031d32264b9f3c0cc245a0fde246709374c985e4cb87ee787f1934217438ba0a36870726f746f636f6c8201006b7265636f726465645f61741b000001a142053540"
+      ],
+      "expect": {
+        "outcome": "reject",
+        "reason": "envelope_mismatch:activation"
+      }
+    },
+    {
+      "id": "sequence-reject/position-not-rising",
+      "rules": [
+        "P-110"
+      ],
+      "purpose": "A later activation at the position of the one before it.",
+      "entries": [
+        "a463706f7300656e6f6e636558202025e173fb03d476f4de998999fec78a671204faf5875e5e8ef5f3cd02b236e46876657273696f6e73a266736368656d61822f58207057a7757d5c94ff3efca643736d2dc6e616c19ccc04710ec9538444b8a2d35c6870726f746f636f6c8201006b7265636f726465645f61741b000001a142053540",
+        "a663706f73016470726576822f58206f606f42e9ff33bb2f56772d274ed7f154398f282234f27fd66407be77b10f6c666c6564676572822f58208a857bdd56af2bcd917842a55c135b212b3ca54490c09291e6b393aa0efac3fd6a61637469766174696f6ea266736368656d61822f5820d1bcb1396977f09d79d2a62c9febfbf33c694875ce692f3c8a71dbf2608ed50e6870726f746f636f6c8201016b7265636f726465645f61741b000001a14205f8906c617574685f636f6e74657874a363726566822f5820ad641bbab00aae348b2b35a25ca94b4594f1d1d365824d78f3ec86462062018c67737465705f7570f5696173737572616e63656461616c33",
+        "a663706f73016470726576822f582057aa626a3ff09eb39c25c0e36d71b08f1c3c893519e4469c4f46b28f5fb76c0d666c6564676572822f58208a857bdd56af2bcd917842a55c135b212b3ca54490c09291e6b393aa0efac3fd6a61637469766174696f6ea266736368656d61822f5820272a7056c8e50e95afdb5313d0641cdf10d36d173e61a12e66c31d960a7b1d9d6870726f746f636f6c8201026b7265636f726465645f61741b000001a14205f8906c617574685f636f6e74657874a363726566822f5820ad641bbab00aae348b2b35a25ca94b4594f1d1d365824d78f3ec86462062018c67737465705f7570f5696173737572616e63656461616c33"
+      ],
+      "expect": {
+        "outcome": "reject",
+        "reason": "envelope_mismatch:activation"
+      }
+    },
+    {
+      "id": "sequence-reject/no-genesis",
+      "rules": [
+        "P-110",
+        "P-100"
+      ],
+      "purpose": "A sequence whose first entry is not a genesis.",
+      "entries": [
+        "a663706f73016470726576822f58206f606f42e9ff33bb2f56772d274ed7f154398f282234f27fd66407be77b10f6c666c6564676572822f58208a857bdd56af2bcd917842a55c135b212b3ca54490c09291e6b393aa0efac3fd6a61637469766174696f6ea266736368656d61822f5820d1bcb1396977f09d79d2a62c9febfbf33c694875ce692f3c8a71dbf2608ed50e6870726f746f636f6c8201016b7265636f726465645f61741b000001a14205f8906c617574685f636f6e74657874a363726566822f5820ad641bbab00aae348b2b35a25ca94b4594f1d1d365824d78f3ec86462062018c67737465705f7570f5696173737572616e63656461616c33"
+      ],
+      "expect": {
+        "outcome": "reject",
+        "reason": "envelope_mismatch:activation"
+      }
+    }
+  ],
+  "verify": [
+    {
+      "id": "verify/activation",
+      "rules": [
+        "P-110",
+        "P-108",
+        "T-95"
+      ],
+      "purpose": "The activation verified after the genesis: it names the ledger and the genesis leaf, its record bytes are its envelope bytes, and the next entry continues from its leaf.",
+      "at": {
+        "ledger": [
+          -16,
+          "8a857bdd56af2bcd917842a55c135b212b3ca54490c09291e6b393aa0efac3fd"
+        ],
+        "prev": [
+          -16,
+          "6f606f42e9ff33bb2f56772d274ed7f154398f282234f27fd66407be77b10f6c"
+        ]
+      },
+      "envelope": "a663706f73016470726576822f58206f606f42e9ff33bb2f56772d274ed7f154398f282234f27fd66407be77b10f6c666c6564676572822f58208a857bdd56af2bcd917842a55c135b212b3ca54490c09291e6b393aa0efac3fd6a61637469766174696f6ea266736368656d61822f5820d1bcb1396977f09d79d2a62c9febfbf33c694875ce692f3c8a71dbf2608ed50e6870726f746f636f6c8201016b7265636f726465645f61741b000001a14205f8906c617574685f636f6e74657874a363726566822f5820ad641bbab00aae348b2b35a25ca94b4594f1d1d365824d78f3ec86462062018c67737465705f7570f5696173737572616e63656461616c33",
+      "record": "a663706f73016470726576822f58206f606f42e9ff33bb2f56772d274ed7f154398f282234f27fd66407be77b10f6c666c6564676572822f58208a857bdd56af2bcd917842a55c135b212b3ca54490c09291e6b393aa0efac3fd6a61637469766174696f6ea266736368656d61822f5820d1bcb1396977f09d79d2a62c9febfbf33c694875ce692f3c8a71dbf2608ed50e6870726f746f636f6c8201016b7265636f726465645f61741b000001a14205f8906c617574685f636f6e74657874a363726566822f5820ad641bbab00aae348b2b35a25ca94b4594f1d1d365824d78f3ec86462062018c67737465705f7570f5696173737572616e63656461616c33",
+      "expect": {
+        "outcome": "accept",
+        "record": [
+          -16,
+          "e1b38f0e2a384f9fd1e260c7629cf080bfabe123b1599bfcef0d0eef6e85dff2"
+        ],
+        "binding": "auth_context",
+        "ledger": [
+          -16,
+          "8a857bdd56af2bcd917842a55c135b212b3ca54490c09291e6b393aa0efac3fd"
+        ],
+        "position": 1,
+        "recorded_at": 1792109050000,
+        "activation": {
+          "protocol": [
+            1,
+            1
+          ],
+          "schema": [
+            -16,
+            "d1bcb1396977f09d79d2a62c9febfbf33c694875ce692f3c8a71dbf2608ed50e"
+          ]
+        },
+        "leaf": [
+          -16,
+          "57aa626a3ff09eb39c25c0e36d71b08f1c3c893519e4469c4f46b28f5fb76c0d"
+        ],
+        "next": {
+          "ledger": [
+            -16,
+            "8a857bdd56af2bcd917842a55c135b212b3ca54490c09291e6b393aa0efac3fd"
+          ],
+          "prev": [
+            -16,
+            "57aa626a3ff09eb39c25c0e36d71b08f1c3c893519e4469c4f46b28f5fb76c0d"
+          ]
+        }
+      }
+    },
+    {
+      "id": "verify-reject/prev",
+      "rules": [
+        "P-110",
+        "P-108"
+      ],
+      "purpose": "The activation after a chain point whose leaf is not its prev.",
+      "at": {
+        "ledger": [
+          -16,
+          "8a857bdd56af2bcd917842a55c135b212b3ca54490c09291e6b393aa0efac3fd"
+        ],
+        "prev": [
+          -16,
+          "57aa626a3ff09eb39c25c0e36d71b08f1c3c893519e4469c4f46b28f5fb76c0d"
+        ]
+      },
+      "envelope": "a663706f73016470726576822f58206f606f42e9ff33bb2f56772d274ed7f154398f282234f27fd66407be77b10f6c666c6564676572822f58208a857bdd56af2bcd917842a55c135b212b3ca54490c09291e6b393aa0efac3fd6a61637469766174696f6ea266736368656d61822f5820d1bcb1396977f09d79d2a62c9febfbf33c694875ce692f3c8a71dbf2608ed50e6870726f746f636f6c8201016b7265636f726465645f61741b000001a14205f8906c617574685f636f6e74657874a363726566822f5820ad641bbab00aae348b2b35a25ca94b4594f1d1d365824d78f3ec86462062018c67737465705f7570f5696173737572616e63656461616c33",
+      "record": "a663706f73016470726576822f58206f606f42e9ff33bb2f56772d274ed7f154398f282234f27fd66407be77b10f6c666c6564676572822f58208a857bdd56af2bcd917842a55c135b212b3ca54490c09291e6b393aa0efac3fd6a61637469766174696f6ea266736368656d61822f5820d1bcb1396977f09d79d2a62c9febfbf33c694875ce692f3c8a71dbf2608ed50e6870726f746f636f6c8201016b7265636f726465645f61741b000001a14205f8906c617574685f636f6e74657874a363726566822f5820ad641bbab00aae348b2b35a25ca94b4594f1d1d365824d78f3ec86462062018c67737465705f7570f5696173737572616e63656461616c33",
+      "expect": {
+        "outcome": "reject",
+        "reason": "envelope_mismatch:prev"
+      }
+    },
+    {
+      "id": "verify-reject/ledger",
+      "rules": [
+        "P-110",
+        "P-108"
+      ],
+      "purpose": "The activation after the chain point of another ledger.",
+      "at": {
+        "ledger": [
+          -16,
+          "47ec174adb84f1ec348cf53d5ef1b9f63109e08c062e08f1956ee0b0239fc5e3"
+        ],
+        "prev": [
+          -16,
+          "6f606f42e9ff33bb2f56772d274ed7f154398f282234f27fd66407be77b10f6c"
+        ]
+      },
+      "envelope": "a663706f73016470726576822f58206f606f42e9ff33bb2f56772d274ed7f154398f282234f27fd66407be77b10f6c666c6564676572822f58208a857bdd56af2bcd917842a55c135b212b3ca54490c09291e6b393aa0efac3fd6a61637469766174696f6ea266736368656d61822f5820d1bcb1396977f09d79d2a62c9febfbf33c694875ce692f3c8a71dbf2608ed50e6870726f746f636f6c8201016b7265636f726465645f61741b000001a14205f8906c617574685f636f6e74657874a363726566822f5820ad641bbab00aae348b2b35a25ca94b4594f1d1d365824d78f3ec86462062018c67737465705f7570f5696173737572616e63656461616c33",
+      "record": "a663706f73016470726576822f58206f606f42e9ff33bb2f56772d274ed7f154398f282234f27fd66407be77b10f6c666c6564676572822f58208a857bdd56af2bcd917842a55c135b212b3ca54490c09291e6b393aa0efac3fd6a61637469766174696f6ea266736368656d61822f5820d1bcb1396977f09d79d2a62c9febfbf33c694875ce692f3c8a71dbf2608ed50e6870726f746f636f6c8201016b7265636f726465645f61741b000001a14205f8906c617574685f636f6e74657874a363726566822f5820ad641bbab00aae348b2b35a25ca94b4594f1d1d365824d78f3ec86462062018c67737465705f7570f5696173737572616e63656461616c33",
+      "expect": {
+        "outcome": "reject",
+        "reason": "envelope_mismatch:ledger"
+      }
+    },
+    {
+      "id": "verify-reject/record",
+      "rules": [
+        "P-110",
+        "P-108"
+      ],
+      "purpose": "The activation stored with record bytes other than its envelope bytes.",
+      "at": {
+        "ledger": [
+          -16,
+          "8a857bdd56af2bcd917842a55c135b212b3ca54490c09291e6b393aa0efac3fd"
+        ],
+        "prev": [
+          -16,
+          "6f606f42e9ff33bb2f56772d274ed7f154398f282234f27fd66407be77b10f6c"
+        ]
+      },
+      "envelope": "a663706f73016470726576822f58206f606f42e9ff33bb2f56772d274ed7f154398f282234f27fd66407be77b10f6c666c6564676572822f58208a857bdd56af2bcd917842a55c135b212b3ca54490c09291e6b393aa0efac3fd6a61637469766174696f6ea266736368656d61822f5820d1bcb1396977f09d79d2a62c9febfbf33c694875ce692f3c8a71dbf2608ed50e6870726f746f636f6c8201016b7265636f726465645f61741b000001a14205f8906c617574685f636f6e74657874a363726566822f5820ad641bbab00aae348b2b35a25ca94b4594f1d1d365824d78f3ec86462062018c67737465705f7570f5696173737572616e63656461616c33",
+      "record": "a463706f7300656e6f6e636558202025e173fb03d476f4de998999fec78a671204faf5875e5e8ef5f3cd02b236e46876657273696f6e73a266736368656d61822f58207057a7757d5c94ff3efca643736d2dc6e616c19ccc04710ec9538444b8a2d35c6870726f746f636f6c8201006b7265636f726465645f61741b000001a142053540",
+      "expect": {
+        "outcome": "reject",
+        "reason": "envelope_mismatch:record"
+      }
+    }
+  ]
+}

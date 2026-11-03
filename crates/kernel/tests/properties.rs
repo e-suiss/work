@@ -126,7 +126,7 @@ fn entries<'a>(records: &'a [(RecordId, Record)], steps: &[Step], start: u64) ->
 
 fn inputs() -> DerivationInputs<'static> {
     DerivationInputs {
-        protocol: ProtocolVersion { major: 1, minor: 0 },
+        activations: &[(0, ProtocolVersion { major: 1, minor: 0 })],
         profile: ProfileVersion(1),
         practices: &[],
         trust: TrustInputs {

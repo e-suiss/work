@@ -21,7 +21,8 @@ use work_kernel::proof::{
 };
 use work_kernel::reason::Reason;
 use work_kernel::verify::{
-    AuthorBinding, ChainPoint, SignatureCheck, SignatureVerifier, StoredEntry, verify_entry,
+    AuthorBinding, ChainPoint, SignatureCheck, SignatureVerifier, StoredEntry, Verified,
+    verify_entry,
 };
 
 const COSE: &str = include_str!("../../../conformance/vectors/records/cose-sign1.json");
@@ -164,7 +165,8 @@ fn t_10_the_verifier_recomputes_every_record_id_from_the_stored_bytes() {
             cose_sign1: cose.as_deref(),
         };
         match verify_entry(&directory, &at, &entry) {
-            Ok(v) => {
+            Ok(Verified::Activation(_)) => panic!("activation"),
+            Ok(Verified::Record(v)) => {
                 assert_eq!(v.verification().record, record_id(&record));
                 assert_eq!(v.leaf(), leaf_hash(&envelope));
                 let binding = if cose.is_some() {
@@ -183,18 +185,18 @@ fn t_10_the_verifier_recomputes_every_record_id_from_the_stored_bytes() {
             }
         }
     }
-    assert_eq!(verified.len(), 14);
+    assert_eq!(verified.len(), 18);
     let positions: Vec<u64> = verified
         .iter()
         .filter_map(|v| v.verification().inclusion.map(|i| i.position))
         .collect();
     assert_eq!(positions.first(), Some(&1));
-    assert_eq!(positions.last(), Some(&14));
+    assert_eq!(positions.last(), Some(&18));
     let entries: Vec<Entry<'_>> = verified
         .iter()
         .filter_map(|v| Entry::verified(v, Restriction::NoObjection, AuthorityIssuer::Local))
         .collect();
-    assert_eq!(entries.len(), 13);
+    assert_eq!(entries.len(), 17);
     for (entry, v) in entries.iter().zip(&verified) {
         assert_eq!(entry.id(), v.verification().record);
         assert!(matches!(v.record(), Decoded::Record(r) if **r == *entry.record()));
@@ -336,7 +338,7 @@ fn ev_35_a_stored_presenter_annotation_must_match_the_record_evidence() {
 fn p_109_no_record_of_the_golden_ledger_repeats_another() {
     let entries = stored();
     let records: BTreeSet<&[u8]> = entries.iter().map(|(r, _, _)| r.as_slice()).collect();
-    assert_eq!(entries.len(), 16);
+    assert_eq!(entries.len(), 20);
     assert_eq!(records.len(), entries.len());
 }
 
@@ -522,7 +524,7 @@ fn t_4_every_entry_is_included_in_the_cosigned_checkpoint() {
         );
         included += 1;
     }
-    assert_eq!(included, 17);
+    assert_eq!(included, 21);
     let older = verify_checkpoint(
         note["note"].as_str().unwrap(),
         note["origin"].as_str().unwrap(),

@@ -3,12 +3,15 @@
 use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
 
+use crate::activation::active_version;
 use crate::catalog::DeclarationSubtype;
 use crate::codec::Decoded;
 use crate::envelope::EnvelopeIngest;
 use crate::id::{PartyRef, RecordId, Time};
 use crate::reason::{QuarantineReason, Reason};
-use crate::record::{Kind, PracticePin, ProtocolVersion, Record};
+use crate::record::{
+    Kind, ParamScalar, ParamValue, PartName, PracticePin, ProtocolVersion, Record,
+};
 use crate::rules::RuleSet;
 use crate::verify::VerifiedEntry;
 
@@ -167,8 +170,8 @@ pub struct TrustInputs<'a> {
 /// Every input besides the records that the normative result depends on (P-31, T-6).
 #[derive(Clone, Copy, Debug)]
 pub struct DerivationInputs<'a> {
-    /// The active protocol version of the evaluation, set by an activation record (OP-28 rule 3, P-87).
-    pub protocol: ProtocolVersion,
+    /// The ledger's activations as `(position, version)`, the genesis first: the active protocol version of a record is the one the last activation before its position turned on (OP-28 rule 3, P-87, P-110 item 8).
+    pub activations: &'a [(u64, ProtocolVersion)],
     /// The profile version.
     pub profile: ProfileVersion,
     /// Adopted Practice versions.
@@ -199,7 +202,7 @@ pub enum NoEffect {
     NotADeclaration,
     /// The record was not admitted.
     NotAdmitted,
-    /// The record's protocol version is newer than the active protocol version of the evaluation (OP-28 rule 3, P-87).
+    /// The record's protocol version is newer than the active protocol version at its position, or no activation precedes it (OP-28 rule 3, P-87, P-110 item 8).
     ProtocolVersion,
     /// The restriction result is `DENY`.
     Denied,
@@ -209,7 +212,7 @@ pub enum NoEffect {
     UntrustedAuthority,
     /// The effective time is after the evaluation's ledger time.
     NotYetEffective,
-    /// The first superseded record is not in any supersede chain: it is absent from this ledger, was not admitted, is not a Declaration, or never took effect (P-86 item 2).
+    /// The first superseded record is not in any supersede chain: it is absent from this ledger, was not admitted, is not a Declaration, or never took effect (P-86 item 2); or a `redact` names a record that is not at a lower position of this ledger or a part that record's body does not commit (P-111 item 4).
     UnknownTarget,
     /// The chain reached a terminal outcome, which never changes (P-24 item 3, CM-34).
     TerminalOutcome,
@@ -320,6 +323,8 @@ struct Member {
     author: PartyRef,
     admitted: bool,
     version: Option<(usize, u32)>,
+    position: u64,
+    parts: Vec<PartName>,
 }
 
 enum Place {
@@ -357,7 +362,7 @@ pub fn derive(
     let mut previous: Option<&Entry<'_>> = None;
     for entry in entries {
         if let Some(p) = previous {
-            let expected = p.position.checked_add(1).ok_or(DeriveError::Overflow)?;
+            let expected = next_record_position(inputs.activations, p.position)?;
             let position = entry.position;
             if position != expected {
                 return Err(DeriveError::PositionGap { position });
@@ -378,6 +383,63 @@ pub fn derive(
     })
 }
 
+/// The position after `after` that holds a record: an activation entry holds none, so the fold steps over it (P-110 item 1).
+fn next_record_position(
+    activations: &[(u64, ProtocolVersion)],
+    after: u64,
+) -> Result<u64, DeriveError> {
+    let mut next = after.checked_add(1).ok_or(DeriveError::Overflow)?;
+    while activations.iter().any(|(at, _)| *at == next) {
+        next = next.checked_add(1).ok_or(DeriveError::Overflow)?;
+    }
+    Ok(next)
+}
+
+/// What a `redact` Declaration asks for: the record it names by its identifier and the parts of that record's body to make unreadable (P-111 items 2, 4).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Redaction {
+    /// The record whose parts are redacted (P-79).
+    pub target: RecordId,
+    /// The part names, sorted and duplicate-free on the wire.
+    pub parts: Vec<PartName>,
+}
+
+impl Redaction {
+    /// The redaction a record asks for; `None` for a record that is not a `redact` Declaration or whose `params` do not carry a target and part names.
+    #[must_use]
+    pub fn of(record: &Record) -> Option<Self> {
+        let Record::Declaration(d) = record else {
+            return None;
+        };
+        if DeclarationSubtype::from_uri(d.subtype.as_str()) != Some(DeclarationSubtype::Redact) {
+            return None;
+        }
+        let Some(ParamValue::Scalar(ParamScalar::Digest(target))) = record.param("target") else {
+            return None;
+        };
+        let Some(ParamValue::List(parts)) = record.param("parts") else {
+            return None;
+        };
+        let parts = parts
+            .iter()
+            .map(|p| match p {
+                ParamScalar::Text(t) => PartName::parse(t),
+                _ => None,
+            })
+            .collect::<Option<Vec<_>>>()?;
+        Some(Self {
+            target: RecordId(*target),
+            parts,
+        })
+    }
+
+    /// Whether the redaction at `position` takes effect on a target stored at `target_position` whose body commits `target_parts`: the target is earlier in the same ledger and commits every named part (P-111 item 4, FD-27).
+    #[must_use]
+    pub fn applies(&self, position: u64, target_position: u64, target_parts: &[PartName]) -> bool {
+        target_position < position && self.parts.iter().all(|p| target_parts.contains(p))
+    }
+}
+
 fn saw(record: &Record, head: &RecordId) -> bool {
     record.basis().contains(head) || record.supersedes().any(|t| t == head)
 }
@@ -391,6 +453,8 @@ impl Fold<'_> {
         let admission = match RuleSet::of(entry.record) {
             None => Admission::Quarantined(QuarantineReason::ProtocolVersionUnknown),
             Some(RuleSet::V1_0) => self.admission_v1_0(entry, &place),
+            #[cfg(test)]
+            Some(RuleSet::TestV1_1) => self.admission_v1_0(entry, &place),
         };
         let slot = self.records.len();
         let admitted = admission == Admission::Admitted;
@@ -404,11 +468,14 @@ impl Fold<'_> {
             self.versions.entry(key).or_default().push(slot);
         }
         self.index.insert(entry.id, slot);
+        let parts = entry.record.core().body.iter().flatten();
         self.members.push(Member {
             kind: entry.record.kind(),
             author: entry.record.core().author.clone(),
             admitted,
             version,
+            position: entry.position,
+            parts: parts.map(|b| b.part.clone()).collect(),
         });
         self.records.push(DerivedRecord {
             id: entry.id,
@@ -493,9 +560,19 @@ impl Fold<'_> {
         self.member(id).map(|m| &m.author)
     }
 
-    // T-23 P-87 P-27
+    // P-111 P-79 FD-27
+    fn redact_target_known(&self, entry: &Entry<'_>) -> bool {
+        Redaction::of(entry.record).is_some_and(|r| {
+            self.member(&r.target)
+                .is_some_and(|m| r.applies(entry.position, m.position, &m.parts))
+        })
+    }
+
+    // T-23 P-87 P-27 P-110
     fn blocked(&self, entry: &Entry<'_>) -> Option<NoEffect> {
-        if entry.record.core().versions.protocol > self.inputs.protocol {
+        let version = entry.record.core().versions.protocol;
+        let active = active_version(self.inputs.activations, entry.position);
+        if active.is_none_or(|a| version > a) {
             Some(NoEffect::ProtocolVersion)
         } else if entry.restriction == Restriction::Deny {
             Some(NoEffect::Denied)
@@ -524,7 +601,11 @@ impl Fold<'_> {
             return (Effect::None(reason), None);
         }
         let subtype = DeclarationSubtype::from_uri(declaration.subtype.as_str());
-        let next_status = if subtype.is_some_and(DeclarationSubtype::is_terminal) {
+        let redact = subtype == Some(DeclarationSubtype::Redact);
+        if redact && !self.redact_target_known(entry) {
+            return (Effect::None(NoEffect::UnknownTarget), None);
+        }
+        let next_status = if redact || subtype.is_some_and(DeclarationSubtype::is_terminal) {
             ChainStatus::Terminal
         } else {
             ChainStatus::Open
@@ -625,5 +706,93 @@ pub fn compare(a: &Derivation, b: &Derivation) -> Agreement {
         Agreement::Same
     } else {
         Agreement::Diverged(differing)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use alloc::vec;
+
+    use super::*;
+    use crate::id::{Digest, LedgerId};
+    use crate::record::{Audience, Capacity, Declaration, RecordCore, VersionVector, Visibility};
+    use crate::uri::TypeUri;
+
+    fn promise(protocol: ProtocolVersion) -> Option<Record> {
+        let visibility = Visibility {
+            see: Audience::Author,
+            search_excluded: false,
+            agent_context_excluded: false,
+        };
+        let versions = VersionVector {
+            protocol,
+            schema: Digest::sha256([2; 32]),
+            practices: None,
+        };
+        Some(Record::Declaration(Declaration {
+            subtype: TypeUri::parse("https://suiss.app/ns/work/declaration/promise")?,
+            occurred_at: None,
+            core: RecordCore {
+                author: PartyRef::new("party:acme:alice")?,
+                on_behalf_of: None,
+                capacity: Some(Capacity::Own),
+                basis: Some(vec![]),
+                visibility,
+                ledger: LedgerId(Digest::sha256([1; 32])),
+                concerns: vec![],
+                relations: None,
+                authority: None,
+                producer: None,
+                correlation: None,
+                evidence: None,
+                body: None,
+                params: None,
+                versions,
+                ext: None,
+                critical: None,
+            },
+        }))
+    }
+
+    fn at(record: &Record, id: u8, position: u64) -> Entry<'_> {
+        Entry::unverified(
+            RecordId(Digest::sha256([id; 32])),
+            record,
+            position,
+            Time(position),
+            Ingest::Admitted,
+            Restriction::NoObjection,
+            AuthorityIssuer::Local,
+        )
+    }
+
+    // P-110 P-87 OP-28
+    #[test]
+    fn p_110_a_declaration_of_a_newer_version_takes_effect_only_after_its_activation() {
+        let v1_0 = RuleSet::V1_0.protocol();
+        let v1_1 = RuleSet::TestV1_1.protocol();
+        let Some(record) = promise(v1_1) else {
+            panic!("record");
+        };
+        let inputs = DerivationInputs {
+            activations: &[(0, v1_0), (2, v1_1)],
+            profile: ProfileVersion(1),
+            practices: &[],
+            trust: TrustInputs {
+                trusted_publishers: &[],
+            },
+            ledger_time: Time(10),
+            calendar: BusinessCalendar::Continuous,
+        };
+        let entries = [at(&record, 3, 1), at(&record, 4, 3)];
+        let effects = derive(&entries, &inputs).map(|d| {
+            d.records
+                .iter()
+                .map(|r| (r.admission, r.effect))
+                .collect::<Vec<_>>()
+        });
+        let unblocked = (Admission::Admitted, Effect::Normative);
+        let blocked = (Admission::Admitted, Effect::None(NoEffect::ProtocolVersion));
+        assert_eq!(effects, Ok(vec![blocked, unblocked]));
     }
 }
