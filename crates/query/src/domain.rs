@@ -1,7 +1,7 @@
 //! Component-specific pure logic; normative rules live in `work-kernel` (T-32).
 
+use core::time::Duration;
 use std::collections::BTreeMap;
-use std::time::Duration;
 
 use serde::Deserialize;
 use work_kernel::id::LedgerId;
