@@ -487,6 +487,37 @@ async fn write_items(
     Ok(versions)
 }
 
+/// Takes the sequencer lease of the transaction's ledger for `seat` under `epoch`, unless
+/// another holder's lease is live; whether it was taken (§17.12).
+async fn take_lease(
+    tx: &mut LedgerTx<'_>,
+    seat: &Seat,
+    epoch: i64,
+    lease_ms: i64,
+) -> Result<bool, StoreError> {
+    let id = *tx.ledger().as_bytes();
+    let leased = sqlx::query_scalar!(
+        r#"INSERT INTO ledger.sequencer_lease AS l
+               (ledger_id, holder, epoch, acquired_at, expires_at)
+               VALUES ($1, $2, $3, pg_catalog.now(),
+                       pg_catalog.now() + interval '1 millisecond' * $4::bigint::double precision)
+               ON CONFLICT ON CONSTRAINT sequencer_lease_pk DO UPDATE
+               SET holder = EXCLUDED.holder, epoch = EXCLUDED.epoch,
+                   acquired_at = EXCLUDED.acquired_at, expires_at = EXCLUDED.expires_at,
+                   released_at = NULL
+               WHERE l.expires_at < pg_catalog.now() OR l.released_at IS NOT NULL
+                  OR l.holder = EXCLUDED.holder
+               RETURNING epoch AS "epoch!""#,
+        id.as_slice(),
+        seat.holder.as_slice(),
+        epoch,
+        lease_ms
+    )
+    .fetch_optional(tx.conn())
+    .await?;
+    Ok(leased.is_some())
+}
+
 async fn insert_outbox(
     tx: &mut LedgerTx<'_>,
     outbox: &[OutboxRow],
@@ -686,26 +717,8 @@ impl SequencerPool {
             return Err(StoreError::Unsupported);
         }
         let epoch = stored_epoch.checked_add(1).ok_or(StoreError::Corrupt)?;
-        let leased = sqlx::query_scalar!(
-            r#"INSERT INTO ledger.sequencer_lease AS l
-               (ledger_id, holder, epoch, acquired_at, expires_at)
-               VALUES ($1, $2, $3, pg_catalog.now(),
-                       pg_catalog.now() + interval '1 millisecond' * $4::bigint::double precision)
-               ON CONFLICT ON CONSTRAINT sequencer_lease_pk DO UPDATE
-               SET holder = EXCLUDED.holder, epoch = EXCLUDED.epoch,
-                   acquired_at = EXCLUDED.acquired_at, expires_at = EXCLUDED.expires_at,
-                   released_at = NULL
-               WHERE l.expires_at < pg_catalog.now() OR l.released_at IS NOT NULL
-                  OR l.holder = EXCLUDED.holder
-               RETURNING epoch AS "epoch!""#,
-            id,
-            seat.holder.as_slice(),
-            epoch,
-            lease_ms
-        )
-        .fetch_optional(tx.conn())
-        .await?;
-        if leased.is_none() {
+        let leased = take_lease(&mut tx, seat, epoch, lease_ms).await?;
+        if !leased {
             tx.rollback().await?;
             return Err(StoreError::LeaseHeld);
         }
