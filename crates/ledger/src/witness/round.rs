@@ -414,7 +414,7 @@ mod tests {
 
     use super::*;
 
-    // OP-33 T-32
+    // OP-33 T-32 OP-48
     #[test]
     fn op_33_a_witness_that_fails_waits_one_second_doubling_up_to_a_minute() {
         let pauses: Vec<u64> = (1..=9).map(|f| pause(f).as_secs()).collect();
@@ -423,7 +423,7 @@ mod tests {
         assert_eq!(pause(u32::MAX), MAX_WITNESS_PAUSE);
     }
 
-    // OP-33 SEC-32
+    // OP-33 SEC-32 OP-48
     #[test]
     fn sec_32_a_witness_holding_a_larger_tree_than_the_latest_checkpoint_is_a_split_view() {
         assert_eq!(after_conflict(0, 5), AfterConflict::Resend(0));
@@ -432,7 +432,7 @@ mod tests {
         assert_eq!(after_conflict(6, 5), AfterConflict::SplitView);
     }
 
-    // OP-32 OP-33
+    // OP-32 OP-33 OP-48
     #[test]
     fn op_32_a_pass_that_asked_a_counted_witness_gives_a_witness_round() {
         let at = 1_793_505_043;

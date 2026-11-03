@@ -6051,3 +6051,50 @@ tests = [
   "bins/work-cli/src/main.rs::op_47_the_rebuild_diff_counter_exports_only_where_configured",
   "crates/telemetry/tests/otel_signals.rs::op_47_a_sev_1_rebuild_diff_is_counted_without_labels",
 ]
+
+[[rule]]
+id = "OP-48"
+family = "OP"
+status = "frozen-technical"
+stage = 2
+acceptance = "to-fill"
+pd = "set"
+title = ""
+tests = [
+  "bins/work-server/src/config.rs::op_33_witnesses_need_a_unique_id_a_cosigner_key_and_an_http_url",
+  "bins/work-server/src/config.rs::op_46_independent_k_needs_k_counted_witnesses_configured",
+  "crates/ledger/src/time/domain.rs::op_32_ledger_time_ahead_of_the_witnesses_stops_commits_until_a_round_agrees",
+  "crates/ledger/src/time/domain.rs::op_32_the_witness_round_holds_ledger_time_against_the_cosignature_times",
+  "crates/ledger/src/witness.rs::op_33_only_a_configured_witness_cosigning_the_stored_tree_is_taken",
+  "crates/ledger/src/witness.rs::op_4_a_checkpoint_the_replica_does_not_hold_is_not_sent_to_witnesses",
+  "crates/ledger/src/witness/client.rs::op_33_a_witness_is_named_by_an_http_url_and_https_needs_tls",
+  "crates/ledger/src/witness/client.rs::op_33_the_add_checkpoint_body_is_old_size_proof_lines_and_the_note",
+  "crates/ledger/src/witness/client.rs::op_46_witness_answers_are_typed_by_their_status",
+  "crates/ledger/src/witness/gossip.rs::sec_32_an_observed_root_is_consistent_only_with_the_ledgers_root_at_its_size",
+  "crates/ledger/src/witness/proof.rs::op_33_every_consistency_proof_verifies_under_the_shared_verifier",
+  "crates/ledger/src/witness/proof.rs::op_33_the_proof_from_3_to_4_is_c_d_ab_and_no_proof_starts_above_the_tree",
+  "crates/ledger/src/witness/round.rs::op_32_a_pass_that_asked_a_counted_witness_gives_a_witness_round",
+  "crates/ledger/src/witness/round.rs::op_33_a_witness_that_fails_waits_one_second_doubling_up_to_a_minute",
+  "crates/ledger/src/witness/round.rs::sec_32_a_witness_holding_a_larger_tree_than_the_latest_checkpoint_is_a_split_view",
+  "crates/testkit/src/witness.rs::t_41_the_test_witness_is_the_image_the_local_environment_builds",
+]
+
+[[rule]]
+id = "OP-49"
+family = "OP"
+status = "frozen-technical"
+stage = 2
+acceptance = "to-fill"
+pd = "set"
+title = ""
+tests = [
+  "bins/work-server/src/config.rs::op_33_the_replica_is_a_directory_or_an_object_locked_s3_bucket",
+  "crates/ledger/src/archive.rs::op_35_the_manifest_is_the_drop_functions_digest_over_ledger_ordered_lines",
+  "crates/ledger/src/replica.rs::op_2_a_cosignature_is_archived_once_beside_its_checkpoint",
+  "crates/ledger/src/replica.rs::op_4_a_mirrored_entry_and_its_received_bytes_are_written_once",
+  "crates/ledger/src/s3.rs::t_20_request_time_is_the_utc_date_of_the_clock",
+  "crates/ledger/src/s3.rs::t_20_requests_are_signed_with_signature_version_4",
+  "crates/ledger/src/s3.rs::t_20_the_object_store_endpoint_and_names_are_checked",
+  "crates/ledger/src/worm.rs::op_33_objects_are_locked_in_compliance_mode_for_the_configured_days",
+  "crates/store/src/archive.rs::op_35_only_monthly_partitions_of_the_two_tables_are_archived",
+]

@@ -554,7 +554,7 @@ async fn pending_observations(derived: &Pool, ledger: &LedgerId) -> Vec<WitnessO
     rows
 }
 
-// OP-46 OP-33 OP-4 OP-32 SEC-32 T-41
+// OP-46 OP-33 OP-4 OP-32 SEC-32 T-41 OP-48
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "needs Docker, SoftHSM and sudo"]
 async fn op_46_a_real_witness_cosigns_each_mirrored_checkpoint_from_the_size_it_holds() {

@@ -192,7 +192,7 @@ impl WormStore {
 mod tests {
     use super::*;
 
-    // OP-33 OP-35
+    // OP-33 OP-35 OP-49
     #[test]
     fn op_33_objects_are_locked_in_compliance_mode_for_the_configured_days() {
         assert_eq!(RETENTION_MODE, "COMPLIANCE");

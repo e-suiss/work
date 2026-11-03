@@ -15,7 +15,7 @@ use crate::{Env, statement};
 
 const SEED: &str = include_str!("../../../store/fixtures/archive-seed.sql");
 
-// OP-35 OP-34 OP-12 OP-37 OP-38
+// OP-35 OP-34 OP-12 OP-37 OP-38 OP-49
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "needs Docker"]
 async fn op_35_a_cold_partition_is_dropped_only_after_its_worm_copy_verifies() {

@@ -111,7 +111,7 @@ pub async fn archive_cold(
 mod tests {
     use super::*;
 
-    // OP-35 OP-12
+    // OP-35 OP-12 OP-49
     #[test]
     fn op_35_the_manifest_is_the_drop_functions_digest_over_ledger_ordered_lines() {
         let a = LedgerId::from_bytes([0xa1; 32]);

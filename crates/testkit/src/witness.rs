@@ -111,7 +111,7 @@ mod tests {
 
     const COMPOSE: &str = include_str!("../../../deploy/compose/compose.yaml");
 
-    // T-36 T-41 OP-33
+    // T-36 T-41 OP-33 OP-48
     #[test]
     fn t_41_the_test_witness_is_the_image_the_local_environment_builds() {
         let (name, tag) = WITNESS_IMAGE;

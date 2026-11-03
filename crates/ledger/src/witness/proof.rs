@@ -96,7 +96,7 @@ mod tests {
         (0..n).map(|i| vec![i, 0x5a, i]).collect()
     }
 
-    // OP-33 T-31
+    // OP-33 T-31 OP-48
     #[test]
     fn op_33_every_consistency_proof_verifies_under_the_shared_verifier() {
         let all = data(19);
@@ -131,7 +131,7 @@ mod tests {
         }
     }
 
-    // OP-33
+    // OP-33 OP-48
     #[test]
     fn op_33_the_proof_from_3_to_4_is_c_d_ab_and_no_proof_starts_above_the_tree() {
         let all = data(4);

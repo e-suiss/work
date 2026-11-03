@@ -226,7 +226,7 @@ mod tests {
         Verifier::cosigner("witness.example", key.verifying_key().to_bytes()).unwrap()
     }
 
-    // OP-33 SEC-32 OP-4
+    // OP-33 SEC-32 OP-4 OP-48
     #[test]
     fn op_33_only_a_configured_witness_cosigning_the_stored_tree_is_taken() {
         let log = SigningKey::from_bytes(&[7; 32]);
@@ -274,7 +274,7 @@ mod tests {
         ));
     }
 
-    // OP-4 OP-33
+    // OP-4 OP-33 OP-48
     #[test]
     fn op_4_a_checkpoint_the_replica_does_not_hold_is_not_sent_to_witnesses() {
         let mut order = Publication::default();

@@ -280,7 +280,7 @@ impl ArchivePool {
 mod tests {
     use super::*;
 
-    // OP-35 OP-37
+    // OP-35 OP-37 OP-49
     #[test]
     fn op_35_only_monthly_partitions_of_the_two_tables_are_archived() {
         assert_eq!(

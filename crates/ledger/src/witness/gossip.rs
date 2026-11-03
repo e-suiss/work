@@ -158,7 +158,7 @@ impl Checkpointer {
 mod tests {
     use super::*;
 
-    // SEC-32 OP-33 OP-46
+    // SEC-32 OP-33 OP-46 OP-48
     #[test]
     fn sec_32_an_observed_root_is_consistent_only_with_the_ledgers_root_at_its_size() {
         let root = [7; 32];

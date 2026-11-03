@@ -326,7 +326,7 @@ mod tests {
 
     use super::*;
 
-    // OP-33 OP-46
+    // OP-33 OP-46 OP-48
     #[test]
     fn op_33_the_add_checkpoint_body_is_old_size_proof_lines_and_the_note() {
         let note = "o\n2\nAAAA\n\n\u{2014} log abc\n";
@@ -342,7 +342,7 @@ mod tests {
         );
     }
 
-    // OP-33 OP-46 SEC-32
+    // OP-33 OP-46 SEC-32 OP-48
     #[test]
     fn op_46_witness_answers_are_typed_by_their_status() {
         let line = "\u{2014} witness.example AAAA\n";
@@ -400,7 +400,7 @@ mod tests {
         );
     }
 
-    // OP-33 T-32
+    // OP-33 T-32 OP-48
     #[test]
     fn op_33_a_witness_is_named_by_an_http_url_and_https_needs_tls() {
         let e = endpoint("http://witness:7380").unwrap();

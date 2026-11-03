@@ -828,7 +828,7 @@ mod tests {
 
     const S3: &str = "[replica.s3]\nendpoint = \"http://s3:7070\"\nregion = \"us-east-1\"\nbucket = \"work-replica\"\nretention_days = 3650\n";
 
-    // OP-33 OP-46 T-93
+    // OP-33 OP-46 T-93 OP-49
     #[test]
     fn op_33_the_replica_is_a_directory_or_an_object_locked_s3_bucket() {
         let config = with_replica(S3).unwrap();
@@ -956,7 +956,7 @@ mod tests {
         ));
     }
 
-    // OP-33 OP-46 SEC-32
+    // OP-33 OP-46 SEC-32 OP-48
     #[test]
     fn op_33_witnesses_need_a_unique_id_a_cosigner_key_and_an_http_url() {
         assert!(with("").unwrap().witness_endpoints().unwrap().is_empty());
@@ -1046,7 +1046,7 @@ mod tests {
         ));
     }
 
-    // OP-33 OP-46
+    // OP-33 OP-46 OP-48
     #[test]
     fn op_46_independent_k_needs_k_counted_witnesses_configured() {
         let one = "[declaration]\nwitness = \"independent\"\nindependent_witnesses = 1\n";

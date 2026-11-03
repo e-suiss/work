@@ -475,7 +475,7 @@ mod tests {
         DirectoryReplica::new("local", root)
     }
 
-    // OP-4 T-90
+    // OP-4 T-90 OP-49
     #[tokio::test]
     async fn op_4_a_mirrored_entry_and_its_received_bytes_are_written_once() {
         let r = replica("once");
@@ -512,7 +512,7 @@ mod tests {
         ));
     }
 
-    // OP-2 OP-46 SEC-32
+    // OP-2 OP-46 SEC-32 OP-49
     #[tokio::test]
     async fn op_2_a_cosignature_is_archived_once_beside_its_checkpoint() {
         let r = replica("cosign");

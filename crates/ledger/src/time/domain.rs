@@ -385,7 +385,7 @@ mod tests {
         assert_eq!(d.now(30), Ok(T + 30));
     }
 
-    // OP-32 OP-43 OP-44
+    // OP-32 OP-43 OP-44 OP-48
     #[test]
     fn op_32_the_witness_round_holds_ledger_time_against_the_cosignature_times() {
         let issued = T + 400;
@@ -412,7 +412,7 @@ mod tests {
         );
     }
 
-    // OP-32 OP-6
+    // OP-32 OP-6 OP-48
     #[test]
     fn op_32_ledger_time_ahead_of_the_witnesses_stops_commits_until_a_round_agrees() {
         let mut d = Discipline::new(2);

@@ -455,7 +455,7 @@ impl S3Client {
 mod tests {
     use super::*;
 
-    // T-20 OP-2
+    // T-20 OP-2 OP-49
     #[test]
     fn t_20_the_object_store_endpoint_and_names_are_checked() {
         assert!(endpoint("http://127.0.0.1:7070").is_ok_and(|e| !e.tls && e.port == 7070));
@@ -478,7 +478,7 @@ mod tests {
         assert!(tls_trusting(b"").is_err());
     }
 
-    // T-20
+    // T-20 OP-49
     #[test]
     fn t_20_request_time_is_the_utc_date_of_the_clock() {
         assert_eq!(
@@ -490,7 +490,7 @@ mod tests {
         assert_eq!(rfc3339(1_440_938_160_999), "2015-08-30T12:36:00Z");
     }
 
-    // T-20
+    // T-20 OP-49
     #[test]
     fn t_20_requests_are_signed_with_signature_version_4() {
         let key = signing_key(

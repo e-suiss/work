@@ -44,7 +44,7 @@ fn worm(s3: &S3, bucket: &str) -> WormStore {
     WormStore::new(config(s3, bucket), Retention::days(1).unwrap()).unwrap()
 }
 
-// OP-33 OP-46 OP-4 T-90 OP-2 SEC-32
+// OP-33 OP-46 OP-4 T-90 OP-2 SEC-32 OP-49
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "needs Docker, SoftHSM and sudo"]
 async fn op_33_the_worm_replica_takes_the_log_once_and_moves_only_after_reading_it_back() {
