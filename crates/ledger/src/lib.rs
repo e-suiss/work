@@ -32,13 +32,13 @@ pub mod time;
 mod witness;
 
 pub use admit::{Arrival, AuthContext, MAX_RECEIVED, Submission, admit};
-#[cfg(feature = "s3")]
-pub use body::{S3Config, S3Store};
 pub use body::{
     BODY_CONTEXT, BodyEraser, BodyError, BodyKeys, BodyOpening, BodyReader, BodyWriter,
     DEFAULT_CALL_TIMEOUT, DEFAULT_CLASS, InDatabase, MAX_MEDIA_TYPE, MAX_PART, ObjectStore,
     PartRead, SealedPart, context, kek_label, object_key, open_part, seal_part,
 };
+#[cfg(feature = "s3")]
+pub use body::{S3Config, S3Store};
 pub use checkpoint::{
     CheckpointError, Checkpointer, Declaration, DeclarationError, Deployment, SignerClient,
     acknowledgement,

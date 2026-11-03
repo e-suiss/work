@@ -3,7 +3,8 @@ use suiss_crypto::digest::{Digest, leaf_hash, sha256};
 use suiss_ledger::Hash;
 use suiss_ledger::sequencer::{Entry, Slot};
 use work_store::{
-    BodyPartRow, CallerRef, Expect, IdempotencyKey, ItemRef, LedgerId, ReceivedRow, Skeleton, Stored,
+    BodyPartRow, CallerRef, Expect, IdempotencyKey, ItemRef, LedgerId, ReceivedRow, Skeleton,
+    Stored,
 };
 
 /// An admitted record waiting for its slot: what the sequencer needs to seal its

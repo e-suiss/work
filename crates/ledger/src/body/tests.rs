@@ -92,14 +92,14 @@ fn open(
 #[test]
 fn op_45_kek_labels_name_the_ledger_and_the_version() {
     let l = ledger(0xab);
-    assert_eq!(
-        kek_label(&l, 3),
-        format!("work.{}.kek.v3", "ab".repeat(32))
-    );
+    assert_eq!(kek_label(&l, 3), format!("work.{}.kek.v3", "ab".repeat(32)));
     let c = context(&l, &[0x11; 32]);
     assert_eq!(c.get(..13), Some(b"work/body/v1\0".as_slice()));
     assert_eq!(c.len(), 13 + 32 + 32);
-    assert_eq!(object_key(&l, &[0x0f; 32]), format!("{}/{}", "ab".repeat(32), "0f".repeat(32)));
+    assert_eq!(
+        object_key(&l, &[0x0f; 32]),
+        format!("{}/{}", "ab".repeat(32), "0f".repeat(32))
+    );
 }
 
 // OP-45 P-68 OP-15 T-56
@@ -170,7 +170,9 @@ fn p_68_an_opening_that_does_not_give_its_commitment_is_refused() {
     let mut changed = o.clone();
     changed.salt = [0x01; 32];
     let refused = keys
-        .with_class_dek(&dek, AT, |class| seal_part(class, &l, &commit(&o), &changed))
+        .with_class_dek(&dek, AT, |class| {
+            seal_part(class, &l, &commit(&o), &changed)
+        })
         .unwrap_err();
     assert!(matches!(refused, BodyError::Commitment(p) if p == "note"));
     let big = opening(&vec![0; MAX_PART + 1]);
@@ -220,10 +222,7 @@ fn op_45_rotation_rewraps_a_class_dek_under_the_next_kek_version() {
     };
     keys.retire_kek(&l, 1).unwrap();
     assert_eq!(open(&keys, &dek, &l, &commit(&o), &s).unwrap(), None);
-    assert_eq!(
-        open(&keys, &rotated, &l, &commit(&o), &s).unwrap(),
-        Some(o)
-    );
+    assert_eq!(open(&keys, &rotated, &l, &commit(&o), &s).unwrap(), Some(o));
 }
 
 // OP-45 SEC-13

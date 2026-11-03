@@ -562,10 +562,10 @@ impl ErasurePool {
             "SELECT dek_id::text, kek_id, wrapped_key FROM work.body_dek \
              WHERE ledger_id = $1 AND kek_id = $2 AND state = 'active' ORDER BY dek_id",
         )
-            .bind(ledger.as_bytes().as_slice())
-            .bind(kek_id)
-            .fetch_all(tx.conn())
-            .await?;
+        .bind(ledger.as_bytes().as_slice())
+        .bind(kek_id)
+        .fetch_all(tx.conn())
+        .await?;
         tx.commit().await?;
         rows.into_iter().map(dek_row).collect()
     }

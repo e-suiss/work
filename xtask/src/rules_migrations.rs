@@ -325,7 +325,10 @@ CREATE TABLE work.other_key (ledger_id ledger.digest32 NOT NULL, wrapped_key byt
 ",
         );
         assert_eq!(v.len(), 2, "{v:?}");
-        assert!(v.iter().all(|f| f.contains("`work.other_key.wrapped_")), "{v:?}");
+        assert!(
+            v.iter().all(|f| f.contains("`work.other_key.wrapped_")),
+            "{v:?}"
+        );
     }
 
     // SEC-24 P-17

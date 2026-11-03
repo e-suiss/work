@@ -664,8 +664,10 @@ async fn op_45_a_part_key_is_shredded_once_and_never_under_a_hold() {
     fails(
         &erasure,
         &l,
-        &["UPDATE work.body_part_key SET wrapped_key = '\\x00', shredded_at = NULL \
-           WHERE part = 'attachment'"],
+        &[
+            "UPDATE work.body_part_key SET wrapped_key = '\\x00', shredded_at = NULL \
+           WHERE part = 'attachment'",
+        ],
         Some("23514"),
     )
     .await;
@@ -739,8 +741,10 @@ async fn op_45_a_rewrap_changes_only_the_kek_and_the_wrapped_key_together() {
     run(
         &erasure,
         &l,
-        &["UPDATE work.body_dek SET wrapped_key = NULL, state = 'destroyed', \
-           destroyed_at = now()"],
+        &[
+            "UPDATE work.body_dek SET wrapped_key = NULL, state = 'destroyed', \
+           destroyed_at = now()",
+        ],
     )
     .await;
     fails(

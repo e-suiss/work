@@ -181,7 +181,8 @@ fn commitment(o: &BodyOpening) -> Result<[u8; 32], BodyError> {
 }
 
 fn plaintext(o: &BodyOpening) -> Result<Vec<u8>, BodyError> {
-    let media = u8::try_from(o.media_type.len()).map_err(|_| BodyError::TooLarge(o.part.clone()))?;
+    let media =
+        u8::try_from(o.media_type.len()).map_err(|_| BodyError::TooLarge(o.part.clone()))?;
     let mut p = Vec::with_capacity(
         o.salt
             .len()
@@ -358,7 +359,10 @@ impl BodyKeys {
     ///
     /// # Errors
     /// [`BodyError::Key`] or [`BodyError::Envelope`].
-    pub fn new_class_dek(&self, ledger: &LedgerId) -> Result<(String, [u8; WRAPPED_LEN]), BodyError> {
+    pub fn new_class_dek(
+        &self,
+        ledger: &LedgerId,
+    ) -> Result<(String, [u8; WRAPPED_LEN]), BodyError> {
         let label = kek_label(ledger, self.version);
         let mut held = self.held();
         self.kek_into(&mut held, &label, true)?;
@@ -449,8 +453,11 @@ pub trait ObjectStore: Send + Sync + 'static {
         now_ms: u64,
     ) -> impl Future<Output = Result<(), BodyError>> + Send;
     /// The bytes stored under `key`.
-    fn get(&self, key: &str, now_ms: u64)
-    -> impl Future<Output = Result<Vec<u8>, BodyError>> + Send;
+    fn get(
+        &self,
+        key: &str,
+        now_ms: u64,
+    ) -> impl Future<Output = Result<Vec<u8>, BodyError>> + Send;
 }
 
 /// No object store: every ciphertext stays in PostgreSQL (§17 T-20).
@@ -551,7 +558,10 @@ impl<O: ObjectStore> BodyWriter<O> {
         }
         let mut plan = Vec::with_capacity(openings.len());
         for o in openings {
-            if plan.iter().any(|(p, _): &(BodyOpening, [u8; 32])| p.part == o.part) {
+            if plan
+                .iter()
+                .any(|(p, _): &(BodyOpening, [u8; 32])| p.part == o.part)
+            {
                 return Err(BodyError::DuplicatePart(o.part.clone()));
             }
             let commit = commitments
@@ -571,7 +581,8 @@ impl<O: ObjectStore> BodyWriter<O> {
                     blocking(self.limit, move || keys.new_class_dek(&id)).await?;
                 bounded(
                     self.limit,
-                    self.pool.class_dek(ledger, author, class, &kek_id, &wrapped),
+                    self.pool
+                        .class_dek(ledger, author, class, &kek_id, &wrapped),
                 )
                 .await?
             }
@@ -583,7 +594,8 @@ impl<O: ObjectStore> BodyWriter<O> {
             keys.with_class_dek(&dek, now_ms, |class| {
                 plan.iter()
                     .map(|(o, commit)| {
-                        seal_part(class, &id, commit, o).map(|s| (o.part.clone(), o.content.len(), s))
+                        seal_part(class, &id, commit, o)
+                            .map(|s| (o.part.clone(), o.content.len(), s))
                     })
                     .collect::<Result<Vec<_>, _>>()
             })
@@ -661,9 +673,10 @@ impl<O: ObjectStore> BodyReader<O> {
         let bytes = match &part.stored {
             Stored::Inline(c) => c.clone(),
             Stored::Object(key) => {
-                let objects = self.objects.as_ref().ok_or_else(|| {
-                    BodyError::Object("no object store configured".to_owned())
-                })?;
+                let objects = self
+                    .objects
+                    .as_ref()
+                    .ok_or_else(|| BodyError::Object("no object store configured".to_owned()))?;
                 objects.get(key, now_ms).await?
             }
         };
@@ -801,8 +814,10 @@ impl BodyEraser {
             let keys = Arc::clone(&self.keys);
             let id = *ledger;
             let from_label = old.clone();
-            let (label, rewrapped) =
-                blocking(self.limit, move || keys.rewrap(&id, &from_label, to, &wrapped)).await?;
+            let (label, rewrapped) = blocking(self.limit, move || {
+                keys.rewrap(&id, &from_label, to, &wrapped)
+            })
+            .await?;
             if bounded(
                 self.limit,
                 self.pool

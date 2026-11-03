@@ -160,10 +160,8 @@ async fn op_45_a_shredded_body_is_unreadable_while_its_skeleton_verifies() {
         )
         .await
         .unwrap();
-    let reader = BodyReader::in_database(
-        Arc::clone(&keys),
-        env.pool(Cluster::Canonical, "work_app"),
-    );
+    let reader =
+        BodyReader::in_database(Arc::clone(&keys), env.pool(Cluster::Canonical, "work_app"));
     assert_eq!(
         read(&reader, &ledger, committed.pos).await,
         vec![
@@ -198,7 +196,12 @@ async fn op_45_a_shredded_body_is_unreadable_while_its_skeleton_verifies() {
     let subject = "party:acme:alice";
     assert!(matches!(
         eraser
-            .destroy_class(&ledger, subject, RetentionClass::WorkRecord, Shred::SubjectErasure)
+            .destroy_class(
+                &ledger,
+                subject,
+                RetentionClass::WorkRecord,
+                Shred::SubjectErasure
+            )
             .await,
         Err(BodyError::Store(StoreError::Constraint(_)))
     ));
@@ -213,7 +216,12 @@ async fn op_45_a_shredded_body_is_unreadable_while_its_skeleton_verifies() {
     .await;
     assert!(
         eraser
-            .destroy_class(&ledger, subject, RetentionClass::WorkRecord, Shred::SubjectErasure)
+            .destroy_class(
+                &ledger,
+                subject,
+                RetentionClass::WorkRecord,
+                Shred::SubjectErasure
+            )
             .await
             .unwrap()
     );
@@ -228,7 +236,10 @@ async fn op_45_a_shredded_body_is_unreadable_while_its_skeleton_verifies() {
     let next = group
         .admit_with_body(
             &Directory::golden(),
-            submission(unsigned(&with_body(&comment(&ledger, 2), &[&later])), &actors),
+            submission(
+                unsigned(&with_body(&comment(&ledger, 2), &[&later])),
+                &actors,
+            ),
             &[later.clone()],
             &bodies,
             AT,

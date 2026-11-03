@@ -545,7 +545,10 @@ mod tests {
             "work.body_part_tombstone",
         ] {
             let label = labels.get(table).map(String::as_str);
-            assert!(matches!(label, Some("CANONICAL" | "OPERATIONAL")), "{table}");
+            assert!(
+                matches!(label, Some("CANONICAL" | "OPERATIONAL")),
+                "{table}"
+            );
             assert!(!covered.contains(&table), "{table}");
             assert!(!CANONICAL_INPUTS.contains(&table), "{table}");
         }

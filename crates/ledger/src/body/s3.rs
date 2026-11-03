@@ -267,7 +267,12 @@ impl S3Store {
             "AWS4-HMAC-SHA256\n{time}\n{scope}\n{}",
             sha_hex(canonical.as_bytes())
         );
-        let k = signing_key(self.config.secret.expose(), &date, &self.config.region, "s3")?;
+        let k = signing_key(
+            self.config.secret.expose(),
+            &date,
+            &self.config.region,
+            "s3",
+        )?;
         let signature = hex(&mac(&k, to_sign.as_bytes())?);
         Ok((
             time,
@@ -380,7 +385,13 @@ mod tests {
     fn t_20_the_object_store_endpoint_and_names_are_checked() {
         assert!(endpoint("http://127.0.0.1:7070").is_ok_and(|e| !e.tls && e.port == 7070));
         assert!(endpoint("https://s3.example").is_ok_and(|e| e.tls && e.port == 443));
-        for bad in ["ftp://x", "http://", "http://x/y", "http://u@x", "http://x:port"] {
+        for bad in [
+            "ftp://x",
+            "http://",
+            "http://x/y",
+            "http://u@x",
+            "http://x:port",
+        ] {
             assert!(endpoint(bad).is_err(), "{bad}");
         }
         assert!(bucket_ok("work-bodies"));
