@@ -7,7 +7,9 @@
 //! commitment its record carries before sealing it; the read path recomputes the commitment
 //! after opening. A destroyed class DEK, a shredded part key or a retired KEK leaves the part
 //! unreadable while its skeleton stays and still verifies; the destroyed key is forgotten by the
-//! DEK cache at once.
+//! DEK cache at once. Every opening passes the secret scan before it is sealed (SEC-35), and every
+//! removal is recorded in the erasure log, waiting on a retention hold or settling until the DEK
+//! cache lifetime and the backup window have passed (OP-45 item 5).
 
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -16,7 +18,8 @@ use std::time::Duration;
 
 use suiss_crypto::digest::sha256;
 use suiss_crypto::envelope::{
-    self, Dek, DekCache, DekKek, EnvelopeError, Kek as _, Sealed, open_body, seal_body,
+    self, CACHE_TTL_MS, Dek, DekCache, DekKek, EnvelopeError, Kek as _, Sealed, open_body,
+    seal_body,
 };
 use suiss_crypto::pkcs11::{HsmError, HsmKek, KeyStore};
 use suiss_crypto::secret::Secret;
@@ -24,9 +27,11 @@ use tokio::task::spawn_blocking;
 use tokio::time::timeout;
 use work_kernel::codec::{LARGE_PART, body_commitment};
 use work_kernel::record::PartName;
+use work_proto::parser::{Scan, ScanFailure, Verdict};
 use work_store::{
-    BodyCommitmentRow, BodyPartRow, DekRow, ErasurePool, LedgerId, LedgerTx, Pool, RetentionClass,
-    SequencerPool, Shred, StoreError, Stored, StoredPart, WRAPPED_LEN,
+    BodyCommitmentRow, BodyPartRow, DekRow, Erased, ErasurePool, ErasureRow, ErasureState,
+    ErasureTarget, LedgerId, LedgerTx, Pool, RetentionClass, SequencerPool, Shred, StoreError,
+    Stored, StoredPart, WRAPPED_LEN,
 };
 
 use crate::ports::{Rng, RngError, bytes32};
@@ -89,6 +94,18 @@ pub enum BodyError {
     /// A call ran past its bound.
     #[error("call timed out")]
     Timeout,
+    /// The secret scan found a secret in a part (SEC-35 item 2, P-95): only the part and the rule
+    /// are named, never the matched bytes.
+    #[error("secret_detected (rule {rule}, part {part})")]
+    SecretDetected {
+        /// The part that matched.
+        part: String,
+        /// The rule that matched.
+        rule: String,
+    },
+    /// The secret scan gave no verdict (T-94 item 4).
+    #[error("secret scan: {0}")]
+    Scan(ScanFailure),
 }
 
 impl From<StoreError> for BodyError {
@@ -540,12 +557,13 @@ async fn bounded<T, E: Into<BodyError>>(
         .map_err(Into::into)
 }
 
-/// The write side of the body store (OP-45, OP-2): seals a record's openings and returns the
-/// rows its append writes.
+/// The write side of the body store (OP-45, OP-2): scans a record's openings for secrets, seals
+/// them and returns the rows its append writes.
 pub struct BodyWriter<O: ObjectStore = InDatabase> {
     keys: Arc<BodyKeys>,
     pool: SequencerPool,
     objects: Option<O>,
+    scan: Arc<dyn Scan>,
     limit: Duration,
 }
 
@@ -558,39 +576,70 @@ impl<O: ObjectStore> std::fmt::Debug for BodyWriter<O> {
 }
 
 impl BodyWriter<InDatabase> {
-    /// A writer keeping every ciphertext in PostgreSQL.
+    /// A writer keeping every ciphertext in PostgreSQL that scans every opening through `scan`
+    /// first (SEC-35 item 2).
     #[must_use]
-    pub const fn in_database(keys: Arc<BodyKeys>, pool: SequencerPool) -> Self {
+    pub fn in_database(keys: Arc<BodyKeys>, pool: SequencerPool, scan: Arc<dyn Scan>) -> Self {
         Self {
             keys,
             pool,
             objects: None,
+            scan,
             limit: DEFAULT_CALL_TIMEOUT,
         }
     }
 }
 
 impl<O: ObjectStore> BodyWriter<O> {
-    /// A writer putting ciphertexts of parts above [`LARGE_PART`] content bytes into `objects`.
+    /// A writer putting ciphertexts of parts above [`LARGE_PART`] content bytes into `objects`
+    /// that scans every opening through `scan` first (SEC-35 item 2).
     #[must_use]
-    pub const fn with_objects(keys: Arc<BodyKeys>, pool: SequencerPool, objects: O) -> Self {
+    pub fn with_objects(
+        keys: Arc<BodyKeys>,
+        pool: SequencerPool,
+        objects: O,
+        scan: Arc<dyn Scan>,
+    ) -> Self {
         Self {
             keys,
             pool,
             objects: Some(objects),
+            scan,
             limit: DEFAULT_CALL_TIMEOUT,
         }
     }
 
+    async fn scanned(&self, openings: &[BodyOpening]) -> Result<(), BodyError> {
+        let parts: Vec<(String, Vec<u8>)> = openings
+            .iter()
+            .map(|o| (o.part.clone(), o.content.clone()))
+            .collect();
+        let scan = Arc::clone(&self.scan);
+        let verdict = blocking(self.limit, move || {
+            let views: Vec<(&str, &[u8])> = parts
+                .iter()
+                .map(|(part, content)| (part.as_str(), content.as_slice()))
+                .collect();
+            scan.scan(&views).map_err(BodyError::Scan)
+        })
+        .await?;
+        match verdict {
+            Verdict::Clean => Ok(()),
+            Verdict::Detected { part, rule } => Err(BodyError::SecretDetected { part, rule }),
+        }
+    }
+
     /// The rows of `openings` for a record of `ledger` whose skeleton commits to `commitments`
-    /// and whose author is `author`, the parts' data subject (OP-45 item 7): each opening must
-    /// give its commitment; a class DEK is created on the subject's first part; the ciphertexts
-    /// go to the object store or stay inline. `now_ms` is the ledger time the cache and the
-    /// object store use.
+    /// and whose author is `author`, the parts' data subject (OP-45 item 7): the openings are
+    /// scanned for secrets before anything else (SEC-35 item 2); each opening must give its
+    /// commitment; a class DEK is created on the subject's first part; the ciphertexts go to the
+    /// object store or stay inline. `now_ms` is the ledger time the cache and the object store
+    /// use.
     ///
     /// # Errors
-    /// [`BodyError`]; nothing is written to the database on error, and an object put before
-    /// the error is an unreferenced, content-addressed ciphertext.
+    /// [`BodyError::SecretDetected`] with the part and the rule only, [`BodyError::Scan`] without
+    /// a verdict, otherwise [`BodyError`]; nothing is written to the database on error, and an
+    /// object put before the error is an unreferenced, content-addressed ciphertext.
     pub async fn seal(
         &self,
         ledger: &LedgerId,
@@ -615,8 +664,12 @@ impl<O: ObjectStore> BodyWriter<O> {
                 .find(|c| c.part == o.part)
                 .ok_or_else(|| BodyError::UnknownPart(o.part.clone()))?
                 .commit;
+            if o.content.len() > MAX_PART || o.media_type.len() > MAX_MEDIA_TYPE {
+                return Err(BodyError::TooLarge(o.part.clone()));
+            }
             plan.push((o.clone(), commit));
         }
+        self.scanned(openings).await?;
         let class = DEFAULT_CLASS;
         let active = bounded(self.limit, self.pool.active_dek(ledger, author, class)).await?;
         let row = if let Some(row) = active {
@@ -785,64 +838,156 @@ impl<O: ObjectStore> BodyReader<O> {
     }
 }
 
-/// The erasure side of the body store (OP-12, OP-15, OP-45 item 5): one-way key removal through
-/// `work_erasure`, refused under an active retention hold.
+/// The erasure side of the body store (OP-12, OP-15, OP-45 item 5, P-25): one-way key removal
+/// through `work_erasure`, each recorded in `work.erasure_log`; under an active retention hold
+/// the request waits, and a removal is reported completed only after every DEK cache lifetime
+/// and the backup window have passed (Access CR-32 item 3).
 pub struct BodyEraser {
     keys: Arc<BodyKeys>,
     pool: ErasurePool,
+    settle: Duration,
     limit: Duration,
 }
 
 impl std::fmt::Debug for BodyEraser {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("BodyEraser").finish_non_exhaustive()
+        f.debug_struct("BodyEraser")
+            .field("settle", &self.settle)
+            .finish_non_exhaustive()
     }
 }
 
 impl BodyEraser {
-    /// Over `pool` with the keys whose cache it clears.
+    /// Over `pool` with the keys whose cache it clears; a removal settles after the DEK cache
+    /// lifetime ([`CACHE_TTL_MS`]) and `backup_window`, how long the installation keeps a backup
+    /// that may still hold a removed key (OP-45 item 5).
     #[must_use]
-    pub const fn new(keys: Arc<BodyKeys>, pool: ErasurePool) -> Self {
+    pub fn new(keys: Arc<BodyKeys>, pool: ErasurePool, backup_window: Duration) -> Self {
         Self {
             keys,
             pool,
+            settle: Duration::from_millis(CACHE_TTL_MS).saturating_add(backup_window),
             limit: DEFAULT_CALL_TIMEOUT,
         }
     }
 
+    /// How long after a removal its erasure settles.
+    #[must_use]
+    pub const fn settle(&self) -> Duration {
+        self.settle
+    }
+
     /// Destroys the class DEK of `subject` and `class` (subject erasure or retention end):
-    /// every part under it becomes unreadable and the DEK leaves the cache; `false` when none
-    /// is active.
+    /// every part under it becomes unreadable and the DEK leaves this process's cache at once;
+    /// under an active retention hold the request waits instead.
     ///
     /// # Errors
-    /// [`BodyError::Store`] with a constraint under an active retention hold.
+    /// [`BodyError::Store`].
     pub async fn destroy_class(
         &self,
         ledger: &LedgerId,
         subject: &str,
         class: RetentionClass,
         why: Shred,
-    ) -> Result<bool, BodyError> {
-        let row = bounded(
+    ) -> Result<Erased<()>, BodyError> {
+        let erased = bounded(
             self.limit,
-            self.pool.destroy_dek(ledger, subject, class, why),
+            self.pool
+                .destroy_dek(ledger, subject, class, why, self.settle),
         )
         .await?;
-        if let Some(wrapped) = row.as_ref().and_then(|r| r.wrapped) {
-            self.keys.forget(&wrapped);
-        }
-        Ok(row.is_some())
+        Ok(erased.map_key(|row| {
+            if let Some(wrapped) = row.wrapped {
+                self.keys.forget(&wrapped);
+            }
+        }))
     }
 
     /// Shreds the key of the part `part` of the record at `pos`, the redaction of that part
-    /// alone (P-25); `false` when it was already shredded.
+    /// alone (P-25); under an active retention hold the request waits instead.
     ///
     /// # Errors
-    /// [`BodyError::Store`] with a constraint under an active retention hold.
-    pub async fn redact(&self, ledger: &LedgerId, pos: u64, part: &str) -> Result<bool, BodyError> {
-        Ok(bounded(self.limit, self.pool.shred_part(ledger, pos, part))
-            .await?
-            .is_some())
+    /// [`BodyError::Store`].
+    pub async fn redact(
+        &self,
+        ledger: &LedgerId,
+        pos: u64,
+        part: &str,
+    ) -> Result<Erased<()>, BodyError> {
+        let erased = bounded(
+            self.limit,
+            self.pool.shred_part(ledger, pos, part, self.settle),
+        )
+        .await?;
+        Ok(erased.map_key(|_| ()))
+    }
+
+    /// Redacts the named parts of the record at `pos` (P-25, OP-15 item 2), each part's key
+    /// shredded once on its own; the outcome of each, in the order named.
+    ///
+    /// # Errors
+    /// [`BodyError::DuplicatePart`] when a part is named twice, before anything is shredded;
+    /// otherwise [`BodyError::Store`], with the parts before it already redacted.
+    pub async fn redact_parts(
+        &self,
+        ledger: &LedgerId,
+        pos: u64,
+        parts: &[&str],
+    ) -> Result<Vec<(String, Erased<()>)>, BodyError> {
+        for (i, part) in parts.iter().enumerate() {
+            if parts.iter().take(i).any(|p| p == part) {
+                return Err(BodyError::DuplicatePart((*part).to_owned()));
+            }
+        }
+        let mut out = Vec::with_capacity(parts.len());
+        for part in parts {
+            out.push(((*part).to_owned(), self.redact(ledger, pos, part).await?));
+        }
+        Ok(out)
+    }
+
+    /// Takes up every erasure of `ledger` waiting on a retention hold (Access OP-74): one whose
+    /// hold is released now removes its key; the count removed.
+    ///
+    /// # Errors
+    /// [`BodyError::Store`].
+    pub async fn resume(&self, ledger: &LedgerId) -> Result<usize, BodyError> {
+        let rows = bounded(self.limit, self.pool.erasures(ledger)).await?;
+        let mut done = 0_usize;
+        for row in rows {
+            if row.state != ErasureState::WaitingOnHold {
+                continue;
+            }
+            let erased = match (&row.target, row.cause.shred()) {
+                (ErasureTarget::Part { pos, part }, _) => self.redact(ledger, *pos, part).await?,
+                (ErasureTarget::Class, Some(why)) => {
+                    self.destroy_class(ledger, &row.subject, row.class, why)
+                        .await?
+                }
+                (ErasureTarget::Class, None) => continue,
+            };
+            if matches!(erased, Erased::Shredded { .. }) {
+                done = done.saturating_add(1);
+            }
+        }
+        Ok(done)
+    }
+
+    /// Reports completed every removal of `ledger` whose settle time has passed (OP-45 item 5);
+    /// the erasures completed.
+    ///
+    /// # Errors
+    /// [`BodyError::Store`].
+    pub async fn settle_due(&self, ledger: &LedgerId) -> Result<Vec<String>, BodyError> {
+        bounded(self.limit, self.pool.settle(ledger)).await
+    }
+
+    /// Every erasure of `ledger` with where it stands (OP-45 item 5).
+    ///
+    /// # Errors
+    /// [`BodyError::Store`].
+    pub async fn erasures(&self, ledger: &LedgerId) -> Result<Vec<ErasureRow>, BodyError> {
+        bounded(self.limit, self.pool.erasures(ledger)).await
     }
 
     /// Rewraps every active class DEK of `ledger` from KEK version `from` to version `to`

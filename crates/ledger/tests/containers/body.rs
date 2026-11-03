@@ -1,9 +1,11 @@
 //! The body store against real PostgreSQL 18, a `SoftHSM` token and an S3-compatible store
-//! (OP-45, OP-12, OP-13, P-68, T-20).
+//! (OP-45, OP-12, OP-13, P-68, T-20), with the secret scan of the parser worker's rule set on
+//! the write path (SEC-35).
 
 use std::path::PathBuf;
 use std::process::Command;
 use std::sync::Arc;
+use std::time::Duration;
 
 use suiss_crypto::dcbor::{self, Limits, Value};
 use suiss_crypto::digest::{Digest, sha256};
@@ -15,11 +17,18 @@ use work_ledger::{
     BodyEraser, BodyError, BodyKeys, BodyOpening, BodyReader, BodyWriter, PartRead, SubmitError,
     rebuild_diff,
 };
-use work_store::{Cluster, Durability, ErasurePool, LedgerId, RetentionClass, Shred, StoreError};
+use work_parse::secret::SecretScanner;
+use work_proto::parser::Scan;
+use work_store::{
+    Cluster, Durability, Erased, ErasureCause, ErasurePool, ErasureState, ErasureTarget, LedgerId,
+    RetentionClass, Shred,
+};
 
 use crate::{AT, Directory, Env, comment, human, node, statement, submission, unsigned, writer};
 
 const PIN: &str = "4711";
+const FILL36: &str = "Zq8kR2mN4vX7bT1yW9cL3pH6dF0sJ5gA2eUo";
+const BACKUP_WINDOW: Duration = Duration::from_secs(86_400);
 const HOLD: &str = include_str!("../../../store/fixtures/body-hold.sql");
 const RELEASE: &str = include_str!("../../../store/fixtures/body-release.sql");
 #[cfg(feature = "s3")]
@@ -53,6 +62,11 @@ fn keys(test: &str) -> Arc<BodyKeys> {
         String::from_utf8_lossy(&init.stderr)
     );
     Arc::new(BodyKeys::open(&module(), &label, &Secret::new(PIN.to_owned()), 1).unwrap())
+}
+
+/// The rule set the parser worker runs, in process (SEC-35).
+fn scanner() -> Arc<dyn Scan> {
+    Arc::new(SecretScanner::builtin().unwrap())
 }
 
 fn opening(part: &str, content: &[u8], tag: u8) -> BodyOpening {
@@ -150,7 +164,7 @@ async fn op_45_a_shredded_body_is_unreadable_while_its_skeleton_verifies() {
     let keys = keys("shred");
     let (pool, ledger, group, gate) = writer(&env, [0x45; 32]).await;
     gate.permits.add_permits(100);
-    let bodies = BodyWriter::in_database(Arc::clone(&keys), pool.clone());
+    let bodies = BodyWriter::in_database(Arc::clone(&keys), pool.clone(), scanner());
     let note = opening("note", b"the delivery moves to Friday", 1);
     let terms = opening("terms", b"net 30", 2);
     let record = with_body(&comment(&ledger, 1), &[&note, &terms]);
@@ -205,9 +219,21 @@ async fn op_45_a_shredded_body_is_unreadable_while_its_skeleton_verifies() {
         ErasurePool::new(env.pool(Cluster::Canonical, "work_erasure"))
             .await
             .unwrap(),
+        BACKUP_WINDOW,
     );
-    assert!(eraser.redact(&ledger, committed.pos, "note").await.unwrap());
-    assert!(!eraser.redact(&ledger, committed.pos, "note").await.unwrap());
+    let redacted = eraser
+        .redact_parts(&ledger, committed.pos, &["note"])
+        .await
+        .unwrap();
+    assert!(matches!(redacted.as_slice(), [(p, Erased::Shredded { .. })] if p == "note"));
+    let again = eraser.redact(&ledger, committed.pos, "note").await.unwrap();
+    assert_eq!(again, Erased::Nothing);
+    assert!(matches!(
+        eraser
+            .redact_parts(&ledger, committed.pos, &["terms", "terms"])
+            .await,
+        Err(BodyError::DuplicatePart(p)) if p == "terms"
+    ));
     assert_eq!(
         read(&reader, &ledger, committed.pos).await,
         vec![
@@ -217,33 +243,26 @@ async fn op_45_a_shredded_body_is_unreadable_while_its_skeleton_verifies() {
     );
     psql(&env, &statement(HOLD)).await;
     let subject = "party:acme:alice";
-    assert!(matches!(
-        eraser
-            .destroy_class(
-                &ledger,
-                subject,
-                RetentionClass::WorkRecord,
-                Shred::SubjectErasure
-            )
-            .await,
-        Err(BodyError::Store(StoreError::Constraint(_)))
-    ));
+    let held = eraser
+        .destroy_class(
+            &ledger,
+            subject,
+            RetentionClass::WorkRecord,
+            Shred::SubjectErasure,
+        )
+        .await
+        .unwrap();
+    let waiting = match held {
+        Erased::Held { erasure_id } => erasure_id,
+        other => panic!("{other:?}"),
+    };
     assert!(matches!(
         read(&reader, &ledger, committed.pos).await.get(1),
         Some((_, PartRead::Readable(_)))
     ));
+    assert_eq!(eraser.resume(&ledger).await.unwrap(), 0);
     psql(&env, &statement(RELEASE)).await;
-    assert!(
-        eraser
-            .destroy_class(
-                &ledger,
-                subject,
-                RetentionClass::WorkRecord,
-                Shred::SubjectErasure
-            )
-            .await
-            .unwrap()
-    );
+    assert_eq!(eraser.resume(&ledger).await.unwrap(), 1);
     assert_eq!(
         read(&reader, &ledger, committed.pos).await,
         vec![
@@ -251,6 +270,28 @@ async fn op_45_a_shredded_body_is_unreadable_while_its_skeleton_verifies() {
             ("terms".to_owned(), PartRead::Unreadable),
         ]
     );
+    let settle = i64::try_from(eraser.settle().as_millis()).unwrap();
+    assert_eq!(settle, 86_700_000);
+    let erasures = eraser.erasures(&ledger).await.unwrap();
+    assert_eq!(erasures.len(), 2);
+    assert_eq!(erasures[0].cause, ErasureCause::Redaction);
+    assert_eq!(
+        erasures[0].target,
+        ErasureTarget::Part {
+            pos: committed.pos,
+            part: "note".to_owned(),
+        }
+    );
+    assert_eq!(erasures[1].erasure_id, waiting);
+    assert_eq!(erasures[1].cause, ErasureCause::SubjectRequest);
+    assert_eq!(erasures[1].target, ErasureTarget::Class);
+    for e in &erasures {
+        let ErasureState::Shredded { settles_at_ms } = e.state else {
+            panic!("{e:?}")
+        };
+        assert!(settles_at_ms >= e.requested_at_ms.saturating_add(settle));
+    }
+    assert!(eraser.settle_due(&ledger).await.unwrap().is_empty());
     let later = opening("note", b"a new note after the erasure", 4);
     let next = group
         .admit_with_body(
@@ -292,6 +333,68 @@ async fn op_45_a_shredded_body_is_unreadable_while_its_skeleton_verifies() {
     assert_eq!(outcome.through(), next.pos);
 }
 
+// SEC-35 P-95 SEC-13 OP-45
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs Docker and SoftHSM"]
+async fn sec_35_a_body_carrying_a_secret_is_refused_and_writes_nothing() {
+    let env = Env::start().await;
+    let keys = keys("secret");
+    let (pool, ledger, group, gate) = writer(&env, [0x47; 32]).await;
+    gate.permits.add_permits(100);
+    let bodies = BodyWriter::in_database(Arc::clone(&keys), pool.clone(), scanner());
+    let leak = ["ghp_", FILL36].concat();
+    let leaky = opening("note", leak.as_bytes(), 7);
+    let record = with_body(&comment(&ledger, 1), &[&leaky]);
+    let actors = human();
+    let refused = group
+        .admit_with_body(
+            &Directory::golden(),
+            submission(unsigned(&record), &actors),
+            &[leaky],
+            &bodies,
+            AT,
+        )
+        .await;
+    let error = match refused {
+        Err(SubmitError::Body(e @ BodyError::SecretDetected { .. })) => e,
+        other => panic!("{other:?}"),
+    };
+    let shown = format!("{error} {error:?}");
+    assert!(!shown.contains(FILL36), "{shown}");
+    assert!(matches!(
+        &error,
+        BodyError::SecretDetected { part, rule } if part == "note" && rule == "github-pat"
+    ));
+    let mut tx = env.read("work_app", &ledger).await;
+    let stored = tx.entries(0, 100).await.unwrap();
+    tx.rollback().await.unwrap();
+    assert_eq!(stored.len(), 1);
+    let subject = "party:acme:alice";
+    let dek = pool
+        .active_dek(&ledger, subject, RetentionClass::WorkRecord)
+        .await
+        .unwrap();
+    assert!(dek.is_none());
+    let fine = opening("note", b"the delivery moves to Friday", 8);
+    let record = with_body(&comment(&ledger, 1), &[&fine]);
+    let committed = group
+        .admit_with_body(
+            &Directory::golden(),
+            submission(unsigned(&record), &actors),
+            std::slice::from_ref(&fine),
+            &bodies,
+            AT,
+        )
+        .await
+        .unwrap();
+    let reader =
+        BodyReader::in_database(Arc::clone(&keys), env.pool(Cluster::Canonical, "work_app"));
+    assert_eq!(
+        read(&reader, &ledger, committed.pos).await,
+        vec![("note".to_owned(), PartRead::Readable(fine))]
+    );
+}
+
 // T-20 OP-2 OP-45 P-104
 #[cfg(feature = "s3")]
 #[tokio::test(flavor = "multi_thread")]
@@ -317,7 +420,7 @@ async fn t_20_a_large_part_is_kept_in_the_object_store_and_reads_back() {
     let keys = keys("object");
     let (pool, ledger, group, gate) = writer(&env, [0x46; 32]).await;
     gate.permits.add_permits(100);
-    let bodies = BodyWriter::with_objects(Arc::clone(&keys), pool, store);
+    let bodies = BodyWriter::with_objects(Arc::clone(&keys), pool, store, scanner());
     let large = opening("note", &vec![0x42; 70_000], 5);
     let small = opening("terms", b"net 30", 6);
     let record = with_body(&comment(&ledger, 1), &[&large, &small]);

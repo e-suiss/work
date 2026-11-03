@@ -602,14 +602,16 @@ impl GroupCommit {
 
     /// Admits `s` as [`GroupCommit::admit`] does and seals `body`, the openings of the parts its
     /// record commits to, through `writer` before queueing it, so the record, its skeleton and
-    /// its encrypted parts with their keys commit in one transaction (OP-45, P-68). The parts'
-    /// data subject is the record's author (OP-45 item 7); `now_ms` is the time the DEK cache
-    /// and the object store use.
+    /// its encrypted parts with their keys commit in one transaction (OP-45, P-68). The writer
+    /// scans the openings for secrets first and a detection refuses the record, which never
+    /// enters the log (SEC-35 item 2, P-95 item 2). The parts' data subject is the record's
+    /// author (OP-45 item 7); `now_ms` is the time the DEK cache and the object store use.
     ///
     /// # Errors
     /// [`SubmitError::Body`] when an opening names no commitment of the record, does not give
-    /// its commitment or cannot be sealed, and when a record without a skeleton comes with a
-    /// body; otherwise as [`GroupCommit::admit`].
+    /// its commitment, carries a secret ([`BodyError::SecretDetected`], naming only the part and
+    /// the rule), cannot be scanned or cannot be sealed, and when a record without a skeleton
+    /// comes with a body; otherwise as [`GroupCommit::admit`].
     pub async fn admit_with_body<V: SignatureVerifier + ?Sized, O: ObjectStore>(
         &self,
         verifier: &V,

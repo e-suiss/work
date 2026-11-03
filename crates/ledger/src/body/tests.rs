@@ -22,6 +22,12 @@ fn module() -> PathBuf {
 
 /// A `SoftHSM` token of the test's own (T-56): no KMS mock.
 fn keys(test: &str) -> BodyKeys {
+    let label = token(test);
+    BodyKeys::open(&module(), &label, &Secret::new(PIN.to_owned()), 1).unwrap()
+}
+
+/// The label of a fresh `SoftHSM` token of the test's own.
+fn token(test: &str) -> String {
     let label = format!("body-{test}-{}", std::process::id());
     let init = Command::new("softhsm2-util")
         .args([
@@ -41,7 +47,7 @@ fn keys(test: &str) -> BodyKeys {
         "{}",
         String::from_utf8_lossy(&init.stderr)
     );
-    BodyKeys::open(&module(), &label, &Secret::new(PIN.to_owned()), 1).unwrap()
+    label
 }
 
 fn ledger(tag: u8) -> LedgerId {
@@ -255,4 +261,85 @@ fn op_45_openings_and_sealed_parts_do_not_print_their_content() {
     let shown = format!("{o:?}");
     assert!(!shown.contains("personal"), "{shown}");
     assert!(!shown.contains("text/plain"), "{shown}");
+}
+
+// OP-45 T-56 Access CR-32
+#[test]
+fn op_45_the_ledger_kek_never_leaves_the_token() {
+    use cryptoki::context::{CInitializeArgs, CInitializeFlags, Pkcs11};
+    use cryptoki::error::{Error as CkError, RvError};
+    use cryptoki::mechanism::Mechanism;
+    use cryptoki::object::{Attribute, AttributeType, ObjectClass};
+    use cryptoki::session::UserType;
+    use cryptoki::types::AuthPin;
+
+    let label = token("kek-export");
+    let keys = BodyKeys::open(&module(), &label, &Secret::new(PIN.to_owned()), 1).unwrap();
+    let l = ledger(0x4b);
+    keys.new_class_dek(&l).unwrap();
+    let ctx = Pkcs11::new(module()).unwrap();
+    match ctx.initialize(CInitializeArgs::new(CInitializeFlags::OS_LOCKING_OK)) {
+        Ok(()) | Err(CkError::Pkcs11(RvError::CryptokiAlreadyInitialized, _)) => {}
+        Err(e) => panic!("{e}"),
+    }
+    let slot = ctx
+        .get_slots_with_token()
+        .unwrap()
+        .into_iter()
+        .find(|s| {
+            ctx.get_token_info(*s)
+                .is_ok_and(|i| i.label().trim_end() == label)
+        })
+        .unwrap();
+    let session = ctx.open_rw_session(slot).unwrap();
+    match session.login(UserType::User, Some(&AuthPin::from(PIN.to_owned()))) {
+        Ok(()) | Err(CkError::Pkcs11(RvError::UserAlreadyLoggedIn, _)) => {}
+        Err(e) => panic!("{e}"),
+    }
+    let found = session
+        .find_objects(&[
+            Attribute::Class(ObjectClass::SECRET_KEY),
+            Attribute::Label(kek_label(&l, 1).into_bytes()),
+        ])
+        .unwrap();
+    assert_eq!(found.len(), 1);
+    let kek = found[0];
+    let attrs = session
+        .get_attributes(
+            kek,
+            &[
+                AttributeType::Sensitive,
+                AttributeType::Extractable,
+                AttributeType::AlwaysSensitive,
+                AttributeType::NeverExtractable,
+                AttributeType::Value,
+            ],
+        )
+        .unwrap();
+    for want in [
+        Attribute::Sensitive(true),
+        Attribute::Extractable(false),
+        Attribute::AlwaysSensitive(true),
+        Attribute::NeverExtractable(true),
+    ] {
+        assert!(attrs.contains(&want), "{want:?} in {attrs:?}");
+    }
+    assert!(!attrs.iter().any(|a| matches!(a, Attribute::Value(_))));
+    let wrapping = session
+        .generate_key(
+            &Mechanism::AesKeyGen,
+            &[
+                Attribute::Token(false),
+                Attribute::ValueLen(32.into()),
+                Attribute::Wrap(true),
+                Attribute::Unwrap(true),
+            ],
+        )
+        .unwrap();
+    assert!(
+        session
+            .wrap_key(&Mechanism::AesKeyWrap, wrapping, kek)
+            .is_err()
+    );
+    assert!(session.wrap_key(&Mechanism::AesKeyWrap, kek, kek).is_err());
 }

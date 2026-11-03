@@ -18,7 +18,10 @@
 //! rows, a difference being a sev-1 signal (OP-1). Bodies are sealed under three key tiers,
 //! the ledger KEK in the PKCS#11 token, a class DEK per subject and retention class and a DEK
 //! per part, written with their record and opened, or found unreadable after a crypto-shred, on
-//! the read path (OP-45); large ciphertexts may go to an S3-compatible store (T-20). The replica
+//! the read path (OP-45); every opening is scanned for secrets before it is sealed (SEC-35), and
+//! every key removal is recorded in the erasure log and reported completed only once the DEK
+//! cache lifetime and the backup window have passed; large ciphertexts may go to an
+//! S3-compatible store (T-20). The replica
 //! is a directory on a single node or an S3 bucket with Object Lock whose objects are written
 //! once (OP-33 item 3), and cold idempotency partitions are copied to such a bucket and verified
 //! before the archive role drops them (OP-35). Random bytes, the log key's signatures and the log

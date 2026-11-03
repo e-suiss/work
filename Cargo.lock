@@ -4809,6 +4809,7 @@ name = "work-ledger"
 version = "0.1.0"
 dependencies = [
  "bytes",
+ "cryptoki",
  "ed25519-dalek",
  "esuiss-crypto",
  "esuiss-ledger",
@@ -4827,6 +4828,7 @@ dependencies = [
  "tokio",
  "tokio-rustls",
  "tracing",
+ "work-parse",
  "work-proto",
  "work-store",
  "work-testkit",

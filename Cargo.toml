@@ -74,6 +74,8 @@ roughenough-protocol = { version = "=2.2.0", default-features = false }
 rustls = { version = "=0.23.46", default-features = false }
 base64 = { version = "=0.22.1", default-features = false }
 ed25519-dalek = { version = "=3.0.0", default-features = false }
+# T-56, OP-45
+cryptoki = { version = "=0.12.1", default-features = false }
 # T-5, T-58
 wasm-bindgen = { version = "=0.2.129", default-features = false }
 uniffi = { version = "=0.32.2", default-features = false }

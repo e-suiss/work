@@ -143,13 +143,19 @@ pub(crate) fn allowed(from: Class, to: Class) -> bool {
     allowed_targets(from).is_none_or(|targets| targets.contains(&to))
 }
 
-// T-70
+// T-70 SEC-35
 /// Reviewed dev-dependency exceptions to the table: (dependency package,
 /// reason). Dev-dependencies never reach a shipped tree.
-pub(crate) const DEV_EXCEPTIONS: &[(&str, &str)] = &[(
-    "work-bindings-core",
-    "T-70: tests outside sdks/bindings decode the shared vectors through the one bindings JSON front end",
-)];
+pub(crate) const DEV_EXCEPTIONS: &[(&str, &str)] = &[
+    (
+        "work-bindings-core",
+        "T-70: tests outside sdks/bindings decode the shared vectors through the one bindings JSON front end",
+    ),
+    (
+        "work-parse",
+        "SEC-35: write path tests scan bodies with the rule set the parser worker runs, in process",
+    ),
+];
 
 /// May a crate of class `from` dev-depend on `dep` of class `to`?
 pub(crate) fn dev_allowed(from: Class, to: Class, dep: &str) -> bool {
