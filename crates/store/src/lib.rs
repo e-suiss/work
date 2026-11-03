@@ -26,7 +26,7 @@ mod witness;
 pub use archive::{ARCHIVE_ROLE, ARCHIVED_TABLES, ArchivePool, ArchiveRecord, PartitionSlice};
 pub use body::{
     BodyPartRow, DekRow, ERASURE_ROLE, Erased, ErasureCause, ErasurePool, ErasureRow, ErasureState,
-    ErasureTarget, RetentionClass, Shred, Stored, StoredPart, WRAPPED_LEN,
+    ErasureTarget, LogBytes, RetentionClass, Shred, Stored, StoredPart, WRAPPED_LEN,
 };
 pub use checkpoint::{
     CHECKPOINTER_ROLE, CheckpointRow, CheckpointerPool, CosignatureRow, HeadSnapshot, MirrorEntry,

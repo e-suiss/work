@@ -207,7 +207,7 @@ fn slot_of(envelope: &[u8]) -> (LedgerId, Slot) {
 #[test]
 fn p_100_the_admission_path_seals_the_golden_ledger_byte_for_byte() {
     let entries = golden();
-    assert_eq!(entries.len(), 14);
+    assert_eq!(entries.len(), 18);
     for g in &entries {
         let (ledger, slot) = slot_of(&g.envelope);
         let record = pending(g, &ledger).unwrap_or_else(|r| panic!("{}: {r}", g.id));

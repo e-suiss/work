@@ -24,7 +24,10 @@ use work_store::{
     RetentionClass, Shred,
 };
 
-use crate::{AT, Directory, Env, comment, human, node, statement, submission, unsigned, writer};
+use crate::{
+    AT, Directory, Env, RECORDS, comment, human, json, node, statement, submission, unhex,
+    unsigned, writer,
+};
 
 const PIN: &str = "4711";
 const FILL36: &str = "Zq8kR2mN4vX7bT1yW9cL3pH6dF0sJ5gA2eUo";
@@ -105,6 +108,30 @@ fn with_body(record: &[u8], parts: &[&BodyOpening]) -> Vec<u8> {
         })
         .collect();
     fields.push((Value::text("body"), Value::Array(body)));
+    dcbor::encode(&v, Limits::CEILING).unwrap()
+}
+
+/// The golden `redact` record moved to `ledger`, naming `part` of the record `target` (P-111).
+fn redaction(ledger: &LedgerId, target: [u8; 32], part: &str) -> Vec<u8> {
+    let records = json(RECORDS);
+    let template = &records["records"][11];
+    assert_eq!(template["id"], "record/declaration-redact");
+    let mut v = dcbor::decode(&unhex(template["hex"].as_str().unwrap()), Limits::CEILING).unwrap();
+    let Value::Map(fields) = &mut v else {
+        panic!("record")
+    };
+    let params = Value::Map(vec![
+        (Value::text("parts"), Value::Array(vec![Value::text(part)])),
+        (Value::text("reason"), Value::text("personal_data")),
+        (Value::text("target"), Digest(target).to_value()),
+    ]);
+    for (key, value) in fields.iter_mut() {
+        match key {
+            Value::Text(k) if k == "ledger" => *value = Digest(*ledger.as_bytes()).to_value(),
+            Value::Text(k) if k == "params" => *value = params.clone(),
+            _ => {}
+        }
+    }
     dcbor::encode(&v, Limits::CEILING).unwrap()
 }
 
@@ -221,19 +248,42 @@ async fn op_45_a_shredded_body_is_unreadable_while_its_skeleton_verifies() {
             .unwrap(),
         BACKUP_WINDOW,
     );
-    let redacted = eraser
-        .redact_parts(&ledger, committed.pos, &["note"])
+    let asked = redaction(&ledger, sha256(&record), "note");
+    let request = group
+        .admit(&Directory::golden(), submission(unsigned(&asked), &actors))
         .await
         .unwrap();
+    let redacted = eraser.redact_record(&ledger, request.pos).await.unwrap();
     assert!(matches!(redacted.as_slice(), [(p, Erased::Shredded { .. })] if p == "note"));
-    let again = eraser.redact(&ledger, committed.pos, "note").await.unwrap();
+    let replayed = eraser.redact_record(&ledger, request.pos).await.unwrap();
+    assert_eq!(replayed, vec![("note".to_owned(), Erased::Nothing)]);
+    let again = eraser
+        .redact(&ledger, request.pos, committed.pos, "note")
+        .await
+        .unwrap();
     assert_eq!(again, Erased::Nothing);
     assert!(matches!(
         eraser
-            .redact_parts(&ledger, committed.pos, &["terms", "terms"])
+            .redact_parts(&ledger, request.pos, committed.pos, &["terms", "terms"])
             .await,
         Err(BodyError::DuplicatePart(p)) if p == "terms"
     ));
+    assert!(matches!(
+        eraser.redact_record(&ledger, committed.pos).await,
+        Err(BodyError::NotARedaction(p)) if p == committed.pos
+    ));
+    let elsewhere = redaction(&ledger, [0x5e; 32], "note");
+    let unknown = group
+        .admit(&Directory::golden(), submission(unsigned(&elsewhere), &actors))
+        .await
+        .unwrap();
+    assert!(
+        eraser
+            .redact_record(&ledger, unknown.pos)
+            .await
+            .unwrap()
+            .is_empty()
+    );
     assert_eq!(
         read(&reader, &ledger, committed.pos).await,
         vec![
@@ -282,6 +332,7 @@ async fn op_45_a_shredded_body_is_unreadable_while_its_skeleton_verifies() {
             part: "note".to_owned(),
         }
     );
+    assert_eq!(erasures[0].request_pos, Some(request.pos));
     assert_eq!(erasures[1].erasure_id, waiting);
     assert_eq!(erasures[1].cause, ErasureCause::SubjectRequest);
     assert_eq!(erasures[1].target, ErasureTarget::Class);
@@ -316,7 +367,7 @@ async fn op_45_a_shredded_body_is_unreadable_while_its_skeleton_verifies() {
     let mut tx = env.read("work_app", &ledger).await;
     let stored = tx.entries(0, 100).await.unwrap();
     tx.rollback().await.unwrap();
-    assert_eq!(stored.len(), 3);
+    assert_eq!(stored.len(), 5);
     let directory = Directory::golden();
     let mut at = ChainPoint::genesis(&stored[0].record_bytes).unwrap();
     for s in &stored[1..] {

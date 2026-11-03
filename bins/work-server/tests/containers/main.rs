@@ -28,6 +28,7 @@ use suiss_crypto::digest::Digest;
 use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
 use work_kernel::limits::SemanticLimits;
 use work_kernel::reason::{Reason, Schema};
+use work_kernel::rules::RuleSet;
 use work_kernel::validate::{ActorType, ActorTypeEntry, ActorTypeSource, ActorTypes, Origin};
 use work_kernel::verify::{SignatureCheck, SignatureVerifier};
 use work_ledger::{
@@ -532,7 +533,7 @@ async fn t_17_a_committed_record_reaches_jetstream_through_the_server() {
         &GenesisInput {
             recorded_at_ms: AT,
             protocol: (1, 0),
-            schema: [0x5c; 32],
+            schema: *RuleSet::V1_0.schema().as_bytes(),
             nonce: [0x2a; 32],
         },
         Durability::SingleNode,

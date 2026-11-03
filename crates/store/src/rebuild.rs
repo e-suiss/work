@@ -22,7 +22,7 @@ pub const CANONICAL_READS: [&str; 2] = [LOG_PAGE, RECEIVED_PAGE];
 /// statement that reads its rows as text: without the ledger id and the leader epoch, times as
 /// Unix milliseconds and the stored bytes of the log by their SHA-256 (T-10, T-89, T-90).
 /// [`LedgerTx::snapshot`] runs the same files, checked at compile time, in this order.
-const COMPARED: [(&str, &str); 13] = [
+const COMPARED: [(&str, &str); 14] = [
     (
         "ledger.head",
         include_str!("../queries/rebuild/ledger_head.sql"),
@@ -30,6 +30,10 @@ const COMPARED: [(&str, &str); 13] = [
     (
         "ledger.log",
         include_str!("../queries/rebuild/ledger_log.sql"),
+    ),
+    (
+        "ledger.version_activation",
+        include_str!("../queries/rebuild/version_activation.sql"),
     ),
     (
         "work.ledger_profile",
@@ -415,6 +419,9 @@ impl LedgerTx<'_> {
                 .fetch_all(self.conn())
                 .await?,
             sqlx::query_file_scalar!("queries/rebuild/ledger_log.sql", id)
+                .fetch_all(self.conn())
+                .await?,
+            sqlx::query_file_scalar!("queries/rebuild/version_activation.sql", id)
                 .fetch_all(self.conn())
                 .await?,
             sqlx::query_file_scalar!("queries/rebuild/ledger_profile.sql", id)

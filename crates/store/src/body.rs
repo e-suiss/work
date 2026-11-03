@@ -290,6 +290,9 @@ pub struct ErasureRow {
     pub cause: ErasureCause,
     /// What it removes.
     pub target: ErasureTarget,
+    /// The position of the `redact` record a redaction answers; `None` for any other cause
+    /// (P-111 item 5).
+    pub request_pos: Option<u64>,
     /// Where it stands.
     pub state: ErasureState,
     /// When it was requested.
@@ -306,6 +309,29 @@ impl std::fmt::Debug for ErasureRow {
             .field("state", &self.state)
             .finish_non_exhaustive()
     }
+}
+
+/// One log entry's stored bytes as the erasure role reads them (P-111 item 6).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LogBytes {
+    /// Log position.
+    pub pos: u64,
+    /// The record bytes.
+    pub record_bytes: Vec<u8>,
+    /// The envelope bytes.
+    pub envelope_bytes: Vec<u8>,
+}
+
+fn log_bytes(
+    pos: i64,
+    record_bytes: Vec<u8>,
+    envelope_bytes: Vec<u8>,
+) -> Result<LogBytes, StoreError> {
+    Ok(LogBytes {
+        pos: u64::try_from(pos).map_err(|_| StoreError::Corrupt)?,
+        record_bytes,
+        envelope_bytes,
+    })
 }
 
 /// The outcome of one erasure request (OP-45 item 5, Access OP-74): a decision, not an error.
@@ -379,6 +405,7 @@ struct ErasureTuple {
     state: String,
     pos: Option<i64>,
     part: Option<String>,
+    request_pos: Option<i64>,
     requested_at: i64,
     settles_at: Option<i64>,
     completed_at: Option<i64>,
@@ -402,6 +429,10 @@ fn erasure_row(t: ErasureTuple) -> Result<ErasureRow, StoreError> {
         },
         _ => return Err(StoreError::Corrupt),
     };
+    let request_pos = t
+        .request_pos
+        .map(|p| u64::try_from(p).map_err(|_| StoreError::Corrupt))
+        .transpose()?;
     Ok(ErasureRow {
         erasure_id: t.erasure_id,
         dek_id: t.dek_id,
@@ -409,6 +440,7 @@ fn erasure_row(t: ErasureTuple) -> Result<ErasureRow, StoreError> {
         class: RetentionClass::from_stored(&t.class).ok_or(StoreError::Corrupt)?,
         cause: ErasureCause::from_stored(&t.cause).ok_or(StoreError::Corrupt)?,
         target,
+        request_pos,
         state,
         requested_at_ms: t.requested_at,
     })
@@ -441,12 +473,14 @@ async fn part_held(tx: &mut LedgerTx<'_>, pos: i64, part: &str) -> Result<bool, 
     Ok(held)
 }
 
-/// The waiting erasure of `dek_id` and `part`, written when there is none (Access OP-74).
+/// The waiting erasure of `dek_id` and `part` for the request at `request`, written when there
+/// is none (Access OP-74, P-111 item 5).
 async fn waiting(
     tx: &mut LedgerTx<'_>,
     dek_id: &str,
     part: Option<(i64, &str)>,
     cause: ErasureCause,
+    request: Option<i64>,
 ) -> Result<String, StoreError> {
     let ledger = *tx.ledger().as_bytes();
     let (pos, name) = part.unzip();
@@ -454,11 +488,13 @@ async fn waiting(
         r#"SELECT erasure_id::text AS "erasure_id!" FROM work.erasure_log
            WHERE ledger_id = $1 AND dek_id = $2::text::uuid AND state = 'waiting_on_hold'
              AND pos IS NOT DISTINCT FROM $3::bigint AND part IS NOT DISTINCT FROM $4::text
+             AND request_pos IS NOT DISTINCT FROM $5::bigint
            ORDER BY requested_at, erasure_id LIMIT 1"#,
         ledger.as_slice(),
         dek_id,
         pos,
-        name
+        name,
+        request
     )
     .fetch_optional(tx.conn())
     .await?;
@@ -466,27 +502,30 @@ async fn waiting(
         return Ok(id);
     }
     sqlx::query_scalar!(
-        r#"INSERT INTO work.erasure_log (ledger_id, dek_id, cause, state, pos, part)
-           VALUES ($1, $2::text::uuid, $3, 'waiting_on_hold', $4::bigint, $5::text)
+        r#"INSERT INTO work.erasure_log (ledger_id, dek_id, cause, state, pos, part, request_pos)
+           VALUES ($1, $2::text::uuid, $3, 'waiting_on_hold', $4::bigint, $5::text, $6::bigint)
            RETURNING erasure_id::text AS "erasure_id!""#,
         ledger.as_slice(),
         dek_id,
         cause.as_str(),
         pos,
-        name
+        name,
+        request
     )
     .fetch_one(tx.conn())
     .await
     .map_err(refused)
 }
 
-/// Records the key of `dek_id` and `part` as removed now, settling `window` from now: the
-/// waiting erasure becomes shredded, or a shredded one is written (OP-45 item 5).
+/// Records the key of `dek_id` and `part` as removed now, settling `window` from now: every
+/// waiting erasure of it becomes shredded, or a shredded one is written for the request at
+/// `request` (OP-45 item 5, P-111 item 5).
 async fn shredded(
     tx: &mut LedgerTx<'_>,
     dek_id: &str,
     part: Option<(i64, &str)>,
     cause: ErasureCause,
+    request: Option<i64>,
     window: i64,
 ) -> Result<(String, i64), StoreError> {
     let ledger = *tx.ledger().as_bytes();
@@ -515,9 +554,11 @@ async fn shredded(
         return Ok((first.erasure_id, first.settles_at));
     }
     let row = sqlx::query!(
-        r#"INSERT INTO work.erasure_log (ledger_id, dek_id, cause, state, settles_at, pos, part)
+        r#"INSERT INTO work.erasure_log
+               (ledger_id, dek_id, cause, state, settles_at, pos, part, request_pos)
            VALUES ($1, $2::text::uuid, $3, 'shredded',
-                   pg_catalog.now() + $4::bigint * interval '1 millisecond', $5::bigint, $6::text)
+                   pg_catalog.now() + $4::bigint * interval '1 millisecond', $5::bigint, $6::text,
+                   $7::bigint)
            RETURNING erasure_id::text AS "erasure_id!",
                      (extract(epoch FROM settles_at) * 1000)::bigint AS "settles_at!""#,
         ledger.as_slice(),
@@ -525,7 +566,8 @@ async fn shredded(
         cause.as_str(),
         window,
         pos,
-        name
+        name,
+        request
     )
     .fetch_one(tx.conn())
     .await
@@ -855,7 +897,7 @@ impl ErasurePool {
         .fetch_one(tx.conn())
         .await?;
         if held {
-            let erasure_id = waiting(&mut tx, &row.dek_id, None, why.request()).await?;
+            let erasure_id = waiting(&mut tx, &row.dek_id, None, why.request(), None).await?;
             tx.commit().await?;
             return Ok(Erased::Held { erasure_id });
         }
@@ -882,7 +924,7 @@ impl ErasurePool {
         .await
         .map_err(refused)?;
         let (erasure_id, settles_at_ms) =
-            shredded(&mut tx, &row.dek_id, None, why.request(), window).await?;
+            shredded(&mut tx, &row.dek_id, None, why.request(), None, window).await?;
         tx.commit().await?;
         Ok(Erased::Shredded {
             erasure_id,
@@ -891,25 +933,46 @@ impl ErasurePool {
         })
     }
 
-    /// Shreds the key of one part once, the redaction of that part alone (P-25, OP-15,
-    /// OP-45 item 5): its wrapped key becomes NULL, the part gets a tombstone and the erasure
-    /// is recorded as shredded until `settle` from now. Under an active retention hold nothing
-    /// is removed and the request is recorded as waiting (Access OP-74); for a key already
-    /// shredded, a waiting erasure of it is settled from its shredding.
+    /// Shreds the key of one part once, the redaction of that part alone that the `redact`
+    /// record at `request` asks for (P-25, P-111 item 5, OP-15, OP-45 item 5): its wrapped key
+    /// becomes NULL, the part gets a tombstone and the erasure is recorded with the request's
+    /// position as shredded until `settle` from now. Under an active retention hold nothing is
+    /// removed and the request is recorded as waiting (Access OP-74); for a key already
+    /// shredded, a waiting erasure of it is settled from its shredding. A request whose erasure
+    /// of the part is already shredded or completed writes nothing again.
     ///
     /// # Errors
     /// [`StoreError::Constraint`] when a hold appears concurrently; [`StoreError::Db`] otherwise.
     pub async fn shred_part(
         &self,
         ledger: &LedgerId,
+        request: u64,
         pos: u64,
         part: &str,
         settle: std::time::Duration,
     ) -> Result<Erased<[u8; WRAPPED_LEN]>, StoreError> {
         let id = ledger.as_bytes().as_slice();
         let at = signed(pos)?;
+        let request = signed(request)?;
         let window = window_ms(settle);
         let mut tx = LedgerTx::begin(&self.pool, ledger).await?;
+        let done = sqlx::query_scalar!(
+            r#"SELECT EXISTS (
+                   SELECT 1 FROM work.erasure_log
+                   WHERE ledger_id = $1 AND request_pos = $2 AND pos = $3 AND part = $4
+                     AND state <> 'waiting_on_hold'
+               ) AS "done!""#,
+            id,
+            request,
+            at,
+            part
+        )
+        .fetch_one(tx.conn())
+        .await?;
+        if done {
+            tx.rollback().await?;
+            return Ok(Erased::Nothing);
+        }
         let row = sqlx::query!(
             r#"SELECT k.wrapped_key AS "wrapped_key?", p.dek_id::text AS "dek_id!"
                FROM work.body_part_key k
@@ -954,6 +1017,7 @@ impl ErasurePool {
                 &row.dek_id,
                 Some((at, part)),
                 ErasureCause::Redaction,
+                Some(request),
             )
             .await?;
             tx.commit().await?;
@@ -984,6 +1048,7 @@ impl ErasurePool {
             &row.dek_id,
             Some((at, part)),
             ErasureCause::Redaction,
+            Some(request),
             window,
         )
         .await?;
@@ -1017,6 +1082,56 @@ impl ErasurePool {
         Ok(done)
     }
 
+    /// The stored bytes of the log entry of `ledger` at `pos`, which the erasure role reads to
+    /// carry out a `redact` record (P-111 item 6).
+    ///
+    /// # Errors
+    /// [`StoreError::Db`], or [`StoreError::Corrupt`] for a position beyond `bigint`.
+    pub async fn log_at(
+        &self,
+        ledger: &LedgerId,
+        pos: u64,
+    ) -> Result<Option<LogBytes>, StoreError> {
+        let mut tx = LedgerTx::begin(&self.pool, ledger).await?;
+        let row = sqlx::query!(
+            r#"SELECT pos AS "pos!", record_bytes AS "record_bytes!",
+                      envelope_bytes AS "envelope_bytes!"
+               FROM ledger.log WHERE ledger_id = $1 AND pos = $2"#,
+            ledger.as_bytes().as_slice(),
+            signed(pos)?
+        )
+        .fetch_optional(tx.conn())
+        .await?;
+        tx.commit().await?;
+        row.map(|r| log_bytes(r.pos, r.record_bytes, r.envelope_bytes))
+            .transpose()
+    }
+
+    /// The stored bytes of the log entry of `ledger` whose record id is `record` (P-79,
+    /// P-111 item 6).
+    ///
+    /// # Errors
+    /// [`StoreError::Db`], or [`StoreError::Corrupt`] for a malformed row.
+    pub async fn log_of_record(
+        &self,
+        ledger: &LedgerId,
+        record: &[u8; 32],
+    ) -> Result<Option<LogBytes>, StoreError> {
+        let mut tx = LedgerTx::begin(&self.pool, ledger).await?;
+        let row = sqlx::query!(
+            r#"SELECT pos AS "pos!", record_bytes AS "record_bytes!",
+                      envelope_bytes AS "envelope_bytes!"
+               FROM ledger.log WHERE ledger_id = $1 AND record_id = $2"#,
+            ledger.as_bytes().as_slice(),
+            record.as_slice()
+        )
+        .fetch_optional(tx.conn())
+        .await?;
+        tx.commit().await?;
+        row.map(|r| log_bytes(r.pos, r.record_bytes, r.envelope_bytes))
+            .transpose()
+    }
+
     /// Every erasure of `ledger` in request order, with where it stands (OP-45 item 5).
     ///
     /// # Errors
@@ -1028,7 +1143,7 @@ impl ErasurePool {
             r#"SELECT e.erasure_id::text AS "erasure_id!", e.dek_id::text AS "dek_id!",
                       d.subject_ref::text AS "subject!", d.retention_class::text AS "class!",
                       e.cause AS "cause!", e.state AS "state!", e.pos::bigint AS "pos?",
-                      e.part::text AS "part?",
+                      e.part::text AS "part?", e.request_pos::bigint AS "request_pos?",
                       (extract(epoch FROM e.requested_at) * 1000)::bigint AS "requested_at!",
                       (extract(epoch FROM e.settles_at) * 1000)::bigint AS "settles_at?",
                       (extract(epoch FROM e.completed_at) * 1000)::bigint AS "completed_at?"

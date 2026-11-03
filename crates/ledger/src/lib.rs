@@ -66,7 +66,9 @@ pub use checkpoint::{
     CheckpointError, Checkpointer, Declaration, DeclarationError, Deployment, SignerClient,
     acknowledgement,
 };
-pub use envelope::{EventPointer, Inbound, ItemTouch, KeyClaim, PendingRecord, SealedRecord};
+pub use envelope::{
+    ActivationRequest, EventPointer, Inbound, ItemTouch, KeyClaim, PendingRecord, SealedRecord,
+};
 pub use error::LedgerError;
 pub use genesis::{GenesisInput, genesis};
 pub use group::{

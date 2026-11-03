@@ -2,10 +2,13 @@ use suiss_crypto::dcbor::{self, EncodeError, Limits, Value};
 use suiss_crypto::digest::{Digest, leaf_hash, sha256};
 use suiss_ledger::Hash;
 use suiss_ledger::sequencer::{Entry, Slot};
+use work_kernel::record::ProtocolVersion;
 use work_store::{
     BodyPartRow, CallerRef, Expect, IdempotencyKey, ItemRef, LedgerId, ReceivedRow, Skeleton,
     Stored,
 };
+
+use crate::admit::auth_context_value;
 
 /// An admitted record waiting for its slot: what the sequencer needs to seal its
 /// `LedgerEnvelope` (P-11) and to write, in the same transaction, the bytes it was received as,
@@ -151,10 +154,12 @@ pub struct EventPointer {
 /// A record sealed into its slot: the envelope bytes the leaf hash covers.
 #[derive(Clone, PartialEq, Eq)]
 pub struct SealedRecord {
-    /// The det-CBOR `LedgerEnvelope`.
+    /// The det-CBOR `LedgerEnvelope`, or the `ActivationEnvelope` of an activation.
     pub envelope: Vec<u8>,
-    /// The record it seals.
+    /// The record it seals; for an activation, its envelope bytes and nothing else.
     pub record: PendingRecord,
+    /// Whether the entry is a version activation (P-110).
+    pub activation: bool,
 }
 
 impl std::fmt::Debug for SealedRecord {
@@ -162,7 +167,89 @@ impl std::fmt::Debug for SealedRecord {
         f.debug_struct("SealedRecord")
             .field("envelope", &self.envelope.len())
             .field("record", &self.record)
+            .field("activation", &self.activation)
             .finish()
+    }
+}
+
+/// What an operator asks a leader to activate, with the Access decision that authorises it
+/// (P-110 items 2, 5, Access OP-56).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ActivationRequest {
+    /// The protocol version.
+    pub protocol: ProtocolVersion,
+    /// The digest of that version's normative CDDL bytes.
+    pub schema: [u8; 32],
+    /// The digest of the Access decision that authorises the activation.
+    pub auth_context: [u8; 32],
+    /// The operator's assurance level, 1 to 64 bytes.
+    pub assurance: String,
+    /// Whether the operator's context came from a step-up.
+    pub step_up: bool,
+}
+
+/// An activation bound to the ledger it is written to.
+pub(crate) struct Activating<'a> {
+    pub(crate) ledger: &'a LedgerId,
+    pub(crate) request: &'a ActivationRequest,
+}
+
+/// The `ActivationEnvelope` of `request` at `slot` (P-110 item 2).
+fn activation_envelope(ledger: &LedgerId, request: &ActivationRequest, slot: &Slot) -> Value {
+    let version = Value::Map(vec![
+        (
+            Value::text("protocol"),
+            Value::Array(vec![
+                Value::Unsigned(request.protocol.major),
+                Value::Unsigned(request.protocol.minor),
+            ]),
+        ),
+        (Value::text("schema"), digest(&request.schema)),
+    ]);
+    let context = auth_context_value(&request.auth_context, request.step_up, &request.assurance);
+    Value::Map(vec![
+        (Value::text("activation"), version),
+        (Value::text("ledger"), digest(ledger.as_bytes())),
+        (Value::text("pos"), Value::Unsigned(slot.pos)),
+        (Value::text("prev"), digest(&slot.prev)),
+        (
+            Value::text("recorded_at"),
+            Value::Unsigned(slot.recorded_at),
+        ),
+        (Value::text("auth_context"), context),
+    ])
+}
+
+impl Entry for Activating<'_> {
+    type Sealed = SealedRecord;
+    type Error = EncodeError;
+
+    fn seal(&self, slot: &Slot) -> Result<(Hash, SealedRecord), EncodeError> {
+        let value = activation_envelope(self.ledger, self.request, slot);
+        let bytes = dcbor::encode(&value, Limits::CEILING)?;
+        let record = PendingRecord {
+            record_bytes: bytes.clone(),
+            actor_type: Value::Map(Vec::new()),
+            proof_commit: None,
+            auth_context: None,
+            ingest: Value::Map(Vec::new()),
+            received: Vec::new(),
+            skeleton: None,
+            body: Vec::new(),
+            items: Vec::new(),
+            outbox: Vec::new(),
+            idempotency: None,
+            inbound: None,
+            effective_at: None,
+        };
+        Ok((
+            leaf_hash(&bytes),
+            SealedRecord {
+                envelope: bytes,
+                record,
+                activation: true,
+            },
+        ))
     }
 }
 
@@ -210,6 +297,7 @@ impl Entry for Bound<'_> {
             SealedRecord {
                 envelope: bytes,
                 record: self.record.clone(),
+                activation: false,
             },
         ))
     }

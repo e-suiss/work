@@ -51,6 +51,7 @@ fn record(pos: u64, prev: [u8; 32], leaf: [u8; 32], at: u64) -> LogRow {
         received: vec![],
         skeleton: None,
         body: vec![],
+        activation: false,
     }
 }
 
@@ -148,6 +149,41 @@ async fn t_85_opening_writes_the_genesis_and_leadership_reads_its_frontier() {
         SequencerPool::new(env.canonical("work_publisher")).await,
         Err(StoreError::Role)
     ));
+}
+
+// P-110 OP-28 T-85
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs Docker"]
+async fn p_110_an_activation_is_a_batch_of_its_own_and_leadership_reads_every_activation() {
+    let (env, seq) = opened().await;
+    let l = hex(&L);
+    let app = env.canonical("work_app");
+    let activations = "SELECT count(*) FROM ledger.version_activation";
+    assert_eq!(scalar(&app, &l, activations, false).await, 1);
+    let ledger = LedgerId::from_bytes(L);
+    let head = seq.acquire(&ledger, &seat(), any).await.unwrap();
+    let mut mixed = batch(head.epoch, 0, 1);
+    mixed.records[0].activation = true;
+    mixed.records[0].envelope_bytes = mixed.records[0].record_bytes.clone();
+    let refused = seq.append(&ledger, &mixed).await;
+    assert!(matches!(
+        refused,
+        Err(AppendError::Refused(StoreError::Constraint(c))) if c == "activation_alone"
+    ));
+    let mut lone = mixed.clone();
+    lone.items.clear();
+    lone.outbox.clear();
+    seq.append(&ledger, &lone).await.unwrap();
+    assert_eq!(scalar(&app, &l, activations, false).await, 2);
+    let header = "SELECT count(*) FROM work.record_header";
+    assert_eq!(scalar(&app, &l, header, false).await, 0);
+    let mut seen = Vec::new();
+    let read = |a: &[Vec<u8>]| {
+        seen = a.to_vec();
+        true
+    };
+    seq.acquire(&ledger, &seat(), read).await.unwrap();
+    assert_eq!(seen, [vec![0xa1, 0x01, 0x02], vec![0xd2]]);
 }
 
 // T-85 P-100

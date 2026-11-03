@@ -29,4 +29,12 @@ pub enum LedgerError {
     /// The store refused the operation.
     #[error(transparent)]
     Store(#[from] StoreError),
+    /// The version to activate is not above the ledger's active version, major then minor;
+    /// nothing was written (P-110 item 6 (c)).
+    #[error("activation is not newer than the active version")]
+    ActivationNotNewer,
+    /// The schema digest is not the one the kernel carries for the version to activate;
+    /// nothing was written (P-110 item 6 (d)).
+    #[error("activation schema does not match the version")]
+    ActivationSchemaMismatch,
 }

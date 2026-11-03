@@ -63,6 +63,7 @@ crates = ["crates/store"]
 tables = [
   "ledger.head",
   "ledger.outbox",
+  "ledger.version_activation",
   "work.idempotency_key",
   "work.inbound_seen",
   "work.item_head",

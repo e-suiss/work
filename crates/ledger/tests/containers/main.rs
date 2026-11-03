@@ -27,15 +27,16 @@ use work_kernel::id::PartyRef;
 use work_kernel::limits::SemanticLimits;
 use work_kernel::reason::{Reason, Schema};
 use work_kernel::record::ProtocolVersion;
+use work_kernel::rules::RuleSet;
 use work_kernel::uri::TypeUri;
 use work_kernel::validate::{ActorType, ActorTypeEntry, ActorTypeSource, ActorTypes, Origin};
 use work_kernel::verify::{
     ChainPoint, SignatureCheck, SignatureVerifier, StoredEntry, verify_entry,
 };
 use work_ledger::{
-    Arrival, AuthContext, Clock, ClockError, GenesisInput, GroupCommit, GroupConfig, Leader,
-    LedgerError, Ledgers, Node, PendingRecord, RebuildError, Rng, RngError, Submission,
-    SubmitError, admit, genesis, rebuild_diff,
+    ActivationRequest, Arrival, AuthContext, Clock, ClockError, GenesisInput, GroupCommit,
+    GroupConfig, Leader, LedgerError, Ledgers, Node, PendingRecord, RebuildError, Rng, RngError,
+    Submission, SubmitError, admit, genesis, rebuild_diff,
 };
 use work_store::{
     CellId, Cluster, Durability, Genesis, ItemRef, LedgerId, LedgerTx, Pool, SequencerPool,
@@ -303,7 +304,7 @@ fn opening(tag: [u8; 32], durability: Durability) -> Genesis {
         &GenesisInput {
             recorded_at_ms: AT,
             protocol: (1, 0),
-            schema: [0x5c; 32],
+            schema: *RuleSet::V1_0.schema().as_bytes(),
             nonce: tag,
         },
         durability,
@@ -748,7 +749,7 @@ async fn p_5_the_golden_ledger_is_stored_as_received_and_reverifies() {
     let mut tx = env.read("work_app", &ledger).await;
     let stored = tx.entries(0, 100).await.unwrap();
     tx.rollback().await.unwrap();
-    assert_eq!(stored.len(), 15);
+    assert_eq!(stored.len(), 19);
     assert_eq!(stored[0].record_bytes, bytes);
     let mut at = ChainPoint::genesis(&bytes).unwrap();
     for (s, g) in stored[1..].iter().zip(&entries) {
@@ -858,12 +859,12 @@ async fn op_1_the_rebuilt_golden_ledger_equals_the_live_rows() {
         .await
         .unwrap();
     assert!(outcome.is_clean(), "{outcome:?}");
-    assert_eq!(outcome.through(), 14);
+    assert_eq!(outcome.through(), 18);
     let live_rows = live_snapshot(&live, &ledger).await;
     assert_eq!(live_rows, rebuilt_snapshot(&target, &ledger).await);
-    assert_eq!(live_rows.rows("ledger.log").unwrap().len(), 15);
+    assert_eq!(live_rows.rows("ledger.log").unwrap().len(), 19);
     assert_eq!(live_rows.rows("work.item_head").unwrap().len(), 2);
-    assert_eq!(live_rows.rows("work.record_header").unwrap().len(), 13);
+    assert_eq!(live_rows.rows("work.record_header").unwrap().len(), 17);
     assert_eq!(live_rows.rows("work.one_time_flag").unwrap().len(), 0);
     assert!(matches!(
         rebuild_diff(&live, &target, &node(), ledger, Durability::SingleNode).await,
@@ -957,6 +958,80 @@ async fn op_28_a_node_of_another_version_set_never_leads_while_the_current_one_c
         current.commit(at, &[three]).await,
         Err(LedgerError::Failed(_))
     ));
+}
+
+fn activation(protocol: ProtocolVersion, schema: [u8; 32]) -> ActivationRequest {
+    ActivationRequest {
+        protocol,
+        schema,
+        auth_context: [0x0c; 32],
+        assurance: "aal3".to_owned(),
+        step_up: true,
+    }
+}
+
+// P-110 OP-28 T-85 OP-1
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs Docker"]
+async fn p_110_an_activation_commits_alone_and_gates_leadership_and_the_rebuild() {
+    let env = Env::start().await;
+    let pool = env.sequencer().await;
+    let v0_9 = ProtocolVersion { major: 0, minor: 9 };
+    let v1_0 = ProtocolVersion { major: 1, minor: 0 };
+    let input = GenesisInput {
+        recorded_at_ms: AT,
+        protocol: (0, 9),
+        schema: [0x5c; 32],
+        nonce: [0x52; 32],
+    };
+    let opened = genesis(&input, Durability::SingleNode).unwrap();
+    let ledger = opened.ledger;
+    Leader::open(&pool, &opened, &cell()).await.unwrap();
+    assert!(matches!(
+        Leader::acquire(pool.clone(), ledger, &node()).await,
+        Err(LedgerError::Store(StoreError::Unsupported))
+    ));
+    let both = node().with_protocols(&[v0_9, v1_0]);
+    let mut leader = Leader::acquire(pool.clone(), ledger, &both).await.unwrap();
+    let at = AT.checked_add(1000).unwrap();
+    let right = *RuleSet::V1_0.schema().as_bytes();
+    assert!(matches!(
+        leader.activate(at, &activation(v0_9, [0x5c; 32])).await,
+        Err(LedgerError::Store(StoreError::Unsupported))
+    ));
+    assert!(matches!(
+        leader.activate(at, &activation(v1_0, [0x0d; 32])).await,
+        Err(LedgerError::ActivationSchemaMismatch)
+    ));
+    assert_eq!((leader.epoch(), leader.head().pos), (1, 0));
+    assert_eq!(
+        leader.activate(at, &activation(v1_0, right)).await.unwrap(),
+        1
+    );
+    assert!(matches!(
+        leader.activate(at, &activation(v1_0, right)).await,
+        Err(LedgerError::ActivationNotNewer)
+    ));
+    let one = pending(&ledger, &comment(&ledger, 1));
+    assert_eq!(leader.commit(at, &[one]).await.unwrap(), 2);
+    let older = node().with_protocols(&[v0_9]);
+    assert!(matches!(
+        Leader::acquire(pool.clone(), ledger, &older).await,
+        Err(LedgerError::Store(StoreError::Unsupported))
+    ));
+    let live = env.pool(Cluster::Canonical, "work_app");
+    let live_rows = live_snapshot(&live, &ledger).await;
+    assert_eq!(
+        live_rows.rows("ledger.version_activation").unwrap().len(),
+        2
+    );
+    assert_eq!(live_rows.rows("work.record_header").unwrap().len(), 1);
+    let target = env.target().await;
+    let outcome = rebuild_diff(&live, &target, &both, ledger, Durability::SingleNode)
+        .await
+        .unwrap();
+    assert!(outcome.is_clean(), "{outcome:?}");
+    assert_eq!(rebuilt_snapshot(&target, &ledger).await, live_rows);
 }
 
 /// A ledger clock that moves one millisecond per reading (T-32 rule 2).

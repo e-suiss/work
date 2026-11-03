@@ -84,7 +84,7 @@ pub(crate) async fn seeded() -> (Env, String) {
 #[ignore = "needs Docker"]
 async fn t_36_migrations_rerun_as_a_no_op() {
     let env = Env::start().await;
-    for (cluster, applied) in [(Cluster::Canonical, 21), (Cluster::Derived, 7)] {
+    for (cluster, applied) in [(Cluster::Canonical, 23), (Cluster::Derived, 7)] {
         work_store::migrate(&env.pool(cluster, "work_owner"), cluster)
             .await
             .unwrap();
@@ -650,8 +650,8 @@ async fn op_45_a_part_key_is_shredded_once_and_never_under_a_hold() {
     )
     .await;
     let early = sql("INSERT INTO work.erasure_log \
-         (ledger_id, dek_id, cause, state, settles_at, completed_at, pos, part) \
-         SELECT decode('{L}', 'hex'), dek_id, 'redaction', 'completed', now(), now(), 0, 'note' \
+         (ledger_id, dek_id, cause, state, settles_at, completed_at, pos, part, request_pos) \
+         SELECT decode('{L}', 'hex'), dek_id, 'redaction', 'completed', now(), now(), 0, 'note', 0 \
            FROM work.body_dek");
     fails(&erasure, &l, &[&early], Some("23514")).await;
     run(&erasure, &l, &[shred, &early]).await;
@@ -718,11 +718,11 @@ async fn op_45_an_erasure_waits_on_a_hold_and_completes_only_after_it_settles() 
         )],
     )
     .await;
-    let part_id = match pool.shred_part(&ledger, 0, "note", hour).await.unwrap() {
+    let part_id = match pool.shred_part(&ledger, 0, 0, "note", hour).await.unwrap() {
         Erased::Held { erasure_id } => erasure_id,
         other => panic!("{other:?}"),
     };
-    let again = pool.shred_part(&ledger, 0, "note", hour).await.unwrap();
+    let again = pool.shred_part(&ledger, 0, 0, "note", hour).await.unwrap();
     assert_eq!(
         again,
         Erased::Held {
@@ -758,7 +758,7 @@ async fn op_45_an_erasure_waits_on_a_hold_and_completes_only_after_it_settles() 
         &["UPDATE work.retention_hold SET state = 'released', released_at = now()"],
     )
     .await;
-    let shredded = pool.shred_part(&ledger, 0, "note", hour).await.unwrap();
+    let shredded = pool.shred_part(&ledger, 0, 0, "note", hour).await.unwrap();
     let (erasure_id, settles_at_ms) = match shredded {
         Erased::Shredded {
             erasure_id,
@@ -770,7 +770,7 @@ async fn op_45_an_erasure_waits_on_a_hold_and_completes_only_after_it_settles() 
     assert_eq!(erasure_id, part_id);
     assert_eq!(scalar(&erasure, &l, gone, false).await, 1);
     assert_eq!(pool.settle(&ledger).await.unwrap(), Vec::<String>::new());
-    let twice = pool.shred_part(&ledger, 0, "note", hour).await.unwrap();
+    let twice = pool.shred_part(&ledger, 0, 0, "note", hour).await.unwrap();
     assert_eq!(twice, Erased::Nothing);
     let destroyed = pool
         .destroy_dek(
@@ -856,6 +856,36 @@ async fn op_45_an_erasure_waits_on_a_hold_and_completes_only_after_it_settles() 
         Some("23514"),
     )
     .await;
+}
+
+// P-111 OP-45 P-25
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs Docker"]
+async fn p_111_a_redaction_names_its_request_and_is_written_once() {
+    let (env, l) = seeded().await;
+    let erasure = env.canonical("work_erasure");
+    let pool = ErasurePool::new(erasure.clone()).await.unwrap();
+    let ledger = LedgerId::from_bytes(L);
+    let hour = Duration::from_hours(1);
+    let insert = |cause: &str, request: &str| {
+        sql(&format!(
+            "INSERT INTO work.erasure_log \
+             (ledger_id, dek_id, cause, state, pos, part, request_pos) \
+             SELECT decode('{{L}}', 'hex'), dek_id, '{cause}', 'waiting_on_hold', 0, 'note', \
+             {request} FROM work.body_dek"
+        ))
+    };
+    fails(&erasure, &l, &[&insert("redaction", "NULL")], Some("23514")).await;
+    fails(&erasure, &l, &[&insert("subject_request", "0")], Some("23514")).await;
+    let shredded = pool.shred_part(&ledger, 0, 0, "note", hour).await.unwrap();
+    assert!(matches!(shredded, Erased::Shredded { .. }), "{shredded:?}");
+    let again = pool.shred_part(&ledger, 0, 0, "note", hour).await.unwrap();
+    assert_eq!(again, Erased::Nothing);
+    let rows = pool.erasures(&ledger).await.unwrap();
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].request_pos, Some(0));
+    assert_eq!(rows[0].cause, ErasureCause::Redaction);
+    fails(&erasure, &l, &[&insert("redaction", "0")], Some("23505")).await;
 }
 
 // OP-45 OP-12 Access OP-74

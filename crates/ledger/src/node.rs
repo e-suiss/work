@@ -6,7 +6,7 @@
 
 use std::time::Duration;
 
-use work_kernel::envelope::{Envelope, decode_envelope};
+use work_kernel::activation::{Activation, check_activations};
 use work_kernel::record::ProtocolVersion;
 use work_kernel::rules::RuleSet;
 use work_store::{CellId, Seat};
@@ -87,18 +87,23 @@ impl Node {
         &self.seat
     }
 
-    /// Whether the node supports every activation entry of a ledger, given in log order: each
-    /// must decode as an activation the node knows and activate a protocol version it carries
-    /// a rule set for. An entry it cannot read is not supported (OP-28 item 3).
+    /// The activations of a ledger, given as their envelope bytes in log order with the genesis
+    /// first, when the node supports every one: they pass the kernel's sequence rule and each
+    /// activates a protocol version the node carries a rule set for; `None` otherwise, and for
+    /// an entry it cannot read (OP-28 item 3, P-110 items 7, 8).
     #[must_use]
-    pub fn supports(&self, activations: &[Vec<u8>]) -> bool {
-        !activations.is_empty()
-            && activations
-                .iter()
-                .all(|bytes| match decode_envelope(bytes) {
-                    Ok(Envelope::Genesis(g)) => self.protocols.contains(&g.versions.protocol),
-                    Ok(Envelope::Ledger(_)) | Err(_) => false,
-                })
+    pub fn activations(&self, entries: &[Vec<u8>]) -> Option<Vec<Activation>> {
+        let slices: Vec<&[u8]> = entries.iter().map(Vec::as_slice).collect();
+        check_activations(&slices)
+            .ok()
+            .filter(|list| list.iter().all(|a| self.protocols.contains(&a.protocol)))
+    }
+
+    /// Whether the node supports every activation entry of a ledger, given in log order
+    /// (OP-28 item 3, P-110 item 7).
+    #[must_use]
+    pub fn supports(&self, entries: &[Vec<u8>]) -> bool {
+        self.activations(entries).is_some()
     }
 }
 
@@ -116,33 +121,67 @@ mod tests {
         Node::new(CellId::new("cell-a").unwrap(), &SeededRng::new([5; 32])).unwrap()
     }
 
-    fn opened(protocol: (u64, u64)) -> Vec<u8> {
+    const ACTIVATION: &str = include_str!("../../../conformance/vectors/records/activation.json");
+
+    fn opened(protocol: (u64, u64), schema: [u8; 32]) -> Vec<u8> {
         let input = GenesisInput {
             recorded_at_ms: 1_792_749_600_000,
             protocol,
-            schema: [7; 32],
+            schema,
             nonce: [9; 32],
         };
         genesis(&input, Durability::SingleNode).unwrap().bytes
     }
 
-    // OP-28 P-87 T-4
+    fn v1_0() -> Vec<u8> {
+        opened((1, 0), *RuleSet::V1_0.schema().as_bytes())
+    }
+
+    /// The golden genesis and the protocol 1.1 activation after it (P-110).
+    fn activated() -> Vec<Vec<u8>> {
+        let file: serde_json::Value = serde_json::from_str(ACTIVATION).unwrap();
+        let sequence = file["sequences"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|s| s["id"] == "sequence/genesis-then-activation")
+            .unwrap();
+        sequence["entries"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|h| {
+                h.as_str()
+                    .unwrap()
+                    .as_bytes()
+                    .chunks(2)
+                    .map(|c| u8::from_str_radix(std::str::from_utf8(c).unwrap(), 16).unwrap())
+                    .collect()
+            })
+            .collect()
+    }
+
+    // OP-28 P-87 P-110 T-4
     #[test]
     fn op_28_a_node_leads_only_a_ledger_whose_activated_versions_it_supports() {
         let current = node();
-        assert!(current.supports(&[opened((1, 0))]));
-        assert!(!current.supports(&[opened((1, 1))]));
-        assert!(!current.supports(&[opened((1, 0)), opened((2, 0))]));
+        assert!(current.supports(&[v1_0()]));
+        assert!(!current.supports(&[opened((1, 0), [7; 32])]));
+        assert!(!current.supports(&[opened((1, 1), [7; 32])]));
+        assert!(!current.supports(&[v1_0(), opened((2, 0), [7; 32])]));
         let older = node().with_protocols(&[]);
-        assert!(!older.supports(&[opened((1, 0))]));
+        assert!(!older.supports(&[v1_0()]));
         let newer = node().with_protocols(&[
             ProtocolVersion { major: 1, minor: 0 },
             ProtocolVersion { major: 1, minor: 1 },
         ]);
-        assert!(newer.supports(&[opened((1, 1))]));
+        assert!(newer.supports(&[opened((1, 1), [7; 32])]));
         assert!(!current.supports(&[]));
         assert!(!current.supports(&[vec![0xa0]]));
         assert!(!current.supports(&[b"not cbor".to_vec()]));
+        let ledger = activated();
+        assert!(!current.supports(&ledger));
+        assert_eq!(newer.activations(&ledger).unwrap().len(), 2);
     }
 
     // T-85 OP-9 OP-10

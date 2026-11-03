@@ -143,6 +143,9 @@ pub struct LogRow {
     /// The encrypted body parts the record came with (OP-45); none for a rebuild, which reads
     /// only the log.
     pub body: Vec<BodyPartRow>,
+    /// Whether the entry is a version activation, whose record bytes are its envelope bytes
+    /// and whose position the append also writes to `ledger.version_activation` (P-110 item 4).
+    pub activation: bool,
 }
 
 impl std::fmt::Debug for LogRow {
@@ -155,6 +158,7 @@ impl std::fmt::Debug for LogRow {
             .field("received", &self.received)
             .field("skeleton", &self.skeleton.is_some())
             .field("body", &self.body.len())
+            .field("activation", &self.activation)
             .finish_non_exhaustive()
     }
 }
@@ -376,8 +380,36 @@ async fn insert_records(
         .execute(tx.conn())
         .await
         .map_err(log_failure)?;
+        if r.activation {
+            sqlx::query!(
+                "INSERT INTO ledger.version_activation (ledger_id, pos) VALUES ($1, $2)",
+                id,
+                signed(r.pos).map_err(failed)?
+            )
+            .execute(tx.conn())
+            .await
+            .map_err(failed)?;
+        }
     }
     Ok(())
+}
+
+/// Whether `b` is a version activation written as a batch of its own: one entry whose record
+/// bytes are its envelope bytes, with nothing beside its log row (P-110 item 5).
+fn lone_activation(b: &AppendBatch) -> bool {
+    match b.records.as_slice() {
+        [r] => {
+            r.record_bytes == r.envelope_bytes
+                && r.received.is_empty()
+                && r.skeleton.is_none()
+                && r.body.is_empty()
+                && b.items.is_empty()
+                && b.outbox.is_empty()
+                && b.keys.is_empty()
+                && b.inbound.is_empty()
+        }
+        _ => false,
+    }
 }
 
 /// The rows each record writes beside its log row, in the T-90 order: the bytes as received,
@@ -589,8 +621,9 @@ impl SequencerPool {
 
     /// Opens the ledger of `g` in `cell` in one transaction (T-85 m.3, OP-9): the empty head at
     /// epoch 0, the cell that leads it, its placement directory entry, the durability profile,
-    /// the genesis at position 0, then the head at position 0 with the genesis leaf as its
-    /// frontier. An empty ledger never commits.
+    /// the genesis at position 0 as the ledger's first version activation (P-110 item 4), then
+    /// the head at position 0 with the genesis leaf as its frontier. An empty ledger never
+    /// commits.
     ///
     /// # Errors
     /// [`StoreError::AlreadyOpened`] if the ledger has a head, [`StoreError::Corrupt`] for a
@@ -651,6 +684,12 @@ impl SequencerPool {
         .execute(tx.conn())
         .await?;
         sqlx::query!(
+            "INSERT INTO ledger.version_activation (ledger_id, pos) VALUES ($1, 0)",
+            id
+        )
+        .execute(tx.conn())
+        .await?;
+        sqlx::query!(
             "UPDATE ledger.head SET pos = 0, head_leaf = $2::bytea,
              head_recorded_at = pg_catalog.to_timestamp(0)
                + interval '1 millisecond' * $3::bigint::double precision,
@@ -667,8 +706,9 @@ impl SequencerPool {
 
     /// Takes leadership of `ledger` for `seat` (T-85 m.4, OP-10, OP-9, OP-28 item 3, §17.12)
     /// in one transaction: locks the head, refuses a ledger led in another cell and a node that
-    /// does not support the ledger's activation entries, which `supports` is given in log
-    /// order, the genesis first; takes the sequencer lease unless another holder's is live;
+    /// does not support the ledger's activation entries, the log bytes at the positions of
+    /// `ledger.version_activation`, which `supports` is given in log order, the genesis first
+    /// (P-110 item 7); takes the sequencer lease unless another holder's is live;
     /// then bumps the epoch, which fences the previous leader's next compare-and-set, and
     /// returns the head under the new epoch once the last log row matches it. On any refusal
     /// nothing is committed and the epoch stays.
@@ -707,7 +747,9 @@ impl SequencerPool {
             return Err(StoreError::Misrouted);
         }
         let activations = sqlx::query_scalar!(
-            "SELECT record_bytes FROM ledger.log WHERE ledger_id = $1 AND pos = 0",
+            "SELECT l.record_bytes FROM ledger.version_activation v
+             JOIN ledger.log l ON l.ledger_id = v.ledger_id AND l.pos = v.pos
+             WHERE v.ledger_id = $1 ORDER BY v.pos",
             id
         )
         .fetch_all(tx.conn())
@@ -835,8 +877,9 @@ impl SequencerPool {
     /// checks it is at `b.after` under `b.epoch`, inserts the log rows, the bytes each record was
     /// received as, the skeletons and the links to the received bytes, then the item heads, the
     /// outbox pointers with the versions those heads took, the idempotency keys and the inbound
-    /// events, then moves the head with its frontier by compare-and-set. It returns `Ok` only
-    /// after the commit succeeded.
+    /// events, then moves the head with its frontier by compare-and-set. A version activation is
+    /// a batch of its own, one log row and its `ledger.version_activation` position and nothing
+    /// else (P-110 items 4, 5). It returns `Ok` only after the commit succeeded.
     ///
     /// The outcome maps as follows. [`AppendError::Refused`] means nothing was written and
     /// carries [`StoreError::ItemConflict`] when an [`Expect::Version`] head is not stored at
@@ -847,7 +890,8 @@ impl SequencerPool {
     /// [`StoreError::InboundSeen`] for an inbound event already seen in a hot partition;
     /// [`StoreError::OutboxItem`] for a pointer whose item its record does not touch; and
     /// [`StoreError::Constraint`] for a received, skeleton or inbound row that breaks a
-    /// constraint, such as a `proof_commit` without its received bytes. Since the head row is
+    /// constraint, such as a `proof_commit` without its received bytes, or `activation_alone`
+    /// for an activation that is not the only entry of its batch. Since the head row is
     /// locked and checked first, none of these is about leadership. Everything else is
     /// [`AppendError::Failed`]: [`StoreError::NotOpened`], [`StoreError::HeadMoved`] when the
     /// head is not at `b.after` under `b.epoch`, [`StoreError::Corrupt`] for a value beyond
@@ -860,6 +904,10 @@ impl SequencerPool {
         let id = ledger.as_bytes().as_slice();
         let epoch = signed(b.epoch).map_err(failed)?;
         let after = signed(b.after).map_err(failed)?;
+        if b.records.iter().any(|r| r.activation) && !lone_activation(b) {
+            let refused = StoreError::Constraint("activation_alone".to_owned());
+            return Err(AppendError::Refused(refused));
+        }
         let mut tx = self.begin(ledger).await.map_err(failed)?;
         let locked = sqlx::query!(
             r#"SELECT pos AS "pos!", epoch AS "epoch!" FROM ledger.head

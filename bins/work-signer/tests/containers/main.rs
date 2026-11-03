@@ -39,6 +39,7 @@ use suiss_crypto::signer::{Signer as _, cosign};
 use work_kernel::limits::SemanticLimits;
 use work_kernel::proof::{Accepted, TimeSources, WitnessProfile, verify_checkpoint};
 use work_kernel::reason::{Reason, Schema};
+use work_kernel::rules::RuleSet;
 use work_kernel::validate::{ActorType, ActorTypeEntry, ActorTypeSource, ActorTypes, Origin};
 use work_kernel::verify::{SignatureCheck, SignatureVerifier};
 use work_ledger::time::WitnessRound;
@@ -170,8 +171,8 @@ fn comment(ledger: &LedgerId) -> Vec<u8> {
     dcbor::encode(&v, Limits::CEILING).unwrap()
 }
 
-/// A ledger opened with the schema digest byte `schema`, only its genesis, and its leader.
-async fn opened_ledger(env: &Env, schema: u8) -> (Genesis, Leader) {
+/// A ledger opened with the nonce byte `tag`, only its genesis, and its leader.
+async fn opened_ledger(env: &Env, tag: u8) -> (Genesis, Leader) {
     let sequencer = SequencerPool::new(env.pool("work_sequencer"))
         .await
         .unwrap();
@@ -179,8 +180,8 @@ async fn opened_ledger(env: &Env, schema: u8) -> (Genesis, Leader) {
         &GenesisInput {
             recorded_at_ms: AT,
             protocol: (1, 0),
-            schema: [schema; 32],
-            nonce: [0x2a; 32],
+            schema: *RuleSet::V1_0.schema().as_bytes(),
+            nonce: [tag; 32],
         },
         Durability::SingleNode,
     )
@@ -228,10 +229,10 @@ fn admitted_comment(ledger: &LedgerId) -> PendingRecord {
     .unwrap()
 }
 
-/// A ledger opened with the schema digest byte `schema` and one human comment after its
-/// genesis, and its leader.
-async fn ledger_with_comment(env: &Env, schema: u8) -> (Genesis, Leader) {
-    let (opened, mut leader) = opened_ledger(env, schema).await;
+/// A ledger opened with the nonce byte `tag` and one human comment after its genesis, and its
+/// leader.
+async fn ledger_with_comment(env: &Env, tag: u8) -> (Genesis, Leader) {
+    let (opened, mut leader) = opened_ledger(env, tag).await;
     let pending = admitted_comment(&opened.ledger);
     assert_eq!(leader.commit(AT + 5, &[pending]).await.unwrap(), 1);
     (opened, leader)
@@ -463,7 +464,7 @@ async fn op_33_a_led_ledger_is_checkpointed_on_its_cadence_and_mirrored() {
         &GenesisInput {
             recorded_at_ms: AT,
             protocol: (1, 0),
-            schema: [0x3c; 32],
+            schema: *RuleSet::V1_0.schema().as_bytes(),
             nonce: [0x2a; 32],
         },
         Durability::SingleNode,

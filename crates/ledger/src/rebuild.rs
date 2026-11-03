@@ -1,4 +1,4 @@
-//! The rebuild of a ledger's rows from its canonical log and the rebuild-diff (§18 OP-1 items 2 and 3, T-10, T-11, T-37 item 3, T-89): every stored entry is read back from the log with the bytes it was received as, the kernel decodes its envelope and record, and the admission path's own mapping turns them into the pending record the live append wrote; a leader appends them into an empty target database through the same store code, so the head, Work roots, skeleton rows and item heads are reconstructed without reading any of them. [`rebuild_diff`] reads the live rows at one state, rebuilds through that state's head and compares; any difference is a sev-1 signal and the log decides. Outbox pointers, idempotency keys and inbound events carry what the request said rather than what the record says, so they are not replayed; the keys and events are checked against the log row they answer, and the pointers, a delivery queue whose rows leave on publication, are not compared. The body store's rows (ciphertexts, part keys, class DEKs, tombstones) are canonical beside the log but are not written in it, so a rebuild writes none of them and the diff does not compare them (OP-2, OP-45).
+//! The rebuild of a ledger's rows from its canonical log and the rebuild-diff (§18 OP-1 items 2 and 3, T-10, T-11, T-37 item 3, T-89): every stored entry is read back from the log with the bytes it was received as, the kernel decodes its envelope and record, and the admission path's own mapping turns them into the pending record the live append wrote; a leader appends them into an empty target database through the same store code, so the head, Work roots, skeleton rows and item heads are reconstructed without reading any of them; a version activation is replayed through the leader as a batch of its own, which writes its `ledger.version_activation` row again (P-110 item 4). [`rebuild_diff`] reads the live rows at one state, rebuilds through that state's head and compares; any difference is a sev-1 signal and the log decides. Outbox pointers, idempotency keys and inbound events carry what the request said rather than what the record says, so they are not replayed; the keys and events are checked against the log row they answer, and the pointers, a delivery queue whose rows leave on publication, are not compared. The body store's rows (ciphertexts, part keys, class DEKs, tombstones) are canonical beside the log but are not written in it, so a rebuild writes none of them and the diff does not compare them (OP-2, OP-45).
 
 use suiss_crypto::dcbor::Value;
 use suiss_crypto::digest::{leaf_hash, sha256};
@@ -11,7 +11,7 @@ use work_store::{
 };
 
 use crate::admit::{Binding, actor_types, auth_context_value, ingest, skeleton, touch};
-use crate::{Leader, LedgerError, Node, PendingRecord};
+use crate::{ActivationRequest, Leader, LedgerError, Node, PendingRecord};
 
 /// Entries read from the log at a time; at most the engine's batch ceiling, since one page's
 /// entries of one ledger time are appended as one batch.
@@ -170,20 +170,57 @@ pub async fn rebuild(
         }
         let page: Vec<CanonicalEntry> = page.into_iter().filter(|e| e.pos <= through).collect();
         for batch in page.chunk_by(|a, b| a.recorded_at_ms == b.recorded_at_ms) {
-            let start = next;
+            let at = batch.first().map_or(0, |e| e.recorded_at_ms);
+            let mut start = next;
             let mut records = Vec::with_capacity(batch.len());
             for e in batch {
                 if e.pos != next {
                     return Err(RebuildError::Gap(next));
                 }
-                records.push(replayed(&ledger, e)?);
                 next = next.checked_add(1).ok_or(RebuildError::Gap(next))?;
+                let Some(request) = activation_of(&ledger, e)? else {
+                    records.push(replayed(&ledger, e)?);
+                    continue;
+                };
+                if !records.is_empty() {
+                    leader.commit(at, &records).await.map_err(replay(start))?;
+                    records.clear();
+                }
+                leader.activate(at, &request).await.map_err(replay(e.pos))?;
+                start = next;
             }
-            let at = batch.first().map_or(0, |e| e.recorded_at_ms);
-            leader.commit(at, &records).await.map_err(replay(start))?;
+            if !records.is_empty() {
+                leader.commit(at, &records).await.map_err(replay(start))?;
+            }
         }
     }
     Ok(leader.head().pos)
+}
+
+/// The activation a stored entry of `ledger` was written from, read from its bytes alone
+/// (P-110 items 4, 8); `None` for a record entry.
+fn activation_of(
+    ledger: &LedgerId,
+    e: &CanonicalEntry,
+) -> Result<Option<ActivationRequest>, RebuildError> {
+    let Ok(Envelope::Activation(a)) = decode_envelope(&e.envelope_bytes) else {
+        return Ok(None);
+    };
+    if a.position != e.pos
+        || a.ledger.0.as_bytes() != ledger.as_bytes()
+        || a.recorded_at.0 != e.recorded_at_ms
+        || e.record_bytes != e.envelope_bytes
+        || !e.received.is_empty()
+    {
+        return Err(RebuildError::Entry(e.pos));
+    }
+    Ok(Some(ActivationRequest {
+        protocol: a.activation.protocol,
+        schema: *a.activation.schema.as_bytes(),
+        auth_context: *a.auth_context.reference.as_bytes(),
+        assurance: a.auth_context.assurance,
+        step_up: a.auth_context.step_up,
+    }))
 }
 
 /// The rebuild-diff of `ledger` (§18 OP-1 item 3, T-37 item 3, T-89): reads the live rows on

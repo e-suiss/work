@@ -25,13 +25,15 @@ use suiss_crypto::pkcs11::{HsmError, HsmKek, KeyStore};
 use suiss_crypto::secret::Secret;
 use tokio::task::spawn_blocking;
 use tokio::time::timeout;
-use work_kernel::codec::{LARGE_PART, body_commitment};
+use work_kernel::codec::{Decoded, LARGE_PART, body_commitment, decode_record, record_id};
+use work_kernel::derive::Redaction;
+use work_kernel::envelope::{Envelope, EnvelopeIngest, decode_envelope};
 use work_kernel::record::PartName;
 use work_proto::parser::{Scan, ScanFailure, Verdict};
 use work_store::{
     BodyCommitmentRow, BodyPartRow, DekRow, Erased, ErasurePool, ErasureRow, ErasureState,
-    ErasureTarget, LedgerId, LedgerTx, Pool, RetentionClass, SequencerPool, Shred, StoreError,
-    Stored, StoredPart, WRAPPED_LEN,
+    ErasureTarget, LedgerId, LedgerTx, LogBytes, Pool, RetentionClass, SequencerPool, Shred,
+    StoreError, Stored, StoredPart, WRAPPED_LEN,
 };
 
 use crate::ports::{Rng, RngError, bytes32};
@@ -106,6 +108,10 @@ pub enum BodyError {
     /// The secret scan gave no verdict (T-94 item 4).
     #[error("secret scan: {0}")]
     Scan(ScanFailure),
+    /// The log entry at the position is not an admitted `redact` record of the ledger
+    /// (P-111 item 6).
+    #[error("entry {0} is not an admitted redact record of the ledger")]
+    NotARedaction(u64),
 }
 
 impl From<StoreError> for BodyError {
@@ -838,6 +844,34 @@ impl<O: ObjectStore> BodyReader<O> {
     }
 }
 
+/// The redaction the stored entry at `request` asks for, when it is an admitted `redact` record
+/// of `ledger` whose envelope matches its bytes (P-111 item 6, P-108).
+fn redaction_of(ledger: &LedgerId, request: u64, stored: &LogBytes) -> Option<Redaction> {
+    let Ok(Envelope::Ledger(envelope)) = decode_envelope(&stored.envelope_bytes) else {
+        return None;
+    };
+    let placed = envelope.position == request
+        && envelope.ledger.0.as_bytes() == ledger.as_bytes()
+        && envelope.record == record_id(&stored.record_bytes)
+        && envelope.ingest == EnvelopeIngest::Admitted;
+    if !placed {
+        return None;
+    }
+    match decode_record(&stored.record_bytes) {
+        Ok(Decoded::Record(record)) => Redaction::of(&record),
+        _ => None,
+    }
+}
+
+/// The position of a stored record and the names of the body parts it commits (P-17, P-68).
+fn committed_parts(stored: &LogBytes) -> Option<(u64, Vec<PartName>)> {
+    let Ok(Decoded::Record(record)) = decode_record(&stored.record_bytes) else {
+        return None;
+    };
+    let body = record.core().body.iter().flatten();
+    Some((stored.pos, body.map(|b| b.part.clone()).collect()))
+}
+
 /// The erasure side of the body store (OP-12, OP-15, OP-45 item 5, P-25): one-way key removal
 /// through `work_erasure`, each recorded in `work.erasure_log`; under an active retention hold
 /// the request waits, and a removal is reported completed only after every DEK cache lifetime
@@ -904,26 +938,31 @@ impl BodyEraser {
     }
 
     /// Shreds the key of the part `part` of the record at `pos`, the redaction of that part
-    /// alone (P-25); under an active retention hold the request waits instead.
+    /// alone that the `redact` record at `request` asks for (P-25, P-111 item 5); under an
+    /// active retention hold the request waits instead.
     ///
     /// # Errors
     /// [`BodyError::Store`].
     pub async fn redact(
         &self,
         ledger: &LedgerId,
+        request: u64,
         pos: u64,
         part: &str,
     ) -> Result<Erased<()>, BodyError> {
         let erased = bounded(
             self.limit,
-            self.pool.shred_part(ledger, pos, part, self.settle),
+            self.pool
+                .shred_part(ledger, request, pos, part, self.settle),
         )
         .await?;
         Ok(erased.map_key(|_| ()))
     }
 
-    /// Redacts the named parts of the record at `pos` (P-25, OP-15 item 2), each part's key
-    /// shredded once on its own; the outcome of each, in the order named.
+    /// Redacts the named parts of the record at `pos` that the `redact` record at `request`
+    /// asks for (P-25, P-111 item 5, OP-15 item 2), each part's key shredded once on its own;
+    /// the outcome of each, in the order named. Run again for the same request it writes no
+    /// new erasure.
     ///
     /// # Errors
     /// [`BodyError::DuplicatePart`] when a part is named twice, before anything is shredded;
@@ -931,6 +970,7 @@ impl BodyEraser {
     pub async fn redact_parts(
         &self,
         ledger: &LedgerId,
+        request: u64,
         pos: u64,
         parts: &[&str],
     ) -> Result<Vec<(String, Erased<()>)>, BodyError> {
@@ -941,13 +981,50 @@ impl BodyEraser {
         }
         let mut out = Vec::with_capacity(parts.len());
         for part in parts {
-            out.push(((*part).to_owned(), self.redact(ledger, pos, part).await?));
+            let erased = self.redact(ledger, request, pos, part).await?;
+            out.push(((*part).to_owned(), erased));
         }
         Ok(out)
     }
 
+    /// Carries out the `redact` record at `request` (P-111 item 6): reads it and the record it
+    /// names from the log, checks with the kernel that the entry is an admitted `redact` of
+    /// this ledger and that the redaction takes effect on its target, and then redacts the
+    /// named parts of the target. A redaction without effect, whose target is not earlier in
+    /// the ledger or does not commit a named part, removes nothing and answers no parts.
+    ///
+    /// # Errors
+    /// [`BodyError::NotARedaction`] when the entry at `request` is not an admitted `redact`
+    /// record of `ledger`; otherwise as [`Self::redact_parts`].
+    pub async fn redact_record(
+        &self,
+        ledger: &LedgerId,
+        request: u64,
+    ) -> Result<Vec<(String, Erased<()>)>, BodyError> {
+        let stored = bounded(self.limit, self.pool.log_at(ledger, request)).await?;
+        let redaction = stored
+            .as_ref()
+            .and_then(|e| redaction_of(ledger, request, e))
+            .ok_or(BodyError::NotARedaction(request))?;
+        let target = bounded(
+            self.limit,
+            self.pool
+                .log_of_record(ledger, redaction.target.0.as_bytes()),
+        )
+        .await?;
+        let Some((target_pos, parts)) = target.as_ref().and_then(committed_parts) else {
+            return Ok(Vec::new());
+        };
+        if !redaction.applies(request, target_pos, &parts) {
+            return Ok(Vec::new());
+        }
+        let names: Vec<&str> = redaction.parts.iter().map(PartName::as_str).collect();
+        self.redact_parts(ledger, request, target_pos, &names).await
+    }
+
     /// Takes up every erasure of `ledger` waiting on a retention hold (Access OP-74): one whose
-    /// hold is released now removes its key; the count removed.
+    /// hold is released now removes its key; the count removed. A part erasure that names no
+    /// requesting `redact` record, written before P-111, is left as it stands.
     ///
     /// # Errors
     /// [`BodyError::Store`].
@@ -958,13 +1035,15 @@ impl BodyEraser {
             if row.state != ErasureState::WaitingOnHold {
                 continue;
             }
-            let erased = match (&row.target, row.cause.shred()) {
-                (ErasureTarget::Part { pos, part }, _) => self.redact(ledger, *pos, part).await?,
-                (ErasureTarget::Class, Some(why)) => {
+            let erased = match (&row.target, row.cause.shred(), row.request_pos) {
+                (ErasureTarget::Part { pos, part }, _, Some(request)) => {
+                    self.redact(ledger, request, *pos, part).await?
+                }
+                (ErasureTarget::Class, Some(why), _) => {
                     self.destroy_class(ledger, &row.subject, row.class, why)
                         .await?
                 }
-                (ErasureTarget::Class, None) => continue,
+                (ErasureTarget::Part { .. }, _, None) | (ErasureTarget::Class, None, _) => continue,
             };
             if matches!(erased, Erased::Shredded { .. }) {
                 done = done.saturating_add(1);
