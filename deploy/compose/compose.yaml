@@ -1,4 +1,4 @@
-# T-41, T-51, T-56, T-57, T-32, OP-32, OP-43
+# T-41, T-51, T-56, T-57, T-32, OP-32, OP-43, OP-33, OP-46
 
 name: work-dev
 
@@ -143,6 +143,7 @@ services:
       - signer-socket:/run/work-signer
       - ./work-server.toml:/etc/work/work-server.toml:ro
       - ./nts/pki/root.pem:/etc/work/nts-root.pem:ro
+      - witness-public:/run/witness:ro
     ports:
       - "127.0.0.1:${WORK_DEV_SERVER_PORT:-8190}:8090"
       - "127.0.0.1:${WORK_DEV_SERVER_INTERNAL_PORT:-8191}:8091"
@@ -163,6 +164,29 @@ services:
         condition: service_started
       roughtime-c:
         condition: service_started
+      witness:
+        condition: service_healthy
+
+  # OP-33, OP-46, T-41
+  witness:
+    <<: *hardening
+    build: ./witness
+    image: work-dev/witness:local
+    read_only: true
+    environment:
+      WITNESS_NAME: witness.localhost
+    tmpfs:
+      - /var/lib/litewitness:uid=65532,gid=65532
+      - /run/litewitness:uid=65532,gid=65532
+    volumes:
+      - witness-public:/run/litewitness-public
+    ports:
+      - "127.0.0.1:${WORK_DEV_WITNESS_PORT:-7390}:7380"
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/7380"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
 
   # OP-32, T-41
   nts-a:
@@ -435,6 +459,7 @@ volumes:
   pgdata:
   softhsm:
   signer-socket:
+  witness-public:
 
 secrets:
   relay_db_password:

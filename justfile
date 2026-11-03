@@ -23,8 +23,9 @@ test-full:
     cargo nextest run --workspace --locked --no-tests=pass --run-ignored all
     cargo test --workspace --locked --doc
 
-# T-36, T-37
+# T-36, T-37, OP-33, OP-46
 test-containers:
+    docker build --quiet --tag work-dev/witness:local deploy/compose/witness
     cargo nextest run --workspace --locked --no-tests=fail --run-ignored only -E 'binary(=containers)'
 
 # OP-32, OP-42, OP-43, T-41
@@ -160,6 +161,7 @@ dev:
     @echo "OTLP           127.0.0.1:${WORK_DEV_OTLP_GRPC_PORT:-4327} (gRPC), 127.0.0.1:${WORK_DEV_OTLP_HTTP_PORT:-4328} (HTTP)"
     @echo "Access         http://127.0.0.1:${WORK_DEV_ACCESS_PORT:-8180}  (Mailpit http://127.0.0.1:${WORK_DEV_MAIL_UI_PORT:-8035})"
     @echo "Relay          http://127.0.0.1:${WORK_DEV_RELAY_PORT:-4010}"
+    @echo "Witness        http://127.0.0.1:${WORK_DEV_WITNESS_PORT:-7390}  (litewitness, C2SP tlog-witness)"
     @echo "Work server    http://127.0.0.1:${WORK_DEV_SERVER_PORT:-8190}  (health http://127.0.0.1:${WORK_DEV_SERVER_INTERNAL_PORT:-8191}/readyz, signer socket in volume signer-socket)"
 
 dev-down:

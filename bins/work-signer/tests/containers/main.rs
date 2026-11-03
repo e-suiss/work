@@ -3,8 +3,11 @@
 //! head's checkpoint with its profile lines through `work-signer`, stores it as
 //! `work_checkpointer`, the records below it become `included`, the replica takes the log with
 //! the received bytes before its progress moves, and a record becomes `witnessed` only under
-//! `witness independent k` with k configured witnesses' cosignatures. These tests need Docker,
-//! `SoftHSM` and `sudo -n`; `just test-containers` runs them.
+//! `witness independent k` with k configured witnesses' cosignatures. A real C2SP witness,
+//! litewitness in the container the local environment builds, cosigns each mirrored checkpoint
+//! from the size it holds, its cosignature times check ledger time, and the gossip comparison
+//! decides what it holds against the ledger's tree (OP-32, OP-33, OP-46 item 10, SEC-32). These
+//! tests need Docker, `SoftHSM` and `sudo -n`; `just test-containers` runs them.
 
 #![cfg(target_os = "linux")]
 #![allow(
@@ -37,21 +40,24 @@ use work_kernel::proof::{Accepted, TimeSources, WitnessProfile, verify_checkpoin
 use work_kernel::reason::{Reason, Schema};
 use work_kernel::validate::{ActorType, ActorTypeEntry, ActorTypeSource, ActorTypes, Origin};
 use work_kernel::verify::{SignatureCheck, SignatureVerifier};
+use work_ledger::time::WitnessRound;
 use work_ledger::{
     Arrival, AuthContext, Cadence, CheckpointSetup, CheckpointStats, Checkpointer, Clock,
-    ClockError, Declaration, Deployment, DirectoryReplica, GenesisInput, GroupConfig, Leader,
-    Ledgers, SignerClient, Submission, Witness, WitnessError, admit, genesis, run_checkpoints,
+    ClockError, Comparison, DEFAULT_WITNESS_TIMEOUT, Declaration, Deployment, DirectoryReplica,
+    GenesisInput, GroupConfig, Leader, Ledgers, PendingRecord, SignerClient, Submission, Witness,
+    WitnessClient, WitnessEndpoint, WitnessError, WitnessPass, WitnessRole, WitnessStates, admit,
+    genesis, run_checkpoints,
 };
 use work_store::{
     CheckpointerPool, Cluster, Durability, Genesis, LedgerId, LedgerTx, Pool, RecordDurability,
-    SequencerPool,
+    SequencerPool, WitnessObservation,
 };
-use work_testkit::Postgres;
+use work_testkit::{LiteWitness, Postgres};
 
 use support::{PIN, PREFIX, Signer, Token, module};
 
 const PASSWORD: &str = "test-only-not-a-secret";
-const LOGINS: &str = "ALTER ROLE work_owner LOGIN PASSWORD 'test-only-not-a-secret';\nALTER ROLE work_sequencer LOGIN PASSWORD 'test-only-not-a-secret';\nALTER ROLE work_checkpointer LOGIN PASSWORD 'test-only-not-a-secret';\nALTER ROLE work_app LOGIN PASSWORD 'test-only-not-a-secret';";
+const LOGINS: &str = "ALTER ROLE work_owner LOGIN PASSWORD 'test-only-not-a-secret';\nALTER ROLE work_sequencer LOGIN PASSWORD 'test-only-not-a-secret';\nALTER ROLE work_checkpointer LOGIN PASSWORD 'test-only-not-a-secret';\nALTER ROLE work_app LOGIN PASSWORD 'test-only-not-a-secret';\nALTER ROLE work_deriver LOGIN PASSWORD 'test-only-not-a-secret';";
 const TRACE: &str = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01";
 const AT: u64 = 1_792_749_600_123;
 const RECORDS: &str = include_str!("../../../../conformance/vectors/records/records.json");
@@ -145,9 +151,8 @@ fn comment(ledger: &LedgerId) -> Vec<u8> {
     dcbor::encode(&v, Limits::CEILING).unwrap()
 }
 
-/// A ledger opened with the schema digest byte `schema` and one human comment after its
-/// genesis, and its leader.
-async fn ledger_with_comment(env: &Env, schema: u8) -> (Genesis, Leader) {
+/// A ledger opened with the schema digest byte `schema`, only its genesis, and its leader.
+async fn opened_ledger(env: &Env, schema: u8) -> (Genesis, Leader) {
     let sequencer = SequencerPool::new(env.pool("work_sequencer"))
         .await
         .unwrap();
@@ -161,9 +166,13 @@ async fn ledger_with_comment(env: &Env, schema: u8) -> (Genesis, Leader) {
         Durability::SingleNode,
     )
     .unwrap();
-    let ledger = opened.ledger;
     Leader::open(&sequencer, &opened).await.unwrap();
-    let mut leader = Leader::acquire(sequencer, ledger).await.unwrap();
+    let leader = Leader::acquire(sequencer, opened.ledger).await.unwrap();
+    (opened, leader)
+}
+
+/// The golden human comment admitted into `ledger`.
+fn admitted_comment(ledger: &LedgerId) -> PendingRecord {
     let actors = ActorTypes {
         author: ActorTypeEntry {
             actor_type: ActorType::Human,
@@ -172,10 +181,10 @@ async fn ledger_with_comment(env: &Env, schema: u8) -> (Genesis, Leader) {
         on_behalf_of: vec![],
         evidence: vec![],
     };
-    let record = comment(&ledger);
-    let pending = admit(
+    let record = comment(ledger);
+    admit(
         &Unsigned,
-        &ledger,
+        ledger,
         Submission {
             arrival: Arrival::Unsigned {
                 record: &record,
@@ -195,7 +204,14 @@ async fn ledger_with_comment(env: &Env, schema: u8) -> (Genesis, Leader) {
             inbound: None,
         },
     )
-    .unwrap();
+    .unwrap()
+}
+
+/// A ledger opened with the schema digest byte `schema` and one human comment after its
+/// genesis, and its leader.
+async fn ledger_with_comment(env: &Env, schema: u8) -> (Genesis, Leader) {
+    let (opened, mut leader) = opened_ledger(env, schema).await;
+    let pending = admitted_comment(&opened.ledger);
     assert_eq!(leader.commit(AT + 5, &[pending]).await.unwrap(), 1);
     (opened, leader)
 }
@@ -517,4 +533,156 @@ async fn op_33_a_led_ledger_is_checkpointed_on_its_cadence_and_mirrored() {
         Some(RecordDurability::Included)
     );
     read.rollback().await.unwrap();
+}
+
+fn endpoint(witness: &LiteWitness, id: &str, role: WitnessRole) -> WitnessEndpoint {
+    WitnessEndpoint {
+        witness: Witness {
+            id: id.to_owned(),
+            key: Verifier::parse(witness.vkey()).unwrap(),
+        },
+        role,
+        client: WitnessClient::new(witness.url(), None, DEFAULT_WITNESS_TIMEOUT).unwrap(),
+    }
+}
+
+async fn pending_observations(derived: &Pool, ledger: &LedgerId) -> Vec<WitnessObservation> {
+    let mut tx = LedgerTx::begin(derived, ledger).await.unwrap();
+    let rows = tx.pending_observations(100).await.unwrap();
+    tx.commit().await.unwrap();
+    rows
+}
+
+// OP-46 OP-33 OP-4 OP-32 SEC-32 T-41
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs Docker, SoftHSM and sudo"]
+async fn op_46_a_real_witness_cosigns_each_mirrored_checkpoint_from_the_size_it_holds() {
+    let env = Env::start().await;
+    let token = Token::new("witness");
+    let signer = Signer::start(&token);
+    let (opened, mut leader) = opened_ledger(&env, 0x6a).await;
+    let ledger = opened.ledger;
+    let hosted = checkpointer(&env, &signer, one()).await;
+    let (local_opened, _local_leader) = ledger_with_comment(&env, 0x6b).await;
+    let local_ledger = local_opened.ledger;
+    let local = checkpointer(&env, &signer, WitnessProfile::LocalDependent).await;
+    let vkey = token.verifier().to_vkey();
+    let (origin, local_origin) = (hosted.origin(&ledger), local.origin(&local_ledger));
+    let witness = LiteWitness::start(&[(&origin, &vkey), (&local_origin, &vkey)])
+        .await
+        .unwrap();
+    let derived = env.pool_on(Cluster::Derived, "work_deriver");
+    let replica = DirectoryReplica::new("local", token.dir.join("replica"));
+    let counted = [endpoint(&witness, "local_witness", WitnessRole::Counted)];
+    let mut states = WitnessStates::default();
+
+    let first = hosted.checkpoint(&ledger, AT + 1).await.unwrap().unwrap();
+    assert_eq!(first.size, 1);
+    let unmirrored = hosted
+        .witness_pass(&ledger, &replica, &derived, &counted, &mut states, false)
+        .await
+        .unwrap();
+    assert_eq!(unmirrored, WitnessPass::default());
+    assert_eq!(hosted.mirror(&ledger, &replica).await.unwrap(), 1);
+    let pass = hosted
+        .witness_pass(&ledger, &replica, &derived, &counted, &mut states, false)
+        .await
+        .unwrap();
+    assert_eq!(pass.size, Some(1));
+    assert_eq!((pass.asked, pass.stored, pass.observed), (1, 1, 1));
+    assert_eq!(pass.time_round(), Some(WitnessRound::Agreed(1)));
+    assert_eq!(
+        durability(&env, &ledger, 0).await,
+        Some(RecordDurability::Witnessed)
+    );
+    let idle = hosted
+        .witness_pass(&ledger, &replica, &derived, &counted, &mut states, false)
+        .await
+        .unwrap();
+    assert_eq!((idle.asked, idle.stored), (0, 0));
+
+    let pending = admitted_comment(&ledger);
+    assert_eq!(leader.commit(AT + 5, &[pending]).await.unwrap(), 1);
+    let second = hosted.checkpoint(&ledger, AT + 9).await.unwrap().unwrap();
+    assert_eq!(second.size, 2);
+    assert_eq!(hosted.mirror(&ledger, &replica).await.unwrap(), 2);
+    let grown = hosted
+        .witness_pass(&ledger, &replica, &derived, &counted, &mut states, false)
+        .await
+        .unwrap();
+    assert_eq!((grown.size, grown.stored), (Some(2), 1));
+    assert_eq!(
+        durability(&env, &ledger, 1).await,
+        Some(RecordDurability::Witnessed)
+    );
+
+    let mut forgotten = WitnessStates::default();
+    let conflict = hosted
+        .witness_pass(&ledger, &replica, &derived, &counted, &mut forgotten, false)
+        .await
+        .unwrap();
+    assert_eq!((conflict.asked, conflict.stored), (1, 0));
+    assert_eq!(conflict.cosigned_seconds.len(), 1);
+
+    let both = [
+        endpoint(&witness, "local_witness", WitnessRole::Counted),
+        endpoint(&witness, "suiss_gossip", WitnessRole::Gossip),
+    ];
+    let local_cp = local
+        .checkpoint(&local_ledger, AT + 9)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        local.mirror(&local_ledger, &replica).await.unwrap(),
+        local_cp.size
+    );
+    let local_pass = local
+        .witness_pass(&local_ledger, &replica, &derived, &both, &mut states, false)
+        .await
+        .unwrap();
+    assert_eq!(local_pass.asked, 1);
+    assert_eq!(local_pass.stored, 1);
+    assert_eq!(local_pass.cosigned_seconds.len(), 1);
+    assert_eq!(
+        durability(&env, &local_ledger, 1).await,
+        Some(RecordDurability::Included)
+    );
+
+    let tampered = WitnessObservation {
+        witness_id: "suiss_gossip".to_owned(),
+        size: 1,
+        root: [0xee; 32],
+    };
+    let beyond = WitnessObservation {
+        witness_id: "suiss_gossip".to_owned(),
+        size: 99,
+        root: second.root,
+    };
+    let mut tx = LedgerTx::begin(&derived, &ledger).await.unwrap();
+    assert!(tx.observe_checkpoint(&tampered).await.unwrap());
+    assert!(tx.observe_checkpoint(&beyond).await.unwrap());
+    tx.commit().await.unwrap();
+    assert_eq!(pending_observations(&derived, &ledger).await.len(), 4);
+    assert_eq!(
+        hosted
+            .compare_observations(&ledger, &derived)
+            .await
+            .unwrap(),
+        Comparison {
+            consistent: 2,
+            inconsistent: 2,
+        }
+    );
+    assert!(pending_observations(&derived, &ledger).await.is_empty());
+    assert_eq!(
+        local
+            .compare_observations(&local_ledger, &derived)
+            .await
+            .unwrap(),
+        Comparison {
+            consistent: 2,
+            inconsistent: 0,
+        }
+    );
 }

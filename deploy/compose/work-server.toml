@@ -1,4 +1,4 @@
-# OP-32, OP-42, OP-43, T-41, T-20, T-39, OP-33, T-76, OP-46
+# OP-32, OP-42, OP-43, T-41, T-20, T-39, OP-33, T-76, OP-46, SEC-32
 
 [postgres]
 canonical = "postgres://work_app@postgres:5432/work"
@@ -6,6 +6,7 @@ derived = "postgres://work_app@postgres:5432/work_derived"
 sequencer = "postgres://work_sequencer@postgres:5432/work"
 checkpointer = "postgres://work_checkpointer@postgres:5432/work"
 publisher = "postgres://work_publisher@postgres:5432/work"
+deriver = "postgres://work_deriver@postgres:5432/work_derived"
 
 [nats]
 url = "nats://nats:4222"
@@ -26,6 +27,12 @@ source = "https://work.localhost"
 deployment = "self-host"
 time_sources = "dependent"
 witness = "local-dependent"
+
+[[witnesses]]
+id = "local_witness"
+url = "http://witness:7380"
+key_file = "/run/witness/witness.vkey"
+role = "counted"
 
 [ledger_time]
 nts_roots = "/etc/work/nts-root.pem"

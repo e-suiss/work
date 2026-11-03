@@ -337,9 +337,17 @@ jobs:
           c logs work-server | grep 'ledger_time.roughtime_round' | grep -q '3'
           if c logs work-server | grep -q 'ledger_time.roughtime_unreachable'; then exit 1; fi
           c logs work-signer | grep -q 'serving on /run/work-signer/signer.sock, lockdown'
+      - name: The witness speaks C2SP tlog-witness and the server is configured with it (OP-33, OP-46, T-41)
+        run: |
+          c() { docker compose -f deploy/compose/compose.yaml "$@"; }
+          body=$'old 0\n\nwork.localhost/ledger/00\n1\n47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=\n\n\342\200\224 work.localhost AAAAAAAA\n'
+          test "$(curl -s -o /dev/null -w '%{http_code}' --data-binary "$body" http://127.0.0.1:7390/add-checkpoint)" = 404
+          test "$(curl -s -o /dev/null -w '%{http_code}' --data-binary 'old 0' http://127.0.0.1:7390/add-checkpoint)" = 400
+          c logs work-server | grep 'server.services_started' | grep -q '"witnesses":1'
+          c logs witness | grep -q 'verifier key'
       - name: Logs on failure
         if: failure()
-        run: docker compose -f deploy/compose/compose.yaml logs --no-color --tail 80 access relay relay-migrate nts-a nts-b roughtime-a roughtime-b roughtime-c work-signer work-server
+        run: docker compose -f deploy/compose/compose.yaml logs --no-color --tail 80 access relay relay-migrate nts-a nts-b roughtime-a roughtime-b roughtime-c witness work-signer work-server
       - name: Stop
         if: always()
         run: just dev-down
