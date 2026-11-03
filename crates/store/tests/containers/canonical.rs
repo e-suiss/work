@@ -708,7 +708,7 @@ async fn op_45_an_erasure_waits_on_a_hold_and_completes_only_after_it_settles() 
     let ledger = LedgerId::from_bytes(L);
     let subject = "party:alice";
     let class = RetentionClass::WorkRecord;
-    let hour = Duration::from_secs(3600);
+    let hour = Duration::from_hours(1);
     run(
         &erasure,
         &l,

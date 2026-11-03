@@ -28,7 +28,7 @@ use crate::{AT, Directory, Env, comment, human, node, statement, submission, uns
 
 const PIN: &str = "4711";
 const FILL36: &str = "Zq8kR2mN4vX7bT1yW9cL3pH6dF0sJ5gA2eUo";
-const BACKUP_WINDOW: Duration = Duration::from_secs(86_400);
+const BACKUP_WINDOW: Duration = Duration::from_hours(24);
 const HOLD: &str = include_str!("../../../store/fixtures/body-hold.sql");
 const RELEASE: &str = include_str!("../../../store/fixtures/body-release.sql");
 #[cfg(feature = "s3")]
