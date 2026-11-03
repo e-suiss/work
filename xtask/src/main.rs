@@ -15,6 +15,7 @@
 
 mod bench_accepted;
 mod catalog;
+mod contracts;
 mod counterparts;
 mod policy;
 mod rules;
@@ -49,6 +50,7 @@ fn checks() -> Vec<Check> {
     all.extend(policy::checks());
     all.extend(supply_chain::checks());
     all.extend(catalog::checks());
+    all.extend(contracts::checks());
     all.push(Check {
         name: "bench-accepted",
         run: bench_accepted::check,
@@ -115,6 +117,9 @@ fn usage() -> ExitCode {
     eprintln!(
         "  spec-counterparts [--update] compare E-40 counterpart clauses with recorded digests (T-50)"
     );
+    eprintln!("  check openapi|asyncapi       regenerate and compare the API contracts (T-98)");
+    eprintln!("  openapi                      write sdks/openapi/work-v1.json (T-98)");
+    eprintln!("  asyncapi                     write sdks/asyncapi from the event catalog (T-98)");
     eprintln!("  watch-report                 list WATCH rows for the scheduled review (F-25)");
     eprintln!(
         "  bench-accepted               print the Bench-Accepted trailers since $BENCH_BASE (T-77)"
@@ -132,12 +137,38 @@ fn report(name: &str, result: Result<(), String>) -> ExitCode {
     }
 }
 
+fn report_violations(name: &str, result: Result<Vec<Violation>, String>) -> ExitCode {
+    match result {
+        Ok(violations) if violations.is_empty() => {
+            println!("ok    {name}");
+            ExitCode::SUCCESS
+        }
+        Ok(violations) => {
+            println!("FAIL  {name} ({} violations)", violations.len());
+            for v in violations {
+                println!("      {}: [{}] {}", v.path.display(), v.rule, v.message);
+            }
+            ExitCode::FAILURE
+        }
+        Err(error) => {
+            println!("ERROR {name}: {error}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let root = workspace_root();
     let flag = |f: &str| args.iter().skip(1).any(|a| a == f);
     match args.first().map(String::as_str) {
-        Some("check") => run_checks(&root, args.get(1).map(String::as_str)),
+        Some("check") => match args.get(1).map(String::as_str) {
+            Some("openapi") => report_violations("openapi", contracts::openapi::check(&root)),
+            Some("asyncapi") => report_violations("asyncapi", contracts::asyncapi::check(&root)),
+            only => run_checks(&root, only),
+        },
+        Some("openapi") => report("openapi", contracts::openapi::write_document(&root)),
+        Some("asyncapi") => report("asyncapi", contracts::asyncapi::write_documents(&root)),
         Some("list") => {
             for check in checks() {
                 println!("{}", check.name);

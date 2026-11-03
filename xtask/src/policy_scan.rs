@@ -394,12 +394,18 @@ pub(crate) struct Generator {
     pub(crate) check: fn(&Path) -> Result<Vec<Violation>, String>,
 }
 
-/// Registered generators; the `OpenAPI` and `AsyncAPI` documents and the sqlx
-/// metadata register here when they exist.
-pub(crate) const GENERATORS: &[Generator] = &[Generator {
-    name: "record-vectors",
-    check: record_vectors,
-}];
+/// Registered generators; the `OpenAPI` document builds `work-http` and runs in its own CI job
+/// (`cargo xtask check openapi`), and the sqlx metadata is checked by `cargo sqlx`.
+pub(crate) const GENERATORS: &[Generator] = &[
+    Generator {
+        name: "record-vectors",
+        check: record_vectors,
+    },
+    Generator {
+        name: "asyncapi",
+        check: crate::contracts::asyncapi::check,
+    },
+];
 
 const RECORD_VECTORS: &str = "conformance/vectors/records";
 const RECORD_VECTORS_KEEP: &[&str] = &["README.md", "gen"];
