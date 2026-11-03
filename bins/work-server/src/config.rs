@@ -395,7 +395,9 @@ pub(crate) enum ConfigError {
     Witnesses,
     #[error("witnesses[{0}].{1} is malformed or repeated")]
     Witness(usize, &'static str),
-    #[error("{declared} independent witnesses are declared but {configured} counted ones are configured")]
+    #[error(
+        "{declared} independent witnesses are declared but {configured} counted ones are configured"
+    )]
     TooFewWitnesses { declared: u8, configured: usize },
     #[error("witnessing.call_timeout_ms must be positive")]
     WitnessTimeout,
@@ -849,7 +851,12 @@ mod tests {
         let both = format!(
             "{}{}",
             witness("witness_a", "http://witness:7380", WITNESS_A, "counted"),
-            witness("suiss_gossip", "http://gossip.example/w/", WITNESS_B, "gossip")
+            witness(
+                "suiss_gossip",
+                "http://gossip.example/w/",
+                WITNESS_B,
+                "gossip"
+            )
         );
         let endpoints = with(&both).unwrap().witness_endpoints().unwrap();
         assert_eq!(endpoints.len(), 2);
@@ -929,7 +936,10 @@ mod tests {
             "{one}{}",
             witness("witness_a", "http://a", WITNESS_A, "counted")
         );
-        assert_eq!(with(&counted).unwrap().witness_endpoints().unwrap().len(), 1);
+        assert_eq!(
+            with(&counted).unwrap().witness_endpoints().unwrap().len(),
+            1
+        );
         let local = format!(
             "[declaration]\nwitness = \"local-dependent\"\n{}",
             witness("witness_a", "http://witness:7380", WITNESS_A, "counted")

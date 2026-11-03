@@ -310,8 +310,8 @@ impl WitnessClient {
             return send(tcp, request).await;
         }
         let tls = self.tls.clone().ok_or(WitnessCallError::Tls)?;
-        let name = ServerName::try_from(self.endpoint.host.clone())
-            .map_err(|_| WitnessCallError::Url)?;
+        let name =
+            ServerName::try_from(self.endpoint.host.clone()).map_err(|_| WitnessCallError::Url)?;
         let stream = timeout(self.limit, TlsConnector::from(tls).connect(name, tcp))
             .await
             .map_err(|_| WitnessCallError::Timeout)?

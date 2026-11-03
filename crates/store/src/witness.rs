@@ -87,8 +87,7 @@ impl LedgerTx<'_> {
                 Ok(WitnessObservation {
                     witness_id,
                     size: u64::try_from(size).map_err(|_| StoreError::Corrupt)?,
-                    root: <[u8; 32]>::try_from(root.as_slice())
-                        .map_err(|_| StoreError::Corrupt)?,
+                    root: <[u8; 32]>::try_from(root.as_slice()).map_err(|_| StoreError::Corrupt)?,
                 })
             })
             .collect()

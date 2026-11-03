@@ -124,7 +124,8 @@ impl Checkpointer {
                     .as_deref()
                     .and_then(|l| l.get(..size))
                     .ok_or(WitnessError::Unknown(observation.size))?;
-                let root = tree_root(prefix).map_err(|_| WitnessError::Unknown(observation.size))?;
+                let root =
+                    tree_root(prefix).map_err(|_| WitnessError::Unknown(observation.size))?;
                 Expected::Root(root)
             } else {
                 Expected::BeyondHead
