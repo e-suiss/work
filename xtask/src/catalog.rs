@@ -16,7 +16,7 @@ mod claims;
 #[path = "catalog_ids.rs"]
 pub(crate) mod ids;
 #[path = "catalog_scan.rs"]
-mod scan;
+pub(crate) mod scan;
 #[path = "catalog_spec.rs"]
 mod spec;
 #[path = "catalog_titles.rs"]

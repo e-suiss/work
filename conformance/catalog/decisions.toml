@@ -2629,7 +2629,9 @@ status = "frozen-protocol"
 stage = 11
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "sdks/bindings/core/tests/mapping.rs::p_49_a_context_that_does_not_fit_is_an_input_error",
+]
 
 [[rule]]
 id = "EV-14"
@@ -3343,7 +3345,10 @@ family = "P"
 status = "frozen-protocol"
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "sdks/bindings/core/tests/mapping.rs::p_52_export_documents_given_back_are_not_records",
+  "sdks/bindings/uniffi/tests/swift/main.swift::p_49_p_51_swift_mapping_vectors_match",
+]
 
 [[rule]]
 id = "P-49"
@@ -3352,7 +3357,14 @@ status = "frozen-protocol"
 stage = 11
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/proto/src/mapping.rs::p_49_party_and_record_identifiers_are_prefixed_and_escaped",
+  "packages/kernel/e2e/kernel.spec.ts::t_5_t_37_inv_7 browser WebAssembly byte entry points match their vectors",
+  "packages/kernel/src/bytes.test.ts::t_5_t_37_inv_7 WebAssembly byte entry points match their vectors",
+  "sdks/bindings/core/tests/mapping.rs::p_49_a_context_that_does_not_fit_is_an_input_error",
+  "sdks/bindings/core/tests/mapping.rs::p_49_p_51_mapping_vectors_through_bindings_core",
+  "sdks/bindings/uniffi/tests/swift/main.swift::p_49_p_51_swift_mapping_vectors_match",
+]
 
 [[rule]]
 id = "P-50"
@@ -3369,7 +3381,13 @@ family = "P"
 status = "frozen-protocol"
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/proto/src/mapping.rs::p_51_the_assign_activity_comes_from_forgefed_and_the_others_from_as2",
+  "packages/kernel/e2e/kernel.spec.ts::t_5_t_37_inv_7 browser WebAssembly byte entry points match their vectors",
+  "packages/kernel/src/bytes.test.ts::t_5_t_37_inv_7 WebAssembly byte entry points match their vectors",
+  "sdks/bindings/core/tests/mapping.rs::p_49_p_51_mapping_vectors_through_bindings_core",
+  "sdks/bindings/uniffi/tests/swift/main.swift::p_49_p_51_swift_mapping_vectors_match",
+]
 
 [[rule]]
 id = "P-53"
@@ -4337,6 +4355,10 @@ tests = [
   "sdks/bindings/core/tests/vectors.rs::t_5_t_10_entries_that_do_not_verify_cross_the_binding_as_input_errors",
   "sdks/bindings/uniffi/tests/swift/main.swift::t_10_swift_stored_entries_verify_from_their_bytes",
   "xtask/src/rules_derived.rs::t_75_tables_without_a_valid_label_are_rejected",
+  "xtask/src/rules_labels.rs::t_10_derived_projection_and_operational_components_own_no_canonical_table",
+  "xtask/src/rules_labels.rs::t_10_every_component_carries_exactly_one_label_and_its_never_rule",
+  "xtask/src/rules_labels.rs::t_10_every_table_belongs_to_exactly_one_component",
+  "xtask/src/rules_labels.rs::t_10_the_committed_registry_labels_every_component_and_table",
   "xtask/src/rules_source.rs::t_10_unverified_derivation_entries_are_found_outside_the_kernel_tests",
 ]
 
@@ -4661,6 +4683,7 @@ tests = [
   "sdks/bindings/core/tests/bytes.rs::t_5_t_37_byte_entry_points_answer_input_errors_without_deciding",
   "sdks/bindings/core/tests/bytes.rs::t_88_checkpoint_vectors_through_bindings_core",
   "sdks/bindings/core/tests/bytes.rs::t_89_touched_item_vectors_through_bindings_core",
+  "sdks/bindings/core/tests/mapping.rs::p_49_p_51_mapping_vectors_through_bindings_core",
   "sdks/bindings/core/tests/vectors.rs::p_11_every_vector_reason_is_a_kernel_code_and_every_id_is_unique",
   "sdks/bindings/core/tests/vectors.rs::t_10_derivation_takes_record_ids_from_the_stored_bytes_through_bindings_core",
   "sdks/bindings/core/tests/vectors.rs::t_5_t_10_entries_that_do_not_verify_cross_the_binding_as_input_errors",
@@ -4670,6 +4693,7 @@ tests = [
   "sdks/bindings/core/tests/vectors.rs::t_69_cbor_entry_point_answers_like_the_json_projection",
   "sdks/bindings/uniffi/tests/swift/main.swift::p_100_swift_genesis_envelope_and_record_bytes_match",
   "sdks/bindings/uniffi/tests/swift/main.swift::p_32_swift_signature_and_evidence_vectors_match",
+  "sdks/bindings/uniffi/tests/swift/main.swift::p_49_p_51_swift_mapping_vectors_match",
   "sdks/bindings/uniffi/tests/swift/main.swift::p_5_swift_cbor_canonical_vectors_match",
   "sdks/bindings/uniffi/tests/swift/main.swift::p_79_swift_digest_vectors_match",
   "sdks/bindings/uniffi/tests/swift/main.swift::t_10_swift_stored_entries_verify_from_their_bytes",
@@ -4703,6 +4727,8 @@ tests = [
   "xtask/src/catalog_watchlist.rs::t_38_civil_dates_convert_to_epoch_days",
   "xtask/src/catalog_watchlist.rs::t_38_six_month_threshold_separates_fresh_from_stale",
   "xtask/src/catalog_watchlist.rs::t_38_watchlist_entries_need_github_repository_sources_and_reason",
+  "xtask/src/policy_npm.rs::t_38_npm_publishes_only_from_a_gated_tag_job_with_provenance",
+  "xtask/src/policy_npm.rs::t_38_the_release_workflow_publishes_the_kernel_package_only_on_a_tag",
   "xtask/src/supply_chain.rs::t_38_new_build_script_and_stale_entry_are_both_reported",
   "xtask/src/supply_chain.rs::t_58_npm_package_needs_its_own_lockfile_and_npmrc",
   "xtask/src/supply_cooldown.rs::t_31_git_sources_in_the_lockfile_are_rejected",
@@ -5099,7 +5125,10 @@ family = "T"
 status = "policy-default"
 pd = "set"
 title = "Stage 0 items that need later code move to that stage"
-tests = []
+tests = [
+  "xtask/src/policy_npm.rs::t_38_npm_publishes_only_from_a_gated_tag_job_with_provenance",
+  "xtask/src/policy_npm.rs::t_38_the_release_workflow_publishes_the_kernel_package_only_on_a_tag",
+]
 
 [[rule]]
 id = "T-64"
@@ -5261,6 +5290,9 @@ tests = [
   "xtask/src/rules_derived.rs::t_75_projection_tables_live_only_in_the_derived_database_with_a_version",
   "xtask/src/rules_derived.rs::t_75_renamed_tables_are_judged_by_their_final_name",
   "xtask/src/rules_derived.rs::t_75_tables_without_a_valid_label_are_rejected",
+  "xtask/src/rules_labels.rs::t_10_derived_projection_and_operational_components_own_no_canonical_table",
+  "xtask/src/rules_labels.rs::t_10_every_table_belongs_to_exactly_one_component",
+  "xtask/src/rules_labels.rs::t_10_the_committed_registry_labels_every_component_and_table",
 ]
 
 [[rule]]

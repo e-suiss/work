@@ -1,4 +1,4 @@
-//! Architecture and code rules (T-4, T-22, T-31, T-32, T-33, T-36, T-53, T-75, OP-28, SEC-24); each
+//! Architecture and code rules (T-4, T-10, T-22, T-31, T-32, T-33, T-36, T-53, T-75, OP-28, SEC-24); each
 //! check lives in a `rules_*` module.
 
 #[path = "rules_async.rs"]
@@ -10,11 +10,13 @@ pub(crate) mod comments;
 #[path = "rules_deps.rs"]
 pub(crate) mod deps;
 #[path = "rules_derived.rs"]
-mod derived;
+pub(crate) mod derived;
 #[path = "rules_files.rs"]
 pub(crate) mod files;
 #[path = "rules_kernel.rs"]
 mod kernel;
+#[path = "rules_labels.rs"]
+mod labels;
 #[path = "rules_lex.rs"]
 pub(crate) mod lex;
 #[path = "rules_migrations.rs"]
@@ -57,6 +59,10 @@ pub(crate) fn checks() -> Vec<Check> {
         Check {
             name: "derived-columns",
             run: derived::check,
+        },
+        Check {
+            name: "component-labels",
+            run: labels::check,
         },
         Check {
             name: "credential-columns",

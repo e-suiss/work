@@ -1,0 +1,198 @@
+# T-10, T-11, T-75
+
+[[component]]
+name = "api-gateway"
+label = "OPERATIONAL"
+crates = ["crates/http"]
+never = "makes no normative decision and never turns a transport identity into a Party identity"
+open = "the platform API, federation, Executor contract and ingest endpoints are not written yet"
+
+[[component]]
+name = "request-verifier"
+label = "OPERATIONAL"
+crates = ["crates/ledger"]
+never = "nothing enters the sequencer queue before its pre-verification passes"
+enforced_by = [
+  "crates/ledger/src/admit/tests.rs::p_21_a_signed_agent_record_sent_unsigned_is_refused",
+  "crates/ledger/tests/containers/main.rs::inv_33_a_refused_or_failed_commit_leaves_no_pointer",
+]
+
+[[component]]
+name = "ledger-sequencer"
+label = "CANONICAL"
+crates = ["crates/ledger"]
+never = "is the only write path, and being the leader is not authority"
+enforced_by = [
+  "crates/store/tests/containers/canonical.rs::op_5_appends_need_a_contiguous_chain_and_the_head_compare_and_set",
+  "crates/store/tests/containers/sequencer.rs::t_85_leadership_is_refused_when_the_head_diverges_from_the_log",
+]
+
+[[component]]
+name = "canonical-store/log"
+label = "CANONICAL"
+crates = ["crates/store"]
+tables = [
+  "ledger.log",
+  "work.body_commitment",
+  "work.body_dek",
+  "work.body_part",
+  "work.body_part_key",
+  "work.body_part_tombstone",
+  "work.erasure_log",
+  "work.log_basis",
+  "work.log_concerns",
+  "work.log_received",
+  "work.log_relation",
+  "work.received_bytes",
+  "work.record_header",
+  "work.retention_hold",
+]
+never = "only the sequencer writes the log and the head, the other writers write only what the T-79 list gives them, and the application role only reads"
+enforced_by = [
+  "bins/work-server/tests/containers/main.rs::t_79_refuses_to_start_when_a_writing_pool_logs_in_as_another_role",
+  "crates/store/tests/containers/canonical.rs::op_12_append_only_tables_reject_update_delete_and_truncate_from_every_role",
+  "crates/store/tests/containers/schema.rs::t_36_both_schemas_pass_the_security_checks",
+]
+
+[[component]]
+name = "canonical-store/sync-derived"
+label = "SYNC-DERIVED"
+crates = ["crates/store"]
+tables = [
+  "ledger.head",
+  "ledger.outbox",
+  "work.idempotency_key",
+  "work.inbound_seen",
+  "work.item_head",
+  "work.ledger_profile",
+  "work.one_time_flag",
+  "work.work_root",
+]
+never = "only the sequencer writes the log and the head, the other writers write only what the T-79 list gives them, and the application role only reads"
+enforced_by = [
+  "crates/store/src/rebuild.rs::t_10_every_sync_derived_table_is_rebuilt_or_checked_against_the_log",
+  "crates/store/tests/containers/canonical.rs::p_42_outbox_pointers_are_checked_and_only_the_publisher_acknowledges",
+  "crates/store/tests/containers/schema.rs::t_36_both_schemas_pass_the_security_checks",
+]
+
+[[component]]
+name = "checkpoint-witness/log"
+label = "CANONICAL"
+crates = ["crates/ledger"]
+tables = ["ledger.checkpoint", "ledger.checkpoint_cosignature"]
+never = "never sends a witness a prefix the replica has not written"
+enforced_by = [
+  "crates/ledger/src/witness.rs::op_4_a_checkpoint_the_replica_does_not_hold_is_not_sent_to_witnesses",
+]
+
+[[component]]
+name = "checkpoint-witness/comparison"
+label = "DERIVED"
+crates = ["crates/ledger"]
+tables = ["derived.witness_comparison_v1"]
+never = "never sends a witness a prefix the replica has not written"
+enforced_by = [
+  "crates/ledger/src/witness.rs::op_4_a_checkpoint_the_replica_does_not_hold_is_not_sent_to_witnesses",
+]
+
+[[component]]
+name = "replica-mirror"
+label = "PROJECTION"
+crates = ["crates/ledger"]
+tables = ["ledger.replica_progress", "work.partition_archive"]
+never = ""
+
+[[component]]
+name = "signer"
+label = "OPERATIONAL"
+crates = ["bins/work-signer"]
+never = "produces no author signature, and a custodian signature is never presented as an author signature"
+enforced_by = [
+  "bins/work-signer/tests/signer.rs::t_7_the_signer_signs_checkpoints_of_its_ledgers_only",
+  "crates/proto/src/signer.rs::t_7_no_kind_byte_but_the_log_key_and_the_checkpoint_is_answered",
+]
+
+[[component]]
+name = "reconciler/input"
+label = "DERIVED"
+crates = ["crates/reconciler"]
+tables = ["derived.reconcile_queue"]
+never = "no workflow engine owns Work state"
+open = "the reconciler is not written yet"
+
+[[component]]
+name = "reconciler/outbox"
+label = "PROJECTION"
+crates = ["crates/reconciler"]
+never = "no workflow engine owns Work state"
+open = "the reconciler is not written yet"
+
+[[component]]
+name = "timers"
+label = "DERIVED"
+crates = ["crates/timers"]
+tables = ["derived.timer_v1"]
+never = "schedules no delivery, wait or escalation"
+open = "the timer service is not written yet"
+
+[[component]]
+name = "derivation-workers"
+label = "DERIVED"
+crates = ["crates/views"]
+tables = ["derived.projection_watermark"]
+never = "is never a normative transition input"
+enforced_by = [
+  "crates/store/src/migrate.rs::op_2_tables_live_in_exactly_one_cluster",
+  "xtask/src/rules_labels.rs::t_10_derived_projection_and_operational_components_own_no_canonical_table",
+]
+open = "the derivation workers are not written yet"
+
+[[component]]
+name = "query-service"
+label = "DERIVED"
+crates = ["crates/query"]
+never = "no sensitive derived read returns before it is checked again against the canonical visibility and redaction state"
+open = "the query service is not written yet"
+
+[[component]]
+name = "event-dispatcher"
+label = "PROJECTION"
+crates = ["crates/dispatch"]
+tables = ["derived.consumer_cursor"]
+never = "an event is not a commit"
+enforced_by = [
+  "crates/dispatch/src/domain.rs::t_17_event_is_derived_deterministically_from_the_committed_row",
+  "crates/ledger/tests/containers/main.rs::inv_33_a_refused_or_failed_commit_leaves_no_pointer",
+]
+
+[[component]]
+name = "federation-gateway"
+label = "CANONICAL"
+crates = ["crates/federation"]
+never = "a record from a verified peer is never dropped silently"
+open = "the federation gateway is not written yet"
+
+[[component]]
+name = "live-layer"
+label = "OPERATIONAL"
+crates = ["crates/live"]
+never = "only meaningful events are written to the permanent history"
+open = "the live layer is not written yet"
+
+[[component]]
+name = "placement-directory"
+label = "OPERATIONAL"
+never = "is not a decision input, and when it is wrong the sequencer refuses"
+enforced_by = ["crates/ledger/src/admit/tests.rs::op_9_a_record_declaring_another_ledger_is_refused"]
+open = "the placement directory itself is not written yet"
+
+[[component]]
+name = "export-replay"
+label = "PROJECTION"
+crates = ["crates/export", "bins/work-cli"]
+never = "never exports derived views as canonical"
+enforced_by = [
+  "crates/ledger/tests/containers/main.rs::op_1_a_tampered_row_is_a_sev_1_diff_and_never_a_rebuild_input",
+  "crates/store/src/rebuild.rs::op_1_a_rebuild_reads_only_canonical_tables",
+]
+open = "the canonical record bundle export is not written yet; replay is `work-cli rebuild`"

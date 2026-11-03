@@ -50,7 +50,7 @@ pub(crate) const FORBIDDEN: &[&str] = &[
 ];
 
 /// T-10 component labels.
-const LABELS: &[&str] = &[
+pub(crate) const LABELS: &[&str] = &[
     "CANONICAL",
     "SYNC-DERIVED",
     "DERIVED",
@@ -478,6 +478,17 @@ impl Table {
         }
     }
 
+    fn label(&self) -> &str {
+        self.comment
+            .as_deref()
+            .and_then(|c| {
+                c.split(';')
+                    .filter_map(|part| part.split_once('='))
+                    .find(|(k, _)| k.trim() == "label")
+            })
+            .map_or("", |(_, v)| v.trim())
+    }
+
     fn home(&self) -> Db {
         match self.name.schema.as_deref() {
             Some(s) if DERIVED_SCHEMAS.contains(&s) => Db::Derived,
@@ -527,6 +538,14 @@ impl Schema {
                 )
             })
         })
+    }
+
+    /// Every created table and the `label=` of its `COMMENT ON TABLE`, empty without one (T-10).
+    pub(crate) fn labels(&self) -> impl Iterator<Item = (&str, &str)> {
+        self.tables
+            .iter()
+            .filter(|(_, t)| t.created.is_some())
+            .map(|(key, t)| (key.as_str(), t.label()))
     }
 
     fn entry(&mut self, name: &Name, db: Option<Db>) -> &mut Table {
