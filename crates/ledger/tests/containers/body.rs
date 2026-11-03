@@ -137,6 +137,10 @@ async fn read(reader: &BodyReader, ledger: &LedgerId, pos: u64) -> Vec<(String, 
 // OP-45 OP-12 OP-13 OP-15 P-68 P-25 EV-33 Access OP-74
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "needs Docker and SoftHSM"]
+#[allow(
+    clippy::too_many_lines,
+    reason = "one scenario from the write through the shred to the rebuild-diff"
+)]
 async fn op_45_a_shredded_body_is_unreadable_while_its_skeleton_verifies() {
     let env = Env::start().await;
     let keys = keys("shred");
@@ -263,7 +267,7 @@ async fn op_45_a_shredded_body_is_unreadable_while_its_skeleton_verifies() {
                 unsigned(&with_body(&comment(&ledger, 2), &[&later])),
                 &actors,
             ),
-            &[later.clone()],
+            std::slice::from_ref(&later),
             &bodies,
             AT,
         )
