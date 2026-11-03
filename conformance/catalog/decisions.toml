@@ -1654,7 +1654,9 @@ stage = 1
 acceptance = "to-fill"
 title = ""
 tests = [
+  "packages/kernel/e2e/kernel.spec.ts::t_5_t_37_inv_7 browser WebAssembly byte entry points match their vectors",
   "packages/kernel/e2e/kernel.spec.ts::t_5_t_37_inv_7 browser WebAssembly kernel matches every record vector",
+  "packages/kernel/src/bytes.test.ts::t_5_t_37_inv_7 WebAssembly byte entry points match their vectors",
   "packages/kernel/src/records.test.ts::t_5_t_37_inv_7 WebAssembly kernel matches every record vector",
   "sdks/bindings/core/tests/vectors.rs::t_5_t_37_inv_7_native_record_vectors_through_bindings_core",
   "sdks/bindings/uniffi/tests/swift/main.swift::t_5_t_37_inv_7_swift_record_vectors_match",
@@ -2573,6 +2575,8 @@ tests = [
   "crates/kernel/tests/records.rs::p_7_cddl_string_bounds_are_enforced",
   "crates/kernel/tests/signature_vectors.rs::ev_3_a_record_without_the_evidence_reference_has_no_statement",
   "crates/kernel/tests/signature_vectors.rs::ev_3_evidence_vectors_bind_the_presenter_signature_to_the_statement",
+  "sdks/bindings/core/tests/bytes.rs::ev_3_evidence_vectors_through_bindings_core",
+  "sdks/bindings/uniffi/tests/swift/main.swift::p_32_swift_signature_and_evidence_vectors_match",
 ]
 
 [[rule]]
@@ -2600,6 +2604,8 @@ stage = 2
 title = ""
 tests = [
   "crates/kernel/tests/signature_vectors.rs::ev_3_evidence_vectors_bind_the_presenter_signature_to_the_statement",
+  "sdks/bindings/core/tests/bytes.rs::ev_3_evidence_vectors_through_bindings_core",
+  "sdks/bindings/uniffi/tests/swift/main.swift::p_32_swift_signature_and_evidence_vectors_match",
 ]
 
 [[rule]]
@@ -2715,6 +2721,8 @@ tests = [
   "crates/kernel/tests/records.rs::ev_35_every_evidence_presenter_has_an_actor_type_in_evidence_order",
   "crates/ledger/src/admit/tests.rs::ev_35_the_envelope_carries_the_presenter_actor_types_the_caller_resolved",
   "crates/ledger/src/admit/tests.rs::p_100_the_admission_path_seals_the_golden_ledger_byte_for_byte",
+  "sdks/bindings/core/tests/bytes.rs::t_10_stored_entries_verify_from_their_bytes_through_bindings_core",
+  "sdks/bindings/uniffi/tests/swift/main.swift::t_10_swift_stored_entries_verify_from_their_bytes",
 ]
 
 [[rule]]
@@ -2942,9 +2950,13 @@ tests = [
   "crates/kernel/tests/records.rs::p_72_set_lists_are_sorted_and_duplicate_free",
   "crates/kernel/tests/records.rs::p_80_param_text_is_a_code_uri_or_party_reference",
   "crates/ledger/src/admit/tests.rs::t_90_a_signed_record_keeps_its_cose_sign1_and_an_unsigned_one_its_context",
+  "sdks/bindings/core/tests/bytes.rs::p_5_cbor_canonical_vectors_through_bindings_core",
+  "sdks/bindings/core/tests/bytes.rs::p_79_digest_vectors_through_bindings_core",
   "sdks/bindings/core/tests/vectors.rs::p_11_every_vector_reason_is_a_kernel_code_and_every_id_is_unique",
   "sdks/bindings/core/tests/vectors.rs::p_67_digests_are_encoded_as_the_sha_256_label_and_32_bytes",
   "sdks/bindings/core/tests/vectors.rs::t_69_cbor_entry_point_answers_like_the_json_projection",
+  "sdks/bindings/uniffi/tests/swift/main.swift::p_5_swift_cbor_canonical_vectors_match",
+  "sdks/bindings/uniffi/tests/swift/main.swift::p_79_swift_digest_vectors_match",
 ]
 
 [[rule]]
@@ -2971,6 +2983,9 @@ tests = [
   "crates/kernel/tests/signature_vectors.rs::ev_3_evidence_vectors_bind_the_presenter_signature_to_the_statement",
   "crates/kernel/tests/signature_vectors.rs::p_32_cose_sign1_vectors_through_the_kernel_signature_port",
   "crates/kernel/tests/signature_vectors.rs::p_6_the_container_is_not_semantic",
+  "sdks/bindings/core/tests/bytes.rs::ev_3_evidence_vectors_through_bindings_core",
+  "sdks/bindings/core/tests/bytes.rs::p_32_cose_sign1_and_key_vectors_through_bindings_core",
+  "sdks/bindings/uniffi/tests/swift/main.swift::p_32_swift_signature_and_evidence_vectors_match",
 ]
 
 [[rule]]
@@ -2996,6 +3011,10 @@ tests = [
   "crates/kernel/tests/records.rs::p_7_cddl_string_bounds_are_enforced",
   "crates/kernel/tests/signature_vectors.rs::p_32_cose_sign1_vectors_through_the_kernel_signature_port",
   "crates/kernel/tests/signature_vectors.rs::p_7_key_vectors_are_rejected_with_their_detail",
+  "sdks/bindings/core/tests/bytes.rs::p_32_cose_sign1_and_key_vectors_through_bindings_core",
+  "sdks/bindings/core/tests/bytes.rs::p_5_cbor_canonical_vectors_through_bindings_core",
+  "sdks/bindings/uniffi/tests/swift/main.swift::p_32_swift_signature_and_evidence_vectors_match",
+  "sdks/bindings/uniffi/tests/swift/main.swift::p_5_swift_cbor_canonical_vectors_match",
   "xtask/src/supply_chain.rs::t_33_serde_json_with_unbounded_depth_is_rejected",
 ]
 
@@ -3024,6 +3043,7 @@ tests = [
   "crates/kernel/tests/records.rs::p_10_declaration_occurred_at_is_optional",
   "crates/kernel/tests/records.rs::p_9_vector_examples_are_accepted",
   "crates/kernel/tests/signature_vectors.rs::ev_3_a_record_without_the_evidence_reference_has_no_statement",
+  "sdks/bindings/core/tests/bytes.rs::ev_3_evidence_vectors_through_bindings_core",
 ]
 
 [[rule]]
@@ -3049,9 +3069,16 @@ tests = [
   "crates/ledger/src/admit/tests.rs::p_100_the_admission_path_seals_the_golden_ledger_byte_for_byte",
   "crates/ledger/src/admit/tests.rs::p_19_a_quarantined_record_is_written_with_its_reason",
   "crates/ledger/src/envelope.rs::p_100_every_golden_envelope_is_sealed_from_its_slot",
+  "sdks/bindings/core/tests/bytes.rs::p_100_genesis_envelope_and_record_bytes_decode_through_bindings_core",
+  "sdks/bindings/core/tests/bytes.rs::t_10_stored_entries_verify_from_their_bytes_through_bindings_core",
+  "sdks/bindings/core/tests/bytes.rs::t_4_merkle_vectors_through_bindings_core",
+  "sdks/bindings/core/tests/bytes.rs::t_88_checkpoint_vectors_through_bindings_core",
   "sdks/bindings/core/tests/reason_codes.rs::t_69_typescript_reason_codes_are_the_kernel_codes",
   "sdks/bindings/core/tests/vectors.rs::p_11_every_vector_reason_is_a_kernel_code_and_every_id_is_unique",
   "sdks/bindings/core/tests/vectors.rs::t_5_t_37_inv_7_native_record_vectors_through_bindings_core",
+  "sdks/bindings/uniffi/tests/swift/main.swift::p_100_swift_genesis_envelope_and_record_bytes_match",
+  "sdks/bindings/uniffi/tests/swift/main.swift::t_10_swift_stored_entries_verify_from_their_bytes",
+  "sdks/bindings/uniffi/tests/swift/main.swift::t_4_swift_merkle_and_checkpoint_vectors_match",
   "xtask/src/policy_scan.rs::t_41_stale_missing_and_orphan_generated_files_are_reported",
 ]
 
@@ -3132,6 +3159,8 @@ tests = [
   "crates/ledger/src/admit/tests.rs::p_100_the_admission_path_seals_the_golden_ledger_byte_for_byte",
   "crates/ledger/src/admit/tests.rs::p_21_a_signed_agent_record_sent_unsigned_is_refused",
   "crates/ledger/src/admit/tests.rs::p_21_an_unsigned_record_of_an_unknown_protocol_is_refused",
+  "sdks/bindings/core/tests/bytes.rs::t_10_stored_entries_verify_from_their_bytes_through_bindings_core",
+  "sdks/bindings/uniffi/tests/swift/main.swift::t_10_swift_stored_entries_verify_from_their_bytes",
 ]
 
 [[rule]]
@@ -3154,6 +3183,8 @@ tests = [
   "crates/kernel/src/items.rs::t_89_each_concerned_work_is_touched_once_in_concerns_order",
   "crates/kernel/tests/items.rs::t_89_every_golden_record_touches_the_works_it_concerns",
   "crates/store/src/id.rs::t_81_item_kind_and_id_round_trip_with_the_stored_lengths",
+  "sdks/bindings/core/tests/bytes.rs::t_89_touched_item_vectors_through_bindings_core",
+  "sdks/bindings/uniffi/tests/swift/main.swift::t_89_swift_touched_item_vectors_match",
 ]
 
 [[rule]]
@@ -3175,6 +3206,8 @@ title = ""
 tests = [
   "crates/kernel/tests/signature_vectors.rs::p_32_cose_sign1_vectors_through_the_kernel_signature_port",
   "crates/kernel/tests/signature_vectors.rs::p_7_key_vectors_are_rejected_with_their_detail",
+  "sdks/bindings/core/tests/bytes.rs::p_32_cose_sign1_and_key_vectors_through_bindings_core",
+  "sdks/bindings/uniffi/tests/swift/main.swift::p_32_swift_signature_and_evidence_vectors_match",
 ]
 
 [[rule]]
@@ -3452,7 +3485,11 @@ tests = [
   "crates/kernel/tests/codec_vectors.rs::p_67_digest_vectors_decode_encode_and_reject",
   "crates/ledger/src/genesis.rs::p_100_genesis_matches_the_golden_vector",
   "crates/store/src/id.rs::t_13_ledger_scope_is_the_lower_case_hex_of_the_digest",
+  "sdks/bindings/core/tests/bytes.rs::p_100_genesis_envelope_and_record_bytes_decode_through_bindings_core",
+  "sdks/bindings/core/tests/bytes.rs::p_79_digest_vectors_through_bindings_core",
   "sdks/bindings/core/tests/vectors.rs::p_67_digests_are_encoded_as_the_sha_256_label_and_32_bytes",
+  "sdks/bindings/uniffi/tests/swift/main.swift::p_100_swift_genesis_envelope_and_record_bytes_match",
+  "sdks/bindings/uniffi/tests/swift/main.swift::p_79_swift_digest_vectors_match",
 ]
 
 [[rule]]
@@ -3471,6 +3508,8 @@ tests = [
   "crates/ledger/src/body/tests.rs::op_45_another_ledger_another_part_commit_or_another_class_dek_does_not_open",
   "crates/ledger/src/body/tests.rs::p_104_a_part_above_64_kib_round_trips_and_commits_by_its_digest",
   "crates/ledger/src/body/tests.rs::p_68_an_opening_that_does_not_give_its_commitment_is_refused",
+  "sdks/bindings/core/tests/bytes.rs::p_79_digest_vectors_through_bindings_core",
+  "sdks/bindings/uniffi/tests/swift/main.swift::p_79_swift_digest_vectors_match",
 ]
 
 [[rule]]
@@ -3537,7 +3576,9 @@ tests = [
   "crates/kernel/tests/records.rs::p_72_p_69_empty_optional_maps_are_rejected",
   "crates/kernel/tests/records.rs::p_72_set_lists_are_sorted_and_duplicate_free",
   "crates/kernel/tests/records.rs::p_7_cddl_list_and_map_bounds_reject_one_more_than_256",
+  "sdks/bindings/core/tests/bytes.rs::p_5_cbor_canonical_vectors_through_bindings_core",
   "sdks/bindings/core/tests/vectors.rs::t_5_t_37_inv_7_native_record_vectors_through_bindings_core",
+  "sdks/bindings/uniffi/tests/swift/main.swift::p_5_swift_cbor_canonical_vectors_match",
   "xtask/src/policy_scan.rs::t_41_stale_missing_and_orphan_generated_files_are_reported",
 ]
 
@@ -3587,6 +3628,12 @@ tests = [
   "crates/ledger/src/admit/tests.rs::p_100_the_admission_path_seals_the_golden_ledger_byte_for_byte",
   "crates/ledger/src/admit/tests.rs::t_90_a_signed_record_keeps_its_cose_sign1_and_an_unsigned_one_its_context",
   "crates/ledger/src/envelope.rs::p_100_every_golden_envelope_is_sealed_from_its_slot",
+  "sdks/bindings/core/tests/bytes.rs::p_32_cose_sign1_and_key_vectors_through_bindings_core",
+  "sdks/bindings/core/tests/bytes.rs::p_79_digest_vectors_through_bindings_core",
+  "sdks/bindings/core/tests/bytes.rs::t_10_stored_entries_verify_from_their_bytes_through_bindings_core",
+  "sdks/bindings/uniffi/tests/swift/main.swift::p_32_swift_signature_and_evidence_vectors_match",
+  "sdks/bindings/uniffi/tests/swift/main.swift::p_79_swift_digest_vectors_match",
+  "sdks/bindings/uniffi/tests/swift/main.swift::t_10_swift_stored_entries_verify_from_their_bytes",
 ]
 
 [[rule]]
@@ -3647,7 +3694,11 @@ tests = [
   "crates/kernel/tests/signature_vectors.rs::p_6_the_container_is_not_semantic",
   "crates/kernel/tests/signature_vectors.rs::p_75_every_envelope_proof_commit_is_the_digest_of_a_vector_signature",
   "crates/ledger/src/envelope.rs::t_10_the_pending_record_id_is_recomputed_from_its_bytes",
+  "sdks/bindings/core/tests/bytes.rs::p_79_digest_vectors_through_bindings_core",
+  "sdks/bindings/core/tests/bytes.rs::t_10_stored_entries_verify_from_their_bytes_through_bindings_core",
   "sdks/bindings/core/tests/vectors.rs::p_67_digests_are_encoded_as_the_sha_256_label_and_32_bytes",
+  "sdks/bindings/uniffi/tests/swift/main.swift::p_79_swift_digest_vectors_match",
+  "sdks/bindings/uniffi/tests/swift/main.swift::t_10_swift_stored_entries_verify_from_their_bytes",
 ]
 
 [[rule]]
@@ -3776,6 +3827,8 @@ tests = [
   "crates/ledger/src/admit/tests.rs::op_1_the_golden_ledger_replays_from_its_stored_bytes_to_the_admitted_records",
   "crates/ledger/src/admit/tests.rs::p_100_the_admission_path_seals_the_golden_ledger_byte_for_byte",
   "crates/ledger/src/admit/tests.rs::p_19_a_quarantined_record_is_written_with_its_reason",
+  "sdks/bindings/core/tests/bytes.rs::p_100_genesis_envelope_and_record_bytes_decode_through_bindings_core",
+  "sdks/bindings/uniffi/tests/swift/main.swift::p_100_swift_genesis_envelope_and_record_bytes_match",
 ]
 
 [[rule]]
@@ -3933,6 +3986,12 @@ tests = [
   "crates/ledger/src/admit/tests.rs::p_100_the_admission_path_seals_the_golden_ledger_byte_for_byte",
   "crates/ledger/src/envelope.rs::p_100_every_golden_envelope_is_sealed_from_its_slot",
   "crates/ledger/src/genesis.rs::p_100_genesis_matches_the_golden_vector",
+  "sdks/bindings/core/tests/bytes.rs::p_100_genesis_envelope_and_record_bytes_decode_through_bindings_core",
+  "sdks/bindings/core/tests/bytes.rs::t_10_stored_entries_verify_from_their_bytes_through_bindings_core",
+  "sdks/bindings/core/tests/bytes.rs::t_4_merkle_vectors_through_bindings_core",
+  "sdks/bindings/uniffi/tests/swift/main.swift::p_100_swift_genesis_envelope_and_record_bytes_match",
+  "sdks/bindings/uniffi/tests/swift/main.swift::t_10_swift_stored_entries_verify_from_their_bytes",
+  "sdks/bindings/uniffi/tests/swift/main.swift::t_4_swift_merkle_and_checkpoint_vectors_match",
 ]
 
 [[rule]]
@@ -3956,6 +4015,12 @@ tests = [
   "crates/kernel/tests/ledger_vectors.rs::t_4_inclusion_and_consistency_vectors_through_the_kernel_verifier",
   "crates/ledger/src/envelope.rs::p_100_every_golden_envelope_is_sealed_from_its_slot",
   "crates/ledger/src/genesis.rs::p_100_genesis_matches_the_golden_vector",
+  "sdks/bindings/core/tests/bytes.rs::p_100_genesis_envelope_and_record_bytes_decode_through_bindings_core",
+  "sdks/bindings/core/tests/bytes.rs::p_79_digest_vectors_through_bindings_core",
+  "sdks/bindings/core/tests/bytes.rs::t_4_merkle_vectors_through_bindings_core",
+  "sdks/bindings/uniffi/tests/swift/main.swift::p_100_swift_genesis_envelope_and_record_bytes_match",
+  "sdks/bindings/uniffi/tests/swift/main.swift::p_79_swift_digest_vectors_match",
+  "sdks/bindings/uniffi/tests/swift/main.swift::t_4_swift_merkle_and_checkpoint_vectors_match",
 ]
 
 [[rule]]
@@ -3969,6 +4034,9 @@ tests = [
   "crates/kernel/tests/cose.rs::p_102_the_protected_header_carries_the_work_record_content_type",
   "crates/kernel/tests/signature_vectors.rs::ev_3_evidence_vectors_bind_the_presenter_signature_to_the_statement",
   "crates/kernel/tests/signature_vectors.rs::p_32_cose_sign1_vectors_through_the_kernel_signature_port",
+  "sdks/bindings/core/tests/bytes.rs::ev_3_evidence_vectors_through_bindings_core",
+  "sdks/bindings/core/tests/bytes.rs::p_32_cose_sign1_and_key_vectors_through_bindings_core",
+  "sdks/bindings/uniffi/tests/swift/main.swift::p_32_swift_signature_and_evidence_vectors_match",
 ]
 
 [[rule]]
@@ -3983,6 +4051,8 @@ tests = [
   "crates/kernel/tests/codec_vectors.rs::p_5_cbor_canonical_vectors_through_the_shared_decoder",
   "crates/kernel/tests/cose.rs::p_103_a_small_order_r_and_an_out_of_range_ecdsa_scalar_are_invalid",
   "crates/kernel/tests/signature_vectors.rs::p_32_cose_sign1_vectors_through_the_kernel_signature_port",
+  "sdks/bindings/core/tests/bytes.rs::p_5_cbor_canonical_vectors_through_bindings_core",
+  "sdks/bindings/uniffi/tests/swift/main.swift::p_5_swift_cbor_canonical_vectors_match",
 ]
 
 [[rule]]
@@ -3996,6 +4066,8 @@ tests = [
   "crates/kernel/src/codec/mod.rs::p_104_a_part_above_64_kib_commits_to_the_digest_of_its_content",
   "crates/kernel/tests/codec_vectors.rs::p_104_large_part_vectors_commit_to_the_digest_of_their_content",
   "crates/ledger/src/body/tests.rs::p_104_a_part_above_64_kib_round_trips_and_commits_by_its_digest",
+  "sdks/bindings/core/tests/bytes.rs::p_79_digest_vectors_through_bindings_core",
+  "sdks/bindings/uniffi/tests/swift/main.swift::p_79_swift_digest_vectors_match",
 ]
 
 [[rule]]
@@ -4008,6 +4080,8 @@ title = ""
 tests = [
   "crates/kernel/tests/cose.rs::p_105_a_record_whose_author_is_not_the_key_owner_is_kid_unknown",
   "crates/kernel/tests/signature_vectors.rs::p_32_cose_sign1_vectors_through_the_kernel_signature_port",
+  "sdks/bindings/core/tests/bytes.rs::p_32_cose_sign1_and_key_vectors_through_bindings_core",
+  "sdks/bindings/uniffi/tests/swift/main.swift::p_32_swift_signature_and_evidence_vectors_match",
 ]
 
 [[rule]]
@@ -4021,6 +4095,8 @@ tests = [
   "crates/kernel/tests/cose.rs::p_106_a_signed_payload_that_is_not_a_record_keeps_its_decoding_reason",
   "crates/kernel/tests/cose.rs::p_106_an_unknown_protocol_record_is_valid_without_reading_its_author",
   "crates/kernel/tests/signature_vectors.rs::p_32_cose_sign1_vectors_through_the_kernel_signature_port",
+  "sdks/bindings/core/tests/bytes.rs::p_32_cose_sign1_and_key_vectors_through_bindings_core",
+  "sdks/bindings/uniffi/tests/swift/main.swift::p_32_swift_signature_and_evidence_vectors_match",
 ]
 
 [[rule]]
@@ -4033,6 +4109,8 @@ title = ""
 tests = [
   "crates/kernel/tests/signature_vectors.rs::ev_3_a_record_without_the_evidence_reference_has_no_statement",
   "crates/kernel/tests/signature_vectors.rs::ev_3_evidence_vectors_bind_the_presenter_signature_to_the_statement",
+  "sdks/bindings/core/tests/bytes.rs::ev_3_evidence_vectors_through_bindings_core",
+  "sdks/bindings/uniffi/tests/swift/main.swift::p_32_swift_signature_and_evidence_vectors_match",
 ]
 
 [[rule]]
@@ -4048,6 +4126,10 @@ tests = [
   "crates/kernel/tests/ledger_vectors.rs::t_10_the_verifier_recomputes_every_record_id_from_the_stored_bytes",
   "crates/kernel/tests/ledger_vectors.rs::t_4_every_entry_is_included_in_the_cosigned_checkpoint",
   "crates/ledger/src/admit/tests.rs::p_21_an_unsigned_record_of_an_unknown_protocol_is_refused",
+  "sdks/bindings/core/tests/bytes.rs::t_10_stored_entries_verify_from_their_bytes_through_bindings_core",
+  "sdks/bindings/core/tests/bytes.rs::t_88_checkpoint_vectors_through_bindings_core",
+  "sdks/bindings/uniffi/tests/swift/main.swift::t_10_swift_stored_entries_verify_from_their_bytes",
+  "sdks/bindings/uniffi/tests/swift/main.swift::t_4_swift_merkle_and_checkpoint_vectors_match",
 ]
 
 [[rule]]
@@ -4241,6 +4323,8 @@ tests = [
   "crates/store/src/rebuild.rs::op_1_a_rebuild_reads_only_canonical_tables",
   "crates/store/src/rebuild.rs::op_45_body_tables_are_neither_rebuilt_nor_compared",
   "crates/store/src/rebuild.rs::t_10_every_sync_derived_table_is_rebuilt_or_checked_against_the_log",
+  "sdks/bindings/core/tests/bytes.rs::t_10_stored_entries_verify_from_their_bytes_through_bindings_core",
+  "sdks/bindings/uniffi/tests/swift/main.swift::t_10_swift_stored_entries_verify_from_their_bytes",
   "xtask/src/rules_derived.rs::t_75_tables_without_a_valid_label_are_rejected",
 ]
 
@@ -4478,6 +4562,7 @@ stage = 10
 acceptance = "to-fill"
 title = "Strict TypeScript clients on esuiss-ui with a generated API client"
 tests = [
+  "packages/kernel/src/bytes.test.ts::t_5_t_34 byte entry points raise kernel input errors instead of deciding",
   "packages/kernel/src/index.test.ts::t_34 rejects names the kernel does not declare",
   "packages/kernel/src/index.test.ts::t_34 rejects values outside the kernel integer ranges",
   "xtask/src/supply_chain.rs::t_34_npm_package_without_strict_compiler_options_is_rejected",
@@ -4536,21 +4621,40 @@ tests = [
   "crates/kernel/tests/vectors.rs::t_5_t_37_native_api_version_matches_shared_vectors",
   "crates/kernel/tests/vectors.rs::t_5_t_37_native_policy_defaults_match_shared_vectors",
   "packages/kernel/e2e/kernel.spec.ts::t_5_t_37 browser WebAssembly kernel matches the shared kernel vectors",
+  "packages/kernel/e2e/kernel.spec.ts::t_5_t_37_inv_7 browser WebAssembly byte entry points match their vectors",
   "packages/kernel/e2e/kernel.spec.ts::t_5_t_37_inv_7 browser WebAssembly derivation matches the native bytes",
   "packages/kernel/e2e/kernel.spec.ts::t_5_t_37_inv_7 browser WebAssembly kernel matches every record vector",
+  "packages/kernel/src/bytes.test.ts::t_5_t_37_inv_7 WebAssembly byte entry points match their vectors",
   "packages/kernel/src/records.test.ts::t_5_t_37_inv_7 WebAssembly derivation matches the native bytes",
   "packages/kernel/src/records.test.ts::t_5_t_37_inv_7 WebAssembly kernel matches every record vector",
   "packages/kernel/src/vectors.test.ts::t_5_t_37 WebAssembly kernel matches the shared vectors",
+  "sdks/bindings/core/tests/bytes.rs::ev_3_evidence_vectors_through_bindings_core",
+  "sdks/bindings/core/tests/bytes.rs::p_100_genesis_envelope_and_record_bytes_decode_through_bindings_core",
+  "sdks/bindings/core/tests/bytes.rs::p_32_cose_sign1_and_key_vectors_through_bindings_core",
+  "sdks/bindings/core/tests/bytes.rs::p_5_cbor_canonical_vectors_through_bindings_core",
+  "sdks/bindings/core/tests/bytes.rs::p_79_digest_vectors_through_bindings_core",
+  "sdks/bindings/core/tests/bytes.rs::t_10_stored_entries_verify_from_their_bytes_through_bindings_core",
+  "sdks/bindings/core/tests/bytes.rs::t_4_merkle_vectors_through_bindings_core",
+  "sdks/bindings/core/tests/bytes.rs::t_5_t_37_byte_entry_points_answer_input_errors_without_deciding",
+  "sdks/bindings/core/tests/bytes.rs::t_88_checkpoint_vectors_through_bindings_core",
+  "sdks/bindings/core/tests/bytes.rs::t_89_touched_item_vectors_through_bindings_core",
   "sdks/bindings/core/tests/vectors.rs::p_11_every_vector_reason_is_a_kernel_code_and_every_id_is_unique",
   "sdks/bindings/core/tests/vectors.rs::t_5_t_37_input_errors_are_not_decisions",
   "sdks/bindings/core/tests/vectors.rs::t_5_t_37_inv_7_native_derivation_through_bindings_core",
   "sdks/bindings/core/tests/vectors.rs::t_5_t_37_inv_7_native_record_vectors_through_bindings_core",
   "sdks/bindings/core/tests/vectors.rs::t_5_t_37_kernel_derivation_errors_cross_the_binding",
   "sdks/bindings/core/tests/vectors.rs::t_69_cbor_entry_point_answers_like_the_json_projection",
+  "sdks/bindings/uniffi/tests/swift/main.swift::p_100_swift_genesis_envelope_and_record_bytes_match",
+  "sdks/bindings/uniffi/tests/swift/main.swift::p_32_swift_signature_and_evidence_vectors_match",
+  "sdks/bindings/uniffi/tests/swift/main.swift::p_5_swift_cbor_canonical_vectors_match",
+  "sdks/bindings/uniffi/tests/swift/main.swift::p_79_swift_digest_vectors_match",
+  "sdks/bindings/uniffi/tests/swift/main.swift::t_10_swift_stored_entries_verify_from_their_bytes",
+  "sdks/bindings/uniffi/tests/swift/main.swift::t_4_swift_merkle_and_checkpoint_vectors_match",
   "sdks/bindings/uniffi/tests/swift/main.swift::t_5_t_37_inv_7_swift_derivation_matches_native_bytes",
   "sdks/bindings/uniffi/tests/swift/main.swift::t_5_t_37_inv_7_swift_record_vectors_match",
   "sdks/bindings/uniffi/tests/swift/main.swift::t_5_t_37_swift_api_version_matches_shared_vectors",
   "sdks/bindings/uniffi/tests/swift/main.swift::t_5_t_37_swift_policy_defaults_match_shared_vectors",
+  "sdks/bindings/uniffi/tests/swift/main.swift::t_89_swift_touched_item_vectors_match",
   "sdks/bindings/uniffi/tests/vectors.rs::t_5_t_37_uniffi_api_version_matches_shared_vectors",
   "sdks/bindings/uniffi/tests/vectors.rs::t_5_t_37_uniffi_policy_defaults_match_shared_vectors",
   "xtask/src/catalog.rs::t_37_untested_boundary_fails_only_for_completed_stages_or_release",
@@ -5026,12 +5130,17 @@ status = "frozen-technical"
 acceptance = "filled"
 title = ""
 tests = [
+  "packages/kernel/e2e/kernel.spec.ts::t_5_t_37_inv_7 browser WebAssembly byte entry points match their vectors",
+  "packages/kernel/src/bytes.test.ts::t_5_t_34 byte entry points raise kernel input errors instead of deciding",
+  "packages/kernel/src/bytes.test.ts::t_5_t_37_inv_7 WebAssembly byte entry points match their vectors",
+  "sdks/bindings/core/tests/bytes.rs::t_5_t_37_byte_entry_points_answer_input_errors_without_deciding",
   "sdks/bindings/core/tests/reason_codes.rs::t_69_typescript_reason_codes_are_the_kernel_codes",
   "sdks/bindings/core/tests/vectors.rs::t_5_t_37_input_errors_are_not_decisions",
   "sdks/bindings/core/tests/vectors.rs::t_5_t_37_inv_7_native_derivation_through_bindings_core",
   "sdks/bindings/core/tests/vectors.rs::t_5_t_37_inv_7_native_record_vectors_through_bindings_core",
   "sdks/bindings/core/tests/vectors.rs::t_5_t_37_kernel_derivation_errors_cross_the_binding",
   "sdks/bindings/core/tests/vectors.rs::t_69_cbor_entry_point_answers_like_the_json_projection",
+  "sdks/bindings/uniffi/tests/swift/main.swift::p_100_swift_genesis_envelope_and_record_bytes_match",
 ]
 
 [[rule]]
@@ -5289,6 +5398,9 @@ tests = [
   "crates/kernel/tests/ledger_vectors.rs::t_4_inclusion_and_consistency_vectors_through_the_kernel_verifier",
   "crates/ledger/src/checkpoint.rs::op_46_the_acknowledgement_declares_the_profile_asked_for",
   "crates/ledger/src/checkpoint.rs::p_20_the_acknowledgement_is_the_log_signed_checkpoint_asked_for",
+  "sdks/bindings/core/tests/bytes.rs::t_4_merkle_vectors_through_bindings_core",
+  "sdks/bindings/core/tests/bytes.rs::t_88_checkpoint_vectors_through_bindings_core",
+  "sdks/bindings/uniffi/tests/swift/main.swift::t_4_swift_merkle_and_checkpoint_vectors_match",
 ]
 
 [[rule]]
@@ -5305,6 +5417,8 @@ tests = [
   "crates/ledger/src/admit/tests.rs::op_1_the_golden_ledger_replays_from_its_stored_bytes_to_the_admitted_records",
   "crates/ledger/src/admit/tests.rs::p_100_the_admission_path_seals_the_golden_ledger_byte_for_byte",
   "crates/ledger/src/admit/tests.rs::t_89_the_items_and_pointers_come_from_the_concerned_works",
+  "sdks/bindings/core/tests/bytes.rs::t_89_touched_item_vectors_through_bindings_core",
+  "sdks/bindings/uniffi/tests/swift/main.swift::t_89_swift_touched_item_vectors_match",
 ]
 
 [[rule]]
@@ -5611,6 +5725,8 @@ tests = [
   "crates/ledger/src/ledgers.rs::op_33_cadence_values_outside_their_range_are_refused",
   "crates/ledger/src/witness.rs::op_33_only_a_configured_witness_cosigning_the_stored_tree_is_taken",
   "crates/ledger/src/witness.rs::op_4_a_checkpoint_the_replica_does_not_hold_is_not_sent_to_witnesses",
+  "sdks/bindings/core/tests/bytes.rs::t_88_checkpoint_vectors_through_bindings_core",
+  "sdks/bindings/uniffi/tests/swift/main.swift::t_4_swift_merkle_and_checkpoint_vectors_match",
 ]
 
 [[rule]]
@@ -5789,4 +5905,6 @@ tests = [
   "crates/kernel/tests/ledger_vectors.rs::op_46_a_checkpoint_without_exactly_its_three_profile_lines_is_malformed",
   "crates/ledger/src/checkpoint.rs::op_46_saas_declares_independent_time_and_at_least_two_witnesses",
   "crates/ledger/src/checkpoint.rs::op_46_the_acknowledgement_declares_the_profile_asked_for",
+  "sdks/bindings/core/tests/bytes.rs::t_88_checkpoint_vectors_through_bindings_core",
+  "sdks/bindings/uniffi/tests/swift/main.swift::t_4_swift_merkle_and_checkpoint_vectors_match",
 ]

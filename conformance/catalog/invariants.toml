@@ -213,6 +213,8 @@ tests = [
   "crates/kernel/tests/items.rs::t_89_every_golden_record_touches_the_works_it_concerns",
   "crates/ledger/src/admit/tests.rs::op_9_a_record_declaring_another_ledger_is_refused",
   "crates/ledger/src/admit/tests.rs::t_89_the_items_and_pointers_come_from_the_concerned_works",
+  "sdks/bindings/core/tests/bytes.rs::t_89_touched_item_vectors_through_bindings_core",
+  "sdks/bindings/uniffi/tests/swift/main.swift::t_89_swift_touched_item_vectors_match",
 ]
 
 [[rule]]
@@ -307,8 +309,10 @@ title = ""
 tests = [
   "crates/kernel/tests/derivation.rs::inv_7_same_inputs_give_the_same_result",
   "crates/kernel/tests/properties.rs::inv_7_derivation_is_a_pure_function",
+  "packages/kernel/e2e/kernel.spec.ts::t_5_t_37_inv_7 browser WebAssembly byte entry points match their vectors",
   "packages/kernel/e2e/kernel.spec.ts::t_5_t_37_inv_7 browser WebAssembly derivation matches the native bytes",
   "packages/kernel/e2e/kernel.spec.ts::t_5_t_37_inv_7 browser WebAssembly kernel matches every record vector",
+  "packages/kernel/src/bytes.test.ts::t_5_t_37_inv_7 WebAssembly byte entry points match their vectors",
   "packages/kernel/src/records.test.ts::t_5_t_37_inv_7 WebAssembly derivation matches the native bytes",
   "packages/kernel/src/records.test.ts::t_5_t_37_inv_7 WebAssembly kernel matches every record vector",
   "sdks/bindings/core/tests/vectors.rs::t_5_t_37_inv_7_native_derivation_through_bindings_core",
@@ -325,7 +329,9 @@ status = "canonical-invariant"
 stage = 1
 title = ""
 tests = [
+  "packages/kernel/e2e/kernel.spec.ts::t_5_t_37_inv_7 browser WebAssembly byte entry points match their vectors",
   "packages/kernel/e2e/kernel.spec.ts::t_5_t_37_inv_7 browser WebAssembly kernel matches every record vector",
+  "packages/kernel/src/bytes.test.ts::t_5_t_37_inv_7 WebAssembly byte entry points match their vectors",
   "packages/kernel/src/records.test.ts::t_5_t_37_inv_7 WebAssembly kernel matches every record vector",
   "sdks/bindings/core/tests/vectors.rs::t_5_t_37_inv_7_native_record_vectors_through_bindings_core",
   "sdks/bindings/uniffi/tests/swift/main.swift::t_5_t_37_inv_7_swift_record_vectors_match",
@@ -1730,6 +1736,8 @@ tests = [
   "crates/ledger/src/checkpoint.rs::p_20_a_ledger_acknowledgement_never_verifies_as_an_author_signature",
   "crates/ledger/src/checkpoint.rs::p_20_the_acknowledgement_is_the_log_signed_checkpoint_asked_for",
   "crates/proto/src/signer.rs::t_7_no_kind_byte_but_the_log_key_and_the_checkpoint_is_answered",
+  "sdks/bindings/core/tests/bytes.rs::t_88_checkpoint_vectors_through_bindings_core",
+  "sdks/bindings/uniffi/tests/swift/main.swift::t_4_swift_merkle_and_checkpoint_vectors_match",
 ]
 
 [[rule]]
@@ -1964,6 +1972,9 @@ tests = [
   "crates/kernel/tests/properties.rs::t_4_position_overflow_is_typed",
   "crates/kernel/tests/records.rs::t_4_p_87_unknown_protocol_version_is_quarantined_before_any_rule",
   "crates/kernel/tests/records.rs::t_4_rule_set_is_selected_from_the_record_version_only",
+  "sdks/bindings/core/tests/bytes.rs::t_4_merkle_vectors_through_bindings_core",
+  "sdks/bindings/core/tests/bytes.rs::t_88_checkpoint_vectors_through_bindings_core",
+  "sdks/bindings/uniffi/tests/swift/main.swift::t_4_swift_merkle_and_checkpoint_vectors_match",
   "xtask/src/rules_deps.rs::t_31_kernel_depends_only_on_suiss_crypto",
   "xtask/src/rules_kernel.rs::t_31_kernel_binds_suiss_crypto_without_default_features",
   "xtask/src/rules_kernel.rs::t_31_std_pulling_crate_in_kernel_tree_is_rejected",
@@ -1989,12 +2000,16 @@ tests = [
   "crates/kernel/tests/vectors.rs::t_5_t_37_native_api_version_matches_shared_vectors",
   "crates/kernel/tests/vectors.rs::t_5_t_37_native_policy_defaults_match_shared_vectors",
   "packages/kernel/e2e/kernel.spec.ts::t_5_t_37 browser WebAssembly kernel matches the shared kernel vectors",
+  "packages/kernel/e2e/kernel.spec.ts::t_5_t_37_inv_7 browser WebAssembly byte entry points match their vectors",
   "packages/kernel/e2e/kernel.spec.ts::t_5_t_37_inv_7 browser WebAssembly derivation matches the native bytes",
   "packages/kernel/e2e/kernel.spec.ts::t_5_t_37_inv_7 browser WebAssembly kernel matches every record vector",
+  "packages/kernel/src/bytes.test.ts::t_5_t_34 byte entry points raise kernel input errors instead of deciding",
+  "packages/kernel/src/bytes.test.ts::t_5_t_37_inv_7 WebAssembly byte entry points match their vectors",
   "packages/kernel/src/index.test.ts::t_5 loads the module only once",
   "packages/kernel/src/records.test.ts::t_5_t_37_inv_7 WebAssembly derivation matches the native bytes",
   "packages/kernel/src/records.test.ts::t_5_t_37_inv_7 WebAssembly kernel matches every record vector",
   "packages/kernel/src/vectors.test.ts::t_5_t_37 WebAssembly kernel matches the shared vectors",
+  "sdks/bindings/core/tests/bytes.rs::t_5_t_37_byte_entry_points_answer_input_errors_without_deciding",
   "sdks/bindings/core/tests/vectors.rs::t_5_t_37_input_errors_are_not_decisions",
   "sdks/bindings/core/tests/vectors.rs::t_5_t_37_inv_7_native_derivation_through_bindings_core",
   "sdks/bindings/core/tests/vectors.rs::t_5_t_37_inv_7_native_record_vectors_through_bindings_core",
