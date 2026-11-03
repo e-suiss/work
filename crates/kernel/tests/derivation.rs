@@ -510,7 +510,9 @@ fn t_6_different_trust_inputs_diverge_explicitly() {
         (rid(2), op(BOB, "accept", Some(rid(1)), &[rid(1)])),
     ];
     let mut e = entries(&records);
-    e[1] = changed(&e[1], |f| f.issuer = AuthorityIssuer::Federated(party(PEER)));
+    e[1] = changed(&e[1], |f| {
+        f.issuer = AuthorityIssuer::Federated(party(PEER))
+    });
     let trusted = [party(PEER)];
     let with = derive(&e, &inputs(&trusted)).unwrap();
     let without = derive(&e, &inputs(&[])).unwrap();

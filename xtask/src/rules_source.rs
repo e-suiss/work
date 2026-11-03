@@ -1046,11 +1046,17 @@ mod tests {
                    let u = unverified(id);\n";
         assert_eq!(unverified_entry_lines(src), vec![1, 6]);
         assert!(unverified_entry_allowed("crates/kernel/src/derive.rs"));
-        assert!(unverified_entry_allowed("crates/kernel/tests/derivation.rs"));
-        assert!(unverified_entry_allowed("crates/kernel/benches/support/mod.rs"));
+        assert!(unverified_entry_allowed(
+            "crates/kernel/tests/derivation.rs"
+        ));
+        assert!(unverified_entry_allowed(
+            "crates/kernel/benches/support/mod.rs"
+        ));
         assert!(!unverified_entry_allowed("crates/kernel/src/derive.rs.bak"));
         assert!(!unverified_entry_allowed("crates/kernel/src/verify.rs"));
-        assert!(!unverified_entry_allowed("sdks/bindings/core/src/derivation.rs"));
+        assert!(!unverified_entry_allowed(
+            "sdks/bindings/core/src/derivation.rs"
+        ));
         assert!(!unverified_entry_allowed("crates/ledger/src/rebuild.rs"));
     }
 
