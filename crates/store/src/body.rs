@@ -418,6 +418,29 @@ fn window_ms(settle: std::time::Duration) -> i64 {
     i64::try_from(settle.as_millis()).unwrap_or(i64::MAX)
 }
 
+/// Whether an active retention hold covers the subject or the class of part `part` at `pos`
+/// (Access OP-74).
+async fn part_held(tx: &mut LedgerTx<'_>, pos: i64, part: &str) -> Result<bool, StoreError> {
+    let ledger = *tx.ledger().as_bytes();
+    let held = sqlx::query_scalar!(
+        r#"SELECT EXISTS (
+                   SELECT 1 FROM work.body_part p
+                   JOIN work.body_dek d ON d.ledger_id = p.ledger_id AND d.dek_id = p.dek_id
+                   JOIN work.retention_hold h ON h.ledger_id = p.ledger_id
+                   WHERE p.ledger_id = $1 AND p.pos = $2 AND p.part = $3
+                     AND h.state = 'active'
+                     AND (h.subject_ref IS NULL OR h.subject_ref = d.subject_ref)
+                     AND (h.retention_class IS NULL OR h.retention_class = p.retention_class)
+               ) AS "held!""#,
+        ledger.as_slice(),
+        pos,
+        part
+    )
+    .fetch_one(tx.conn())
+    .await?;
+    Ok(held)
+}
+
 /// The waiting erasure of `dek_id` and `part`, written when there is none (Access OP-74).
 async fn waiting(
     tx: &mut LedgerTx<'_>,
@@ -925,23 +948,7 @@ impl ErasurePool {
             tx.commit().await?;
             return Ok(Erased::Nothing);
         };
-        let held = sqlx::query_scalar!(
-            r#"SELECT EXISTS (
-                   SELECT 1 FROM work.body_part p
-                   JOIN work.body_dek d ON d.ledger_id = p.ledger_id AND d.dek_id = p.dek_id
-                   JOIN work.retention_hold h ON h.ledger_id = p.ledger_id
-                   WHERE p.ledger_id = $1 AND p.pos = $2 AND p.part = $3
-                     AND h.state = 'active'
-                     AND (h.subject_ref IS NULL OR h.subject_ref = d.subject_ref)
-                     AND (h.retention_class IS NULL OR h.retention_class = p.retention_class)
-               ) AS "held!""#,
-            id,
-            at,
-            part
-        )
-        .fetch_one(tx.conn())
-        .await?;
-        if held {
+        if part_held(&mut tx, at, part).await? {
             let erasure_id = waiting(
                 &mut tx,
                 &row.dek_id,
