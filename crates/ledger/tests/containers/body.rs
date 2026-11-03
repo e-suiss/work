@@ -6,7 +6,7 @@ use std::process::Command;
 use std::sync::Arc;
 
 use suiss_crypto::dcbor::{self, Limits, Value};
-use suiss_crypto::digest::Digest;
+use suiss_crypto::digest::{Digest, sha256};
 use suiss_crypto::secret::Secret;
 use work_kernel::codec::body_commitment;
 use work_kernel::record::PartName;
@@ -55,12 +55,12 @@ fn keys(test: &str) -> Arc<BodyKeys> {
     Arc::new(BodyKeys::open(&module(), &label, &Secret::new(PIN.to_owned()), 1).unwrap())
 }
 
-fn opening(part: &str, content: &[u8], salt: u8) -> BodyOpening {
+fn opening(part: &str, content: &[u8], tag: u8) -> BodyOpening {
     BodyOpening {
         part: part.to_owned(),
         media_type: "text/plain".to_owned(),
         content: content.to_vec(),
-        salt: [salt; 32],
+        salt: sha256(&[tag]),
     }
 }
 

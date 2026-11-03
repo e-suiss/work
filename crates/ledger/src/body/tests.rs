@@ -53,7 +53,7 @@ fn opening(content: &[u8]) -> BodyOpening {
         part: "note".to_owned(),
         media_type: "text/plain".to_owned(),
         content: content.to_vec(),
-        salt: [0x5a; 32],
+        salt: sha256(content),
     }
 }
 
@@ -168,7 +168,7 @@ fn p_68_an_opening_that_does_not_give_its_commitment_is_refused() {
     let dek = row(&keys, &l);
     let o = opening(b"one");
     let mut changed = o.clone();
-    changed.salt = [0x01; 32];
+    changed.salt = sha256(b"another salt");
     let refused = keys
         .with_class_dek(&dek, AT, |class| {
             seal_part(class, &l, &commit(&o), &changed)
