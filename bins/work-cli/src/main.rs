@@ -229,9 +229,7 @@ fn count_diff() -> Result<(), String> {
     };
     Meters::new(&provider).rebuild_diff().add(1, &[]);
     runtime
-        .block_on(async move {
-            tokio::task::spawn_blocking(move || provider.shutdown()).await
-        })
+        .block_on(async move { tokio::task::spawn_blocking(move || provider.shutdown()).await })
         .map_err(|e| e.to_string())?
         .map_err(|e| e.to_string())
 }
