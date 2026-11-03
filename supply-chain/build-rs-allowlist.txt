@@ -5,6 +5,8 @@ aws-lc-sys
 bincode-next
 bollard-buildkit-proto
 camino
+cedar-policy
+cedar-policy-core
 crossbeam-utils
 cryptoki-sys
 curve25519-dalek
@@ -26,11 +28,13 @@ jni-sys
 libc
 libsqlite3-sys
 num-traits
+object
 parking_lot_core
 portable-atomic
 portable-atomic-util
 proc-macro2
 proc-macro2-diagnostics
+psm
 quote
 ref-cast
 ring
@@ -40,6 +44,7 @@ rustversion
 serde
 serde_core
 serde_json
+stacker
 thiserror
 uncased
 valuable

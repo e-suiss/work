@@ -7,11 +7,15 @@ defmt-macros
 derive_more-impl
 displaydoc
 divan-macros
+educe
+enum-ordinalize-derive
 enumflags2_derive
 futures-macro
 gungraun-macros
 jiff-static
 jni-sys-macros
+logos-derive
+miette-derive
 parse-display-derive
 pastey
 pear_codegen
