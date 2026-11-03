@@ -96,7 +96,7 @@ fn nibble(c: u8) -> Option<u8> {
     }
 }
 
-fn hex(v: &Value) -> Mapped<Vec<u8>> {
+pub(crate) fn hex(v: &Value) -> Mapped<Vec<u8>> {
     let s = text(v)?.as_bytes();
     if !s.len().is_multiple_of(2) {
         return Err(MISSING);
@@ -162,6 +162,15 @@ pub(crate) fn required<'a>(m: &'a Map<String, Value>, key: &str) -> Mapped<&'a V
 
 pub(crate) fn object(v: &Value) -> Mapped<&Map<String, Value>> {
     v.as_object().ok_or(MISSING)
+}
+
+/// A binding input map that allows only `allowed` keys.
+pub(crate) fn exact_keys(m: &Map<String, Value>, allowed: &[&str]) -> Mapped<()> {
+    if m.keys().any(|k| !allowed.contains(&k.as_str())) {
+        Err(MISSING)
+    } else {
+        Ok(())
+    }
 }
 
 /// A core map that allows only the keys of its CDDL rule (P-10, P-72).

@@ -1,9 +1,14 @@
-//! JSON front end shared by the Work kernel bindings (T-5, T-69, T-70): it maps the `decoded` JSON projection of records and their verifier inputs onto kernel types, calls `work_kernel::validate` or `work_kernel::derive::derive`, and writes the kernel's answer as compact JSON with sorted keys, so every binding returns the same bytes for the same input (T-37, INV-7, INV-8).
+//! JSON front end shared by the Work kernel bindings (T-5, T-69, T-70): it maps the `decoded` JSON projection of records and their verifier inputs, and record, envelope, signature and proof bytes as received, onto kernel types, calls the kernel's validation, decoding, signature, ledger entry, proof, checkpoint, touched item and derivation functions, and writes the kernel's answer as compact JSON with sorted keys, so every binding returns the same bytes for the same input (T-37, INV-7, INV-8); digests, record IDs and signatures come only from bytes, never from a projection.
 
 #![forbid(unsafe_code)]
 
+mod cbor;
 mod decode;
 mod derivation;
+mod items;
+mod ledger;
+mod project;
+mod signature;
 
 use serde_json::{Map, Value, json};
 use work_kernel::codec::check_record;
@@ -139,4 +144,16 @@ pub fn validate_record_cbor(record: &[u8], context_json: &str) -> String {
     with_context(context_json, |ctx| check_record(record, ctx))
 }
 
+pub use cbor::{
+    body_commitment, check_cbor, decode_digest, decode_envelope, decode_record_cbor, ledger_id,
+    leaf_hash, parse_cose_container, proof_commit, record_id,
+};
 pub use derivation::derive_records;
+pub use items::touched;
+pub use ledger::{
+    checkpoint_extends_to, checkpoint_includes, genesis_chain_point, merkle_node_hash, merkle_root,
+    verify_checkpoint, verify_consistency, verify_entry, verify_inclusion,
+};
+pub use signature::{
+    check_public_key, evidence_statement, verify_evidence_signature, verify_record_signature,
+};

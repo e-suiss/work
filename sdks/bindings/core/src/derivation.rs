@@ -1,18 +1,19 @@
 //! Maps ledger entries and derivation inputs from JSON onto the kernel fold and writes the derived view back as JSON.
 
-use core::fmt::Write as _;
-
 use serde_json::{Map, Value, json};
 use work_kernel::derive::{
     Admission, AuthorityIssuer, BusinessCalendar, Chain, ChainStatus, DerivationInputs,
     DeriveError, DerivedRecord, Effect, Entry, Ingest, NoEffect, ProfileVersion, Restriction,
     TrustInputs, derive,
 };
-use work_kernel::id::{Digest, PartyRef, RecordId, Time};
+use work_kernel::id::{PartyRef, RecordId, Time};
 use work_kernel::reason::{QuarantineReason, Reason, Schema};
 use work_kernel::record::{PracticePin, ProtocolVersion, Record};
 
-use crate::decode::{self, Mapped, digest, list, object, pair, party, required, text, uint};
+use crate::decode::{
+    self, Mapped, digest, exact_keys, list, object, pair, party, required, text, uint,
+};
+use crate::project::digest_json;
 use crate::{error, input_error, parse};
 
 const MISSING: Reason = Reason::Schema(Schema::RequiredField);
@@ -52,14 +53,6 @@ struct Inputs {
     trusted_publishers: Vec<PartyRef>,
     ledger_time: Time,
     calendar: BusinessCalendar,
-}
-
-fn exact_keys(m: &Map<String, Value>, allowed: &[&str]) -> Mapped<()> {
-    if m.keys().any(|k| !allowed.contains(&k.as_str())) {
-        Err(MISSING)
-    } else {
-        Ok(())
-    }
 }
 
 fn ingest(v: &Value) -> Mapped<Ingest> {
@@ -127,18 +120,6 @@ fn inputs(v: &Value) -> Mapped<Inputs> {
             _ => return Err(MISSING),
         },
     })
-}
-
-fn hex(bytes: &[u8]) -> String {
-    let mut out = String::with_capacity(bytes.len().saturating_mul(2));
-    for b in bytes {
-        let _ = write!(out, "{b:02x}");
-    }
-    out
-}
-
-fn digest_json(d: &Digest) -> Value {
-    json!([-16, hex(d.as_bytes())])
 }
 
 fn ids(list: &[RecordId]) -> Value {

@@ -1,4 +1,4 @@
-//! The bindings' front ends natively against the record, rejection and quarantine vectors in `conformance/vectors/records` and the derivation golden vector in `conformance/vectors/kernel`, which WebAssembly and Swift run through their bindings for the same bytes: the CBOR entry point on each case's `hex` and the JSON entry point on its `decoded` projection give the expected answer byte for byte (T-5, T-37, T-69, INV-7, INV-8, X-24); the CBOR, digest and genesis vectors run through the kernel's own tests.
+//! The bindings' front ends natively against the record, rejection and quarantine vectors in `conformance/vectors/records` and the derivation golden vector in `conformance/vectors/kernel`, which WebAssembly and Swift run through their bindings for the same bytes: the CBOR entry point on each case's `hex` and the JSON entry point on its `decoded` projection give the expected answer byte for byte (T-5, T-37, T-69, INV-7, INV-8, X-24); the byte entry points run the other record format vectors in `bytes.rs`.
 
 #![allow(
     clippy::unwrap_used,
