@@ -155,13 +155,11 @@ impl Document<'_> {
     }
 
     fn reference(&mut self, uri: &str) -> String {
-        let index = match self.references.iter().position(|r| r == uri) {
-            Some(i) => i,
-            None => {
-                self.references.push(String::from(uri));
-                self.references.len().saturating_sub(1)
-            }
-        };
+        let known = self.references.iter().position(|r| r == uri);
+        let index = known.unwrap_or_else(|| {
+            self.references.push(String::from(uri));
+            self.references.len().saturating_sub(1)
+        });
         let id = format!("_:ref{}", index.saturating_add(1));
         let entity = json!({ "prov:type": "work:Reference", "work:ref": uri });
         self.entities.insert(id.clone(), entity);
