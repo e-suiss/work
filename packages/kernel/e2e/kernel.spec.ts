@@ -6,6 +6,7 @@ import type {
 } from "../src/index.js";
 
 import { expect, test } from "./fixtures.js";
+import type { ByteVectors } from "./suite.js";
 import {
   api,
   byteRecordFiles,
@@ -166,7 +167,10 @@ test.describe("t_5_t_37_inv_7 browser WebAssembly derivation matches the native 
 // T-5 T-37 T-69 INV-7 INV-8 X-24
 test.describe("t_5_t_37_inv_7 browser WebAssembly byte entry points match their vectors", () => {
   test("every byte entry point answers as its vector states", async ({ page }) => {
-    const checks = await page.evaluate((v) => window.workKernel.byteChecks(v), byteVectors);
+    const checks = await page.evaluate(
+      (text) => window.workKernel.byteChecks(JSON.parse(text) as ByteVectors),
+      JSON.stringify(byteVectors),
+    );
     const files = new Set(checks.map((c) => c.file));
     expect(files.size).toBe(9);
     for (const c of checks) {

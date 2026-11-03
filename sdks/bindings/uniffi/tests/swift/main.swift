@@ -297,7 +297,6 @@ func unknownProtocol(_ c: JSONObject) -> Bool {
         && expect?["reason"] as? String == "protocol_version_unknown"
 }
 
-/// The records and envelopes of the golden ledger after the genesis, in ledger order.
 func ledger(_ records: URL) throws -> [(JSONObject, JSONObject)] {
     let file = try vectorFile(records, "records.json")
     let list = try cases(file, "records", "records.json")
@@ -310,7 +309,6 @@ func ledger(_ records: URL) throws -> [(JSONObject, JSONObject)] {
     return out
 }
 
-/// The keys Access binds to each party of `cose-sign1.json`, in the binding's keys shape.
 func keySets(_ records: URL) throws -> [String: [JSONObject]] {
     var sets: [String: [JSONObject]] = [:]
     for k in try cases(try vectorFile(records, "cose-sign1.json"), "keys", "cose keys") {
