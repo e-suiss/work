@@ -1152,9 +1152,9 @@ dependencies = [
 
 [[package]]
 name = "esuiss-crypto"
-version = "0.2.3"
+version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "567f50b52d48a960973a1e5093029dd17a8a598f70cd0f472008e2e0d95dc491"
+checksum = "4f79e24d2a6165157f2dfd8ca0eedb71bb4f83b48e020736361ce05e016fa95d"
 dependencies = [
  "aws-lc-rs",
  "cryptoki",
@@ -1170,9 +1170,9 @@ dependencies = [
 
 [[package]]
 name = "esuiss-ledger"
-version = "0.2.3"
+version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e9b786b6fa2b156dd2e6b42ef79c18ca82eead377276636c00a3075249a2368b"
+checksum = "7ecedfe37448632c27342a7a6e50eb2d738322279e2c2e8ef135fa6058f74df7"
 dependencies = [
  "esuiss-crypto",
  "sha2 0.11.1",
@@ -1181,9 +1181,9 @@ dependencies = [
 
 [[package]]
 name = "esuiss-sandbox"
-version = "0.2.3"
+version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "88568c2ae0dc92a8ddb288346281fedbb4189e10bbc968f00c2cb38e4273a935"
+checksum = "f5ab9dfc241508c1889cdc149e793a8f4b0b13677df0fef4ca626aecb7bc322c"
 dependencies = [
  "landlock",
  "libc",

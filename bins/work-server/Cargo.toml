@@ -28,7 +28,7 @@ tracing = { workspace = true, features = ["std"] }
 [dev-dependencies]
 futures-util = { workspace = true }
 serde_json = { workspace = true, features = ["std"] }
-suiss-crypto = { workspace = true, features = ["aead", "pkcs11"] }
+suiss-crypto = { workspace = true, features = ["pkcs11"] }
 tokio = { workspace = true, features = ["io-util", "macros", "net", "rt-multi-thread", "time"] }
 work-proto = { workspace = true }
 work-testkit = { workspace = true }

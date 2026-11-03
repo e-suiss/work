@@ -7,7 +7,7 @@
     "checkpoints are C2SP tlog-checkpoint bodies in C2SP signed notes, signed by the log key and cosigned with tlog-cosignature/v1; the log key is the RFC 8032 section 7.1 test 3 Ed25519 key, the witness key a work-vector seed",
     "the origin is the installation prefix work.example/ledger/ followed by the LedgerID in 64 lowercase hex (OP-46 item 1)",
     "a Work checkpoint body carries exactly three extension lines after the root, in this order: durability (quorum, single-node), time_sources (independent, dependent) and witness (independent k with k 1 to 255 and no leading zero, local-dependent, none); a missing, extra, repeated, reordered or unknown line is checkpoint-malformed under a valid log signature (OP-46 item 3)",
-    "keys give the Ed25519 public key and the C2SP verifier key string; the log key's string carries '+' in its base64, which the suiss-crypto 0.2.3 verifier key parser does not split"
+    "keys give the Ed25519 public key and the C2SP verifier key string; the log key's string carries '+' in its base64, which the verifier key parser keeps inside the key"
   ],
   "nodes": [
     {

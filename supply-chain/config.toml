@@ -394,15 +394,15 @@ version = "0.7.12"
 criteria = "safe-to-deploy"
 
 [[exemptions.esuiss-crypto]]
-version = "0.2.3"
+version = "0.2.4"
 criteria = "safe-to-deploy"
 
 [[exemptions.esuiss-ledger]]
-version = "0.2.3"
+version = "0.2.4"
 criteria = "safe-to-deploy"
 
 [[exemptions.esuiss-sandbox]]
-version = "0.2.3"
+version = "0.2.4"
 criteria = "safe-to-deploy"
 
 [[exemptions.etcetera]]

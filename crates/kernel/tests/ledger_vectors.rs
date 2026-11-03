@@ -399,15 +399,19 @@ fn checkpoint_keys() -> (Verifier, Vec<Verifier>) {
     let merkle = file(MERKLE);
     let keys = &merkle["keys"];
     let (name, public) = name_and_key(&keys["log"]);
-    let log = Verifier::ed25519(name, public).unwrap();
+    let vkey = keys["log"]["vkey"].as_str().unwrap();
+    let log = Verifier::parse(vkey).unwrap();
+    assert_eq!(log, Verifier::ed25519(name, public).unwrap());
+    assert_eq!(log.to_vkey(), vkey);
     let mut witnesses = Vec::new();
     for witness in keys["witnesses"].as_array().unwrap() {
         let (name, public) = name_and_key(witness);
-        let cosigner = Verifier::cosigner(name, public).unwrap();
-        assert_eq!(cosigner.to_vkey(), witness["vkey"].as_str().unwrap());
+        let vkey = witness["vkey"].as_str().unwrap();
+        let cosigner = Verifier::parse(vkey).unwrap();
+        assert_eq!(cosigner, Verifier::cosigner(name, public).unwrap());
+        assert_eq!(cosigner.to_vkey(), vkey);
         witnesses.push(cosigner);
     }
-    assert_eq!(log.to_vkey(), keys["log"]["vkey"].as_str().unwrap());
     (log, witnesses)
 }
 
