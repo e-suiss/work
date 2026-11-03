@@ -144,15 +144,20 @@ mod tests {
     impl LogStore<SealedRecord> for Memory {
         type Error = StoreError;
 
-        async fn append(&self, batch: &Batch<SealedRecord>) -> Result<(), AppendError<StoreError>> {
-            if self.refuse {
-                return Err(AppendError::Refused(StoreError::RecordExists));
-            }
-            self.appended
-                .lock()
-                .unwrap()
-                .push((batch.epoch, batch.head.pos));
-            Ok(())
+        fn append(
+            &self,
+            batch: &Batch<SealedRecord>,
+        ) -> impl Future<Output = Result<(), AppendError<StoreError>>> + Send {
+            let answer = if self.refuse {
+                Err(AppendError::Refused(StoreError::RecordExists))
+            } else {
+                self.appended
+                    .lock()
+                    .unwrap()
+                    .push((batch.epoch, batch.head.pos));
+                Ok(())
+            };
+            std::future::ready(answer)
         }
     }
 
