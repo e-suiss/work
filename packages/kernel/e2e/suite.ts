@@ -64,12 +64,8 @@ function entryChecks(kernel: Kernel, raw: typeof Raw, vectors: ByteVectors): Che
         next,
       });
     }
-    c.same(
-      v.id,
-      raw.verifyEntry(JSON.stringify(at), envelope, record, cose, JSON.stringify(keys)),
-      kernel.verifyEntry(at, envelope, record, cose, keys),
-      want,
-    );
+    const got = raw.verifyEntry(JSON.stringify(at), envelope, record, cose, JSON.stringify(keys));
+    c.same(v.id, got, kernel.verifyEntry(at, envelope, record, cose, keys), want);
     at = next;
   }
   return c.all;
@@ -84,23 +80,16 @@ function proofChecks(kernel: Kernel, raw: typeof Raw, vectors: ByteVectors): Che
   const m = vectors.merkle;
   for (const v of m.nodes) {
     const [left, right] = [digest(v.left_hex), digest(v.right_hex)];
-    c.same(
-      v.id,
-      raw.merkleNodeHash(JSON.stringify(left), JSON.stringify(right)),
-      kernel.merkleNodeHash(left, right),
-      found(v.digest_hex),
-    );
+    const got = raw.merkleNodeHash(JSON.stringify(left), JSON.stringify(right));
+    c.same(v.id, got, kernel.merkleNodeHash(left, right), found(v.digest_hex));
   }
   const genesis = need(vectors.genesis.cases[0], "genesis");
   const leaves = [genesis.hex, ...ledger(vectors).map((v) => v.envelope.hex)];
   for (const v of m.roots) {
     const prefix = leaves.slice(0, v.size);
-    c.same(
-      `root ${String(v.size)}`,
-      raw.merkleRoot(JSON.stringify(prefix)),
-      kernel.merkleRoot(prefix.map(bytes)),
-      found(v.root_hex),
-    );
+    const got = raw.merkleRoot(JSON.stringify(prefix));
+    const typed = kernel.merkleRoot(prefix.map(bytes));
+    c.same(`root ${String(v.size)}`, got, typed, found(v.root_hex));
   }
   c.same("root empty", raw.merkleRoot("[]"), kernel.merkleRoot([]), found(SHA256_OF_NOTHING));
   for (const v of m.inclusion) {
@@ -111,12 +100,8 @@ function proofChecks(kernel: Kernel, raw: typeof Raw, vectors: ByteVectors): Che
       path: v.path_hex.map(digest),
       root: digest(v.root_hex),
     };
-    c.same(
-      v.id,
-      raw.verifyInclusion(JSON.stringify(proof)),
-      kernel.verifyInclusion(proof),
-      v.expect,
-    );
+    const got = raw.verifyInclusion(JSON.stringify(proof));
+    c.same(v.id, got, kernel.verifyInclusion(proof), v.expect);
   }
   for (const v of m.consistency) {
     const proof = {
@@ -126,19 +111,14 @@ function proofChecks(kernel: Kernel, raw: typeof Raw, vectors: ByteVectors): Che
       second_root: digest(v.second_root_hex),
       path: v.path_hex.map(digest),
     };
-    c.same(
-      v.id,
-      raw.verifyConsistency(JSON.stringify(proof)),
-      kernel.verifyConsistency(proof),
-      v.expect,
-    );
+    const got = raw.verifyConsistency(JSON.stringify(proof));
+    c.same(v.id, got, kernel.verifyConsistency(proof), v.expect);
   }
-  const note = (v: CheckpointCase, witnessed: boolean) => ({
-    note: v.note,
-    origin: v.origin,
-    log: noteKey(m.keys.log),
-    witnesses: witnessed ? m.keys.witnesses.map(noteKey) : [],
-  });
+  const log = noteKey(m.keys.log);
+  const witnesses = m.keys.witnesses.map(noteKey);
+  const note = (v: CheckpointCase, witnessed: boolean) => {
+    return { note: v.note, origin: v.origin, log, witnesses: witnessed ? witnesses : [] };
+  };
   for (const v of m.checkpoints) {
     const x = v.expect;
     let want: object = x;
@@ -157,20 +137,12 @@ function proofChecks(kernel: Kernel, raw: typeof Raw, vectors: ByteVectors): Che
     }
     const leaf = digest(v.leaf_hash_hex);
     const proof = { position: v.index, leaf, path: v.path_hex.map(digest) };
-    c.same(
-      `${v.id} in ${first.id}`,
-      raw.checkpointIncludes(JSON.stringify(signed), JSON.stringify(proof)),
-      kernel.checkpointIncludes(signed, proof),
-      accept(),
-    );
+    const got = raw.checkpointIncludes(JSON.stringify(signed), JSON.stringify(proof));
+    c.same(`${v.id} in ${first.id}`, got, kernel.checkpointIncludes(signed, proof), accept());
   }
   const older = note(first, false);
-  c.same(
-    "extends",
-    raw.checkpointExtendsTo(JSON.stringify(older), JSON.stringify(signed), "[]"),
-    kernel.checkpointExtendsTo(older, signed, []),
-    accept(),
-  );
+  const got = raw.checkpointExtendsTo(JSON.stringify(older), JSON.stringify(signed), "[]");
+  c.same("extends", got, kernel.checkpointExtendsTo(older, signed, []), accept());
   return c.all;
 }
 
