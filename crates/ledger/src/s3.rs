@@ -399,11 +399,10 @@ impl S3Client {
         if !self.endpoint.tls {
             return send(tcp, request).await;
         }
-        let tls = self
-            .config
-            .tls
-            .clone()
-            .ok_or_else(|| S3Error::Failed("an https endpoint needs TLS settings".to_owned()))?;
+        let tls =
+            self.config.tls.clone().ok_or_else(|| {
+                S3Error::Failed("an https endpoint needs TLS settings".to_owned())
+            })?;
         let name = ServerName::try_from(self.endpoint.host.clone()).map_err(|e| failed(&e))?;
         let stream = timeout(self.limit, TlsConnector::from(tls).connect(name, tcp))
             .await
