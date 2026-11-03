@@ -1,5 +1,10 @@
+use std::time::Duration;
+
 use sqlx::AssertSqlSafe;
-use work_store::{Cluster, LedgerId, LedgerTx};
+use work_store::{
+    Cluster, Erased, ErasureCause, ErasurePool, ErasureState, ErasureTarget, LedgerId, LedgerTx,
+    RetentionClass, Shred,
+};
 
 use crate::env::{Env, L, M, fails, hex, run, scalar, with_ledgers};
 
@@ -578,8 +583,9 @@ async fn op_12_a_retention_hold_blocks_crypto_shredding() {
         "UPDATE work.body_dek SET wrapped_key = NULL, state = 'destroyed', destroyed_at = now()";
     fails(&erasure, &l, &[destroy], Some("23514")).await;
     let completed = sql(
-        "INSERT INTO work.erasure_log (ledger_id, dek_id, cause, state, completed_at) \
-         SELECT decode('{L}', 'hex'), dek_id, 'subject_request', 'completed', now() FROM work.body_dek",
+        "INSERT INTO work.erasure_log (ledger_id, dek_id, cause, state, settles_at, completed_at) \
+         SELECT decode('{L}', 'hex'), dek_id, 'subject_request', 'completed', now(), now() \
+           FROM work.body_dek",
     );
     fails(&erasure, &l, &[&completed], Some("23514")).await;
     run(
@@ -644,8 +650,9 @@ async fn op_45_a_part_key_is_shredded_once_and_never_under_a_hold() {
     )
     .await;
     let early = sql(
-        "INSERT INTO work.erasure_log (ledger_id, dek_id, cause, state, completed_at, pos, part) \
-         SELECT decode('{L}', 'hex'), dek_id, 'redaction', 'completed', now(), 0, 'note' \
+        "INSERT INTO work.erasure_log \
+         (ledger_id, dek_id, cause, state, settles_at, completed_at, pos, part) \
+         SELECT decode('{L}', 'hex'), dek_id, 'redaction', 'completed', now(), now(), 0, 'note' \
            FROM work.body_dek",
     );
     fails(&erasure, &l, &[&early], Some("23514")).await;
@@ -687,6 +694,168 @@ async fn op_45_a_part_key_is_shredded_once_and_never_under_a_hold() {
     )
     .await;
     assert_eq!(part, 1);
+}
+
+// OP-45 OP-12 OP-15 P-25 Access OP-74 Access OP-78 Access CR-32
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs Docker"]
+#[allow(
+    clippy::too_many_lines,
+    reason = "one erasure from the hold through the shred to its completion"
+)]
+async fn op_45_an_erasure_waits_on_a_hold_and_completes_only_after_it_settles() {
+    let (env, l) = seeded().await;
+    let erasure = env.canonical("work_erasure");
+    let pool = ErasurePool::new(erasure.clone()).await.unwrap();
+    let ledger = LedgerId::from_bytes(L);
+    let subject = "party:alice";
+    let class = RetentionClass::WorkRecord;
+    let hour = Duration::from_secs(3600);
+    run(
+        &erasure,
+        &l,
+        &[&sql(
+            "INSERT INTO work.retention_hold (ledger_id, hold_kind, subject_ref, state) \
+             VALUES (decode('{L}', 'hex'), 'litigation', 'party:alice', 'active')",
+        )],
+    )
+    .await;
+    let part_id = match pool.shred_part(&ledger, 0, "note", hour).await.unwrap() {
+        Erased::Held { erasure_id } => erasure_id,
+        other => panic!("{other:?}"),
+    };
+    let again = pool.shred_part(&ledger, 0, "note", hour).await.unwrap();
+    assert_eq!(
+        again,
+        Erased::Held {
+            erasure_id: part_id.clone(),
+        }
+    );
+    let held = pool
+        .destroy_dek(&ledger, subject, class, Shred::SubjectErasure, hour)
+        .await
+        .unwrap();
+    let class_id = match held {
+        Erased::Held { erasure_id } => erasure_id,
+        other => panic!("{other:?}"),
+    };
+    let rows = pool.erasures(&ledger).await.unwrap();
+    assert_eq!(rows.len(), 2);
+    assert!(rows.iter().all(|r| r.state == ErasureState::WaitingOnHold));
+    assert_eq!(rows[0].cause, ErasureCause::Redaction);
+    assert_eq!(
+        rows[0].target,
+        ErasureTarget::Part {
+            pos: 0,
+            part: "note".to_owned(),
+        }
+    );
+    assert_eq!(rows[1].cause, ErasureCause::SubjectRequest);
+    assert_eq!(rows[1].target, ErasureTarget::Class);
+    let gone = "SELECT count(*) FROM work.body_part_key WHERE wrapped_key IS NULL";
+    assert_eq!(scalar(&erasure, &l, gone, false).await, 0);
+    run(
+        &erasure,
+        &l,
+        &["UPDATE work.retention_hold SET state = 'released', released_at = now()"],
+    )
+    .await;
+    let shredded = pool.shred_part(&ledger, 0, "note", hour).await.unwrap();
+    let (erasure_id, settles_at_ms) = match shredded {
+        Erased::Shredded {
+            erasure_id,
+            settles_at_ms,
+            ..
+        } => (erasure_id, settles_at_ms),
+        other => panic!("{other:?}"),
+    };
+    assert_eq!(erasure_id, part_id);
+    assert_eq!(scalar(&erasure, &l, gone, false).await, 1);
+    assert!(pool.settle(&ledger).await.unwrap().is_empty());
+    let twice = pool.shred_part(&ledger, 0, "note", hour).await.unwrap();
+    assert_eq!(twice, Erased::Nothing);
+    let destroyed = pool
+        .destroy_dek(&ledger, subject, class, Shred::SubjectErasure, Duration::ZERO)
+        .await
+        .unwrap();
+    let (erasure_id, key) = match destroyed {
+        Erased::Shredded {
+            erasure_id,
+            key,
+            ..
+        } => (erasure_id, key),
+        other => panic!("{other:?}"),
+    };
+    assert_eq!(erasure_id, class_id);
+    assert!(key.wrapped.is_some());
+    assert_eq!(pool.settle(&ledger).await.unwrap(), vec![class_id]);
+    let rows = pool.erasures(&ledger).await.unwrap();
+    assert_eq!(rows[0].state, ErasureState::Shredded { settles_at_ms });
+    let (settled, completed_at_ms) = match rows[1].state {
+        ErasureState::Completed {
+            settles_at_ms,
+            completed_at_ms,
+        } => (settles_at_ms, completed_at_ms),
+        other => panic!("{other:?}"),
+    };
+    assert!(completed_at_ms >= settled);
+    assert!(rows[0].requested_at_ms.saturating_add(3_600_000) <= settles_at_ms);
+    let none = pool
+        .destroy_dek(&ledger, subject, class, Shred::SubjectErasure, hour)
+        .await
+        .unwrap();
+    assert_eq!(none, Erased::Nothing);
+    assert!(pool.settle(&ledger).await.unwrap().is_empty());
+    fails(
+        &erasure,
+        &l,
+        &[
+            "UPDATE work.erasure_log SET state = 'completed', completed_at = now() \
+           WHERE state = 'shredded'",
+        ],
+        Some("23514"),
+    )
+    .await;
+    fails(
+        &erasure,
+        &l,
+        &["UPDATE work.erasure_log SET settles_at = now() WHERE state = 'shredded'"],
+        Some("23514"),
+    )
+    .await;
+    fails(
+        &erasure,
+        &l,
+        &[
+            "UPDATE work.erasure_log SET state = 'shredded', completed_at = NULL \
+           WHERE state = 'completed'",
+        ],
+        Some("23514"),
+    )
+    .await;
+    fails(
+        &erasure,
+        &l,
+        &[&sql(
+            "INSERT INTO work.erasure_log (ledger_id, dek_id, cause, state, settles_at) \
+             SELECT decode('{L}', 'hex'), dek_id, 'subject_request', 'waiting_on_hold', now() \
+               FROM work.body_dek",
+        )],
+        Some("23514"),
+    )
+    .await;
+    fails(
+        &erasure,
+        &l,
+        &[&sql(
+            "INSERT INTO work.erasure_log \
+             (ledger_id, dek_id, cause, state, settles_at, pos, part) \
+             SELECT decode('{L}', 'hex'), dek_id, 'redaction', 'shredded', now(), 0, 'attachment' \
+               FROM work.body_dek",
+        )],
+        Some("23514"),
+    )
+    .await;
 }
 
 // OP-45 OP-12 Access OP-74

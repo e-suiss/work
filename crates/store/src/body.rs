@@ -2,9 +2,11 @@
 //! ciphertext, inline or as an object key, written in the append transaction with its wrapped
 //! part key; the subject × retention class DEKs wrapped under the ledger KEK; the reads that
 //! give a part back with the keys that open it; and the erasure role's one-way steps: a
-//! destroyed class DEK, a shredded part key, both refused under an active retention hold and
-//! each followed by a tombstone, and the rewrap of a class DEK under a new KEK version. Key
-//! material never passes through here: only wrapped keys, which are not secrets (OP-45 item 6).
+//! destroyed class DEK, a shredded part key, each followed by a tombstone and recorded in
+//! `work.erasure_log` as waiting on an active retention hold, shredded until the DEK cache
+//! lifetime and the backup window have passed, then completed, and the rewrap of a class DEK
+//! under a new KEK version. Key material never passes through here: only wrapped keys, which are
+//! not secrets (OP-45 item 6).
 
 use sqlx::PgPool;
 
@@ -160,7 +162,8 @@ impl std::fmt::Debug for StoredPart {
     }
 }
 
-/// Why a part's key went away (OP-12, OP-45 item 5), stored as the tombstone's cause.
+/// Why a class DEK went away (OP-12, OP-45 item 5), stored as the tombstone's cause and, as the
+/// request that removed it, as the erasure's cause.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Shred {
     /// A subject erasure destroyed the class DEK.
@@ -176,6 +179,332 @@ impl Shred {
             Self::RetentionExpired => "retention_expired",
         }
     }
+
+    const fn request(self) -> ErasureCause {
+        match self {
+            Self::SubjectErasure => ErasureCause::SubjectRequest,
+            Self::RetentionExpired => ErasureCause::RetentionExpired,
+        }
+    }
+}
+
+/// The request an erasure answers, the stored `cause` of `work.erasure_log` (OP-14, Access
+/// OP-78).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ErasureCause {
+    /// A data subject asked for the erasure of a class.
+    SubjectRequest,
+    /// The retention period of a class ended.
+    RetentionExpired,
+    /// One part was redacted (P-25).
+    Redaction,
+    /// The tenant closed.
+    TenantClosure,
+}
+
+impl ErasureCause {
+    /// Every cause.
+    pub const ALL: [Self; 4] = [
+        Self::SubjectRequest,
+        Self::RetentionExpired,
+        Self::Redaction,
+        Self::TenantClosure,
+    ];
+
+    /// The stored `cause`.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::SubjectRequest => "subject_request",
+            Self::RetentionExpired => "retention_expired",
+            Self::Redaction => "redaction",
+            Self::TenantClosure => "tenant_closure",
+        }
+    }
+
+    /// The cause stored as `cause`; `None` for any other text.
+    #[must_use]
+    pub fn from_stored(cause: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|c| c.as_str() == cause)
+    }
+
+    /// The class DEK removal this cause asks for; `None` for a part or the tenant.
+    #[must_use]
+    pub const fn shred(self) -> Option<Shred> {
+        match self {
+            Self::SubjectRequest => Some(Shred::SubjectErasure),
+            Self::RetentionExpired => Some(Shred::RetentionExpired),
+            Self::Redaction | Self::TenantClosure => None,
+        }
+    }
+}
+
+/// Where one erasure stands (OP-45 item 5, Access CR-32 item 3). Times are database time in
+/// Unix milliseconds.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ErasureState {
+    /// An active retention hold refuses the key removal; the request waits for its release
+    /// (Access OP-74).
+    WaitingOnHold,
+    /// The key is gone; the erasure is completed only once every DEK cache lifetime and the
+    /// backup window have passed, at `settles_at_ms`.
+    Shredded {
+        /// When the erasure may be reported completed.
+        settles_at_ms: i64,
+    },
+    /// Reported completed, never before its settle time.
+    Completed {
+        /// When the erasure could be reported completed.
+        settles_at_ms: i64,
+        /// When it was.
+        completed_at_ms: i64,
+    },
+}
+
+/// What an erasure removes (OP-45 item 8): a class DEK, or the key of one part.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ErasureTarget {
+    /// The class DEK of the row's subject and class.
+    Class,
+    /// The key of part `part` of the record at `pos`.
+    Part {
+        /// The record's position.
+        pos: u64,
+        /// The part name.
+        part: String,
+    },
+}
+
+/// One `work.erasure_log` row with the subject and class of its DEK.
+#[derive(Clone, PartialEq, Eq)]
+pub struct ErasureRow {
+    /// `erasure_id`, a UUID in text form.
+    pub erasure_id: String,
+    /// The class DEK the erasure concerns.
+    pub dek_id: String,
+    /// The pseudonymous subject of that DEK.
+    pub subject: String,
+    /// Its retention class.
+    pub class: RetentionClass,
+    /// The request it answers.
+    pub cause: ErasureCause,
+    /// What it removes.
+    pub target: ErasureTarget,
+    /// Where it stands.
+    pub state: ErasureState,
+    /// When it was requested.
+    pub requested_at_ms: i64,
+}
+
+impl std::fmt::Debug for ErasureRow {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ErasureRow")
+            .field("erasure_id", &self.erasure_id)
+            .field("class", &self.class)
+            .field("cause", &self.cause)
+            .field("target", &self.target)
+            .field("state", &self.state)
+            .finish_non_exhaustive()
+    }
+}
+
+/// The outcome of one erasure request (OP-45 item 5, Access OP-74): a decision, not an error.
+#[derive(Clone, PartialEq, Eq)]
+pub enum Erased<K> {
+    /// Nothing to remove: no active class DEK, no such part, or its key is already gone.
+    Nothing,
+    /// An active retention hold refuses the removal; the request is recorded as waiting.
+    Held {
+        /// The waiting erasure.
+        erasure_id: String,
+    },
+    /// The key was removed and the erasure recorded as shredded until it settles.
+    Shredded {
+        /// The erasure.
+        erasure_id: String,
+        /// When it may be reported completed.
+        settles_at_ms: i64,
+        /// The removed key, for the DEK cache to forget.
+        key: K,
+    },
+}
+
+impl<K> Erased<K> {
+    /// The same outcome with `f` applied to the removed key.
+    #[must_use]
+    pub fn map_key<T>(self, f: impl FnOnce(K) -> T) -> Erased<T> {
+        match self {
+            Self::Nothing => Erased::Nothing,
+            Self::Held { erasure_id } => Erased::Held { erasure_id },
+            Self::Shredded {
+                erasure_id,
+                settles_at_ms,
+                key,
+            } => Erased::Shredded {
+                erasure_id,
+                settles_at_ms,
+                key: f(key),
+            },
+        }
+    }
+}
+
+impl<K> std::fmt::Debug for Erased<K> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Nothing => f.write_str("Nothing"),
+            Self::Held { erasure_id } => f
+                .debug_struct("Held")
+                .field("erasure_id", erasure_id)
+                .finish(),
+            Self::Shredded {
+                erasure_id,
+                settles_at_ms,
+                ..
+            } => f
+                .debug_struct("Shredded")
+                .field("erasure_id", erasure_id)
+                .field("settles_at_ms", settles_at_ms)
+                .finish_non_exhaustive(),
+        }
+    }
+}
+
+struct ErasureTuple {
+    erasure_id: String,
+    dek_id: String,
+    subject: String,
+    class: String,
+    cause: String,
+    state: String,
+    pos: Option<i64>,
+    part: Option<String>,
+    requested_at: i64,
+    settles_at: Option<i64>,
+    completed_at: Option<i64>,
+}
+
+fn erasure_row(t: ErasureTuple) -> Result<ErasureRow, StoreError> {
+    let target = match (t.pos, t.part) {
+        (None, None) => ErasureTarget::Class,
+        (Some(pos), Some(part)) => ErasureTarget::Part {
+            pos: u64::try_from(pos).map_err(|_| StoreError::Corrupt)?,
+            part,
+        },
+        _ => return Err(StoreError::Corrupt),
+    };
+    let state = match (t.state.as_str(), t.settles_at, t.completed_at) {
+        ("waiting_on_hold", None, None) => ErasureState::WaitingOnHold,
+        ("shredded", Some(settles_at_ms), None) => ErasureState::Shredded { settles_at_ms },
+        ("completed", Some(settles_at_ms), Some(completed_at_ms)) => ErasureState::Completed {
+            settles_at_ms,
+            completed_at_ms,
+        },
+        _ => return Err(StoreError::Corrupt),
+    };
+    Ok(ErasureRow {
+        erasure_id: t.erasure_id,
+        dek_id: t.dek_id,
+        subject: t.subject,
+        class: RetentionClass::from_stored(&t.class).ok_or(StoreError::Corrupt)?,
+        cause: ErasureCause::from_stored(&t.cause).ok_or(StoreError::Corrupt)?,
+        target,
+        state,
+        requested_at_ms: t.requested_at,
+    })
+}
+
+fn window_ms(settle: std::time::Duration) -> i64 {
+    i64::try_from(settle.as_millis()).unwrap_or(i64::MAX)
+}
+
+/// The waiting erasure of `dek_id` and `part`, written when there is none (Access OP-74).
+async fn waiting(
+    tx: &mut LedgerTx<'_>,
+    dek_id: &str,
+    part: Option<(i64, &str)>,
+    cause: ErasureCause,
+) -> Result<String, StoreError> {
+    let ledger = *tx.ledger().as_bytes();
+    let (pos, name) = part.unzip();
+    let open = sqlx::query_scalar!(
+        r#"SELECT erasure_id::text AS "erasure_id!" FROM work.erasure_log
+           WHERE ledger_id = $1 AND dek_id = $2::text::uuid AND state = 'waiting_on_hold'
+             AND pos IS NOT DISTINCT FROM $3::bigint AND part IS NOT DISTINCT FROM $4::text
+           ORDER BY requested_at, erasure_id LIMIT 1"#,
+        ledger.as_slice(),
+        dek_id,
+        pos,
+        name
+    )
+    .fetch_optional(tx.conn())
+    .await?;
+    if let Some(id) = open {
+        return Ok(id);
+    }
+    sqlx::query_scalar!(
+        r#"INSERT INTO work.erasure_log (ledger_id, dek_id, cause, state, pos, part)
+           VALUES ($1, $2::text::uuid, $3, 'waiting_on_hold', $4::bigint, $5::text)
+           RETURNING erasure_id::text AS "erasure_id!""#,
+        ledger.as_slice(),
+        dek_id,
+        cause.as_str(),
+        pos,
+        name
+    )
+    .fetch_one(tx.conn())
+    .await
+    .map_err(refused)
+}
+
+/// Records the key of `dek_id` and `part` as removed now, settling `window` from now: the
+/// waiting erasure becomes shredded, or a shredded one is written (OP-45 item 5).
+async fn shredded(
+    tx: &mut LedgerTx<'_>,
+    dek_id: &str,
+    part: Option<(i64, &str)>,
+    cause: ErasureCause,
+    window: i64,
+) -> Result<(String, i64), StoreError> {
+    let ledger = *tx.ledger().as_bytes();
+    let (pos, name) = part.unzip();
+    let resumed = sqlx::query!(
+        r#"UPDATE work.erasure_log
+           SET state = 'shredded',
+               settles_at = pg_catalog.now() + $5::bigint * interval '1 millisecond'
+           WHERE ledger_id = $1 AND dek_id = $2::text::uuid AND state = 'waiting_on_hold'
+             AND pos IS NOT DISTINCT FROM $3::bigint AND part IS NOT DISTINCT FROM $4::text
+           RETURNING erasure_id::text AS "erasure_id!",
+                     (extract(epoch FROM settles_at) * 1000)::bigint AS "settles_at!""#,
+        ledger.as_slice(),
+        dek_id,
+        pos,
+        name,
+        window
+    )
+    .fetch_all(tx.conn())
+    .await
+    .map_err(refused)?;
+    if let Some(first) = resumed.into_iter().min_by(|a, b| a.erasure_id.cmp(&b.erasure_id)) {
+        return Ok((first.erasure_id, first.settles_at));
+    }
+    let row = sqlx::query!(
+        r#"INSERT INTO work.erasure_log (ledger_id, dek_id, cause, state, settles_at, pos, part)
+           VALUES ($1, $2::text::uuid, $3, 'shredded',
+                   pg_catalog.now() + $4::bigint * interval '1 millisecond', $5::bigint, $6::text)
+           RETURNING erasure_id::text AS "erasure_id!",
+                     (extract(epoch FROM settles_at) * 1000)::bigint AS "settles_at!""#,
+        ledger.as_slice(),
+        dek_id,
+        cause.as_str(),
+        window,
+        pos,
+        name
+    )
+    .fetch_one(tx.conn())
+    .await
+    .map_err(refused)?;
+    Ok((row.erasure_id, row.settles_at))
 }
 
 struct DekTuple {
@@ -434,20 +763,24 @@ impl ErasurePool {
     }
 
     /// Destroys the active class DEK of `subject` and `class` once (OP-12 item 3, OP-45 item 5):
-    /// its wrapped key becomes NULL, every part under it gets a tombstone and the row is
-    /// terminal. Returns the wrapped key it held, for the DEK cache to forget, or `None` when no
-    /// DEK is active.
+    /// its wrapped key becomes NULL, every part under it gets a tombstone, the row is terminal
+    /// and the erasure is recorded as shredded until `settle` from now, the DEK cache lifetime
+    /// plus the backup window. Under an active retention hold nothing is removed and the request
+    /// is recorded as waiting (Access OP-74); without an active DEK, a waiting erasure of a DEK
+    /// destroyed meanwhile is settled from its destruction.
     ///
     /// # Errors
-    /// [`StoreError::Constraint`] under an active retention hold; [`StoreError::Db`] otherwise.
+    /// [`StoreError::Constraint`] when a hold appears concurrently; [`StoreError::Db`] otherwise.
     pub async fn destroy_dek(
         &self,
         ledger: &LedgerId,
         subject: &str,
         class: RetentionClass,
         why: Shred,
-    ) -> Result<Option<DekRow>, StoreError> {
+        settle: std::time::Duration,
+    ) -> Result<Erased<DekRow>, StoreError> {
         let id = ledger.as_bytes().as_slice();
+        let window = window_ms(settle);
         let mut tx = LedgerTx::begin(&self.pool, ledger).await?;
         let row = sqlx::query_as!(
             DekTuple,
@@ -462,9 +795,44 @@ impl ErasurePool {
         .fetch_optional(tx.conn())
         .await?;
         let Some(row) = row.map(dek_row).transpose()? else {
-            tx.rollback().await?;
-            return Ok(None);
+            sqlx::query!(
+                "UPDATE work.erasure_log e
+                 SET state = 'shredded',
+                     settles_at = coalesce(d.destroyed_at, pg_catalog.now())
+                                  + $4::bigint * interval '1 millisecond'
+                 FROM work.body_dek d
+                 WHERE e.ledger_id = $1 AND e.state = 'waiting_on_hold' AND e.pos IS NULL
+                   AND d.ledger_id = e.ledger_id AND d.dek_id = e.dek_id
+                   AND d.state = 'destroyed' AND d.subject_ref = $2 AND d.retention_class = $3",
+                id,
+                subject,
+                class.as_str(),
+                window
+            )
+            .execute(tx.conn())
+            .await
+            .map_err(refused)?;
+            tx.commit().await?;
+            return Ok(Erased::Nothing);
         };
+        let held = sqlx::query_scalar!(
+            r#"SELECT EXISTS (
+                   SELECT 1 FROM work.retention_hold h
+                   WHERE h.ledger_id = $1 AND h.state = 'active'
+                     AND (h.subject_ref IS NULL OR h.subject_ref = $2)
+                     AND (h.retention_class IS NULL OR h.retention_class = $3)
+               ) AS "held!""#,
+            id,
+            subject,
+            class.as_str()
+        )
+        .fetch_one(tx.conn())
+        .await?;
+        if held {
+            let erasure_id = waiting(&mut tx, &row.dek_id, None, why.request()).await?;
+            tx.commit().await?;
+            return Ok(Erased::Held { erasure_id });
+        }
         sqlx::query!(
             "UPDATE work.body_dek
              SET wrapped_key = NULL, state = 'destroyed', destroyed_at = pg_catalog.now()
@@ -487,38 +855,95 @@ impl ErasurePool {
         .execute(tx.conn())
         .await
         .map_err(refused)?;
+        let (erasure_id, settles_at_ms) =
+            shredded(&mut tx, &row.dek_id, None, why.request(), window).await?;
         tx.commit().await?;
-        Ok(Some(row))
+        Ok(Erased::Shredded {
+            erasure_id,
+            settles_at_ms,
+            key: row,
+        })
     }
 
     /// Shreds the key of one part once, the redaction of that part alone (P-25, OP-15,
-    /// OP-45 item 5): its wrapped key becomes NULL and the part gets a tombstone. Returns the
-    /// wrapped key it held, or `None` when it was already shredded or the part has no key.
+    /// OP-45 item 5): its wrapped key becomes NULL, the part gets a tombstone and the erasure
+    /// is recorded as shredded until `settle` from now. Under an active retention hold nothing
+    /// is removed and the request is recorded as waiting (Access OP-74); for a key already
+    /// shredded, a waiting erasure of it is settled from its shredding.
     ///
     /// # Errors
-    /// [`StoreError::Constraint`] under an active retention hold; [`StoreError::Db`] otherwise.
+    /// [`StoreError::Constraint`] when a hold appears concurrently; [`StoreError::Db`] otherwise.
     pub async fn shred_part(
         &self,
         ledger: &LedgerId,
         pos: u64,
         part: &str,
-    ) -> Result<Option<[u8; WRAPPED_LEN]>, StoreError> {
+        settle: std::time::Duration,
+    ) -> Result<Erased<[u8; WRAPPED_LEN]>, StoreError> {
         let id = ledger.as_bytes().as_slice();
         let at = signed(pos)?;
+        let window = window_ms(settle);
         let mut tx = LedgerTx::begin(&self.pool, ledger).await?;
-        let key = sqlx::query_scalar!(
-            r#"SELECT wrapped_key AS "wrapped_key?" FROM work.body_part_key
-               WHERE ledger_id = $1 AND pos = $2 AND part = $3 FOR UPDATE"#,
+        let row = sqlx::query!(
+            r#"SELECT k.wrapped_key AS "wrapped_key?", p.dek_id::text AS "dek_id!"
+               FROM work.body_part_key k
+               JOIN work.body_part p
+                 ON p.ledger_id = k.ledger_id AND p.pos = k.pos AND p.part = k.part
+               WHERE k.ledger_id = $1 AND k.pos = $2 AND k.part = $3 FOR UPDATE OF k"#,
             id,
             at,
             part
         )
         .fetch_optional(tx.conn())
         .await?;
-        let Some(key) = wrapped(key.flatten())? else {
+        let Some(row) = row else {
             tx.rollback().await?;
-            return Ok(None);
+            return Ok(Erased::Nothing);
         };
+        let Some(key) = wrapped(row.wrapped_key)? else {
+            sqlx::query!(
+                "UPDATE work.erasure_log e
+                 SET state = 'shredded',
+                     settles_at = coalesce(k.shredded_at, pg_catalog.now())
+                                  + $4::bigint * interval '1 millisecond'
+                 FROM work.body_part_key k
+                 WHERE e.ledger_id = $1 AND e.state = 'waiting_on_hold'
+                   AND e.pos = $2 AND e.part = $3
+                   AND k.ledger_id = e.ledger_id AND k.pos = e.pos AND k.part = e.part
+                   AND k.wrapped_key IS NULL",
+                id,
+                at,
+                part,
+                window
+            )
+            .execute(tx.conn())
+            .await
+            .map_err(refused)?;
+            tx.commit().await?;
+            return Ok(Erased::Nothing);
+        };
+        let held = sqlx::query_scalar!(
+            r#"SELECT EXISTS (
+                   SELECT 1 FROM work.body_part p
+                   JOIN work.body_dek d ON d.ledger_id = p.ledger_id AND d.dek_id = p.dek_id
+                   JOIN work.retention_hold h ON h.ledger_id = p.ledger_id
+                   WHERE p.ledger_id = $1 AND p.pos = $2 AND p.part = $3
+                     AND h.state = 'active'
+                     AND (h.subject_ref IS NULL OR h.subject_ref = d.subject_ref)
+                     AND (h.retention_class IS NULL OR h.retention_class = p.retention_class)
+               ) AS "held!""#,
+            id,
+            at,
+            part
+        )
+        .fetch_one(tx.conn())
+        .await?;
+        if held {
+            let erasure_id =
+                waiting(&mut tx, &row.dek_id, Some((at, part)), ErasureCause::Redaction).await?;
+            tx.commit().await?;
+            return Ok(Erased::Held { erasure_id });
+        }
         sqlx::query!(
             "UPDATE work.body_part_key SET wrapped_key = NULL, shredded_at = pg_catalog.now()
              WHERE ledger_id = $1 AND pos = $2 AND part = $3",
@@ -539,8 +964,69 @@ impl ErasurePool {
         .execute(tx.conn())
         .await
         .map_err(refused)?;
+        let (erasure_id, settles_at_ms) = shredded(
+            &mut tx,
+            &row.dek_id,
+            Some((at, part)),
+            ErasureCause::Redaction,
+            window,
+        )
+        .await?;
         tx.commit().await?;
-        Ok(Some(key))
+        Ok(Erased::Shredded {
+            erasure_id,
+            settles_at_ms,
+            key,
+        })
+    }
+
+    /// Reports completed every shredded erasure of `ledger` whose settle time has passed
+    /// (OP-45 item 5): the DEK caches have dropped the key and the backups that held it have
+    /// expired. Returns the completed erasures.
+    ///
+    /// # Errors
+    /// [`StoreError::Db`].
+    pub async fn settle(&self, ledger: &LedgerId) -> Result<Vec<String>, StoreError> {
+        let mut tx = LedgerTx::begin(&self.pool, ledger).await?;
+        let mut done = sqlx::query_scalar!(
+            r#"UPDATE work.erasure_log SET state = 'completed', completed_at = pg_catalog.now()
+               WHERE ledger_id = $1 AND state = 'shredded' AND settles_at <= pg_catalog.now()
+               RETURNING erasure_id::text AS "erasure_id!""#,
+            ledger.as_bytes().as_slice()
+        )
+        .fetch_all(tx.conn())
+        .await
+        .map_err(refused)?;
+        tx.commit().await?;
+        done.sort();
+        Ok(done)
+    }
+
+    /// Every erasure of `ledger` in request order, with where it stands (OP-45 item 5).
+    ///
+    /// # Errors
+    /// [`StoreError::Db`], or [`StoreError::Corrupt`] for a malformed row.
+    pub async fn erasures(&self, ledger: &LedgerId) -> Result<Vec<ErasureRow>, StoreError> {
+        let mut tx = LedgerTx::begin(&self.pool, ledger).await?;
+        let rows = sqlx::query_as!(
+            ErasureTuple,
+            r#"SELECT e.erasure_id::text AS "erasure_id!", e.dek_id::text AS "dek_id!",
+                      d.subject_ref::text AS "subject!", d.retention_class::text AS "class!",
+                      e.cause AS "cause!", e.state AS "state!", e.pos::bigint AS "pos?",
+                      e.part::text AS "part?",
+                      (extract(epoch FROM e.requested_at) * 1000)::bigint AS "requested_at!",
+                      (extract(epoch FROM e.settles_at) * 1000)::bigint AS "settles_at?",
+                      (extract(epoch FROM e.completed_at) * 1000)::bigint AS "completed_at?"
+               FROM work.erasure_log e
+               JOIN work.body_dek d ON d.ledger_id = e.ledger_id AND d.dek_id = e.dek_id
+               WHERE e.ledger_id = $1
+               ORDER BY e.requested_at, e.erasure_id"#,
+            ledger.as_bytes().as_slice()
+        )
+        .fetch_all(tx.conn())
+        .await?;
+        tx.commit().await?;
+        rows.into_iter().map(erasure_row).collect()
     }
 
     /// Rewraps the active DEK `dek_id` from KEK `from` to KEK `to` (OP-45 item 1): only
@@ -612,5 +1098,88 @@ mod tests {
             assert_eq!(RetentionClass::from_stored(c.as_str()), Some(c));
         }
         assert_eq!(RetentionClass::from_stored("audit"), None);
+    }
+
+    // OP-14 OP-45 P-25 Access OP-78
+    #[test]
+    fn op_45_erasure_causes_round_trip_their_stored_names() {
+        for c in ErasureCause::ALL {
+            assert_eq!(ErasureCause::from_stored(c.as_str()), Some(c));
+        }
+        assert_eq!(ErasureCause::from_stored("subject_erasure"), None);
+        assert_eq!(
+            ErasureCause::SubjectRequest.shred(),
+            Some(Shred::SubjectErasure)
+        );
+        assert_eq!(
+            ErasureCause::RetentionExpired.shred(),
+            Some(Shred::RetentionExpired)
+        );
+        assert_eq!(ErasureCause::Redaction.shred(), None);
+        assert_eq!(ErasureCause::TenantClosure.shred(), None);
+        assert_eq!(
+            Shred::SubjectErasure.request(),
+            ErasureCause::SubjectRequest
+        );
+    }
+
+    fn tuple(state: &str, settles: Option<i64>, completed: Option<i64>) -> ErasureTuple {
+        ErasureTuple {
+            erasure_id: "0190d4a8-0000-7000-8000-000000000002".to_owned(),
+            dek_id: "0190d4a8-0000-7000-8000-000000000001".to_owned(),
+            subject: "party:alice".to_owned(),
+            class: "work_record".to_owned(),
+            cause: "redaction".to_owned(),
+            state: state.to_owned(),
+            pos: Some(3),
+            part: Some("note".to_owned()),
+            requested_at: 1_000,
+            settles_at: settles,
+            completed_at: completed,
+        }
+    }
+
+    // OP-45 Access CR-32
+    #[test]
+    fn op_45_an_erasure_is_waiting_shredded_until_it_settles_or_completed() {
+        let read = |t| erasure_row(t).map(|r| r.state).ok();
+        assert_eq!(
+            read(tuple("waiting_on_hold", None, None)),
+            Some(ErasureState::WaitingOnHold)
+        );
+        assert_eq!(
+            read(tuple("shredded", Some(2_000), None)),
+            Some(ErasureState::Shredded {
+                settles_at_ms: 2_000,
+            })
+        );
+        assert_eq!(
+            read(tuple("completed", Some(2_000), Some(2_500))),
+            Some(ErasureState::Completed {
+                settles_at_ms: 2_000,
+                completed_at_ms: 2_500,
+            })
+        );
+        for bad in [
+            tuple("waiting_on_hold", Some(2_000), None),
+            tuple("shredded", None, None),
+            tuple("completed", None, Some(2_500)),
+            tuple("completed", Some(2_000), None),
+            tuple("deleted", Some(2_000), Some(2_500)),
+        ] {
+            assert_eq!(read(bad), None);
+        }
+        let mut class = tuple("shredded", Some(2_000), None);
+        class.pos = None;
+        class.part = None;
+        assert_eq!(
+            erasure_row(class).map(|r| r.target).ok(),
+            Some(ErasureTarget::Class)
+        );
+        let mut half = tuple("shredded", Some(2_000), None);
+        half.part = None;
+        assert!(erasure_row(half).is_err());
+        let shown = format!("{:?}", erasure_row(tuple("waiting_on_hold", None, None)));
+        assert!(!shown.contains("party:alice"), "{shown}");
     }
 }
