@@ -164,7 +164,7 @@ mod tests {
         TenantId::new(name).unwrap()
     }
 
-    fn invalid(result: Result<Positions, OpenError>) -> bool {
+    fn invalid(result: &Result<Positions, OpenError>) -> bool {
         matches!(result, Err(OpenError::Refused(PositionRefusal::Invalid)))
     }
 
@@ -178,7 +178,7 @@ mod tests {
         assert!(token.to_external().starts_with("pos_"));
         assert_eq!(keys.open_token(&tenant("t-1"), &token).unwrap(), positions);
         assert_eq!(keys.seal(&tenant("t-1"), &positions).unwrap(), token);
-        assert!(invalid(keys.open_token(&tenant("t-2"), &token)));
+        assert!(invalid(&keys.open_token(&tenant("t-2"), &token)));
     }
 
     // T-97
@@ -188,8 +188,8 @@ mod tests {
         let keys = PositionKeys::open(&store, 1, None).unwrap();
         let positions = Positions::new([(ledger(9), 1)]).unwrap();
         let token = keys.seal(&tenant("acme"), &positions).unwrap();
-        assert!(invalid(keys.open_token(&tenant("acme2"), &token)));
-        assert!(invalid(keys.open_token(&tenant("acm"), &token)));
+        assert!(invalid(&keys.open_token(&tenant("acme2"), &token)));
+        assert!(invalid(&keys.open_token(&tenant("acm"), &token)));
     }
 
     // T-97
@@ -202,18 +202,18 @@ mod tests {
         let mut forged = token.as_bytes().to_vec();
         forged[38] ^= 0x01;
         let forged = PositionToken::new(forged).unwrap();
-        assert!(invalid(keys.open_token(&tenant("t"), &forged)));
+        assert!(invalid(&keys.open_token(&tenant("t"), &forged)));
         let mut unknown_key = token.as_bytes().to_vec();
         unknown_key[1] = 3;
         let unknown_key = PositionToken::new(unknown_key).unwrap();
-        assert!(invalid(keys.open_token(&tenant("t"), &unknown_key)));
+        assert!(invalid(&keys.open_token(&tenant("t"), &unknown_key)));
         let tag = token.as_bytes().len().saturating_sub(1);
         let mut tag_flip = token.as_bytes().to_vec();
         tag_flip[tag] ^= 0x80;
         let tag_flip = PositionToken::new(tag_flip).unwrap();
-        assert!(invalid(keys.open_token(&tenant("t"), &tag_flip)));
+        assert!(invalid(&keys.open_token(&tenant("t"), &tag_flip)));
         let short = PositionToken::new(vec![1, 1, 1]).unwrap();
-        assert!(invalid(keys.open_token(&tenant("t"), &short)));
+        assert!(invalid(&keys.open_token(&tenant("t"), &short)));
     }
 
     // T-97
@@ -227,9 +227,9 @@ mod tests {
         assert_eq!(rotated.open_token(&tenant("t"), &held).unwrap(), positions);
         let fresh = rotated.seal(&tenant("t"), &positions).unwrap();
         assert_eq!(fresh.as_bytes().get(1), Some(&2));
-        assert!(invalid(old.open_token(&tenant("t"), &fresh)));
+        assert!(invalid(&old.open_token(&tenant("t"), &fresh)));
         let retired = PositionKeys::open(&store, 2, None).unwrap();
-        assert!(invalid(retired.open_token(&tenant("t"), &held)));
+        assert!(invalid(&retired.open_token(&tenant("t"), &held)));
         assert!(matches!(
             PositionKeys::open(&store, 3, None),
             Err(HsmError::Key(_))
