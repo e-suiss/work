@@ -17,9 +17,13 @@ use work_ledger::{
 };
 use work_store::{Cluster, Durability, ErasurePool, LedgerId, RetentionClass, Shred, StoreError};
 
-use crate::{AT, Directory, Env, comment, human, submission, unsigned, writer};
+use crate::{AT, Directory, Env, comment, human, statement, submission, unsigned, writer};
 
 const PIN: &str = "4711";
+const HOLD: &str = include_str!("../../../store/fixtures/body-hold.sql");
+const RELEASE: &str = include_str!("../../../store/fixtures/body-release.sql");
+#[cfg(feature = "s3")]
+const WALL_CLOCK: &str = include_str!("../../../store/fixtures/wall-clock.sql");
 
 fn module() -> PathBuf {
     std::env::var_os("PKCS11_MODULE").map_or_else(
@@ -121,7 +125,7 @@ async fn wall_clock(env: &Env) -> u64 {
             "-d",
             Cluster::Canonical.database(),
             "-c",
-            "SELECT (extract(epoch FROM clock_timestamp()) * 1000)::bigint",
+            &statement(WALL_CLOCK),
         ])
         .await
         .unwrap()
@@ -211,15 +215,7 @@ async fn op_45_a_shredded_body_is_unreadable_while_its_skeleton_verifies() {
             ("terms".to_owned(), PartRead::Readable(terms.clone())),
         ]
     );
-    let hex = ledger.to_hex();
-    psql(
-        &env,
-        &format!(
-            "INSERT INTO work.retention_hold (ledger_id, hold_kind, subject_ref, state) \
-             VALUES (decode('{hex}', 'hex'), 'litigation', 'party:acme:alice', 'active')"
-        ),
-    )
-    .await;
+    psql(&env, &statement(HOLD)).await;
     let subject = "party:acme:alice";
     assert!(matches!(
         eraser
@@ -236,11 +232,7 @@ async fn op_45_a_shredded_body_is_unreadable_while_its_skeleton_verifies() {
         read(&reader, &ledger, committed.pos).await.get(1),
         Some((_, PartRead::Readable(_)))
     ));
-    psql(
-        &env,
-        "UPDATE work.retention_hold SET state = 'released', released_at = now()",
-    )
-    .await;
+    psql(&env, &statement(RELEASE)).await;
     assert!(
         eraser
             .destroy_class(
