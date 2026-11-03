@@ -291,7 +291,10 @@ async fn op_45_a_shredded_body_is_unreadable_while_its_skeleton_verifies() {
         };
         assert!(settles_at_ms >= e.requested_at_ms.saturating_add(settle));
     }
-    assert!(eraser.settle_due(&ledger).await.unwrap().is_empty());
+    assert_eq!(
+        eraser.settle_due(&ledger).await.unwrap(),
+        Vec::<String>::new()
+    );
     let later = opening("note", b"a new note after the erasure", 4);
     let next = group
         .admit_with_body(

@@ -769,7 +769,7 @@ async fn op_45_an_erasure_waits_on_a_hold_and_completes_only_after_it_settles() 
     };
     assert_eq!(erasure_id, part_id);
     assert_eq!(scalar(&erasure, &l, gone, false).await, 1);
-    assert!(pool.settle(&ledger).await.unwrap().is_empty());
+    assert_eq!(pool.settle(&ledger).await.unwrap(), Vec::<String>::new());
     let twice = pool.shred_part(&ledger, 0, "note", hour).await.unwrap();
     assert_eq!(twice, Erased::Nothing);
     let destroyed = pool
@@ -807,7 +807,7 @@ async fn op_45_an_erasure_waits_on_a_hold_and_completes_only_after_it_settles() 
         .await
         .unwrap();
     assert_eq!(none, Erased::Nothing);
-    assert!(pool.settle(&ledger).await.unwrap().is_empty());
+    assert_eq!(pool.settle(&ledger).await.unwrap(), Vec::<String>::new());
     fails(
         &erasure,
         &l,
