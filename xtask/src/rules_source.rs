@@ -1,6 +1,6 @@
 //! Source-level rules: kernel and domain purity (T-4, T-31 rule 5, T-32 rule 1),
-//! SQL only in `store` (T-36 rule 2), no physical delete (T-36 rule 4, OP-12),
-//! tracked TODOs (T-33 rule 8, T-53), the `unsafe` allowlist (T-33 rule 3) and derivation
+//! SQL only in `store` (T-36 rule 2) and checked there at compile time (T-36 rule 1), no
+//! physical delete (T-36 rule 4, OP-12), tracked TODOs (T-33 rule 8, T-53), the `unsafe` allowlist (T-33 rule 3) and derivation
 //! entries under a caller's record ID only in the kernel's tests and benchmarks (T-10).
 
 use std::path::{Path, PathBuf};
@@ -1031,9 +1031,119 @@ pub(crate) fn check_unverified_entry(root: &Path) -> Result<Vec<Violation>, Stri
     Ok(out)
 }
 
+const RUNTIME_SQL: &str = "checked-sql-in-store";
+
+/// The store's library code, where every statement is a compile-checked macro (T-36 rule 1).
+const STORE_SRC: &str = "crates/store/src/";
+
+/// Run-time query builders of sqlx, found where they are called through a path or imported.
+const RUNTIME_SQL_CALLS: &[&str] = &[
+    "query",
+    "query_as",
+    "query_scalar",
+    "query_with",
+    "query_as_with",
+    "query_scalar_with",
+    "raw_sql",
+];
+
+/// Names that only a statement built at run time needs, and the unchecked macros.
+const RUNTIME_SQL_NAMES: &[&str] = &[
+    "QueryBuilder",
+    "AssertSqlSafe",
+    "Executor",
+    "query_unchecked",
+    "query_as_unchecked",
+    "query_scalar_unchecked",
+    "query_file_unchecked",
+    "query_file_as_unchecked",
+    "query_file_scalar_unchecked",
+];
+
+/// Store files that may build a statement at run time, each with its reason (T-36 rule 1).
+/// Every statement of the store is a compile-checked macro today, so the list is empty.
+pub(crate) const RUNTIME_SQL_ALLOWED: &[(&str, &str)] = &[];
+
+/// Lines of `src` outside its tests that build a statement at run time: a sqlx query builder
+/// called through a path or imported, raw SQL, or an unchecked macro.
+pub(crate) fn runtime_sql_lines(src: &str) -> Vec<usize> {
+    let code = lex(src).code;
+    let tests = test_regions(&code);
+    let mut found = Vec::new();
+    for name in RUNTIME_SQL_CALLS {
+        for at in find_token(&code, name) {
+            let before = code.get(..at).unwrap_or_default();
+            let after = code
+                .get(at.saturating_add(name.len())..)
+                .unwrap_or_default()
+                .trim_start();
+            let line = before.rsplit('\n').next().unwrap_or_default();
+            let path = before.trim_end().ends_with("::") || line.trim_start().starts_with("use ");
+            if path && !after.starts_with('!') {
+                found.push(at);
+            }
+        }
+    }
+    for name in RUNTIME_SQL_NAMES {
+        found.extend(find_token(&code, name));
+    }
+    let mut lines: Vec<usize> = found
+        .into_iter()
+        .map(|at| line_at(&code, at))
+        .filter(|&line| !in_regions(&tests, line))
+        .collect();
+    lines.sort_unstable();
+    lines.dedup();
+    lines
+}
+
+pub(crate) fn check_runtime_sql(root: &Path) -> Result<Vec<Violation>, String> {
+    let mut out = Vec::new();
+    for (rel_path, path) in rust_files(root)? {
+        let allowed = RUNTIME_SQL_ALLOWED.iter().any(|(p, _)| *p == rel_path);
+        if !rel_path.starts_with(STORE_SRC) || allowed {
+            continue;
+        }
+        for line in runtime_sql_lines(&read(&path)?) {
+            out.push(violation(
+                RUNTIME_SQL,
+                &rel_path,
+                line,
+                "a statement built at run time in the store; use `sqlx::query!`, `query_as!`, `query_scalar!` or a `query_file` macro so it is checked against the schema and its metadata is committed in `.sqlx/` (T-36 rule 1)".to_owned(),
+            ));
+        }
+    }
+    Ok(out)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // T-36
+    #[test]
+    fn t_36_statements_built_at_run_time_in_the_store_are_rejected() {
+        let src = "use sqlx::query;\n\
+                   let a = sqlx::query(\"SELECT 1\");\n\
+                   let b = sqlx::query!(\"SELECT 1\");\n\
+                   let c = sqlx::query_as::<_, (i64,)>(\"SELECT 1\");\n\
+                   let d = sqlx::query_scalar_unchecked!(\"SELECT 1\");\n\
+                   let e = sqlx::raw_sql(AssertSqlSafe(s));\n\
+                   // sqlx::query(\"SELECT 1\")\n\
+                   let f = conn.query(x);\n\
+                   let g = sqlx::query_file_scalar!(\"q.sql\", id);\n\
+                   let query = 1;\n\
+                   #[cfg(test)]\n\
+                   mod tests {\n\
+                   fn t() { sqlx::query(\"SELECT 1\"); }\n\
+                   }\n";
+        assert_eq!(runtime_sql_lines(src), vec![1, 2, 4, 5, 6]);
+        assert!(
+            RUNTIME_SQL_ALLOWED
+                .iter()
+                .all(|(p, reason)| p.starts_with(STORE_SRC) && !reason.trim().is_empty())
+        );
+    }
 
     // T-10
     #[test]

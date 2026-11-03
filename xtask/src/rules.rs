@@ -47,6 +47,10 @@ pub(crate) fn checks() -> Vec<Check> {
             run: source::check_sql,
         },
         Check {
+            name: "checked-sql-in-store",
+            run: source::check_runtime_sql,
+        },
+        Check {
             name: "no-physical-delete",
             run: source::check_delete,
         },
