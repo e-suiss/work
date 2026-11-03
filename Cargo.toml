@@ -23,6 +23,7 @@ work-access-client = { path = "crates/access-client" }
 work-relay-client = { path = "crates/relay-client" }
 work-telemetry = { path = "crates/telemetry" }
 work-http = { path = "crates/http" }
+work-query = { path = "crates/query" }
 work-testkit = { path = "crates/testkit" }
 work-bindings-core = { path = "sdks/bindings/core" }
 
@@ -41,6 +42,8 @@ tracing = { version = "0.1.44", default-features = false }
 tracing-subscriber = { version = "0.3.23", default-features = false }
 tokio = { version = "1.53.3", default-features = false }
 axum = { version = "0.8.9", default-features = false }
+# T-98
+utoipa = { version = "=6.0.0", default-features = false }
 # T-36
 sqlx = { version = "=0.9.0", default-features = false }
 # T-36, T-37

@@ -8,5 +8,13 @@ license.workspace = true
 repository.workspace = true
 publish = false
 
+[dependencies]
+work-proto = { workspace = true }
+work-query = { workspace = true }
+axum = { workspace = true }
+serde = { workspace = true, features = ["derive", "std"] }
+serde_json = { workspace = true, features = ["std"] }
+utoipa = { workspace = true, features = ["macros"] }
+
 [lints]
 workspace = true

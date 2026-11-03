@@ -31,6 +31,7 @@ tokio-macros
 tracing-attributes
 uniffi_internal_macros
 uniffi_macros
+utoipa-gen
 wasm-bindgen-macro
 windows-implement
 windows-interface
