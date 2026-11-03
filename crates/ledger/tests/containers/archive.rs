@@ -80,7 +80,10 @@ async fn op_35_a_cold_partition_is_dropped_only_after_its_worm_copy_verifies() {
     ));
 
     let planted = archive_key(&inbound, &a);
-    store.put_once(&planted, b"not the slice", now).await.unwrap();
+    store
+        .put_once(&planted, b"not the slice", now)
+        .await
+        .unwrap();
     assert!(matches!(
         archive_partition(&pool, &store, &inbound).await,
         Err(ArchiveError::Worm(WormError::Diverged(k))) if k == planted

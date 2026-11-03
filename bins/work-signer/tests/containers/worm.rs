@@ -92,7 +92,12 @@ async fn op_33_the_worm_replica_takes_the_log_once_and_moves_only_after_reading_
     }
 
     let plain = S3Store::new(config(&s3, "work-replica")).unwrap();
-    assert!(plain.put(&genesis_key, b"other".to_vec(), now).await.is_err());
+    assert!(
+        plain
+            .put(&genesis_key, b"other".to_vec(), now)
+            .await
+            .is_err()
+    );
     assert_eq!(
         objects.put_once(&genesis_key, b"other", now).await,
         Err(WormError::Diverged(genesis_key.clone()))

@@ -79,8 +79,11 @@ fn parent(part: &str) -> Result<&'static str, StoreError> {
 
 fn refused(e: sqlx::Error) -> StoreError {
     let message = e.as_database_error().and_then(|d| {
-        matches!(d.code().as_deref(), Some("22000" | "22023" | "55006" | "23505"))
-            .then(|| d.message().to_owned())
+        matches!(
+            d.code().as_deref(),
+            Some("22000" | "22023" | "55006" | "23505")
+        )
+        .then(|| d.message().to_owned())
     });
     message.map_or(StoreError::Db(e), StoreError::Constraint)
 }
@@ -157,11 +160,7 @@ impl ArchivePool {
     /// # Errors
     /// [`StoreError::Constraint`] for a partition that is not archivable, [`StoreError::Corrupt`]
     /// for an out-of-range row, otherwise [`StoreError::Db`].
-    pub async fn slice(
-        &self,
-        part: &str,
-        ledger: &LedgerId,
-    ) -> Result<PartitionSlice, StoreError> {
+    pub async fn slice(&self, part: &str, ledger: &LedgerId) -> Result<PartitionSlice, StoreError> {
         let rows_sql = match parent(part)? {
             "work.idempotency_key" => {
                 "SELECT t::text FROM work.idempotency_key t WHERE t.tableoid = $1::regclass \
@@ -265,12 +264,13 @@ impl ArchivePool {
     pub async fn drop_partition(&self, part: &str, manifest: &[u8; 32]) -> Result<u64, StoreError> {
         parent(part)?;
         let mut tx = self.pool.begin().await?;
-        let total: i64 = sqlx::query_scalar("SELECT work.drop_archived_partition($1::regclass, $2)")
-            .bind(part)
-            .bind(manifest.as_slice())
-            .fetch_one(&mut *tx)
-            .await
-            .map_err(refused)?;
+        let total: i64 =
+            sqlx::query_scalar("SELECT work.drop_archived_partition($1::regclass, $2)")
+                .bind(part)
+                .bind(manifest.as_slice())
+                .fetch_one(&mut *tx)
+                .await
+                .map_err(refused)?;
         tx.commit().await?;
         unsigned(total)
     }
@@ -283,8 +283,14 @@ mod tests {
     // OP-35 OP-37
     #[test]
     fn op_35_only_monthly_partitions_of_the_two_tables_are_archived() {
-        assert_eq!(parent("work.idempotency_key_p202607").ok(), Some("work.idempotency_key"));
-        assert_eq!(parent("work.inbound_seen_p202612").ok(), Some("work.inbound_seen"));
+        assert_eq!(
+            parent("work.idempotency_key_p202607").ok(),
+            Some("work.idempotency_key")
+        );
+        assert_eq!(
+            parent("work.inbound_seen_p202612").ok(),
+            Some("work.inbound_seen")
+        );
         for bad in [
             "work.idempotency_key",
             "work.idempotency_key_p2026",

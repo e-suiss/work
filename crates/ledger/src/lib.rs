@@ -45,13 +45,13 @@ mod worm;
 pub use admit::{Arrival, AuthContext, MAX_RECEIVED, Submission, admit};
 #[cfg(feature = "s3")]
 pub use archive::{ArchiveError, archive_cold, archive_key, archive_manifest, archive_partition};
+#[cfg(feature = "s3")]
+pub use body::S3Store;
 pub use body::{
     BODY_CONTEXT, BodyEraser, BodyError, BodyKeys, BodyOpening, BodyReader, BodyWriter,
     DEFAULT_CALL_TIMEOUT, DEFAULT_CLASS, InDatabase, MAX_MEDIA_TYPE, MAX_PART, ObjectStore,
     PartRead, SealedPart, context, kek_label, object_key, open_part, seal_part,
 };
-#[cfg(feature = "s3")]
-pub use body::S3Store;
 pub use checkpoint::{
     CheckpointError, Checkpointer, Declaration, DeclarationError, Deployment, SignerClient,
     acknowledgement,
@@ -70,12 +70,12 @@ pub use ledgers::{
 };
 pub use log::PgLog;
 pub use rebuild::{REBUILD_PAGE, RebuildError, rebuild, rebuild_diff};
+#[cfg(feature = "s3")]
+pub use replica::WormReplica;
 pub use replica::{
     AnyReplica, DirectoryReplica, MirrorError, Replica, checkpoint_key, cosignature_key, entry_key,
     leaf, put_checkpoint, put_cosignature, put_entry, received_key,
 };
-#[cfg(feature = "s3")]
-pub use replica::WormReplica;
 #[cfg(feature = "s3")]
 pub use s3::{S3Config, S3Error, tls_trusting};
 pub use witness::{

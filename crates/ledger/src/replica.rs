@@ -90,7 +90,11 @@ pub fn checkpoint_key(ledger: &LedgerId, size: u64) -> String {
 /// checkpoint.
 #[must_use]
 pub fn cosignature_key(ledger: &LedgerId, size: u64, witness_id: &str) -> String {
-    format!("{}/cosignature/{}.{witness_id}", ledger.to_hex(), name(size))
+    format!(
+        "{}/cosignature/{}.{witness_id}",
+        ledger.to_hex(),
+        name(size)
+    )
 }
 
 /// A replica in a directory, one file per key, positions and sizes as 20 decimal digits.
@@ -111,7 +115,8 @@ impl DirectoryReplica {
     }
 
     fn path(&self, key: &str) -> PathBuf {
-        key.split('/').fold(self.root.clone(), |p, part| p.join(part))
+        key.split('/')
+            .fold(self.root.clone(), |p, part| p.join(part))
     }
 }
 
@@ -373,7 +378,10 @@ pub async fn put_cosignature(
     row: &CosignatureRow,
 ) -> Result<(), MirrorError> {
     replica
-        .put_once(&cosignature_key(ledger, row.size, &row.witness_id), &row.signature)
+        .put_once(
+            &cosignature_key(ledger, row.size, &row.witness_id),
+            &row.signature,
+        )
         .await
 }
 
@@ -520,7 +528,10 @@ mod tests {
         let key = cosignature_key(&ledger, 2, "witness_a");
         assert_eq!(
             key,
-            format!("{}/cosignature/00000000000000000002.witness_a", ledger.to_hex())
+            format!(
+                "{}/cosignature/00000000000000000002.witness_a",
+                ledger.to_hex()
+            )
         );
         assert_eq!(r.read(&key).await.unwrap(), Some(row.signature.clone()));
         let other = CosignatureRow {
@@ -537,7 +548,10 @@ mod tests {
         );
         assert_eq!(
             received_key(&ledger, 7, "auth_context"),
-            format!("{}/received/00000000000000000007.auth_context", ledger.to_hex())
+            format!(
+                "{}/received/00000000000000000007.auth_context",
+                ledger.to_hex()
+            )
         );
         assert_eq!(
             checkpoint_key(&ledger, 8),

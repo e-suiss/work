@@ -86,7 +86,9 @@ pub async fn archive_partition(
         pool.record(part, &ledger, &record).await?;
         slices.push((ledger, count, digest));
     }
-    Ok(pool.drop_partition(part, &archive_manifest(&slices)).await?)
+    Ok(pool
+        .drop_partition(part, &archive_manifest(&slices))
+        .await?)
 }
 
 /// Archives every cold partition; returns each dropped partition with its rows.
@@ -133,6 +135,9 @@ mod tests {
             archive_key("work.idempotency_key_p202607", &a),
             format!("archive/work.idempotency_key_p202607/{}", "a1".repeat(32))
         );
-        assert!(crate::s3::key_ok(&archive_key("work.inbound_seen_p202612", &b)));
+        assert!(crate::s3::key_ok(&archive_key(
+            "work.inbound_seen_p202612",
+            &b
+        )));
     }
 }

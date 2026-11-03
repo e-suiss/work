@@ -131,9 +131,15 @@ impl WormStore {
         let path = self.client.object_path(key)?;
         let extra = [
             ("if-none-match", "*".to_owned()),
-            ("x-amz-checksum-sha256", base64_encode(&Sha256::digest(bytes))),
+            (
+                "x-amz-checksum-sha256",
+                base64_encode(&Sha256::digest(bytes)),
+            ),
             ("x-amz-object-lock-mode", RETENTION_MODE.to_owned()),
-            ("x-amz-object-lock-retain-until-date", self.retention.until(now_ms)),
+            (
+                "x-amz-object-lock-retain-until-date",
+                self.retention.until(now_ms),
+            ),
         ];
         let (status, _) = self
             .client
@@ -199,7 +205,13 @@ mod tests {
             Retention::days(1).unwrap().until(951_696_000_000),
             "2000-02-29T00:00:00Z"
         );
-        assert!(contains(b"<a><Mode>COMPLIANCE</Mode></a>", "<Mode>COMPLIANCE</Mode>"));
-        assert!(!contains(b"<Mode>GOVERNANCE</Mode>", "<Mode>COMPLIANCE</Mode>"));
+        assert!(contains(
+            b"<a><Mode>COMPLIANCE</Mode></a>",
+            "<Mode>COMPLIANCE</Mode>"
+        ));
+        assert!(!contains(
+            b"<Mode>GOVERNANCE</Mode>",
+            "<Mode>COMPLIANCE</Mode>"
+        ));
     }
 }

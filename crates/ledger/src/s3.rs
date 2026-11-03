@@ -143,10 +143,7 @@ fn failed(e: &impl std::fmt::Display) -> S3Error {
 }
 
 /// One request over `stream`, one HTTP/1.1 connection per request; the caller bounds the call.
-async fn send<S>(
-    stream: S,
-    request: Request<Full<Bytes>>,
-) -> Result<(StatusCode, Vec<u8>), S3Error>
+async fn send<S>(stream: S, request: Request<Full<Bytes>>) -> Result<(StatusCode, Vec<u8>), S3Error>
 where
     S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin + Send + 'static,
 {
@@ -232,12 +229,7 @@ fn civil(days: u64) -> (u64, u64, u64) {
 }
 
 /// The `SigV4` signing key of `secret` for `date`, `region` and `service`.
-fn signing_key(
-    secret: &str,
-    date: &str,
-    region: &str,
-    service: &str,
-) -> Result<Vec<u8>, S3Error> {
+fn signing_key(secret: &str, date: &str, region: &str, service: &str) -> Result<Vec<u8>, S3Error> {
     let mut key = b"AWS4".to_vec();
     key.extend_from_slice(secret.as_bytes());
     let k = mac(&key, date.as_bytes())?;
@@ -317,7 +309,9 @@ impl S3Client {
             return Err(S3Error::Failed("malformed bucket name".to_owned()));
         }
         if endpoint.tls && config.tls.is_none() {
-            return Err(S3Error::Failed("an https endpoint needs TLS settings".to_owned()));
+            return Err(S3Error::Failed(
+                "an https endpoint needs TLS settings".to_owned(),
+            ));
         }
         Ok(Self {
             endpoint,
@@ -364,7 +358,11 @@ impl S3Client {
             ("x-amz-content-sha256".to_owned(), payload.clone()),
             ("x-amz-date".to_owned(), time.clone()),
         ];
-        headers.extend(extra.iter().map(|(n, v)| (n.to_ascii_lowercase(), v.clone())));
+        headers.extend(
+            extra
+                .iter()
+                .map(|(n, v)| (n.to_ascii_lowercase(), v.clone())),
+        );
         headers.sort();
         let auth = authorization(
             &self.config.key_id,
@@ -425,9 +423,12 @@ impl S3Client {
         body: Vec<u8>,
         now_ms: u64,
     ) -> Result<(StatusCode, Vec<u8>), S3Error> {
-        timeout(self.limit, self.exchange(method, path, query, extra, body, now_ms))
-            .await
-            .map_err(|_| S3Error::Timeout)?
+        timeout(
+            self.limit,
+            self.exchange(method, path, query, extra, body, now_ms),
+        )
+        .await
+        .map_err(|_| S3Error::Timeout)?
     }
 
     /// Creates the bucket with `extra` headers; an existing bucket of this owner is not an
@@ -438,7 +439,9 @@ impl S3Client {
         now_ms: u64,
     ) -> Result<(), S3Error> {
         let path = self.bucket_path();
-        let (status, _) = self.call(Method::PUT, &path, "", extra, Vec::new(), now_ms).await?;
+        let (status, _) = self
+            .call(Method::PUT, &path, "", extra, Vec::new(), now_ms)
+            .await?;
         if status.is_success() || status == StatusCode::CONFLICT {
             Ok(())
         } else {
@@ -506,7 +509,10 @@ mod tests {
             "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
         );
         let headers = [
-            ("host".to_owned(), "examplebucket.s3.amazonaws.com".to_owned()),
+            (
+                "host".to_owned(),
+                "examplebucket.s3.amazonaws.com".to_owned(),
+            ),
             ("range".to_owned(), "bytes=0-9".to_owned()),
             ("x-amz-content-sha256".to_owned(), empty.clone()),
             ("x-amz-date".to_owned(), "20130524T000000Z".to_owned()),
