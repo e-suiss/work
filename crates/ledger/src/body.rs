@@ -464,13 +464,28 @@ pub trait ObjectStore: Send + Sync + 'static {
 #[derive(Debug, Clone, Copy, Default)]
 pub struct InDatabase;
 
+fn no_object_store<T>() -> std::future::Ready<Result<T, BodyError>> {
+    std::future::ready(Err(BodyError::Object(
+        "no object store configured".to_owned(),
+    )))
+}
+
 impl ObjectStore for InDatabase {
-    async fn put(&self, _key: &str, _bytes: Vec<u8>, _now_ms: u64) -> Result<(), BodyError> {
-        Err(BodyError::Object("no object store configured".to_owned()))
+    fn put(
+        &self,
+        _key: &str,
+        _bytes: Vec<u8>,
+        _now_ms: u64,
+    ) -> impl Future<Output = Result<(), BodyError>> + Send {
+        no_object_store()
     }
 
-    async fn get(&self, _key: &str, _now_ms: u64) -> Result<Vec<u8>, BodyError> {
-        Err(BodyError::Object("no object store configured".to_owned()))
+    fn get(
+        &self,
+        _key: &str,
+        _now_ms: u64,
+    ) -> impl Future<Output = Result<Vec<u8>, BodyError>> + Send {
+        no_object_store()
     }
 }
 
@@ -572,20 +587,19 @@ impl<O: ObjectStore> BodyWriter<O> {
             plan.push((o.clone(), commit));
         }
         let class = DEFAULT_CLASS;
-        let row = match bounded(self.limit, self.pool.active_dek(ledger, author, class)).await? {
-            Some(row) => row,
-            None => {
-                let keys = Arc::clone(&self.keys);
-                let id = *ledger;
-                let (kek_id, wrapped) =
-                    blocking(self.limit, move || keys.new_class_dek(&id)).await?;
-                bounded(
-                    self.limit,
-                    self.pool
-                        .class_dek(ledger, author, class, &kek_id, &wrapped),
-                )
-                .await?
-            }
+        let active = bounded(self.limit, self.pool.active_dek(ledger, author, class)).await?;
+        let row = if let Some(row) = active {
+            row
+        } else {
+            let keys = Arc::clone(&self.keys);
+            let id = *ledger;
+            let (kek_id, wrapped) = blocking(self.limit, move || keys.new_class_dek(&id)).await?;
+            bounded(
+                self.limit,
+                self.pool
+                    .class_dek(ledger, author, class, &kek_id, &wrapped),
+            )
+            .await?
         };
         let keys = Arc::clone(&self.keys);
         let id = *ledger;
