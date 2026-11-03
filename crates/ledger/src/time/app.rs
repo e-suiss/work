@@ -1,6 +1,7 @@
 //! The ledger time driver (OP-32, OP-42, OP-43): it gives the `Clock` port its time from the
 //! shared state, applies the NTS adapter's events, runs a Roughtime round at start-up and every
-//! hour, and raises the alarms; a failed round never blocks start-up or commits on NTS.
+//! hour, puts the witness rounds of the checkpoints in force (OP-32 item 3), and raises the
+//! alarms; a failed round never blocks start-up or commits on NTS.
 
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::Duration;
@@ -8,7 +9,9 @@ use std::time::Duration;
 use tokio::sync::mpsc;
 use tokio::time::MissedTickBehavior;
 
-use crate::time::domain::{Discipline, MIN_NTS_SERVERS, MIN_ROUGHTIME_SERVERS, Round, TimeFault};
+use crate::time::domain::{
+    Discipline, MIN_NTS_SERVERS, MIN_ROUGHTIME_SERVERS, Round, TimeFault, WitnessRound,
+};
 use crate::time::ports::{Monotonic, NtsEvent, RoughtimeQuery};
 use crate::{Clock, ClockError};
 
@@ -97,6 +100,10 @@ impl<M: Monotonic> LedgerTime<M> {
                 event = "ledger_time.outside_roughtime",
                 "ledger time is outside the Roughtime bound; commits stop"
             ),
+            Err(TimeFault::AheadOfWitness) => tracing::error!(
+                event = "ledger_time.ahead_of_witness",
+                "ledger time is ahead of the witnesses' cosignature times; commits stop"
+            ),
             Err(fault) => tracing::error!(
                 event = "ledger_time.unavailable",
                 %fault,
@@ -165,6 +172,34 @@ impl<M: Monotonic> LedgerTime<M> {
             ),
         }
         round
+    }
+
+    /// Puts the witness round of a checkpoint in force (OP-32 item 3).
+    pub fn record_witness_round(&self, round: WitnessRound) {
+        match round {
+            WitnessRound::Ahead { ahead, of } => tracing::error!(
+                event = "ledger_time.ahead_of_witness",
+                ahead,
+                of,
+                "ledger time is ahead of the witnesses' cosignature times; commits stop"
+            ),
+            WitnessRound::Agreed(of) => tracing::debug!(
+                event = "ledger_time.witness_round",
+                of,
+                "the witnesses' cosignature times agree with ledger time"
+            ),
+            WitnessRound::Unanswered => tracing::warn!(
+                event = "ledger_time.witness_unanswered",
+                "no counted witness cosigned; commits continue without the witness check"
+            ),
+        }
+        self.state().record_witness_round(round);
+    }
+
+    /// Whether the last witness round found ledger time ahead of the witnesses.
+    #[must_use]
+    pub fn ahead_of_witness(&self) -> bool {
+        self.state().ahead_of_witness()
     }
 
     /// Runs a Roughtime round at once and then every [`ROUGHTIME_INTERVAL`].

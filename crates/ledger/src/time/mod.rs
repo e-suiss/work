@@ -1,6 +1,7 @@
 //! Ledger time (OP-6, OP-32, OP-42, OP-43, T-74): the `Clock` adapter that reads two or more NTS
-//! servers and the monotonic clock, combines them with the shared `suiss-ledger` combiner and
-//! bounds the result by an hourly Roughtime round over three or more servers.
+//! servers and the monotonic clock, combines them with the shared `suiss-ledger` combiner,
+//! bounds the result by an hourly Roughtime round over three or more servers and stops when the
+//! counted witnesses' cosignature times put it ahead of them.
 
 mod adapters;
 mod app;
@@ -15,7 +16,8 @@ pub use adapters::{
 pub use app::{LedgerTime, NTS_EVENT_QUEUE, ROUGHTIME_INTERVAL, TimeConfigError, check_sources};
 pub use domain::{
     Discipline, MIN_NTS_SERVERS, MIN_ROUGHTIME_SERVERS, NTS_INTERVAL_MS, NtsSample,
-    RoughtimeAnswer, Round, SAMPLE_LIFETIME_MS, TimeFault, majority_covers,
+    RoughtimeAnswer, Round, SAMPLE_LIFETIME_MS, TimeFault, WitnessRound, cosign_round,
+    majority_covers,
 };
 pub use ports::{Monotonic, NtsEvent, QueryError, RoughtimeQuery};
 pub use wire::Version as RoughtimeVersion;

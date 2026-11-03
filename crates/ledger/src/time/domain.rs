@@ -1,9 +1,11 @@
 //! Pure ledger time rules (OP-6, OP-32, OP-42, OP-43, OP-44): ledger time is the last verified NTS
 //! sample of each source carried forward by the monotonic clock and combined by the shared
 //! `suiss-ledger` combiner; a Roughtime answer is never a sample, only a coarse bound that the
-//! majority of the servers answering a round must confirm.
+//! majority of the servers answering a round must confirm; and ledger time is cross-checked
+//! against the cosignature times of the counted witnesses with the shared check, at least half
+//! of a round finding ledger time ahead stopping commits until a round agrees (OP-32 item 3).
 
-use suiss_ledger::time::{TimeError, TrustedClock};
+use suiss_ledger::time::{TimeError, TrustedClock, UNCERTAINTY_MS, check_against_witness};
 
 /// Fewest NTS servers a configuration names (OP-32 item 4).
 pub const MIN_NTS_SERVERS: usize = suiss_ledger::time::MIN_SOURCES;
@@ -77,6 +79,49 @@ pub enum TimeFault {
     /// answered the last round (OP-42 item 1, OP-43 item 4).
     #[error("ledger time is outside the Roughtime bound")]
     OutsideRoughtime,
+    /// At least half of the counted witnesses of the last witness round cosigned before the
+    /// checkpoint's ledger time less U (OP-32 item 3).
+    #[error("ledger time is ahead of the witnesses")]
+    AheadOfWitness,
+}
+
+/// What the cosignature times of a witness round left in force (OP-32 item 3).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WitnessRound {
+    /// This many counted witnesses cosigned, and more than half of them not before the
+    /// checkpoint's ledger time less U.
+    Agreed(usize),
+    /// `ahead` of the `of` counted witnesses that cosigned, at least half, did so before the
+    /// checkpoint's ledger time less U; commits stop.
+    Ahead {
+        /// Cosignatures the checkpoint's ledger time is ahead of.
+        ahead: usize,
+        /// Cosignatures in the round.
+        of: usize,
+    },
+    /// No counted witness cosigned; the check is lifted until one does (as OP-43 item 1).
+    Unanswered,
+}
+
+/// The witness round of a checkpoint of ledger time `issued_ms` whose counted witnesses
+/// cosigned at `cosigned_seconds`: each time is held against the shared check that the log's
+/// time is not ahead of the witness's by more than U, and at least half of them failing, a tie
+/// of two included, puts ledger time ahead (OP-32 item 3, OP-43 item 4, OP-44 item 3).
+#[must_use]
+pub fn cosign_round(issued_ms: u64, cosigned_seconds: &[u64]) -> WitnessRound {
+    let of = cosigned_seconds.len();
+    if of == 0 {
+        return WitnessRound::Unanswered;
+    }
+    let ahead = cosigned_seconds
+        .iter()
+        .filter(|s| check_against_witness(issued_ms, **s, UNCERTAINTY_MS).is_err())
+        .count();
+    if ahead.saturating_mul(2) >= of {
+        WitnessRound::Ahead { ahead, of }
+    } else {
+        WitnessRound::Agreed(of)
+    }
 }
 
 /// What a Roughtime round left in force (OP-43 items 1, 4).
@@ -95,6 +140,7 @@ pub struct Discipline {
     combiner: TrustedClock,
     samples: Vec<Option<NtsSample>>,
     bound: Option<Vec<RoughtimeAnswer>>,
+    ahead_of_witness: bool,
 }
 
 impl Discipline {
@@ -105,6 +151,7 @@ impl Discipline {
             combiner: TrustedClock::default(),
             samples: vec![None; nts_sources],
             bound: None,
+            ahead_of_witness: false,
         }
     }
 
@@ -140,6 +187,17 @@ impl Discipline {
         self.bound.is_some()
     }
 
+    /// Puts the last witness round in force (OP-32 item 3).
+    pub const fn record_witness_round(&mut self, round: WitnessRound) {
+        self.ahead_of_witness = matches!(round, WitnessRound::Ahead { .. });
+    }
+
+    /// Whether the last witness round found ledger time ahead of the witnesses.
+    #[must_use]
+    pub const fn ahead_of_witness(&self) -> bool {
+        self.ahead_of_witness
+    }
+
     /// Ledger time in Unix milliseconds at monotonic time `mono_ms` (OP-32 item 1).
     ///
     /// # Errors
@@ -162,6 +220,9 @@ impl Discipline {
             && !majority_covers(answers, at, mono_ms)
         {
             return Err(TimeFault::OutsideRoughtime);
+        }
+        if self.ahead_of_witness {
+            return Err(TimeFault::AheadOfWitness);
         }
         Ok(at)
     }
@@ -322,5 +383,57 @@ mod tests {
         assert_eq!(d.record_round(Vec::new()), Round::Unanswered);
         assert!(!d.bounded());
         assert_eq!(d.now(30), Ok(T + 30));
+    }
+
+    // OP-32 OP-43 OP-44
+    #[test]
+    fn op_32_the_witness_round_holds_ledger_time_against_the_cosignature_times() {
+        let issued = T + 400;
+        let at = T / 1000;
+        assert_eq!(cosign_round(issued, &[]), WitnessRound::Unanswered);
+        assert_eq!(cosign_round(issued, &[at]), WitnessRound::Agreed(1));
+        assert_eq!(cosign_round(T + 1_249, &[at]), WitnessRound::Agreed(1));
+        assert_eq!(
+            cosign_round(T + 1_250, &[at]),
+            WitnessRound::Ahead { ahead: 1, of: 1 }
+        );
+        let early = at - 5;
+        assert_eq!(
+            cosign_round(issued, &[at, early]),
+            WitnessRound::Ahead { ahead: 1, of: 2 }
+        );
+        assert_eq!(
+            cosign_round(issued, &[at, at + 3, early]),
+            WitnessRound::Agreed(3)
+        );
+        assert_eq!(
+            cosign_round(issued, &[at, early, early]),
+            WitnessRound::Ahead { ahead: 2, of: 3 }
+        );
+    }
+
+    // OP-32 OP-6
+    #[test]
+    fn op_32_ledger_time_ahead_of_the_witnesses_stops_commits_until_a_round_agrees() {
+        let mut d = Discipline::new(2);
+        for source in [0, 1] {
+            d.record_sample(
+                source,
+                NtsSample {
+                    unix_ms: T,
+                    mono_ms: 0,
+                },
+            );
+        }
+        assert_eq!(d.now(0), Ok(T));
+        d.record_witness_round(WitnessRound::Ahead { ahead: 1, of: 1 });
+        assert!(d.ahead_of_witness());
+        assert_eq!(d.now(1), Err(TimeFault::AheadOfWitness));
+        d.record_witness_round(WitnessRound::Agreed(2));
+        assert_eq!(d.now(2), Ok(T + 2));
+        d.record_witness_round(WitnessRound::Ahead { ahead: 2, of: 2 });
+        d.record_witness_round(WitnessRound::Unanswered);
+        assert!(!d.ahead_of_witness());
+        assert_eq!(d.now(3), Ok(T + 3));
     }
 }
