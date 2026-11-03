@@ -169,9 +169,8 @@ export interface DerivationEntries {
   readonly entries: readonly DerivationEntry[];
 }
 
-/** Every input besides the records that the normative result depends on (P-31, T-6). */
+/** Every input besides the records that the normative result depends on, the ledger's activations as `[position, [major, minor]]` with the genesis first among them (P-31, P-110, T-6). */
 export interface DerivationInputs {
-  /** The ledger's activations as `[position, [major, minor]]`, the genesis first (P-110). */
   readonly activations: readonly (readonly [UintJson, readonly [number, number]])[];
   readonly profile: number;
   readonly practices: Readonly<Record<string, DigestJson>>;
