@@ -7,7 +7,8 @@ ARG SERVER_IMAGE=gcr.io/distroless/cc-debian13@sha256:e792ab3d241a468a4fd7519ddb
 FROM ${RUST_IMAGE} AS build
 WORKDIR /src
 ENV RUSTUP_TOOLCHAIN=1.99.0 \
-    CARGO_TERM_COLOR=never
+    CARGO_TERM_COLOR=never \
+    SQLX_OFFLINE=true
 COPY . .
 RUN cargo build --locked --package work-server --package work-signer \
  && install -D -m 0755 target/debug/work-server /out/work-server \

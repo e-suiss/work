@@ -7,6 +7,7 @@ FROM ${RUST_IMAGE} AS chef
 WORKDIR /src
 ENV RUSTUP_TOOLCHAIN=1.99.0 \
     CARGO_TERM_COLOR=never \
+    SQLX_OFFLINE=true \
     RUSTFLAGS="--remap-path-prefix=/src=/work --remap-path-prefix=/usr/local/cargo=/cargo"
 RUN cargo install --locked cargo-chef --version 0.1.78
 

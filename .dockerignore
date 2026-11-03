@@ -8,6 +8,7 @@
 !bins
 !sdks
 !xtask
+!.sqlx
 !deploy/compose/work/signer-entrypoint.sh
 **/target
 **/node_modules

@@ -309,3 +309,35 @@ cddl:
     done < "$dir/cbor/manifest"
     [ "$bad" = 0 ] && echo "CDDL: $(wc -l < "$dir/cbor/manifest" | tr -d ' ') vectors match their cddl expectation"
     exit "$bad"
+
+sqlx_db_port := "5499"
+sqlx_db_url := "postgres://postgres:" + dev_db_password + "@127.0.0.1:" + sqlx_db_port + "/work"
+
+# T-36
+sqlx-db:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    image="$(sed -n 's/^ *image: \(postgres@sha256:[0-9a-f]*\).*$/\1/p' deploy/compose/compose.yaml)"
+    [ -n "$image" ] || { echo "no postgres pin in deploy/compose/compose.yaml" >&2; exit 1; }
+    docker rm --force work-sqlx > /dev/null 2>&1 || true
+    docker run --detach --name work-sqlx --env POSTGRES_PASSWORD={{dev_db_password}} \
+      --publish 127.0.0.1:{{sqlx_db_port}}:5432 "$image" > /dev/null
+    ready() { docker exec work-sqlx pg_isready -h 127.0.0.1 -U postgres -d postgres > /dev/null 2>&1; }
+    for _ in $(seq 120); do ready && break; sleep 1; done
+    ready || { docker logs work-sqlx >&2; exit 1; }
+    run() { docker exec -i work-sqlx psql -X -q -v ON_ERROR_STOP=1 -U postgres "$@"; }
+    run -d postgres -f - < crates/store/bootstrap/roles.sql
+    run -d postgres -f - < crates/store/bootstrap/databases.sql
+    run -d work -f - < crates/store/bootstrap/canonical.sql
+    for f in crates/store/migrations/{foundation,canonical,derived}/*.sql; do
+      run -1 -d work -f - < "$f"
+    done
+    echo "query database ready: every migration of both clusters in the one database work"
+
+# T-36
+sqlx-prepare:
+    DATABASE_URL={{sqlx_db_url}} cargo sqlx prepare --workspace -- --locked --package work-store
+
+# T-36
+sqlx-check:
+    DATABASE_URL={{sqlx_db_url}} cargo sqlx prepare --workspace --check -- --locked --package work-store
