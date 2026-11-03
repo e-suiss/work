@@ -77,7 +77,9 @@ pub fn tls_trusting(pem: &[u8]) -> Result<Arc<ClientConfig>, S3Error> {
             .map_err(|e| S3Error::Failed(format!("certificate: {e}")))?;
     }
     if roots.is_empty() {
-        return Err(S3Error::Failed("the PEM holds zero certificates".to_owned()));
+        return Err(S3Error::Failed(
+            "the PEM holds zero certificates".to_owned(),
+        ));
     }
     let provider = Arc::new(tokio_rustls::rustls::crypto::aws_lc_rs::default_provider());
     let config = ClientConfig::builder_with_provider(provider)
