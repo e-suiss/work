@@ -4387,6 +4387,20 @@ title = ""
 tests = []
 
 [[rule]]
+id = "PR-23"
+family = "PR"
+status = "frozen-technical"
+acceptance = "filled"
+pd = "set"
+title = ""
+tests = [
+  "crates/query/src/domain/restriction.rs::pr_23_a_rule_set_over_64_policies_is_refused_at_adoption",
+  "crates/query/src/domain/restriction.rs::pr_23_a_transition_over_16_rule_sets_is_deny",
+  "crates/query/src/domain/restriction.rs::pr_23_input_rejected_is_deny_with_an_attention_signal",
+  "crates/query/src/domain/restriction.rs::pr_23_limits_are_the_access_defaults",
+]
+
+[[rule]]
 id = "T-1"
 family = "T"
 status = "central-decision"
