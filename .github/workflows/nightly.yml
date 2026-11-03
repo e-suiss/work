@@ -53,10 +53,12 @@ jobs:
       - name: Cooldown (T-60)
         env:
           XTASK_ONLINE: "1"
+          GITHUB_TOKEN: ${{ github.token }}
         run: cargo xtask check cooldown
       - name: Maintainer watch list (T-38)
         env:
           XTASK_ONLINE: "1"
+          GITHUB_TOKEN: ${{ github.token }}
         run: cargo xtask check maintainer-watchlist
 
   test-full:

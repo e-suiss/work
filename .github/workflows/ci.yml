@@ -49,6 +49,7 @@ jobs:
       - name: Repository rules (T-31, T-36, T-46, T-52, T-60)
         env:
           XTASK_ONLINE: "1"
+          GITHUB_TOKEN: ${{ github.token }}
           CATALOG_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
           if [[ -z "$CATALOG_BASE" || "$CATALOG_BASE" =~ ^0+$ ]]; then

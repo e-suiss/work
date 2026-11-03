@@ -152,18 +152,15 @@ fn save_cache(path: &Path, cache: &BTreeMap<String, String>) -> Result<(), Strin
 }
 
 fn get_json(url: &str) -> Result<Value, String> {
-    let output = Command::new("curl")
-        .args([
-            "-sSf",
-            "--compressed",
-            "--max-time",
-            "60",
-            "-A",
-            USER_AGENT,
-            url,
-        ])
-        .output()
-        .map_err(|e| format!("curl: {e}"))?;
+    let mut curl = Command::new("curl");
+    curl.args(["-sSf", "--compressed", "--max-time", "60", "-A", USER_AGENT]);
+    if url.starts_with(GITHUB_API)
+        && let Ok(token) = std::env::var("GITHUB_TOKEN")
+        && !token.is_empty()
+    {
+        curl.arg("--oauth2-bearer").arg(token);
+    }
+    let output = curl.arg(url).output().map_err(|e| format!("curl: {e}"))?;
     if !output.status.success() {
         return Err(format!(
             "{url}: {}",
