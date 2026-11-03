@@ -334,6 +334,15 @@ export interface EvidenceStatement {
 /** An inclusion proof against a verified checkpoint's tree (P-108). */
 export type CheckpointInclusion = Pick<InclusionProof, "position" | "leaf" | "path">;
 
+/** The decoding of `SignedRecord` bytes (P-5, P-87). */
+export type DecodedRecordAnswer = Accepted<{ decoded: DecodedRecord }> | Rejected | UnknownProtocol;
+
+/** The verification of a checkpoint note (T-88, OP-46). */
+export type CheckpointAnswer = Accepted<VerifiedCheckpoint> | Rejected<string>;
+
+/** The items a record's bytes touch (T-89). */
+export type TouchedAnswer = Accepted<Touches> | Rejected | UnknownProtocol;
+
 /** Input the kernel bindings could not map, or a ledger order the kernel refuses; never a decision about a record. */
 export class KernelInputError extends Error {
   readonly code: string;
@@ -351,9 +360,7 @@ export class KernelInputError extends Error {
 /** The kernel's record decoding, digest, signature, ledger entry, proof, checkpoint and touched item functions over bytes as received (T-5, T-10, T-88, T-89, X-24). */
 export interface Verifier {
   readonly validateRecordCbor: (record: Uint8Array, context: RecordContext) => Validation;
-  readonly decodeRecord: (
-    record: Uint8Array,
-  ) => Accepted<{ decoded: DecodedRecord }> | Rejected | UnknownProtocol;
+  readonly decodeRecord: (record: Uint8Array) => DecodedRecordAnswer;
   readonly decodeEnvelope: (envelope: Uint8Array) => Accepted<{ decoded: JsonObject }> | Rejected;
   readonly checkCbor: (bytes: Uint8Array, tags: readonly number[]) => Accepted | Rejected;
   readonly parseCoseContainer: (bytes: Uint8Array) => Accepted | Rejected;
@@ -395,9 +402,7 @@ export interface Verifier {
   readonly merkleRoot: (envelopes: readonly Uint8Array[]) => DigestAnswer;
   readonly verifyInclusion: (proof: InclusionProof) => Accepted | Rejected<ProofCode>;
   readonly verifyConsistency: (proof: ConsistencyProof) => Accepted | Rejected<ProofCode>;
-  readonly verifyCheckpoint: (
-    checkpoint: CheckpointNote,
-  ) => Accepted<VerifiedCheckpoint> | Rejected<string>;
+  readonly verifyCheckpoint: (checkpoint: CheckpointNote) => CheckpointAnswer;
   readonly checkpointIncludes: (
     checkpoint: CheckpointNote,
     inclusion: CheckpointInclusion,
@@ -407,7 +412,7 @@ export interface Verifier {
     newer: CheckpointNote,
     path: readonly DigestJson[],
   ) => Accepted | Rejected<string>;
-  readonly touched: (record: Uint8Array) => Accepted<Touches> | Rejected | UnknownProtocol;
+  readonly touched: (record: Uint8Array) => TouchedAnswer;
 }
 
 export interface Kernel extends Verifier {
@@ -525,10 +530,12 @@ function i32(value: number, name: string): number {
   return value;
 }
 
-type Answer<Name extends keyof Verifier> = ReturnType<Verifier[Name]>;
+function answer<T extends object>(text: string): T {
+  return unwrap(JSON.parse(text) as T | InputError);
+}
 
-function answer(text: string): object {
-  return unwrap(JSON.parse(text) as object);
+function j(value: unknown): string {
+  return JSON.stringify(value);
 }
 
 function hex(bytes: Uint8Array): string {
@@ -536,63 +543,37 @@ function hex(bytes: Uint8Array): string {
 }
 
 const verifier: Verifier = {
-  validateRecordCbor: (record, context) =>
-    answer(wasm.validateRecordCbor(record, JSON.stringify(context))) as Validation,
-  decodeRecord: (record) => answer(wasm.decodeRecord(record)) as Answer<"decodeRecord">,
-  decodeEnvelope: (envelope) => answer(wasm.decodeEnvelope(envelope)) as Answer<"decodeEnvelope">,
-  checkCbor: (bytes, tags) =>
-    answer(wasm.checkCbor(bytes, JSON.stringify(tags))) as Answer<"checkCbor">,
-  parseCoseContainer: (bytes) =>
-    answer(wasm.parseCoseContainer(bytes)) as Answer<"parseCoseContainer">,
-  decodeDigest: (bytes) => answer(wasm.decodeDigest(bytes)) as Answer<"decodeDigest">,
-  recordId: (record) => answer(wasm.recordId(record)) as DigestAnswer,
-  ledgerId: (genesis) => answer(wasm.ledgerId(genesis)) as DigestAnswer,
-  leafHash: (envelope) => answer(wasm.leafHash(envelope)) as DigestAnswer,
-  proofCommit: (coseSign1) => answer(wasm.proofCommit(coseSign1)) as DigestAnswer,
+  validateRecordCbor: (record, context) => answer(wasm.validateRecordCbor(record, j(context))),
+  decodeRecord: (record) => answer(wasm.decodeRecord(record)),
+  decodeEnvelope: (envelope) => answer(wasm.decodeEnvelope(envelope)),
+  checkCbor: (bytes, tags) => answer(wasm.checkCbor(bytes, j(tags))),
+  parseCoseContainer: (bytes) => answer(wasm.parseCoseContainer(bytes)),
+  decodeDigest: (bytes) => answer(wasm.decodeDigest(bytes)),
+  recordId: (record) => answer(wasm.recordId(record)),
+  ledgerId: (genesis) => answer(wasm.ledgerId(genesis)),
+  leafHash: (envelope) => answer(wasm.leafHash(envelope)),
+  proofCommit: (coseSign1) => answer(wasm.proofCommit(coseSign1)),
   bodyCommitment: (salt, name, mediaType, content) =>
-    answer(wasm.bodyCommitment(salt, name, mediaType, content)) as Answer<"bodyCommitment">,
-  checkPublicKey: (alg, publicKey) =>
-    answer(wasm.checkPublicKey(i32(alg, "alg"), publicKey)) as Answer<"checkPublicKey">,
+    answer(wasm.bodyCommitment(salt, name, mediaType, content)),
+  checkPublicKey: (alg, publicKey) => answer(wasm.checkPublicKey(i32(alg, "alg"), publicKey)),
   verifyRecordSignature: (coseSign1, authorKeys) =>
-    answer(
-      wasm.verifyRecordSignature(coseSign1, JSON.stringify(authorKeys)),
-    ) as Answer<"verifyRecordSignature">,
-  evidenceStatement: (record, index) =>
-    answer(wasm.evidenceStatement(record, u32(index, "index"))) as Answer<"evidenceStatement">,
-  verifyEvidenceSignature: (record, index, coseSign1, presenterKeys) =>
-    answer(
-      wasm.verifyEvidenceSignature(
-        record,
-        u32(index, "index"),
-        coseSign1,
-        JSON.stringify(presenterKeys),
-      ),
-    ) as Answer<"verifyEvidenceSignature">,
-  genesisChainPoint: (genesis) =>
-    answer(wasm.genesisChainPoint(genesis)) as Answer<"genesisChainPoint">,
-  verifyEntry: (at, envelope, record, coseSign1, authorKeys) =>
-    answer(
-      wasm.verifyEntry(JSON.stringify(at), envelope, record, coseSign1, JSON.stringify(authorKeys)),
-    ) as Answer<"verifyEntry">,
-  merkleNodeHash: (left, right) =>
-    answer(wasm.merkleNodeHash(JSON.stringify(left), JSON.stringify(right))) as DigestAnswer,
-  merkleRoot: (envelopes) =>
-    answer(wasm.merkleRoot(JSON.stringify(envelopes.map(hex)))) as DigestAnswer,
-  verifyInclusion: (proof) =>
-    answer(wasm.verifyInclusion(JSON.stringify(proof))) as Answer<"verifyInclusion">,
-  verifyConsistency: (proof) =>
-    answer(wasm.verifyConsistency(JSON.stringify(proof))) as Answer<"verifyConsistency">,
-  verifyCheckpoint: (checkpoint) =>
-    answer(wasm.verifyCheckpoint(JSON.stringify(checkpoint))) as Answer<"verifyCheckpoint">,
+    answer(wasm.verifyRecordSignature(coseSign1, j(authorKeys))),
+  evidenceStatement: (record, index) => answer(wasm.evidenceStatement(record, u32(index, "index"))),
+  verifyEvidenceSignature: (record, index, coseSign1, keys) =>
+    answer(wasm.verifyEvidenceSignature(record, u32(index, "index"), coseSign1, j(keys))),
+  genesisChainPoint: (genesis) => answer(wasm.genesisChainPoint(genesis)),
+  verifyEntry: (at, envelope, record, coseSign1, keys) =>
+    answer(wasm.verifyEntry(j(at), envelope, record, coseSign1, j(keys))),
+  merkleNodeHash: (left, right) => answer(wasm.merkleNodeHash(j(left), j(right))),
+  merkleRoot: (envelopes) => answer(wasm.merkleRoot(j(envelopes.map(hex)))),
+  verifyInclusion: (proof) => answer(wasm.verifyInclusion(j(proof))),
+  verifyConsistency: (proof) => answer(wasm.verifyConsistency(j(proof))),
+  verifyCheckpoint: (checkpoint) => answer(wasm.verifyCheckpoint(j(checkpoint))),
   checkpointIncludes: (checkpoint, inclusion) =>
-    answer(
-      wasm.checkpointIncludes(JSON.stringify(checkpoint), JSON.stringify(inclusion)),
-    ) as Answer<"checkpointIncludes">,
+    answer(wasm.checkpointIncludes(j(checkpoint), j(inclusion))),
   checkpointExtendsTo: (older, newer, path) =>
-    answer(
-      wasm.checkpointExtendsTo(JSON.stringify(older), JSON.stringify(newer), JSON.stringify(path)),
-    ) as Answer<"checkpointExtendsTo">,
-  touched: (record) => answer(wasm.touched(record)) as Answer<"touched">,
+    answer(wasm.checkpointExtendsTo(j(older), j(newer), j(path))),
+  touched: (record) => answer(wasm.touched(record)),
 };
 
 let loading: Promise<Kernel> | undefined;

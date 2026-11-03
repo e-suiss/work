@@ -307,8 +307,7 @@ function digestChecks(kernel: Kernel, raw: typeof Raw, vectors: ByteVectors): Ch
   for (const v of vectors.digest.cases) {
     if (v.encoded_digest_hex !== undefined) {
       const input = bytes(v.encoded_digest_hex);
-      const want =
-        v.digest_hex !== undefined ? accept(found(v.digest_hex)) : need(v.expect, "expect");
+      const want = v.digest_hex === undefined ? v.expect : accept(found(v.digest_hex));
       c.same(v.id, raw.decodeDigest(input), kernel.decodeDigest(input), want);
     } else if (v.part !== undefined) {
       const salt = bytes(need(v.salt_hex, "salt"));
