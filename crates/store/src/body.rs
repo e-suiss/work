@@ -246,8 +246,8 @@ pub enum ErasureState {
     /// An active retention hold refuses the key removal; the request waits for its release
     /// (Access OP-74).
     WaitingOnHold,
-    /// The key is gone; the erasure is completed only once every DEK cache lifetime and the
-    /// backup window have passed, at `settles_at_ms`.
+    /// The key is gone; the erasure may be reported completed only once every DEK cache
+    /// lifetime and the backup window have passed, at `settles_at_ms`.
     Shredded {
         /// When the erasure may be reported completed.
         settles_at_ms: i64,
