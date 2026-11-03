@@ -1375,7 +1375,9 @@ family = "FD"
 status = "canonical-invariant"
 stage = 12
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/derivation.rs::p_111_a_redaction_without_its_target_or_part_has_no_effect",
+]
 
 [[rule]]
 id = "SEC-1"
@@ -1767,6 +1769,7 @@ title = ""
 tests = [
   "crates/kernel/tests/derivation.rs::inv_4_retroactive_declaration_is_rejected",
   "crates/kernel/tests/derivation.rs::inv_9_claims_and_acts_superseding_their_own_kind_form_lineage_only",
+  "crates/kernel/tests/derivation.rs::p_111_a_declaration_superseding_a_redaction_restores_nothing",
   "crates/kernel/tests/derivation.rs::p_24_cross_kind_supersession_is_rejected",
   "crates/kernel/tests/derivation.rs::p_24_rejected_records_are_never_marked_superseded",
   "crates/kernel/tests/derivation.rs::p_24_superseded_by_lists_each_superseding_record_once",
@@ -2041,6 +2044,7 @@ stage = 1
 title = ""
 tests = [
   "crates/kernel/tests/derivation.rs::inv_7_same_inputs_give_the_same_result",
+  "crates/kernel/tests/derivation.rs::p_110_the_fold_steps_over_an_activation_position",
   "crates/kernel/tests/derivation.rs::p_27_ledger_time_input_decides_pending_effect",
   "crates/kernel/tests/derivation.rs::t_6_compare_matches_records_by_identifier",
   "crates/kernel/tests/derivation.rs::t_6_different_trust_inputs_diverge_explicitly",

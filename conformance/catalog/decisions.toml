@@ -3067,6 +3067,7 @@ title = ""
 tests = [
   "crates/kernel/src/envelope.rs::p_11_ingest_is_one_of_the_three_forms",
   "crates/kernel/src/reason.rs::p_11_every_reason_round_trips_through_its_wire_string",
+  "crates/kernel/tests/activation_vectors.rs::p_110_activation_envelopes_decode_by_their_key_above_position_0",
   "crates/kernel/tests/codec_vectors.rs::p_100_envelope_vectors_decode_and_chain_from_the_genesis",
   "crates/kernel/tests/codec_vectors.rs::p_100_genesis_vectors_select_the_schema_by_position",
   "crates/kernel/tests/derivation.rs::p_11_ledger_order_violations_are_errors",
@@ -3139,7 +3140,7 @@ acceptance = "to-fill"
 title = ""
 tests = [
   "crates/kernel/src/envelope.rs::p_11_ingest_is_one_of_the_three_forms",
-  "crates/kernel/src/reason.rs::p_19_quarantine_reasons_are_exactly_the_two_that_never_reject",
+  "crates/kernel/src/reason.rs::p_19_quarantine_reasons_are_exactly_the_three_that_never_reject",
   "crates/kernel/tests/derivation.rs::p_19_quarantined_record_has_no_effect",
   "crates/kernel/tests/derivation.rs::t_4_p_87_unknown_protocol_version_is_quarantined_in_derivation",
   "crates/kernel/tests/items.rs::t_89_every_golden_record_touches_the_works_it_concerns",
@@ -3164,6 +3165,7 @@ title = ""
 tests = [
   "crates/kernel/src/envelope.rs::p_21_auth_context_assurance_is_one_to_64_bytes",
   "crates/kernel/src/verify.rs::p_21_only_humans_with_auth_context_may_be_unsigned",
+  "crates/kernel/tests/activation_vectors.rs::p_110_activation_envelopes_decode_by_their_key_above_position_0",
   "crates/kernel/tests/codec_vectors.rs::p_100_envelope_vectors_decode_and_chain_from_the_genesis",
   "crates/kernel/tests/cose.rs::p_105_a_record_whose_author_is_not_the_key_owner_is_kid_unknown",
   "crates/kernel/tests/cose.rs::p_8_the_shared_verifier_fills_the_signature_port_and_names_the_record_by_its_payload",
@@ -3183,6 +3185,7 @@ stage = 2
 acceptance = "to-fill"
 title = ""
 tests = [
+  "crates/kernel/tests/derivation.rs::p_111_a_redaction_of_parts_an_earlier_record_commits_takes_effect",
   "crates/store/src/body.rs::op_45_erasure_causes_round_trip_their_stored_names",
 ]
 
@@ -3720,6 +3723,7 @@ tests = [
   "crates/kernel/tests/cose.rs::p_6_ed25519_record_signature_verifies_over_the_signed_record_bytes",
   "crates/kernel/tests/cose.rs::p_6_two_containers_of_one_record_name_one_record",
   "crates/kernel/tests/cose.rs::p_8_the_shared_verifier_fills_the_signature_port_and_names_the_record_by_its_payload",
+  "crates/kernel/tests/derivation.rs::p_111_a_redaction_of_parts_an_earlier_record_commits_takes_effect",
   "crates/kernel/tests/ledger_vectors.rs::t_10_an_entry_that_does_not_match_its_bytes_is_an_envelope_mismatch",
   "crates/kernel/tests/ledger_vectors.rs::t_10_the_verifier_recomputes_every_record_id_from_the_stored_bytes",
   "crates/kernel/tests/signature_vectors.rs::p_6_the_container_is_not_semantic",
@@ -3847,9 +3851,13 @@ class = "BS"
 acceptance = "filled"
 title = ""
 tests = [
-  "crates/kernel/src/reason.rs::p_19_quarantine_reasons_are_exactly_the_two_that_never_reject",
+  "crates/kernel/src/activation.rs::p_110_the_active_version_of_a_position_is_the_last_earlier_activation",
+  "crates/kernel/src/derive.rs::p_110_a_declaration_of_a_newer_version_takes_effect_only_after_its_activation",
+  "crates/kernel/src/reason.rs::p_19_quarantine_reasons_are_exactly_the_three_that_never_reject",
   "crates/kernel/src/rules.rs::p_87_rule_set_is_decided_from_the_version_alone",
   "crates/kernel/src/rules.rs::t_4_rule_sets_are_ordered_and_unique_by_protocol_version",
+  "crates/kernel/tests/activation_vectors.rs::p_110_activation_sequences_through_the_kernel",
+  "crates/kernel/tests/derivation.rs::p_110_the_active_version_is_read_at_each_record_s_position",
   "crates/kernel/tests/derivation.rs::t_4_p_87_older_record_keeps_its_own_rules_under_a_newer_active_protocol",
   "crates/kernel/tests/derivation.rs::t_4_p_87_record_newer_than_the_active_protocol_has_no_effect",
   "crates/kernel/tests/derivation.rs::t_4_p_87_unknown_protocol_version_is_quarantined_in_derivation",
@@ -3935,6 +3943,7 @@ stage = 1
 acceptance = "to-fill"
 title = ""
 tests = [
+  "crates/kernel/src/reason.rs::p_95_secret_detected_precedes_the_unknown_version_and_the_unknown_extension",
   "crates/kernel/tests/cose.rs::p_106_an_unknown_protocol_record_is_valid_without_reading_its_author",
 ]
 
@@ -3948,6 +3957,9 @@ title = ""
 tests = [
   "bins/work-server/tests/parser.rs::t_72_sec_35_the_parser_worker_scans_only_inside_its_lockdown",
   "bins/work-server/tests/parser.rs::t_94_sec_35_a_pool_of_locked_workers_gives_the_scan_verdict",
+  "crates/kernel/src/envelope.rs::p_95_a_quarantined_secret_detected_ingest_decodes",
+  "crates/kernel/src/reason.rs::p_19_quarantine_reasons_are_exactly_the_three_that_never_reject",
+  "crates/kernel/src/reason.rs::p_95_secret_detected_precedes_the_unknown_version_and_the_unknown_extension",
   "crates/parse/src/secret/tests.rs::p_95_detection_rejects_on_the_api_path_and_quarantines_otherwise",
   "crates/parse/src/secret/tests.rs::p_95_the_outcome_carries_only_the_rule_id_and_the_part_name",
   "crates/parse/src/worker/tests.rs::sec_35_p_95_the_in_process_scan_answers_as_a_worker_does",
@@ -4010,8 +4022,12 @@ stage = 2
 acceptance = "to-fill"
 title = ""
 tests = [
+  "crates/kernel/src/activation.rs::p_110_activations_rise_from_the_genesis_with_their_own_schema",
   "crates/kernel/src/codec/mod.rs::p_79_record_id_ledger_id_and_proof_commit_are_unprefixed_sha_256",
   "crates/kernel/src/envelope.rs::p_100_closed_maps_report_the_first_key_out_of_place",
+  "crates/kernel/src/envelope.rs::p_110_the_activation_key_selects_the_activation_envelope_above_position_0",
+  "crates/kernel/src/rules.rs::p_110_the_1_0_schema_is_the_digest_of_the_normative_cddl",
+  "crates/kernel/tests/activation_vectors.rs::p_110_activation_envelopes_decode_by_their_key_above_position_0",
   "crates/kernel/tests/codec_vectors.rs::p_100_envelope_vectors_decode_and_chain_from_the_genesis",
   "crates/kernel/tests/codec_vectors.rs::p_100_genesis_vectors_select_the_schema_by_position",
   "crates/kernel/tests/codec_vectors.rs::p_100_ledger_id_is_the_unprefixed_genesis_digest_named_by_every_envelope",
@@ -4023,9 +4039,11 @@ tests = [
   "crates/ledger/src/genesis.rs::p_100_every_new_ledger_takes_a_fresh_nonce_from_the_rng_port",
   "crates/ledger/src/genesis.rs::p_100_genesis_matches_the_golden_vector",
   "sdks/bindings/core/tests/bytes.rs::p_100_genesis_envelope_and_record_bytes_decode_through_bindings_core",
+  "sdks/bindings/core/tests/bytes.rs::p_110_activation_vectors_through_bindings_core",
   "sdks/bindings/core/tests/bytes.rs::t_10_stored_entries_verify_from_their_bytes_through_bindings_core",
   "sdks/bindings/core/tests/bytes.rs::t_4_merkle_vectors_through_bindings_core",
   "sdks/bindings/uniffi/tests/swift/main.swift::p_100_swift_genesis_envelope_and_record_bytes_match",
+  "sdks/bindings/uniffi/tests/swift/main.swift::p_110_swift_activation_vectors_match",
   "sdks/bindings/uniffi/tests/swift/main.swift::t_10_swift_stored_entries_verify_from_their_bytes",
   "sdks/bindings/uniffi/tests/swift/main.swift::t_4_swift_merkle_and_checkpoint_vectors_match",
 ]
@@ -4157,13 +4175,16 @@ stage = 1
 acceptance = "to-fill"
 title = ""
 tests = [
+  "crates/kernel/tests/activation_vectors.rs::p_110_a_stored_activation_verifies_after_the_genesis_without_a_record_step",
   "crates/kernel/tests/ledger_vectors.rs::p_101_merkle_node_and_root_vectors_through_the_shared_crate",
   "crates/kernel/tests/ledger_vectors.rs::t_10_an_entry_that_does_not_match_its_bytes_is_an_envelope_mismatch",
   "crates/kernel/tests/ledger_vectors.rs::t_10_the_verifier_recomputes_every_record_id_from_the_stored_bytes",
   "crates/kernel/tests/ledger_vectors.rs::t_4_every_entry_is_included_in_the_cosigned_checkpoint",
   "crates/ledger/src/admit/tests.rs::p_21_an_unsigned_record_of_an_unknown_protocol_is_refused",
+  "sdks/bindings/core/tests/bytes.rs::p_110_activation_vectors_through_bindings_core",
   "sdks/bindings/core/tests/bytes.rs::t_10_stored_entries_verify_from_their_bytes_through_bindings_core",
   "sdks/bindings/core/tests/bytes.rs::t_88_checkpoint_vectors_through_bindings_core",
+  "sdks/bindings/uniffi/tests/swift/main.swift::p_110_swift_activation_vectors_match",
   "sdks/bindings/uniffi/tests/swift/main.swift::t_10_swift_stored_entries_verify_from_their_bytes",
   "sdks/bindings/uniffi/tests/swift/main.swift::t_4_swift_merkle_and_checkpoint_vectors_match",
 ]
@@ -4177,6 +4198,45 @@ acceptance = "to-fill"
 title = ""
 tests = [
   "crates/kernel/tests/ledger_vectors.rs::p_109_no_record_of_the_golden_ledger_repeats_another",
+]
+
+[[rule]]
+id = "P-110"
+family = "P"
+status = "frozen-protocol"
+stage = 2
+acceptance = "to-fill"
+title = ""
+tests = [
+  "crates/kernel/src/activation.rs::p_110_a_version_that_does_not_rise_or_a_wrong_schema_breaks_the_sequence",
+  "crates/kernel/src/activation.rs::p_110_activations_rise_from_the_genesis_with_their_own_schema",
+  "crates/kernel/src/activation.rs::p_110_the_active_version_of_a_position_is_the_last_earlier_activation",
+  "crates/kernel/src/derive.rs::p_110_a_declaration_of_a_newer_version_takes_effect_only_after_its_activation",
+  "crates/kernel/src/envelope.rs::p_110_the_activation_key_selects_the_activation_envelope_above_position_0",
+  "crates/kernel/src/rules.rs::p_110_the_1_0_schema_is_the_digest_of_the_normative_cddl",
+  "crates/kernel/tests/activation_vectors.rs::p_110_a_stored_activation_verifies_after_the_genesis_without_a_record_step",
+  "crates/kernel/tests/activation_vectors.rs::p_110_activation_envelopes_decode_by_their_key_above_position_0",
+  "crates/kernel/tests/activation_vectors.rs::p_110_activation_sequences_through_the_kernel",
+  "crates/kernel/tests/derivation.rs::p_110_the_active_version_is_read_at_each_record_s_position",
+  "crates/kernel/tests/derivation.rs::p_110_the_fold_steps_over_an_activation_position",
+  "crates/ledger/src/leader.rs::p_110_an_activation_is_written_alone_only_when_newer_supported_and_of_its_schema",
+  "crates/ledger/src/node.rs::op_28_a_node_leads_only_a_ledger_whose_activated_versions_it_supports",
+  "sdks/bindings/core/tests/bytes.rs::p_110_activation_vectors_through_bindings_core",
+  "sdks/bindings/uniffi/tests/swift/main.swift::p_110_swift_activation_vectors_match",
+]
+
+[[rule]]
+id = "P-111"
+family = "P"
+status = "frozen-protocol"
+stage = 2
+acceptance = "to-fill"
+title = ""
+tests = [
+  "crates/kernel/src/catalog.rs::p_71_core_declaration_catalog_is_closed",
+  "crates/kernel/tests/derivation.rs::p_111_a_declaration_superseding_a_redaction_restores_nothing",
+  "crates/kernel/tests/derivation.rs::p_111_a_redaction_of_parts_an_earlier_record_commits_takes_effect",
+  "crates/kernel/tests/derivation.rs::p_111_a_redaction_without_its_target_or_part_has_no_effect",
 ]
 
 [[rule]]
@@ -4352,6 +4412,7 @@ title = ""
 tests = [
   "bins/work-signer/tests/signer.rs::t_72_the_signer_serves_only_inside_its_lockdown",
   "bins/work-signer/tests/signer.rs::t_7_the_signer_signs_checkpoints_of_its_ledgers_only",
+  "crates/kernel/tests/activation_vectors.rs::p_110_a_stored_activation_verifies_after_the_genesis_without_a_record_step",
   "crates/kernel/tests/ledger_vectors.rs::ev_35_a_stored_presenter_annotation_must_match_the_record_evidence",
   "crates/kernel/tests/ledger_vectors.rs::t_10_an_entry_that_does_not_match_its_bytes_is_an_envelope_mismatch",
   "crates/kernel/tests/ledger_vectors.rs::t_10_the_verifier_recomputes_every_record_id_from_the_stored_bytes",
@@ -4684,6 +4745,7 @@ tests = [
   "packages/kernel/src/vectors.test.ts::t_5_t_37 WebAssembly kernel matches the shared vectors",
   "sdks/bindings/core/tests/bytes.rs::ev_3_evidence_vectors_through_bindings_core",
   "sdks/bindings/core/tests/bytes.rs::p_100_genesis_envelope_and_record_bytes_decode_through_bindings_core",
+  "sdks/bindings/core/tests/bytes.rs::p_110_activation_vectors_through_bindings_core",
   "sdks/bindings/core/tests/bytes.rs::p_32_cose_sign1_and_key_vectors_through_bindings_core",
   "sdks/bindings/core/tests/bytes.rs::p_5_cbor_canonical_vectors_through_bindings_core",
   "sdks/bindings/core/tests/bytes.rs::p_79_digest_vectors_through_bindings_core",
@@ -4701,6 +4763,7 @@ tests = [
   "sdks/bindings/core/tests/vectors.rs::t_5_t_37_inv_7_native_record_vectors_through_bindings_core",
   "sdks/bindings/core/tests/vectors.rs::t_69_cbor_entry_point_answers_like_the_json_projection",
   "sdks/bindings/uniffi/tests/swift/main.swift::p_100_swift_genesis_envelope_and_record_bytes_match",
+  "sdks/bindings/uniffi/tests/swift/main.swift::p_110_swift_activation_vectors_match",
   "sdks/bindings/uniffi/tests/swift/main.swift::p_32_swift_signature_and_evidence_vectors_match",
   "sdks/bindings/uniffi/tests/swift/main.swift::p_49_p_51_swift_mapping_vectors_match",
   "sdks/bindings/uniffi/tests/swift/main.swift::p_5_swift_cbor_canonical_vectors_match",
@@ -5426,6 +5489,7 @@ acceptance = "to-fill"
 title = ""
 tests = [
   "bins/work-server/src/config.rs::op_9_the_node_leads_in_the_configured_cell_under_a_ten_second_lease",
+  "crates/ledger/src/leader.rs::p_110_an_activation_is_written_alone_only_when_newer_supported_and_of_its_schema",
   "crates/ledger/src/leader.rs::t_28_a_leader_whose_lease_is_lost_commits_nothing",
   "crates/ledger/src/node.rs::t_85_a_node_draws_its_holder_once_and_keeps_its_lease_in_range",
 ]
@@ -5620,6 +5684,7 @@ tests = [
   "packages/kernel/src/bytes.test.ts::t_5_t_37_inv_7 WebAssembly byte entry points match their vectors",
   "sdks/bindings/core/tests/bytes.rs::ev_3_evidence_vectors_through_bindings_core",
   "sdks/bindings/core/tests/bytes.rs::p_100_genesis_envelope_and_record_bytes_decode_through_bindings_core",
+  "sdks/bindings/core/tests/bytes.rs::p_110_activation_vectors_through_bindings_core",
   "sdks/bindings/core/tests/bytes.rs::p_32_cose_sign1_and_key_vectors_through_bindings_core",
   "sdks/bindings/core/tests/bytes.rs::p_5_cbor_canonical_vectors_through_bindings_core",
   "sdks/bindings/core/tests/bytes.rs::p_79_digest_vectors_through_bindings_core",
@@ -5630,6 +5695,7 @@ tests = [
   "sdks/bindings/core/tests/bytes.rs::t_89_touched_item_vectors_through_bindings_core",
   "sdks/bindings/core/tests/vectors.rs::t_10_derivation_takes_record_ids_from_the_stored_bytes_through_bindings_core",
   "sdks/bindings/uniffi/tests/swift/main.swift::p_100_swift_genesis_envelope_and_record_bytes_match",
+  "sdks/bindings/uniffi/tests/swift/main.swift::p_110_swift_activation_vectors_match",
   "sdks/bindings/uniffi/tests/swift/main.swift::p_32_swift_signature_and_evidence_vectors_match",
   "sdks/bindings/uniffi/tests/swift/main.swift::p_5_swift_cbor_canonical_vectors_match",
   "sdks/bindings/uniffi/tests/swift/main.swift::p_79_swift_digest_vectors_match",
@@ -5812,7 +5878,12 @@ stage = 1
 acceptance = "to-fill"
 title = ""
 tests = [
+  "crates/kernel/src/activation.rs::p_110_activations_rise_from_the_genesis_with_their_own_schema",
+  "crates/kernel/src/derive.rs::p_110_a_declaration_of_a_newer_version_takes_effect_only_after_its_activation",
+  "crates/kernel/tests/activation_vectors.rs::p_110_activation_sequences_through_the_kernel",
+  "crates/kernel/tests/derivation.rs::p_110_the_active_version_is_read_at_each_record_s_position",
   "crates/kernel/tests/derivation.rs::t_4_p_87_record_newer_than_the_active_protocol_has_no_effect",
+  "crates/ledger/src/leader.rs::p_110_an_activation_is_written_alone_only_when_newer_supported_and_of_its_schema",
   "crates/ledger/src/node.rs::op_28_a_node_leads_only_a_ledger_whose_activated_versions_it_supports",
   "crates/store/src/migrate.rs::t_36_foundation_runs_first_and_versions_are_unique",
   "xtask/src/rules_migrations.rs::op_28_concurrent_index_needs_a_no_transaction_migration",
