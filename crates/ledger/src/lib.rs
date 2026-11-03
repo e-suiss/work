@@ -10,7 +10,7 @@
 //! checkpoint through `work-signer` as the ledger acknowledgement (P-20, T-88) and mirrors the
 //! log to the replica before any witness cosignature is taken (OP-4, OP-33, T-90); the ledgers a
 //! process leads are checkpointed on the OP-33 cadence. A ledger's rows beside the log are
-//! rebuilt from the canonical log alone through the same append and compared with the live
+//! rebuilt from the canonical log alone through the same append and diffed against the live
 //! rows, a difference being a sev-1 signal (OP-1).
 
 mod admit;
