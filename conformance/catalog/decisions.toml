@@ -4717,14 +4717,20 @@ stage = 0
 acceptance = "to-fill"
 title = "OpenTelemetry signals with trace context, no identity labels and no secrets"
 tests = [
+  "bins/work-cli/src/main.rs::op_47_the_rebuild_diff_counter_exports_only_where_configured",
   "bins/work-server/src/config.rs::op_40_new_root_traces_are_sampled_at_one_in_ten_by_default",
   "bins/work-server/src/config.rs::t_39_health_endpoints_listen_on_an_internal_address_of_their_own",
   "bins/work-server/src/health.rs::t_39_metrics_raise_the_nats_alarm_with_a_bounded_label_set",
   "bins/work-server/src/health.rs::t_39_readiness_looks_only_at_postgres_and_the_signer",
   "crates/telemetry/src/guard.rs::p_43_content_secret_and_genai_names_are_forbidden",
   "crates/telemetry/src/guard.rs::p_43_identifier_fields_are_allowed",
+  "crates/telemetry/src/metrics.rs::t_39_every_label_key_is_outside_the_identifier_set",
+  "crates/telemetry/src/metrics.rs::t_39_identifier_and_content_keys_are_never_labels",
   "crates/telemetry/tests/content_guard.rs::op_19_record_body_bytes_never_reach_the_output",
   "crates/telemetry/tests/content_guard.rs::op_19_records_are_linked_by_identifier_only",
+  "crates/telemetry/tests/otel_signals.rs::op_47_a_sev_1_rebuild_diff_is_counted_without_labels",
+  "crates/telemetry/tests/otel_signals.rs::t_39_exported_metrics_carry_only_bounded_labels",
+  "crates/telemetry/tests/otel_signals.rs::t_39_log_records_carry_redacted_fields_and_the_span_trace",
   "crates/telemetry/tests/redaction_canary.rs::t_39_json_logs_never_contain_secrets",
   "crates/telemetry/tests/trace_export.rs::op_18_sample_ratio_must_lie_in_the_unit_interval",
   "crates/telemetry/tests/trace_export.rs::op_19_forbidden_fields_are_dropped_before_the_exporter",
@@ -4988,6 +4994,7 @@ status = "frozen-technical"
 acceptance = "filled"
 title = "Keys and secrets only through PKCS#11, with SoftHSM locally"
 tests = [
+  "bins/work-cli/src/main.rs::op_47_the_rebuild_diff_counter_exports_only_where_configured",
   "bins/work-signer/tests/signer.rs::t_7_the_signer_signs_checkpoints_of_its_ledgers_only",
   "crates/ledger/src/body/tests.rs::op_45_a_part_round_trips_under_the_ledger_kek_its_class_dek_and_its_own_key",
   "crates/ledger/src/body/tests.rs::op_45_kek_labels_name_the_ledger_and_the_version",
@@ -5506,6 +5513,8 @@ tests = [
   "bins/work-server/src/health.rs::t_39_readiness_looks_only_at_postgres_and_the_signer",
   "bins/work-server/src/startup.rs::t_20_postgres_18_and_later_are_accepted",
   "bins/work-server/src/startup.rs::t_20_postgres_older_than_18_is_refused",
+  "crates/telemetry/src/metrics.rs::t_39_every_label_key_is_outside_the_identifier_set",
+  "crates/telemetry/tests/otel_signals.rs::t_39_exported_metrics_carry_only_bounded_labels",
 ]
 
 [[rule]]
@@ -5638,12 +5647,18 @@ acceptance = "to-fill"
 pd = "set"
 title = "Telemetry is minimised, pseudonymous and never a decision input"
 tests = [
+  "bins/work-cli/src/main.rs::op_47_the_rebuild_diff_counter_exports_only_where_configured",
   "bins/work-server/src/config.rs::op_40_new_root_traces_are_sampled_at_one_in_ten_by_default",
   "bins/work-server/src/config.rs::t_20_urls_with_a_password_are_rejected",
   "bins/work-server/src/config.rs::t_39_health_endpoints_listen_on_an_internal_address_of_their_own",
   "bins/work-server/src/health.rs::t_39_metrics_raise_the_nats_alarm_with_a_bounded_label_set",
+  "crates/telemetry/src/metrics.rs::t_39_every_label_key_is_outside_the_identifier_set",
+  "crates/telemetry/src/metrics.rs::t_39_identifier_and_content_keys_are_never_labels",
   "crates/telemetry/tests/content_guard.rs::p_43_content_and_secret_fields_are_never_recorded",
   "crates/telemetry/tests/content_guard.rs::sec_24_the_log_format_redacts_without_the_guard",
+  "crates/telemetry/tests/otel_signals.rs::op_47_a_sev_1_rebuild_diff_is_counted_without_labels",
+  "crates/telemetry/tests/otel_signals.rs::t_39_exported_metrics_carry_only_bounded_labels",
+  "crates/telemetry/tests/otel_signals.rs::t_39_log_records_carry_redacted_fields_and_the_span_trace",
   "crates/telemetry/tests/redaction_canary.rs::t_39_json_logs_never_contain_secrets",
   "crates/telemetry/tests/trace_export.rs::op_18_root_traces_are_sampled_at_the_configured_ratio",
   "crates/telemetry/tests/trace_export.rs::op_18_sample_ratio_must_lie_in_the_unit_interval",
@@ -6016,4 +6031,16 @@ tests = [
   "crates/ledger/src/witness/gossip.rs::sec_32_an_observed_root_is_consistent_only_with_the_ledgers_root_at_its_size",
   "sdks/bindings/core/tests/bytes.rs::t_88_checkpoint_vectors_through_bindings_core",
   "sdks/bindings/uniffi/tests/swift/main.swift::t_4_swift_merkle_and_checkpoint_vectors_match",
+]
+
+[[rule]]
+id = "OP-47"
+family = "OP"
+status = "frozen-technical"
+stage = 2
+acceptance = "filled"
+title = ""
+tests = [
+  "bins/work-cli/src/main.rs::op_47_the_rebuild_diff_counter_exports_only_where_configured",
+  "crates/telemetry/tests/otel_signals.rs::op_47_a_sev_1_rebuild_diff_is_counted_without_labels",
 ]

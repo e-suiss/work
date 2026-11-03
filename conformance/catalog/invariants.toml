@@ -1858,6 +1858,7 @@ tests = [
   "crates/telemetry/tests/content_guard.rs::op_19_the_guard_decides_from_declared_field_names",
   "crates/telemetry/tests/content_guard.rs::p_43_content_and_secret_fields_are_never_recorded",
   "crates/telemetry/tests/content_guard.rs::p_43_unstable_genai_attributes_are_not_emitted",
+  "crates/telemetry/tests/otel_signals.rs::t_39_log_records_carry_redacted_fields_and_the_span_trace",
   "crates/telemetry/tests/trace_export.rs::op_18_root_traces_are_sampled_at_the_configured_ratio",
   "crates/telemetry/tests/trace_export.rs::op_19_forbidden_fields_are_dropped_before_the_exporter",
   "crates/telemetry/tests/trace_export.rs::p_42_unsampled_and_unexported_spans_still_give_records_a_traceparent",
@@ -2258,6 +2259,7 @@ tests = [
   "crates/telemetry/tests/content_guard.rs::op_19_record_body_bytes_never_reach_the_output",
   "crates/telemetry/tests/content_guard.rs::op_19_records_are_linked_by_identifier_only",
   "crates/telemetry/tests/content_guard.rs::op_19_the_guard_decides_from_declared_field_names",
+  "crates/telemetry/tests/otel_signals.rs::t_39_log_records_carry_redacted_fields_and_the_span_trace",
   "crates/telemetry/tests/trace_export.rs::op_19_forbidden_fields_are_dropped_before_the_exporter",
 ]
 
