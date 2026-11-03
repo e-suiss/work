@@ -1,5 +1,6 @@
 //! Typed process configuration, validated at start-up (T-32 rule 8).
 
+use std::io::BufReader;
 use std::net::{Ipv4Addr, SocketAddr};
 use std::num::NonZeroU8;
 use std::path::PathBuf;
@@ -11,13 +12,14 @@ use figment::Figment;
 use figment::providers::{Env, Format, Serialized, Toml};
 use serde::{Deserialize, Serialize};
 use work_dispatch::{PublisherConfig, StreamSettings};
-use work_kernel::proof::{TimeSources, WitnessProfile};
+use work_kernel::proof::{TimeSources, Verifier, WitnessProfile};
 use work_ledger::time::{
     NTS_KE_PORT, NtsServer, RoughtimeServer, RoughtimeVersion, TimeConfigError, check_sources,
 };
 use work_ledger::{
     Cadence, CadenceError, DEFAULT_CHECKPOINT_RECORDS, DEFAULT_MAX_BYTES, DEFAULT_MAX_RECORDS,
     DEFAULT_QUEUE, Declaration, DeclarationError, Deployment, GroupConfig, GroupConfigError,
+    Witness, WitnessClient, WitnessEndpoint, WitnessRole, witness_tls,
 };
 use work_telemetry::{DEFAULT_MAX_QUEUE_SIZE, InvalidSampleRatio, SampleRatio, TraceConfig};
 
@@ -53,6 +55,48 @@ pub(crate) struct Config {
     pub(crate) group_commit: GroupCommitValues,
     /// What every checkpoint declares (OP-32 item 5, OP-33 item 1, OP-46 item 3).
     pub(crate) declaration: DeclarationValues,
+    /// The witnesses every mirrored checkpoint is sent to (OP-33 item 1, OP-46 item 10).
+    pub(crate) witnesses: Vec<WitnessValues>,
+    /// Witness client settings.
+    pub(crate) witnessing: Witnessing,
+}
+
+/// A witness: where it takes checkpoints, the key its cosignatures verify under and how it
+/// counts.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct WitnessValues {
+    /// The `witness_id` its cosignatures and observations are stored under.
+    pub(crate) id: String,
+    /// Its submission prefix, `http(s)://host[:port][/prefix]`.
+    pub(crate) url: String,
+    /// Its `tlog-cosignature/v1` verifier key, `name+id+base64`.
+    pub(crate) key: String,
+    /// How it counts; `counted` unless it serves gossip only.
+    #[serde(default)]
+    pub(crate) role: WitnessRoleWire,
+}
+
+/// `role` of a witness.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, Serialize)]
+pub(crate) enum WitnessRoleWire {
+    /// Its cosignatures are stored and count towards `witness independent k`.
+    #[default]
+    #[serde(rename = "counted")]
+    Counted,
+    /// Gossip and monitoring only, as the witness Suiss runs (OP-33 item 1).
+    #[serde(rename = "gossip")]
+    Gossip,
+}
+
+/// Witness client settings.
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Witnessing {
+    /// Upper bound on one exchange with a witness, in milliseconds.
+    pub(crate) call_timeout_ms: u64,
+    /// A PEM file of the roots the certificates of `https` witnesses are verified against.
+    pub(crate) tls_roots: Option<PathBuf>,
 }
 
 /// The profile declaration; by default a self-hosted installation that claims neither
@@ -228,6 +272,8 @@ pub(crate) struct Postgres {
     pub(crate) checkpointer: String,
     /// The canonical database as `work_publisher` (OP-34).
     pub(crate) publisher: String,
+    /// The derived database as `work_deriver`, for the gossip comparison (SEC-32).
+    pub(crate) deriver: String,
 }
 
 /// NATS connection settings.
@@ -260,6 +306,7 @@ impl Default for Config {
                 sequencer: "postgres://work_sequencer@localhost/work".to_owned(),
                 checkpointer: "postgres://work_checkpointer@localhost/work".to_owned(),
                 publisher: "postgres://work_publisher@localhost/work".to_owned(),
+                deriver: "postgres://work_deriver@localhost/work_derived".to_owned(),
             },
             nats: Nats {
                 url: "nats://127.0.0.1:4222".to_owned(),
@@ -303,6 +350,12 @@ impl Default for Config {
                 witness: WitnessWire::Undeclared,
                 independent_witnesses: 0,
             },
+            witnesses: Vec::new(),
+            // OP-44
+            witnessing: Witnessing {
+                call_timeout_ms: 5_000,
+                tls_roots: None,
+            },
         }
     }
 }
@@ -340,6 +393,14 @@ pub(crate) enum ConfigError {
     Declaration(#[from] DeclarationError),
     #[error("declaration.independent_witnesses must be at least 1 with witness = \"independent\"")]
     Witnesses,
+    #[error("witnesses[{0}].{1} is malformed or repeated")]
+    Witness(usize, &'static str),
+    #[error("{declared} independent witnesses are declared but {configured} counted ones are configured")]
+    TooFewWitnesses { declared: u8, configured: usize },
+    #[error("witnessing.call_timeout_ms must be positive")]
+    WitnessTimeout,
+    #[error("witnessing.tls_roots: {0}")]
+    WitnessRoots(String),
 }
 
 impl Config {
@@ -369,6 +430,7 @@ impl Config {
             ("postgres.sequencer", self.postgres.sequencer.as_str()),
             ("postgres.checkpointer", self.postgres.checkpointer.as_str()),
             ("postgres.publisher", self.postgres.publisher.as_str()),
+            ("postgres.deriver", self.postgres.deriver.as_str()),
             ("nats.url", self.nats.url.as_str()),
             ("trace.endpoint", endpoint),
         ] {
@@ -393,7 +455,65 @@ impl Config {
         self.publisher_config().validate()?;
         self.group_config()?;
         self.declaration()?;
+        self.witness_endpoints()?;
         Ok(())
+    }
+
+    /// The configured witnesses; under `witness = "independent"` at least as many counted ones
+    /// as declared (OP-33 item 1, OP-46 item 5).
+    pub(crate) fn witness_endpoints(&self) -> Result<Vec<WitnessEndpoint>, ConfigError> {
+        let limit = Duration::from_millis(self.witnessing.call_timeout_ms);
+        if limit.is_zero() {
+            return Err(ConfigError::WitnessTimeout);
+        }
+        let tls = match &self.witnessing.tls_roots {
+            Some(path) => {
+                let file = std::fs::File::open(path)
+                    .map_err(|e| ConfigError::WitnessRoots(e.to_string()))?;
+                let config = witness_tls(&mut BufReader::new(file))
+                    .map_err(|e| ConfigError::WitnessRoots(e.to_string()))?;
+                Some(config)
+            }
+            None => None,
+        };
+        let mut endpoints = Vec::with_capacity(self.witnesses.len());
+        for (i, w) in self.witnesses.iter().enumerate() {
+            let repeated = self.witnesses.iter().filter(|o| o.id == w.id).count() > 1;
+            if !ident_ok(&w.id) || repeated {
+                return Err(ConfigError::Witness(i, "id"));
+            }
+            let key = Verifier::parse(w.key.trim())
+                .ok()
+                .filter(Verifier::is_cosigner)
+                .ok_or(ConfigError::Witness(i, "key"))?;
+            let client = WitnessClient::new(&w.url, tls.clone(), limit)
+                .map_err(|_| ConfigError::Witness(i, "url"))?;
+            endpoints.push(WitnessEndpoint {
+                witness: Witness {
+                    id: w.id.clone(),
+                    key,
+                },
+                role: match w.role {
+                    WitnessRoleWire::Counted => WitnessRole::Counted,
+                    WitnessRoleWire::Gossip => WitnessRole::Gossip,
+                },
+                client,
+            });
+        }
+        if self.declaration.witness == WitnessWire::Independent {
+            let configured = endpoints
+                .iter()
+                .filter(|e| e.role == WitnessRole::Counted)
+                .count();
+            let declared = self.declaration.independent_witnesses;
+            if configured < usize::from(declared) {
+                return Err(ConfigError::TooFewWitnesses {
+                    declared,
+                    configured,
+                });
+            }
+        }
+        Ok(endpoints)
     }
 
     /// The checkpoint cadence (OP-33 item 4).
@@ -539,6 +659,19 @@ mod tests {
 
     const KEY: &str = "0GD7c3yP8xEc4Zl2zeuN2SlLvDVVocjsPSL8/Rl/7zg=";
 
+    const WITNESS_A: &str = "witness.example+4ac50073+BAcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcH";
+
+    const WITNESS_B: &str =
+        "witness-b.example+723dbe83+BAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI";
+
+    const LOG_KEY: &str = "work.example+9e925851+AQcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcH";
+
+    fn witness(id: &str, url: &str, key: &str, role: &str) -> String {
+        format!(
+            "[[witnesses]]\nid = \"{id}\"\nurl = \"{url}\"\nkey = \"{key}\"\nrole = \"{role}\"\n"
+        )
+    }
+
     fn time_sources(nts: usize, roughtime: usize) -> String {
         let nts: Vec<String> = (0..nts)
             .map(|i| format!("{{ host = \"nts-{i}.example\" }}"))
@@ -673,10 +806,14 @@ mod tests {
             WitnessProfile::Undeclared,
         );
         assert_eq!(with("").unwrap().declaration().ok(), local.ok());
-        let saas = "[declaration]\ndeployment = \"saas\"\ntime_sources = \"independent\"\nwitness = \"independent\"\nindependent_witnesses = 2";
+        let saas = format!(
+            "[declaration]\ndeployment = \"saas\"\ntime_sources = \"independent\"\nwitness = \"independent\"\nindependent_witnesses = 2\n{}{}",
+            witness("witness_a", "http://a.example", WITNESS_A, "counted"),
+            witness("witness_b", "http://b.example", WITNESS_B, "counted")
+        );
         let two = NonZeroU8::new(2).unwrap();
         assert_eq!(
-            with(saas).unwrap().declaration().unwrap(),
+            with(&saas).unwrap().declaration().unwrap(),
             Declaration::new(
                 Deployment::Saas,
                 TimeSources::Independent,
@@ -703,6 +840,101 @@ mod tests {
             with("[declaration]\nwitness = \"cosigned\""),
             Err(ConfigError::Parse(_))
         ));
+    }
+
+    // OP-33 OP-46 SEC-32
+    #[test]
+    fn op_33_witnesses_need_a_unique_id_a_cosigner_key_and_an_http_url() {
+        assert!(with("").unwrap().witness_endpoints().unwrap().is_empty());
+        let both = format!(
+            "{}{}",
+            witness("witness_a", "http://witness:7380", WITNESS_A, "counted"),
+            witness("suiss_gossip", "http://gossip.example/w/", WITNESS_B, "gossip")
+        );
+        let endpoints = with(&both).unwrap().witness_endpoints().unwrap();
+        assert_eq!(endpoints.len(), 2);
+        assert_eq!(endpoints[0].witness.id, "witness_a");
+        assert_eq!(endpoints[0].witness.key.to_vkey(), WITNESS_A);
+        assert_eq!(endpoints[0].role, WitnessRole::Counted);
+        assert_eq!(endpoints[1].role, WitnessRole::Gossip);
+        let default_role = "[[witnesses]]\nid = \"w\"\nurl = \"http://w\"\nkey = \"";
+        let config = with(&format!("{default_role}{WITNESS_A}\"")).unwrap();
+        assert_eq!(
+            config.witness_endpoints().unwrap()[0].role,
+            WitnessRole::Counted
+        );
+        for (toml, field) in [
+            (witness("Witness", "http://w", WITNESS_A, "counted"), "id"),
+            (
+                format!(
+                    "{}{}",
+                    witness("w", "http://w", WITNESS_A, "counted"),
+                    witness("w", "http://v", WITNESS_B, "counted")
+                ),
+                "id",
+            ),
+            (witness("w", "http://w", LOG_KEY, "counted"), "key"),
+            (
+                witness("w", "http://w", "witness.example+00000000+AAAA", "counted"),
+                "key",
+            ),
+            (witness("w", "witness:7380", WITNESS_A, "counted"), "url"),
+            (
+                witness("w", "https://w.example", WITNESS_A, "counted"),
+                "url",
+            ),
+        ] {
+            assert!(
+                matches!(with(&toml), Err(ConfigError::Witness(0 | 1, f)) if f == field),
+                "{toml}"
+            );
+        }
+        assert!(matches!(
+            with(&witness("w", "http://w", WITNESS_A, "trusted")),
+            Err(ConfigError::Parse(_))
+        ));
+        assert!(matches!(
+            with("[witnessing]\ncall_timeout_ms = 0"),
+            Err(ConfigError::WitnessTimeout)
+        ));
+        assert!(matches!(
+            with("[witnessing]\ntls_roots = \"/nonexistent/roots.pem\""),
+            Err(ConfigError::WitnessRoots(_))
+        ));
+    }
+
+    // OP-33 OP-46
+    #[test]
+    fn op_46_independent_k_needs_k_counted_witnesses_configured() {
+        let one = "[declaration]\nwitness = \"independent\"\nindependent_witnesses = 1\n";
+        assert!(matches!(
+            with(one),
+            Err(ConfigError::TooFewWitnesses {
+                declared: 1,
+                configured: 0
+            })
+        ));
+        let gossip_only = format!(
+            "{one}{}",
+            witness("suiss_gossip", "http://g", WITNESS_B, "gossip")
+        );
+        assert!(matches!(
+            with(&gossip_only),
+            Err(ConfigError::TooFewWitnesses {
+                declared: 1,
+                configured: 0
+            })
+        ));
+        let counted = format!(
+            "{one}{}",
+            witness("witness_a", "http://a", WITNESS_A, "counted")
+        );
+        assert_eq!(with(&counted).unwrap().witness_endpoints().unwrap().len(), 1);
+        let local = format!(
+            "[declaration]\nwitness = \"local-dependent\"\n{}",
+            witness("witness_a", "http://witness:7380", WITNESS_A, "counted")
+        );
+        assert!(with(&local).is_ok());
     }
 
     // OP-41 OP-31
@@ -887,6 +1119,10 @@ mod tests {
             (
                 "[postgres]\npublisher = \"postgres://work_publisher:pw@db/work\"",
                 "postgres.publisher",
+            ),
+            (
+                "[postgres]\nderiver = \"postgres://work_deriver:pw@db/work_derived\"",
+                "postgres.deriver",
             ),
             (
                 "[trace]\nendpoint = \"http://u:pw@collector:4317\"",

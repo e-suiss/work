@@ -37,12 +37,13 @@ use work_store::{Cluster, Durability, LedgerId, LedgerTx, Pool, SequencerPool};
 use work_testkit::{Nats, Postgres};
 
 const PASSWORD: &str = "test-only-not-a-secret";
-const ROLES: [&str; 5] = [
+const ROLES: [&str; 6] = [
     "work_owner",
     "work_app",
     "work_sequencer",
     "work_checkpointer",
     "work_publisher",
+    "work_deriver",
 ];
 const DEADLINE: Duration = Duration::from_secs(60);
 const TRACE: &str = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01";
@@ -207,6 +208,7 @@ fn server(dbs: &Databases, launch: Launch<'_>) -> Child {
     let sequencer = dbs.url("work_sequencer", &dbs.canonical);
     let checkpointer = dbs.url("work_checkpointer", &dbs.canonical);
     let publisher = dbs.url(launch.publisher_role, &dbs.canonical);
+    let deriver = dbs.url("work_deriver", &dbs.derived);
     let config = format!(
         "{UNANSWERED_TIME_SOURCES}\n[signer]\nsocket = \"{}\"\n\n[checkpoint]\norigin_prefix = \"{PREFIX}\"\n\n[replica]\ndirectory = \"{}\"\n\n[publisher]\nsource = \"https://work.test\"\n",
         socket.display(),
@@ -224,6 +226,7 @@ fn server(dbs: &Databases, launch: Launch<'_>) -> Child {
         .env("WORK_POSTGRES__SEQUENCER", sequencer)
         .env("WORK_POSTGRES__CHECKPOINTER", checkpointer)
         .env("WORK_POSTGRES__PUBLISHER", publisher)
+        .env("WORK_POSTGRES__DERIVER", deriver)
         .env("WORK_NATS__URL", launch.nats)
         .env("WORK_STARTUP_TIMEOUT_MS", "5000")
         .env("PGPASSWORD", PASSWORD)
@@ -314,7 +317,12 @@ async fn t_20_starts_with_postgres_18_and_jetstream_and_does_not_migrate() {
             "{log}"
         );
     }
-    for role in ["\"sequencer\"", "\"checkpointer\"", "\"publisher\""] {
+    for role in [
+        "\"sequencer\"",
+        "\"checkpointer\"",
+        "\"publisher\"",
+        "\"deriver\"",
+    ] {
         assert!(
             log.lines()
                 .any(|l| l.contains("postgres.role_checked") && l.contains(role)),

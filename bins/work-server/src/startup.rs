@@ -1,6 +1,6 @@
 //! Start-up checks of the mandatory infrastructure (T-20, T-84, MD-14): both PostgreSQL
-//! databases answer and run major version 18 or later, the sequencer, checkpointer and publisher
-//! pools log in as their own roles (T-79, OP-12), and NATS answers with JetStream enabled
+//! databases answer and run major version 18 or later, the sequencer, checkpointer, publisher and
+//! deriver pools log in as their own roles (T-79, OP-12), and NATS answers with JetStream enabled
 //! within the start-up timeout; otherwise the process does not start. Migrations are not run
 //! here (OP-28). Once running, losing NATS is only a delay (T-21, T-28, T-84): the client
 //! reconnects in the background and the loss is logged. The ledger time driver starts here
@@ -18,7 +18,7 @@ use tokio::task::JoinHandle;
 use work_ledger::time::{
     LedgerTime, NTS_EVENT_QUEUE, ProcessMonotonic, RoughtimeUdp, read_roots, spawn_nts,
 };
-use work_store::{CheckpointerPool, Pool, PublisherPool, SequencerPool, StoreError};
+use work_store::{CheckpointerPool, DeriverPool, Pool, PublisherPool, SequencerPool, StoreError};
 
 use crate::config::Config;
 
@@ -133,6 +133,7 @@ pub(crate) struct Infrastructure {
     pub(crate) sequencer: SequencerPool,
     pub(crate) checkpointer: CheckpointerPool,
     pub(crate) publisher: PublisherPool,
+    pub(crate) deriver: Pool,
     roles: Vec<(&'static str, Pool)>,
 }
 
@@ -165,6 +166,8 @@ impl Infrastructure {
             PublisherPool::new(publisher_pool.clone()),
         )
         .await?;
+        let deriver = postgres("deriver", &pg.deriver, limit).await?;
+        role("deriver", limit, DeriverPool::new(deriver.clone())).await?;
         let nats = nats(&config.nats.url, limit).await?;
         Ok(Self {
             canonical,
@@ -173,10 +176,12 @@ impl Infrastructure {
             sequencer,
             checkpointer,
             publisher,
+            deriver: deriver.clone(),
             roles: vec![
                 ("sequencer", sequencer_pool),
                 ("checkpointer", checkpointer_pool),
                 ("publisher", publisher_pool),
+                ("deriver", deriver),
             ],
         })
     }
