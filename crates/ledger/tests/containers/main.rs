@@ -963,9 +963,9 @@ async fn op_28_a_node_of_another_version_set_never_leads_while_the_current_one_c
 struct Steady(Arc<AtomicU64>);
 
 impl Clock for Steady {
-    async fn now(&mut self) -> Result<u64, ClockError> {
+    fn now(&mut self) -> impl Future<Output = Result<u64, ClockError>> + Send {
         let n = self.0.fetch_add(1, Ordering::AcqRel);
-        AT.checked_add(n).ok_or(ClockError("overflow".to_owned()))
+        std::future::ready(AT.checked_add(n).ok_or(ClockError("overflow".to_owned())))
     }
 }
 
@@ -1001,10 +1001,10 @@ async fn t_28_a_ledger_changes_leader_only_through_its_lease() {
     tokio::time::sleep(lease.checked_mul(3).unwrap()).await;
     assert!(held(&b.submit(&ledger, record(2)).await));
     assert_eq!(a.led().await, [ledger]);
-    assert!(b.led().await.is_empty());
+    assert_eq!(b.led().await, Vec::<LedgerId>::new());
 
     a.step_down().await;
-    assert!(a.led().await.is_empty());
+    assert_eq!(a.led().await, Vec::<LedgerId>::new());
     assert_eq!(b.submit(&ledger, record(2)).await.unwrap().pos, 2);
     assert!(held(&a.submit(&ledger, record(3)).await));
 
@@ -1061,7 +1061,7 @@ async fn t_28_a_leader_that_cannot_renew_its_lease_steps_down_and_is_taken_again
         .await
         .unwrap();
     tokio::time::sleep(lease).await;
-    assert!(a.led().await.is_empty());
+    assert_eq!(a.led().await, Vec::<LedgerId>::new());
 
     assert_eq!(a.submit(&ledger, record(2)).await.unwrap().pos, 2);
     assert_eq!(a.led().await, [ledger]);

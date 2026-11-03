@@ -18,7 +18,7 @@ use crate::ports::{Rng, RngError};
 pub const DEFAULT_LEASE: Duration = Duration::from_secs(10);
 
 /// The longest lease a node takes.
-pub const MAX_LEASE: Duration = Duration::from_secs(3600);
+pub const MAX_LEASE: Duration = Duration::from_hours(1);
 
 /// One process as a sequencer node.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -158,6 +158,6 @@ mod tests {
             a.clone().with_lease(Duration::ZERO).lease(),
             Duration::from_millis(1)
         );
-        assert_eq!(a.with_lease(Duration::from_secs(86_400)).lease(), MAX_LEASE);
+        assert_eq!(a.with_lease(Duration::from_hours(24)).lease(), MAX_LEASE);
     }
 }
