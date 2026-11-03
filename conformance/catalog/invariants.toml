@@ -2157,7 +2157,9 @@ family = "OP"
 status = "canonical-invariant"
 stage = 2
 title = ""
-tests = []
+tests = [
+  "crates/ledger/src/time/domain.rs::op_32_ledger_time_ahead_of_the_witnesses_stops_commits_until_a_round_agrees",
+]
 
 [[rule]]
 id = "OP-7"

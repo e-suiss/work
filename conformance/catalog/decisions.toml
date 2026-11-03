@@ -2850,7 +2850,11 @@ status = "frozen-product"
 stage = 2
 title = ""
 tests = [
+  "bins/work-server/src/config.rs::op_33_witnesses_need_a_unique_id_a_cosigner_key_and_an_http_url",
   "crates/ledger/src/witness.rs::op_33_only_a_configured_witness_cosigning_the_stored_tree_is_taken",
+  "crates/ledger/src/witness/client.rs::op_46_witness_answers_are_typed_by_their_status",
+  "crates/ledger/src/witness/gossip.rs::sec_32_an_observed_root_is_consistent_only_with_the_ledgers_root_at_its_size",
+  "crates/ledger/src/witness/round.rs::sec_32_a_witness_holding_a_larger_tree_than_the_latest_checkpoint_is_a_split_view",
 ]
 
 [[rule]]
@@ -4472,6 +4476,7 @@ stage = 0
 acceptance = "filled"
 title = "One repository, exact shared crate versions and an enforced dependency direction"
 tests = [
+  "crates/ledger/src/witness/proof.rs::op_33_every_consistency_proof_verifies_under_the_shared_verifier",
   "xtask/src/policy_compat.rs::t_51_shared_crate_versions_match_manifest_and_lockfile",
   "xtask/src/rules_deps.rs::t_31_bindings_share_crates_inside_sdks_bindings_only",
   "xtask/src/rules_deps.rs::t_31_bins_may_depend_on_every_crate_and_xtask_on_none",
@@ -4506,6 +4511,8 @@ tests = [
   "crates/dispatch/src/domain.rs::t_32_invalid_consumer_settings_are_rejected",
   "crates/dispatch/src/domain.rs::t_32_invalid_publisher_settings_are_rejected",
   "crates/kernel/tests/codec_vectors.rs::p_100_genesis_vectors_select_the_schema_by_position",
+  "crates/ledger/src/witness/client.rs::op_33_a_witness_is_named_by_an_http_url_and_https_needs_tls",
+  "crates/ledger/src/witness/round.rs::op_33_a_witness_that_fails_waits_one_second_doubling_up_to_a_minute",
   "crates/telemetry/tests/trace_export.rs::t_39_a_stalled_exporter_never_blocks_span_creation",
   "xtask/src/policy.rs::t_32_component_crate_without_layers_is_reported",
   "xtask/src/rules.rs::t_32_clippy_disallows_direct_clock_and_rng",
@@ -4591,6 +4598,7 @@ tests = [
   "crates/testkit/src/images.rs::t_36_an_image_line_belongs_to_its_own_service",
   "crates/testkit/src/images.rs::t_36_postgres_and_nats_images_come_from_the_compose_pins",
   "crates/testkit/src/images.rs::t_36_unpinned_or_missing_images_are_rejected",
+  "crates/testkit/src/witness.rs::t_41_the_test_witness_is_the_image_the_local_environment_builds",
   "xtask/src/rules_migrations.rs::op_28_index_on_an_existing_table_must_be_concurrent",
   "xtask/src/rules_migrations.rs::op_28_only_work_cli_runs_the_migrator",
   "xtask/src/rules_migrations.rs::sec_24_terms_match_the_schema_security_test",
@@ -4739,6 +4747,7 @@ acceptance = "filled"
 title = "The local environment always includes local Access and Relay"
 tests = [
   "bins/work-server/src/config.rs::t_32_unknown_keys_such_as_a_dev_mode_are_rejected",
+  "crates/testkit/src/witness.rs::t_41_the_test_witness_is_the_image_the_local_environment_builds",
   "sdks/bindings/core/tests/reason_codes.rs::t_69_typescript_reason_codes_are_the_kernel_codes",
   "xtask/src/policy_scan.rs::t_41_generator_differences_are_reported",
   "xtask/src/policy_scan.rs::t_41_stale_missing_and_orphan_generated_files_are_reported",
@@ -5728,8 +5737,11 @@ tests = [
   "crates/ledger/src/time/app/tests.rs::op_32_the_clock_port_carries_samples_forward_and_stops_without_two_sources",
   "crates/ledger/src/time/app/tests.rs::op_43_fewer_than_three_roughtime_or_two_nts_servers_do_not_start",
   "crates/ledger/src/time/domain.rs::op_32_a_sample_older_than_its_lifetime_is_not_used",
+  "crates/ledger/src/time/domain.rs::op_32_ledger_time_ahead_of_the_witnesses_stops_commits_until_a_round_agrees",
   "crates/ledger/src/time/domain.rs::op_32_ledger_time_is_the_last_sample_plus_the_monotonic_delta",
   "crates/ledger/src/time/domain.rs::op_32_sources_that_differ_by_more_than_u_stop_commits",
+  "crates/ledger/src/time/domain.rs::op_32_the_witness_round_holds_ledger_time_against_the_cosignature_times",
+  "crates/ledger/src/witness/round.rs::op_32_a_pass_that_asked_a_counted_witness_gives_a_witness_round",
   "crates/store/src/idempotency.rs::op_38_admission_follows_the_hot_window_and_the_clock_uncertainty",
 ]
 
@@ -5742,6 +5754,8 @@ pd = "set"
 title = ""
 tests = [
   "bins/work-server/src/config.rs::op_33_checkpoints_default_to_60_s_or_1000_records_and_need_a_replica",
+  "bins/work-server/src/config.rs::op_33_witnesses_need_a_unique_id_a_cosigner_key_and_an_http_url",
+  "bins/work-server/src/config.rs::op_46_independent_k_needs_k_counted_witnesses_configured",
   "bins/work-server/src/config.rs::op_46_the_declaration_defaults_to_claiming_nothing_and_saas_needs_independence",
   "crates/kernel/tests/ledger_vectors.rs::t_4_checkpoint_and_cosignature_vectors_through_the_kernel_verifier",
   "crates/ledger/src/checkpoint.rs::op_46_saas_declares_independent_time_and_at_least_two_witnesses",
@@ -5749,6 +5763,16 @@ tests = [
   "crates/ledger/src/ledgers.rs::op_33_cadence_values_outside_their_range_are_refused",
   "crates/ledger/src/witness.rs::op_33_only_a_configured_witness_cosigning_the_stored_tree_is_taken",
   "crates/ledger/src/witness.rs::op_4_a_checkpoint_the_replica_does_not_hold_is_not_sent_to_witnesses",
+  "crates/ledger/src/witness/client.rs::op_33_a_witness_is_named_by_an_http_url_and_https_needs_tls",
+  "crates/ledger/src/witness/client.rs::op_33_the_add_checkpoint_body_is_old_size_proof_lines_and_the_note",
+  "crates/ledger/src/witness/client.rs::op_46_witness_answers_are_typed_by_their_status",
+  "crates/ledger/src/witness/gossip.rs::sec_32_an_observed_root_is_consistent_only_with_the_ledgers_root_at_its_size",
+  "crates/ledger/src/witness/proof.rs::op_33_every_consistency_proof_verifies_under_the_shared_verifier",
+  "crates/ledger/src/witness/proof.rs::op_33_the_proof_from_3_to_4_is_c_d_ab_and_no_proof_starts_above_the_tree",
+  "crates/ledger/src/witness/round.rs::op_32_a_pass_that_asked_a_counted_witness_gives_a_witness_round",
+  "crates/ledger/src/witness/round.rs::op_33_a_witness_that_fails_waits_one_second_doubling_up_to_a_minute",
+  "crates/ledger/src/witness/round.rs::sec_32_a_witness_holding_a_larger_tree_than_the_latest_checkpoint_is_a_split_view",
+  "crates/testkit/src/witness.rs::t_41_the_test_witness_is_the_image_the_local_environment_builds",
   "sdks/bindings/core/tests/bytes.rs::t_88_checkpoint_vectors_through_bindings_core",
   "sdks/bindings/uniffi/tests/swift/main.swift::t_4_swift_merkle_and_checkpoint_vectors_match",
 ]
@@ -5873,6 +5897,7 @@ tests = [
   "crates/ledger/src/time/app/tests.rs::op_43_fewer_than_three_roughtime_or_two_nts_servers_do_not_start",
   "crates/ledger/src/time/app/tests.rs::op_43_no_answer_raises_a_warning_and_commits_continue_on_nts",
   "crates/ledger/src/time/app/tests.rs::op_43_rounds_run_at_start_up_and_every_3600_s_and_a_failed_first_round_does_not_block",
+  "crates/ledger/src/time/domain.rs::op_32_the_witness_round_holds_ledger_time_against_the_cosignature_times",
   "crates/ledger/src/time/domain.rs::op_42_ledger_time_outside_the_bound_stops_commits_and_an_empty_round_lifts_it",
   "crates/ledger/src/time/domain.rs::op_43_the_majority_of_the_answers_decides",
 ]
@@ -5888,6 +5913,7 @@ title = ""
 tests = [
   "crates/ledger/src/time/app/tests.rs::op_44_a_two_server_tie_fails_the_check",
   "crates/ledger/src/time/domain.rs::op_32_a_sample_older_than_its_lifetime_is_not_used",
+  "crates/ledger/src/time/domain.rs::op_32_the_witness_round_holds_ledger_time_against_the_cosignature_times",
   "crates/ledger/src/time/domain.rs::op_42_the_interval_is_the_midpoint_widened_by_radius_and_round_trip",
   "crates/ledger/src/time/domain.rs::op_43_the_majority_of_the_answers_decides",
 ]
@@ -5921,6 +5947,8 @@ stage = 2
 acceptance = "to-fill"
 title = ""
 tests = [
+  "bins/work-server/src/config.rs::op_33_witnesses_need_a_unique_id_a_cosigner_key_and_an_http_url",
+  "bins/work-server/src/config.rs::op_46_independent_k_needs_k_counted_witnesses_configured",
   "bins/work-server/src/config.rs::op_46_the_declaration_defaults_to_claiming_nothing_and_saas_needs_independence",
   "bins/work-signer/src/answer.rs::t_7_only_the_canonical_body_of_a_configured_ledger_checkpoint_is_signed",
   "bins/work-signer/src/answer.rs::t_92_a_body_without_its_profile_lines_or_a_non_ledger_origin_is_refused",
@@ -5929,6 +5957,9 @@ tests = [
   "crates/kernel/tests/ledger_vectors.rs::op_46_a_checkpoint_without_exactly_its_three_profile_lines_is_malformed",
   "crates/ledger/src/checkpoint.rs::op_46_saas_declares_independent_time_and_at_least_two_witnesses",
   "crates/ledger/src/checkpoint.rs::op_46_the_acknowledgement_declares_the_profile_asked_for",
+  "crates/ledger/src/witness/client.rs::op_33_the_add_checkpoint_body_is_old_size_proof_lines_and_the_note",
+  "crates/ledger/src/witness/client.rs::op_46_witness_answers_are_typed_by_their_status",
+  "crates/ledger/src/witness/gossip.rs::sec_32_an_observed_root_is_consistent_only_with_the_ledgers_root_at_its_size",
   "sdks/bindings/core/tests/bytes.rs::t_88_checkpoint_vectors_through_bindings_core",
   "sdks/bindings/uniffi/tests/swift/main.swift::t_4_swift_merkle_and_checkpoint_vectors_match",
 ]
