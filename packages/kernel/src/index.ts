@@ -530,8 +530,14 @@ function i32(value: number, name: string): number {
   return value;
 }
 
-function answer<T extends object>(text: string): T {
-  return unwrap(JSON.parse(text) as T | InputError);
+type Answer<Name extends keyof Verifier> = ReturnType<Verifier[Name]>;
+
+function answer<Name extends keyof Verifier>(_name: Name, text: string): Answer<Name> {
+  const parsed = JSON.parse(text) as object;
+  if ("error" in parsed) {
+    throw new KernelInputError((parsed as InputError).error);
+  }
+  return parsed as unknown as Answer<Name>;
 }
 
 function j(value: unknown): string {
@@ -543,37 +549,44 @@ function hex(bytes: Uint8Array): string {
 }
 
 const verifier: Verifier = {
-  validateRecordCbor: (record, context) => answer(wasm.validateRecordCbor(record, j(context))),
-  decodeRecord: (record) => answer(wasm.decodeRecord(record)),
-  decodeEnvelope: (envelope) => answer(wasm.decodeEnvelope(envelope)),
-  checkCbor: (bytes, tags) => answer(wasm.checkCbor(bytes, j(tags))),
-  parseCoseContainer: (bytes) => answer(wasm.parseCoseContainer(bytes)),
-  decodeDigest: (bytes) => answer(wasm.decodeDigest(bytes)),
-  recordId: (record) => answer(wasm.recordId(record)),
-  ledgerId: (genesis) => answer(wasm.ledgerId(genesis)),
-  leafHash: (envelope) => answer(wasm.leafHash(envelope)),
-  proofCommit: (coseSign1) => answer(wasm.proofCommit(coseSign1)),
+  validateRecordCbor: (record, context) =>
+    answer("validateRecordCbor", wasm.validateRecordCbor(record, j(context))),
+  decodeRecord: (record) => answer("decodeRecord", wasm.decodeRecord(record)),
+  decodeEnvelope: (envelope) => answer("decodeEnvelope", wasm.decodeEnvelope(envelope)),
+  checkCbor: (bytes, tags) => answer("checkCbor", wasm.checkCbor(bytes, j(tags))),
+  parseCoseContainer: (bytes) => answer("parseCoseContainer", wasm.parseCoseContainer(bytes)),
+  decodeDigest: (bytes) => answer("decodeDigest", wasm.decodeDigest(bytes)),
+  recordId: (record) => answer("recordId", wasm.recordId(record)),
+  ledgerId: (genesis) => answer("ledgerId", wasm.ledgerId(genesis)),
+  leafHash: (envelope) => answer("leafHash", wasm.leafHash(envelope)),
+  proofCommit: (coseSign1) => answer("proofCommit", wasm.proofCommit(coseSign1)),
   bodyCommitment: (salt, name, mediaType, content) =>
-    answer(wasm.bodyCommitment(salt, name, mediaType, content)),
-  checkPublicKey: (alg, publicKey) => answer(wasm.checkPublicKey(i32(alg, "alg"), publicKey)),
+    answer("bodyCommitment", wasm.bodyCommitment(salt, name, mediaType, content)),
+  checkPublicKey: (alg, publicKey) =>
+    answer("checkPublicKey", wasm.checkPublicKey(i32(alg, "alg"), publicKey)),
   verifyRecordSignature: (coseSign1, authorKeys) =>
-    answer(wasm.verifyRecordSignature(coseSign1, j(authorKeys))),
-  evidenceStatement: (record, index) => answer(wasm.evidenceStatement(record, u32(index, "index"))),
+    answer("verifyRecordSignature", wasm.verifyRecordSignature(coseSign1, j(authorKeys))),
+  evidenceStatement: (record, index) =>
+    answer("evidenceStatement", wasm.evidenceStatement(record, u32(index, "index"))),
   verifyEvidenceSignature: (record, index, coseSign1, keys) =>
-    answer(wasm.verifyEvidenceSignature(record, u32(index, "index"), coseSign1, j(keys))),
-  genesisChainPoint: (genesis) => answer(wasm.genesisChainPoint(genesis)),
+    answer(
+      "verifyEvidenceSignature",
+      wasm.verifyEvidenceSignature(record, u32(index, "index"), coseSign1, j(keys)),
+    ),
+  genesisChainPoint: (genesis) => answer("genesisChainPoint", wasm.genesisChainPoint(genesis)),
   verifyEntry: (at, envelope, record, coseSign1, keys) =>
-    answer(wasm.verifyEntry(j(at), envelope, record, coseSign1, j(keys))),
-  merkleNodeHash: (left, right) => answer(wasm.merkleNodeHash(j(left), j(right))),
-  merkleRoot: (envelopes) => answer(wasm.merkleRoot(j(envelopes.map(hex)))),
-  verifyInclusion: (proof) => answer(wasm.verifyInclusion(j(proof))),
-  verifyConsistency: (proof) => answer(wasm.verifyConsistency(j(proof))),
-  verifyCheckpoint: (checkpoint) => answer(wasm.verifyCheckpoint(j(checkpoint))),
+    answer("verifyEntry", wasm.verifyEntry(j(at), envelope, record, coseSign1, j(keys))),
+  merkleNodeHash: (left, right) => answer("merkleNodeHash", wasm.merkleNodeHash(j(left), j(right))),
+  merkleRoot: (envelopes) => answer("merkleRoot", wasm.merkleRoot(j(envelopes.map(hex)))),
+  verifyInclusion: (proof) => answer("verifyInclusion", wasm.verifyInclusion(j(proof))),
+  verifyConsistency: (proof) => answer("verifyConsistency", wasm.verifyConsistency(j(proof))),
+  verifyCheckpoint: (checkpoint) =>
+    answer("verifyCheckpoint", wasm.verifyCheckpoint(j(checkpoint))),
   checkpointIncludes: (checkpoint, inclusion) =>
-    answer(wasm.checkpointIncludes(j(checkpoint), j(inclusion))),
+    answer("checkpointIncludes", wasm.checkpointIncludes(j(checkpoint), j(inclusion))),
   checkpointExtendsTo: (older, newer, path) =>
-    answer(wasm.checkpointExtendsTo(j(older), j(newer), j(path))),
-  touched: (record) => answer(wasm.touched(record)),
+    answer("checkpointExtendsTo", wasm.checkpointExtendsTo(j(older), j(newer), j(path))),
+  touched: (record) => answer("touched", wasm.touched(record)),
 };
 
 let loading: Promise<Kernel> | undefined;
