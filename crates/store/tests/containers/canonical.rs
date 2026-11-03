@@ -79,7 +79,7 @@ pub(crate) async fn seeded() -> (Env, String) {
 #[ignore = "needs Docker"]
 async fn t_36_migrations_rerun_as_a_no_op() {
     let env = Env::start().await;
-    for (cluster, applied) in [(Cluster::Canonical, 17), (Cluster::Derived, 7)] {
+    for (cluster, applied) in [(Cluster::Canonical, 18), (Cluster::Derived, 7)] {
         work_store::migrate(&env.pool(cluster, "work_owner"), cluster)
             .await
             .unwrap();
@@ -797,6 +797,22 @@ async fn p_29_item_versions_step_by_one_with_the_position() {
     .await;
 }
 
+/// The ledger of a `<ledger hex>:<rows>:<digest hex>` manifest line and the insert of the archive
+/// record of its slice of `part` (OP-35).
+fn archive_record(line: &str, part: &str) -> (String, String) {
+    let mut fields = line.split(':');
+    let (scope, n, digest) = (
+        fields.next().unwrap().to_owned(),
+        fields.next().unwrap().to_owned(),
+        fields.next().unwrap().to_owned(),
+    );
+    let insert = format!(
+        "INSERT INTO work.partition_archive (ledger_id, cold_partition, object_key, copy_digest, row_count) \
+         VALUES (decode('{scope}', 'hex'), '{part}', 'archive/{part}/{scope}', decode('{digest}', 'hex'), {n})"
+    );
+    (scope, insert)
+}
+
 // OP-12 OP-8 OP-35 Access OP-73
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "needs Docker"]
@@ -868,24 +884,11 @@ async fn op_12_only_the_archive_role_drops_a_cold_partition_whose_copy_matches()
     let hot_drop = full.replace(&format!("'{part}'"), &format!("'{hot}'"));
     fails(&archive, &l, &[&hot_drop], Some("55006")).await;
     fails(&archive, &l, &[&full], Some("22000")).await;
-    let record = |line: &str| {
-        let mut fields = line.split(':');
-        let (scope, n, digest) = (
-            fields.next().unwrap().to_owned(),
-            fields.next().unwrap().to_owned(),
-            fields.next().unwrap().to_owned(),
-        );
-        let insert = format!(
-            "INSERT INTO work.partition_archive (ledger_id, cold_partition, object_key, copy_digest, row_count) \
-             VALUES (decode('{scope}', 'hex'), '{part}', 'archive/{part}/{scope}', decode('{digest}', 'hex'), {n})"
-        );
-        (scope, insert)
-    };
-    let (first, insert) = record(&lines[0]);
+    let (first, insert) = archive_record(&lines[0], &part);
     run(&archive, &first, &[&insert]).await;
     fails(&archive, &l, &[&full], Some("22000")).await;
     fails(&seq, &first, &[&insert], Some("42501")).await;
-    let (second, insert) = record(&lines[1]);
+    let (second, insert) = archive_record(&lines[1], &part);
     run(&archive, &second, &[&insert]).await;
     assert_eq!(scalar(&archive, &l, &full, true).await, 2);
     let gone: Option<String> = sqlx::query_scalar("SELECT to_regclass($1)::text")
