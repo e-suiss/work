@@ -11,6 +11,7 @@ publish = false
 # SEC-35
 [dependencies]
 work-kernel = { workspace = true }
+work-proto = { workspace = true }
 regex = { workspace = true, features = ["std", "perf", "unicode"] }
 aho-corasick = { workspace = true, features = ["std", "perf-literal"] }
 serde = { workspace = true, features = ["std", "derive"] }

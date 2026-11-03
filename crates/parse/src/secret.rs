@@ -43,6 +43,13 @@ impl RuleId {
     pub fn as_str(&self) -> &str {
         &self.0
     }
+
+    /// A rule id a parser worker named: 1 to 128 ASCII letters, digits, `-`, `_` or `.`.
+    pub(crate) fn from_worker(id: &str) -> Option<Self> {
+        let allowed = |b: u8| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.');
+        let fits = (1..=128).contains(&id.len()) && id.bytes().all(allowed);
+        fits.then(|| Self(id.into()))
+    }
 }
 
 impl fmt::Display for RuleId {
@@ -152,6 +159,11 @@ impl<'a> ScanPart<'a> {
     #[must_use]
     pub const fn name(&self) -> &PartName {
         self.name
+    }
+
+    /// The decoded bytes, for the parser worker request.
+    pub(crate) const fn content(&self) -> &'a [u8] {
+        self.content
     }
 
     /// The content length in bytes.
