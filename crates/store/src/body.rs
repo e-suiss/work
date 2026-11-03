@@ -473,6 +473,31 @@ async fn part_held(tx: &mut LedgerTx<'_>, pos: i64, part: &str) -> Result<bool, 
     Ok(held)
 }
 
+/// Whether the request at `request` already removed the key of `part` at `pos`: its erasure of
+/// the part is shredded or completed (P-111 item 5).
+async fn answered(
+    tx: &mut LedgerTx<'_>,
+    request: i64,
+    pos: i64,
+    part: &str,
+) -> Result<bool, StoreError> {
+    let ledger = *tx.ledger().as_bytes();
+    let done = sqlx::query_scalar!(
+        r#"SELECT EXISTS (
+                   SELECT 1 FROM work.erasure_log
+                   WHERE ledger_id = $1 AND request_pos = $2 AND pos = $3 AND part = $4
+                     AND state <> 'waiting_on_hold'
+               ) AS "done!""#,
+        ledger.as_slice(),
+        request,
+        pos,
+        part
+    )
+    .fetch_one(tx.conn())
+    .await?;
+    Ok(done)
+}
+
 /// The waiting erasure of `dek_id` and `part` for the request at `request`, written when there
 /// is none (Access OP-74, P-111 item 5).
 async fn waiting(
@@ -956,20 +981,7 @@ impl ErasurePool {
         let request = signed(request)?;
         let window = window_ms(settle);
         let mut tx = LedgerTx::begin(&self.pool, ledger).await?;
-        let done = sqlx::query_scalar!(
-            r#"SELECT EXISTS (
-                   SELECT 1 FROM work.erasure_log
-                   WHERE ledger_id = $1 AND request_pos = $2 AND pos = $3 AND part = $4
-                     AND state <> 'waiting_on_hold'
-               ) AS "done!""#,
-            id,
-            request,
-            at,
-            part
-        )
-        .fetch_one(tx.conn())
-        .await?;
-        if done {
+        if answered(&mut tx, request, at, part).await? {
             tx.rollback().await?;
             return Ok(Erased::Nothing);
         }
@@ -1263,6 +1275,7 @@ mod tests {
             state: state.to_owned(),
             pos: Some(3),
             part: Some("note".to_owned()),
+            request_pos: Some(4),
             requested_at: 1_000,
             settles_at: settles,
             completed_at: completed,

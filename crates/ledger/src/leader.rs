@@ -93,12 +93,11 @@ impl Leader {
         node: &Node,
     ) -> Result<Self, LedgerError> {
         let mut found = Vec::new();
-        let supports = |entries: &[Vec<u8>]| match node.activations(entries) {
-            Some(list) => {
-                found = list;
-                true
-            }
-            None => false,
+        let supports = |entries: &[Vec<u8>]| {
+            let list = node.activations(entries);
+            let supported = list.is_some();
+            found = list.unwrap_or_default();
+            supported
         };
         let stored = pool.acquire(&ledger, node.seat(), supports).await?;
         let epoch = stored.epoch;
