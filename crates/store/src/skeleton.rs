@@ -262,8 +262,6 @@ impl std::fmt::Debug for StoredLogEntry {
     }
 }
 
-type EntryRow = (i64, Vec<u8>, Vec<u8>, Option<Vec<u8>>);
-
 fn signed(v: u64) -> Result<i64, StoreError> {
     i64::try_from(v).map_err(|_| StoreError::Corrupt)
 }
@@ -287,15 +285,15 @@ impl LedgerTx<'_> {
     ) -> Result<(), StoreError> {
         let ledger = *self.ledger().as_bytes();
         for r in rows {
-            sqlx::query(
-                "INSERT INTO work.received_bytes (ledger_id, digest, kind, bytes, first_pos) \
-                 VALUES ($1, pg_catalog.sha256($3), $2, $3, $4) \
+            sqlx::query!(
+                "INSERT INTO work.received_bytes (ledger_id, digest, kind, bytes, first_pos)
+                 VALUES ($1, pg_catalog.sha256($3::bytea), $2, $3::bytea, $4)
                  ON CONFLICT (ledger_id, digest) DO NOTHING",
+                ledger.as_slice(),
+                r.kind.as_str(),
+                r.bytes.as_slice(),
+                signed(pos)?
             )
-            .bind(ledger.as_slice())
-            .bind(r.kind.as_str())
-            .bind(r.bytes.as_slice())
-            .bind(signed(pos)?)
             .execute(self.conn())
             .await
             .map_err(refused)?;
@@ -311,14 +309,14 @@ impl LedgerTx<'_> {
     ) -> Result<(), StoreError> {
         let ledger = *self.ledger().as_bytes();
         for r in rows {
-            sqlx::query(
-                "INSERT INTO work.log_received (ledger_id, pos, role, digest) \
-                 VALUES ($1, $2, $3, pg_catalog.sha256($4))",
+            sqlx::query!(
+                "INSERT INTO work.log_received (ledger_id, pos, role, digest)
+                 VALUES ($1, $2, $3, pg_catalog.sha256($4::bytea))",
+                ledger.as_slice(),
+                signed(pos)?,
+                r.role.as_str(),
+                r.bytes.as_slice()
             )
-            .bind(ledger.as_slice())
-            .bind(signed(pos)?)
-            .bind(r.role.as_str())
-            .bind(r.bytes.as_slice())
             .execute(self.conn())
             .await
             .map_err(refused)?;
@@ -330,30 +328,30 @@ impl LedgerTx<'_> {
     async fn insert_header(&mut self, at: i64, h: &HeaderRow) -> Result<(), StoreError> {
         let ledger = *self.ledger().as_bytes();
         let occurred = h.occurred_at_ms.map(signed).transpose()?;
-        sqlx::query(
-            "INSERT INTO work.record_header \
-             (ledger_id, pos, kind, record_type, author, author_actor_type, \
-              author_actor_type_source, occurred_at, ingest, ingest_reason, proof_commit, \
-              auth_context_ref, protocol_major, protocol_minor, schema_digest) \
-             VALUES ($1, $2, $3, $4, $5, $6, $7, \
-             pg_catalog.to_timestamp(0) + interval '1 millisecond' * $8::bigint::double precision, \
+        sqlx::query!(
+            "INSERT INTO work.record_header
+             (ledger_id, pos, kind, record_type, author, author_actor_type,
+              author_actor_type_source, occurred_at, ingest, ingest_reason, proof_commit,
+              auth_context_ref, protocol_major, protocol_minor, schema_digest)
+             VALUES ($1, $2, $3, $4, $5, $6, $7,
+             pg_catalog.to_timestamp(0) + interval '1 millisecond' * $8::bigint::double precision,
              $9, $10, $11, $12, $13, $14, $15)",
+            ledger.as_slice(),
+            at,
+            h.kind,
+            h.record_type.as_str(),
+            h.author.as_str(),
+            h.author_actor_type,
+            h.author_actor_type_source,
+            occurred,
+            h.ingest,
+            h.ingest_reason.as_deref(),
+            h.proof_commit.as_ref().map(<[u8; 32]>::as_slice),
+            h.auth_context_ref.as_ref().map(<[u8; 32]>::as_slice),
+            signed(h.protocol.0)?,
+            signed(h.protocol.1)?,
+            h.schema_digest.as_slice()
         )
-        .bind(ledger.as_slice())
-        .bind(at)
-        .bind(h.kind)
-        .bind(h.record_type.as_str())
-        .bind(h.author.as_str())
-        .bind(h.author_actor_type)
-        .bind(h.author_actor_type_source)
-        .bind(occurred)
-        .bind(h.ingest)
-        .bind(h.ingest_reason.as_deref())
-        .bind(h.proof_commit.as_ref().map(<[u8; 32]>::as_slice))
-        .bind(h.auth_context_ref.as_ref().map(<[u8; 32]>::as_slice))
-        .bind(signed(h.protocol.0)?)
-        .bind(signed(h.protocol.1)?)
-        .bind(h.schema_digest.as_slice())
         .execute(self.conn())
         .await
         .map_err(refused)?;
@@ -371,36 +369,35 @@ impl LedgerTx<'_> {
         let at = signed(pos)?;
         self.insert_header(at, &s.header).await?;
         for work in &s.concerns {
-            sqlx::query(
-                "INSERT INTO work.work_root (ledger_id, work_id, first_pos) \
-                 VALUES ($1, pg_catalog.encode($2, 'hex')::uuid, $3) \
+            sqlx::query!(
+                "INSERT INTO work.work_root (ledger_id, work_id, first_pos)
+                 VALUES ($1, pg_catalog.encode($2::bytea, 'hex')::uuid, $3)
                  ON CONFLICT (ledger_id, work_id) DO NOTHING",
+                id,
+                work.as_slice(),
+                at
             )
-            .bind(id)
-            .bind(work.as_slice())
-            .bind(at)
             .execute(self.conn())
             .await
             .map_err(refused)?;
-            sqlx::query(
-                "INSERT INTO work.log_concerns (ledger_id, work_id, pos) \
-                 VALUES ($1, pg_catalog.encode($2, 'hex')::uuid, $3)",
+            sqlx::query!(
+                "INSERT INTO work.log_concerns (ledger_id, work_id, pos)
+                 VALUES ($1, pg_catalog.encode($2::bytea, 'hex')::uuid, $3)",
+                id,
+                work.as_slice(),
+                at
             )
-            .bind(id)
-            .bind(work.as_slice())
-            .bind(at)
             .execute(self.conn())
             .await
             .map_err(refused)?;
         }
         for basis in &s.basis {
-            sqlx::query(
-                "INSERT INTO work.log_basis (ledger_id, pos, basis_record_id) \
-                 VALUES ($1, $2, $3)",
+            sqlx::query!(
+                "INSERT INTO work.log_basis (ledger_id, pos, basis_record_id) VALUES ($1, $2, $3)",
+                id,
+                at,
+                basis.as_slice()
             )
-            .bind(id)
-            .bind(at)
-            .bind(basis.as_slice())
             .execute(self.conn())
             .await
             .map_err(refused)?;
@@ -408,36 +405,36 @@ impl LedgerTx<'_> {
         for (ordinal, r) in (0_i64..).zip(&s.relations) {
             let (source_kind, source_bytes, source_text) = r.source.parts();
             let (target_kind, target_bytes, target_text) = r.target.parts();
-            sqlx::query(
-                "INSERT INTO work.log_relation \
-                 (ledger_id, pos, ordinal, rel, source_kind, source_bytes, source_text, \
-                  target_kind, target_bytes, target_text, qualifier) \
+            sqlx::query!(
+                "INSERT INTO work.log_relation
+                 (ledger_id, pos, ordinal, rel, source_kind, source_bytes, source_text,
+                  target_kind, target_bytes, target_text, qualifier)
                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)",
+                id,
+                at,
+                ordinal,
+                r.rel,
+                source_kind,
+                source_bytes,
+                source_text,
+                target_kind,
+                target_bytes,
+                target_text,
+                r.qualifier.as_deref()
             )
-            .bind(id)
-            .bind(at)
-            .bind(ordinal)
-            .bind(r.rel)
-            .bind(source_kind)
-            .bind(source_bytes)
-            .bind(source_text)
-            .bind(target_kind)
-            .bind(target_bytes)
-            .bind(target_text)
-            .bind(r.qualifier.as_deref())
             .execute(self.conn())
             .await
             .map_err(refused)?;
         }
         for b in &s.body {
-            sqlx::query(
-                "INSERT INTO work.body_commitment (ledger_id, pos, part, part_commit) \
+            sqlx::query!(
+                "INSERT INTO work.body_commitment (ledger_id, pos, part, part_commit)
                  VALUES ($1, $2, $3, $4)",
+                id,
+                at,
+                b.part.as_str(),
+                b.commit.as_slice()
             )
-            .bind(id)
-            .bind(at)
-            .bind(b.part.as_str())
-            .bind(b.commit.as_slice())
             .execute(self.conn())
             .await
             .map_err(refused)?;
@@ -448,13 +445,13 @@ impl LedgerTx<'_> {
     /// Whether `source` and `source_id` are already seen in a hot partition (OP-38 item 5).
     pub(crate) async fn inbound_seen(&mut self, row: &InboundRow) -> Result<bool, StoreError> {
         let ledger = *self.ledger().as_bytes();
-        let seen: bool = sqlx::query_scalar(
-            "SELECT EXISTS (SELECT 1 FROM work.inbound_seen \
-             WHERE ledger_id = $1 AND source = $2 AND source_id = $3)",
+        let seen = sqlx::query_scalar!(
+            r#"SELECT EXISTS (SELECT 1 FROM work.inbound_seen
+               WHERE ledger_id = $1 AND source = $2 AND source_id = $3) AS "seen!""#,
+            ledger.as_slice(),
+            row.source.as_str(),
+            row.source_id.as_str()
         )
-        .bind(ledger.as_slice())
-        .bind(row.source.as_str())
-        .bind(row.source_id.as_str())
         .fetch_one(self.conn())
         .await?;
         Ok(seen)
@@ -463,18 +460,18 @@ impl LedgerTx<'_> {
     /// Writes `row` with its record (OP-8, OP-38 item 5); a month without a partition is refused by the database (OP-37).
     pub(crate) async fn insert_inbound(&mut self, row: &InboundRow) -> Result<(), StoreError> {
         let ledger = *self.ledger().as_bytes();
-        sqlx::query(
-            "INSERT INTO work.inbound_seen \
-             (ledger_id, source, source_id, content_digest, result_pos, seen_at) \
-             VALUES ($1, $2, $3, $4, $5, \
+        sqlx::query!(
+            "INSERT INTO work.inbound_seen
+             (ledger_id, source, source_id, content_digest, result_pos, seen_at)
+             VALUES ($1, $2, $3, $4, $5,
              pg_catalog.to_timestamp(0) + interval '1 millisecond' * $6::bigint::double precision)",
+            ledger.as_slice(),
+            row.source.as_str(),
+            row.source_id.as_str(),
+            row.content_digest.as_slice(),
+            signed(row.pos)?,
+            signed(row.seen_at_ms)?
         )
-        .bind(ledger.as_slice())
-        .bind(row.source.as_str())
-        .bind(row.source_id.as_str())
-        .bind(row.content_digest.as_slice())
-        .bind(signed(row.pos)?)
-        .bind(signed(row.seen_at_ms)?)
         .execute(self.conn())
         .await
         .map_err(refused)?;
@@ -487,13 +484,13 @@ impl LedgerTx<'_> {
     /// [`StoreError::Db`], or [`StoreError::Corrupt`] for an out-of-range row.
     pub async fn item_version(&mut self, item: &ItemRef) -> Result<Option<u64>, StoreError> {
         let ledger = *self.ledger().as_bytes();
-        let version: Option<i64> = sqlx::query_scalar(
-            "SELECT version FROM work.item_head \
-             WHERE ledger_id = $1 AND item_kind = $2 AND item_id = $3",
+        let version = sqlx::query_scalar!(
+            r#"SELECT version AS "version!" FROM work.item_head
+               WHERE ledger_id = $1 AND item_kind = $2 AND item_id = $3"#,
+            ledger.as_slice(),
+            item.kind(),
+            item.id()
         )
-        .bind(ledger.as_slice())
-        .bind(item.kind())
-        .bind(item.id())
         .fetch_optional(self.conn())
         .await?;
         version
@@ -507,12 +504,12 @@ impl LedgerTx<'_> {
     /// [`StoreError::Db`], or [`StoreError::Corrupt`] for an out-of-range count.
     pub async fn concerning(&mut self, work: &[u8; 16]) -> Result<u64, StoreError> {
         let ledger = *self.ledger().as_bytes();
-        let n: i64 = sqlx::query_scalar(
-            "SELECT count(*) FROM work.log_concerns \
-             WHERE ledger_id = $1 AND work_id = pg_catalog.encode($2, 'hex')::uuid",
+        let n = sqlx::query_scalar!(
+            r#"SELECT count(*) AS "n!" FROM work.log_concerns
+               WHERE ledger_id = $1 AND work_id = pg_catalog.encode($2::bytea, 'hex')::uuid"#,
+            ledger.as_slice(),
+            work.as_slice()
         )
-        .bind(ledger.as_slice())
-        .bind(work.as_slice())
         .fetch_one(self.conn())
         .await?;
         u64::try_from(n).map_err(|_| StoreError::Corrupt)
@@ -528,28 +525,29 @@ impl LedgerTx<'_> {
         limit: u32,
     ) -> Result<Vec<StoredLogEntry>, StoreError> {
         let ledger = *self.ledger().as_bytes();
-        let rows: Vec<EntryRow> = sqlx::query_as(
-            "SELECT l.pos, l.record_bytes, l.envelope_bytes, b.bytes \
-             FROM ledger.log l \
-             LEFT JOIN work.log_received r \
-               ON r.ledger_id = l.ledger_id AND r.pos = l.pos AND r.role = 'author_signature' \
-             LEFT JOIN work.received_bytes b \
-               ON b.ledger_id = r.ledger_id AND b.digest = r.digest \
-             WHERE l.ledger_id = $1 AND l.pos >= $2 \
-             ORDER BY l.pos LIMIT $3",
+        let rows = sqlx::query!(
+            r#"SELECT l.pos AS "pos!", l.record_bytes AS "record_bytes!",
+                      l.envelope_bytes AS "envelope_bytes!", b.bytes AS "cose_sign1?"
+               FROM ledger.log l
+               LEFT JOIN work.log_received r
+                 ON r.ledger_id = l.ledger_id AND r.pos = l.pos AND r.role = 'author_signature'
+               LEFT JOIN work.received_bytes b
+                 ON b.ledger_id = r.ledger_id AND b.digest = r.digest
+               WHERE l.ledger_id = $1 AND l.pos >= $2
+               ORDER BY l.pos LIMIT $3"#,
+            ledger.as_slice(),
+            signed(from)?,
+            i64::from(limit)
         )
-        .bind(ledger.as_slice())
-        .bind(signed(from)?)
-        .bind(i64::from(limit))
         .fetch_all(self.conn())
         .await?;
         rows.into_iter()
-            .map(|(pos, record_bytes, envelope_bytes, cose_sign1)| {
+            .map(|r| {
                 Ok(StoredLogEntry {
-                    pos: u64::try_from(pos).map_err(|_| StoreError::Corrupt)?,
-                    record_bytes,
-                    envelope_bytes,
-                    cose_sign1,
+                    pos: u64::try_from(r.pos).map_err(|_| StoreError::Corrupt)?,
+                    record_bytes: r.record_bytes,
+                    envelope_bytes: r.envelope_bytes,
+                    cose_sign1: r.cose_sign1,
                 })
             })
             .collect()

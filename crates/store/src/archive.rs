@@ -53,9 +53,6 @@ pub struct ArchivePool {
     pool: PgPool,
 }
 
-type SliceRow = (i64, Vec<u8>);
-type RecordRow = (String, Vec<u8>, i64);
-
 fn unsigned(v: i64) -> Result<u64, StoreError> {
     u64::try_from(v).map_err(|_| StoreError::Corrupt)
 }
@@ -103,8 +100,8 @@ impl ArchivePool {
     /// # Errors
     /// [`StoreError::Db`], or [`StoreError::Corrupt`] before 1970.
     pub async fn now_ms(&self) -> Result<u64, StoreError> {
-        let ms: i64 = sqlx::query_scalar(
-            "SELECT (extract(epoch FROM pg_catalog.clock_timestamp()) * 1000)::bigint",
+        let ms = sqlx::query_scalar!(
+            r#"SELECT (extract(epoch FROM pg_catalog.clock_timestamp()) * 1000)::bigint AS "ms!""#
         )
         .fetch_one(&self.pool)
         .await?;
@@ -118,16 +115,16 @@ impl ArchivePool {
     /// [`StoreError::Db`].
     pub async fn cold_partitions(&self) -> Result<Vec<String>, StoreError> {
         let mut tx = self.pool.begin().await?;
-        sqlx::query("SET LOCAL timezone = 'UTC'")
+        sqlx::query!("SET LOCAL timezone = 'UTC'")
             .execute(&mut *tx)
             .await?;
-        let parts: Vec<String> = sqlx::query_scalar(
-            "SELECT c.oid::regclass::text FROM pg_catalog.pg_inherits h \
-             JOIN pg_catalog.pg_class c ON c.oid = h.inhrelid \
-             WHERE h.inhparent IN ('work.idempotency_key'::regclass, 'work.inbound_seen'::regclass) \
-             AND work.partition_is_cold(substring(pg_catalog.pg_get_expr(c.relpartbound, c.oid) \
-                 FROM 'TO \\(''([^'']+)''\\)')::timestamptz, pg_catalog.now()) \
-             ORDER BY 1",
+        let parts = sqlx::query_scalar!(
+            r#"SELECT c.oid::regclass::text AS "part!" FROM pg_catalog.pg_inherits h
+               JOIN pg_catalog.pg_class c ON c.oid = h.inhrelid
+               WHERE h.inhparent IN ('work.idempotency_key'::regclass, 'work.inbound_seen'::regclass)
+               AND work.partition_is_cold(substring(pg_catalog.pg_get_expr(c.relpartbound, c.oid)
+                   FROM 'TO \(''([^'']+)''\)')::timestamptz, pg_catalog.now())
+               ORDER BY 1"#
         )
         .fetch_all(&mut *tx)
         .await?;
@@ -143,12 +140,13 @@ impl ArchivePool {
     pub async fn ledgers(&self, part: &str) -> Result<Vec<LedgerId>, StoreError> {
         parent(part)?;
         let mut tx = self.pool.begin().await?;
-        let ids: Vec<Vec<u8>> =
-            sqlx::query_scalar("SELECT l::bytea FROM work.partition_ledgers($1::regclass) l")
-                .bind(part)
-                .fetch_all(&mut *tx)
-                .await
-                .map_err(refused)?;
+        let ids = sqlx::query_scalar!(
+            r#"SELECT l::bytea AS "l!" FROM work.partition_ledgers($1::text::regclass) l"#,
+            part
+        )
+        .fetch_all(&mut *tx)
+        .await
+        .map_err(refused)?;
         tx.commit().await?;
         ids.iter()
             .map(|id| digest(id).map(LedgerId::from_bytes))
@@ -161,33 +159,39 @@ impl ArchivePool {
     /// [`StoreError::Constraint`] for a partition that is not archivable, [`StoreError::Corrupt`]
     /// for an out-of-range row, otherwise [`StoreError::Db`].
     pub async fn slice(&self, part: &str, ledger: &LedgerId) -> Result<PartitionSlice, StoreError> {
-        let rows_sql = match parent(part)? {
-            "work.idempotency_key" => {
-                "SELECT t::text FROM work.idempotency_key t WHERE t.tableoid = $1::regclass \
-                 ORDER BY t::text COLLATE \"C\""
-            }
-            _ => {
-                "SELECT t::text FROM work.inbound_seen t WHERE t.tableoid = $1::regclass \
-                 ORDER BY t::text COLLATE \"C\""
-            }
-        };
+        let table = parent(part)?;
         let mut tx = LedgerTx::begin(&self.pool, ledger).await?;
-        sqlx::query("SET LOCAL timezone = 'UTC'")
+        sqlx::query!("SET LOCAL timezone = 'UTC'")
             .execute(tx.conn())
             .await?;
-        let counted: Option<SliceRow> = sqlx::query_as(
-            "SELECT row_count, slice_digest::bytea FROM work.partition_slice($1::regclass)",
+        let counted = sqlx::query!(
+            r#"SELECT row_count AS "row_count!", slice_digest::bytea AS "digest!"
+               FROM work.partition_slice($1::text::regclass)"#,
+            part
         )
-        .bind(part)
         .fetch_optional(tx.conn())
         .await
         .map_err(refused)?;
-        let rows: Vec<String> = sqlx::query_scalar(rows_sql)
-            .bind(part)
+        let rows = if table == "work.idempotency_key" {
+            sqlx::query_scalar!(
+                r#"SELECT t::text AS "row!" FROM work.idempotency_key t
+                   WHERE t.tableoid = $1::text::regclass ORDER BY t::text COLLATE "C""#,
+                part
+            )
             .fetch_all(tx.conn())
-            .await?;
+            .await?
+        } else {
+            sqlx::query_scalar!(
+                r#"SELECT t::text AS "row!" FROM work.inbound_seen t
+                   WHERE t.tableoid = $1::text::regclass ORDER BY t::text COLLATE "C""#,
+                part
+            )
+            .fetch_all(tx.conn())
+            .await?
+        };
         tx.commit().await?;
-        let (row_count, raw) = counted.ok_or(StoreError::Corrupt)?;
+        let counted = counted.ok_or(StoreError::Corrupt)?;
+        let (row_count, raw) = (counted.row_count, counted.digest);
         Ok(PartitionSlice {
             row_count: unsigned(row_count)?,
             digest: digest(&raw)?,
@@ -205,20 +209,22 @@ impl ArchivePool {
         ledger: &LedgerId,
     ) -> Result<Option<ArchiveRecord>, StoreError> {
         let mut tx = LedgerTx::begin(&self.pool, ledger).await?;
-        let row: Option<RecordRow> = sqlx::query_as(
-            "SELECT object_key, copy_digest::bytea, row_count FROM work.partition_archive \
-             WHERE ledger_id = $1 AND cold_partition = $2",
+        let row = sqlx::query!(
+            r#"SELECT object_key AS "object_key!", copy_digest::bytea AS "copy_digest!",
+                      row_count AS "row_count!"
+               FROM work.partition_archive
+               WHERE ledger_id = $1 AND cold_partition = $2"#,
+            ledger.as_bytes().as_slice(),
+            part
         )
-        .bind(ledger.as_bytes().as_slice())
-        .bind(part)
         .fetch_optional(tx.conn())
         .await?;
         tx.commit().await?;
-        row.map(|(object_key, raw, n)| {
+        row.map(|r| {
             Ok(ArchiveRecord {
-                object_key,
-                copy_digest: digest(&raw)?,
-                row_count: unsigned(n)?,
+                object_key: r.object_key,
+                copy_digest: digest(&r.copy_digest)?,
+                row_count: unsigned(r.row_count)?,
             })
         })
         .transpose()
@@ -237,16 +243,16 @@ impl ArchivePool {
     ) -> Result<bool, StoreError> {
         let rows = i64::try_from(record.row_count).map_err(|_| StoreError::Corrupt)?;
         let mut tx = LedgerTx::begin(&self.pool, ledger).await?;
-        let inserted = sqlx::query(
-            "INSERT INTO work.partition_archive \
-             (ledger_id, cold_partition, object_key, copy_digest, row_count) \
+        let inserted = sqlx::query!(
+            "INSERT INTO work.partition_archive
+             (ledger_id, cold_partition, object_key, copy_digest, row_count)
              VALUES ($1, $2, $3, $4, $5) ON CONFLICT (ledger_id, cold_partition) DO NOTHING",
+            ledger.as_bytes().as_slice(),
+            part,
+            record.object_key.as_str(),
+            record.copy_digest.as_slice(),
+            rows
         )
-        .bind(ledger.as_bytes().as_slice())
-        .bind(part)
-        .bind(record.object_key.as_str())
-        .bind(record.copy_digest.as_slice())
-        .bind(rows)
         .execute(tx.conn())
         .await
         .map_err(refused)?;
@@ -264,13 +270,15 @@ impl ArchivePool {
     pub async fn drop_partition(&self, part: &str, manifest: &[u8; 32]) -> Result<u64, StoreError> {
         parent(part)?;
         let mut tx = self.pool.begin().await?;
-        let total: i64 =
-            sqlx::query_scalar("SELECT work.drop_archived_partition($1::regclass, $2)")
-                .bind(part)
-                .bind(manifest.as_slice())
-                .fetch_one(&mut *tx)
-                .await
-                .map_err(refused)?;
+        let total = sqlx::query_scalar!(
+            r#"SELECT work.drop_archived_partition($1::text::regclass, $2::bytea::ledger.digest32)
+                   AS "total!""#,
+            part,
+            manifest.as_slice()
+        )
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(refused)?;
         tx.commit().await?;
         unsigned(total)
     }

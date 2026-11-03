@@ -60,19 +60,6 @@ impl std::fmt::Debug for CommittedRecord {
     }
 }
 
-type PendingRow = (
-    i64,
-    String,
-    String,
-    String,
-    Vec<u8>,
-    i64,
-    String,
-    Vec<u8>,
-    i64,
-);
-type RecordRow = (i64, Vec<u8>, i64, Vec<u8>, Vec<u8>);
-
 fn pos_of(raw: i64) -> Result<u64, StoreError> {
     u64::try_from(raw).map_err(|_| StoreError::Corrupt)
 }
@@ -112,50 +99,40 @@ impl LedgerTx<'_> {
             Some(k) => (pos_param(k.pos)?, k.event_id.as_str()),
             None => (-1, ""),
         };
-        let rows: Vec<PendingRow> = sqlx::query_as(
-            "SELECT o.pos, o.event_id::text, o.event_type::text, o.traceparent::text, \
-             l.record_id::bytea, (extract(epoch FROM l.recorded_at) * 1000)::bigint, \
-             o.item_kind, o.item_id, o.version \
-             FROM ledger.outbox o \
-             JOIN ledger.log l ON l.ledger_id = o.ledger_id AND l.pos = o.pos \
-             WHERE o.ledger_id = $1 AND (o.pos, o.event_id) > ($2::bigint, $3::text) \
-             ORDER BY o.pos, o.event_id \
-             LIMIT $4",
+        let rows = sqlx::query!(
+            r#"SELECT o.pos AS "pos!", o.event_id::text AS "event_id!",
+                      o.event_type::text AS "event_type!", o.traceparent::text AS "traceparent!",
+                      l.record_id::bytea AS "record_id!",
+                      (extract(epoch FROM l.recorded_at) * 1000)::bigint AS "recorded_at_ms!",
+                      o.item_kind AS "item_kind!", o.item_id AS "item_id!", o.version AS "version!"
+               FROM ledger.outbox o
+               JOIN ledger.log l ON l.ledger_id = o.ledger_id AND l.pos = o.pos
+               WHERE o.ledger_id = $1 AND (o.pos, o.event_id) > ($2::bigint, $3::text)
+               ORDER BY o.pos, o.event_id
+               LIMIT $4"#,
+            ledger.as_slice(),
+            after_pos,
+            after_id,
+            i64::from(limit)
         )
-        .bind(ledger.as_slice())
-        .bind(after_pos)
-        .bind(after_id)
-        .bind(i64::from(limit))
         .fetch_all(self.conn())
         .await?;
         rows.into_iter()
-            .map(
-                |(
-                    pos,
-                    event_id,
-                    event_type,
-                    traceparent,
-                    record_id,
-                    recorded_at_ms,
-                    item_kind,
-                    item_id,
-                    version,
-                )| {
-                    Ok(PendingEvent {
-                        key: PointerKey {
-                            pos: pos_of(pos)?,
-                            event_id,
-                        },
-                        event_type,
-                        traceparent,
-                        record_id: digest_of(&record_id)?,
-                        recorded_at_ms,
-                        item: ItemRef::from_parts(&item_kind, &item_id)
-                            .ok_or(StoreError::Corrupt)?,
-                        version: pos_of(version)?,
-                    })
-                },
-            )
+            .map(|r| {
+                Ok(PendingEvent {
+                    key: PointerKey {
+                        pos: pos_of(r.pos)?,
+                        event_id: r.event_id,
+                    },
+                    event_type: r.event_type,
+                    traceparent: r.traceparent,
+                    record_id: digest_of(&r.record_id)?,
+                    recorded_at_ms: r.recorded_at_ms,
+                    item: ItemRef::from_parts(&r.item_kind, &r.item_id)
+                        .ok_or(StoreError::Corrupt)?,
+                    version: pos_of(r.version)?,
+                })
+            })
             .collect()
     }
 
@@ -168,26 +145,25 @@ impl LedgerTx<'_> {
         pos: u64,
     ) -> Result<Option<CommittedRecord>, StoreError> {
         let ledger = *self.ledger().as_bytes();
-        let row: Option<RecordRow> = sqlx::query_as(
-            "SELECT pos, record_id::bytea, (extract(epoch FROM recorded_at) * 1000)::bigint, \
-             record_bytes, envelope_bytes \
-             FROM ledger.log WHERE ledger_id = $1 AND pos = $2",
+        let row = sqlx::query!(
+            r#"SELECT pos AS "pos!", record_id::bytea AS "record_id!",
+                      (extract(epoch FROM recorded_at) * 1000)::bigint AS "recorded_at_ms!",
+                      record_bytes AS "record_bytes!", envelope_bytes AS "envelope_bytes!"
+               FROM ledger.log WHERE ledger_id = $1 AND pos = $2"#,
+            ledger.as_slice(),
+            pos_param(pos)?
         )
-        .bind(ledger.as_slice())
-        .bind(pos_param(pos)?)
         .fetch_optional(self.conn())
         .await?;
-        row.map(
-            |(pos, record_id, recorded_at_ms, record_bytes, envelope_bytes)| {
-                Ok(CommittedRecord {
-                    pos: pos_of(pos)?,
-                    record_id: digest_of(&record_id)?,
-                    recorded_at_ms,
-                    record_bytes,
-                    envelope_bytes,
-                })
-            },
-        )
+        row.map(|r| {
+            Ok(CommittedRecord {
+                pos: pos_of(r.pos)?,
+                record_id: digest_of(&r.record_id)?,
+                recorded_at_ms: r.recorded_at_ms,
+                record_bytes: r.record_bytes,
+                envelope_bytes: r.envelope_bytes,
+            })
+        })
         .transpose()
     }
 
@@ -205,30 +181,29 @@ impl LedgerTx<'_> {
     ) -> Result<Vec<CommittedRecord>, StoreError> {
         let ledger = *self.ledger().as_bytes();
         let after_pos = after.map_or(Ok(-1), pos_param)?;
-        let rows: Vec<RecordRow> = sqlx::query_as(
-            "SELECT pos, record_id::bytea, (extract(epoch FROM recorded_at) * 1000)::bigint, \
-             record_bytes, envelope_bytes \
-             FROM ledger.log WHERE ledger_id = $1 AND pos > $2 \
-             ORDER BY pos \
-             LIMIT $3",
+        let rows = sqlx::query!(
+            r#"SELECT pos AS "pos!", record_id::bytea AS "record_id!",
+                      (extract(epoch FROM recorded_at) * 1000)::bigint AS "recorded_at_ms!",
+                      record_bytes AS "record_bytes!", envelope_bytes AS "envelope_bytes!"
+               FROM ledger.log WHERE ledger_id = $1 AND pos > $2
+               ORDER BY pos
+               LIMIT $3"#,
+            ledger.as_slice(),
+            after_pos,
+            i64::from(limit)
         )
-        .bind(ledger.as_slice())
-        .bind(after_pos)
-        .bind(i64::from(limit))
         .fetch_all(self.conn())
         .await?;
         rows.into_iter()
-            .map(
-                |(pos, record_id, recorded_at_ms, record_bytes, envelope_bytes)| {
-                    Ok(CommittedRecord {
-                        pos: pos_of(pos)?,
-                        record_id: digest_of(&record_id)?,
-                        recorded_at_ms,
-                        record_bytes,
-                        envelope_bytes,
-                    })
-                },
-            )
+            .map(|r| {
+                Ok(CommittedRecord {
+                    pos: pos_of(r.pos)?,
+                    record_id: digest_of(&r.record_id)?,
+                    recorded_at_ms: r.recorded_at_ms,
+                    record_bytes: r.record_bytes,
+                    envelope_bytes: r.envelope_bytes,
+                })
+            })
             .collect()
     }
 
@@ -244,16 +219,16 @@ impl LedgerTx<'_> {
         let mut ids = Vec::with_capacity(keys.len());
         for k in keys {
             positions.push(pos_param(k.pos)?);
-            ids.push(k.event_id.as_str());
+            ids.push(k.event_id.clone());
         }
-        let done = sqlx::query(
-            "DELETE FROM ledger.outbox o \
-             USING unnest($2::bigint[], $3::text[]) AS k(pos, event_id) \
+        let done = sqlx::query!(
+            "DELETE FROM ledger.outbox o
+             USING unnest($2::bigint[], $3::text[]) AS k(pos, event_id)
              WHERE o.ledger_id = $1 AND o.pos = k.pos AND o.event_id = k.event_id",
+            ledger.as_slice(),
+            positions.as_slice(),
+            ids.as_slice()
         )
-        .bind(ledger.as_slice())
-        .bind(positions)
-        .bind(ids)
         .execute(self.conn())
         .await?;
         Ok(done.rows_affected())

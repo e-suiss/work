@@ -204,14 +204,14 @@ impl IdempotencyDecision {
     }
 }
 
-type KeyRow = (
-    Vec<u8>,
-    String,
-    Option<i64>,
-    Option<Vec<u8>>,
-    Option<String>,
-    i64,
-);
+struct KeyRow {
+    request_digest: Vec<u8>,
+    outcome: String,
+    pos: Option<i64>,
+    record_id: Option<Vec<u8>>,
+    reason: Option<String>,
+    created_at_ms: i64,
+}
 
 impl LedgerTx<'_> {
     /// Decides a write request carrying `raw_key` from `caller` with `request_digest` at ledger
@@ -249,16 +249,19 @@ impl LedgerTx<'_> {
         key: &IdempotencyKey,
     ) -> Result<Option<StoredKey>, StoreError> {
         let ledger = *self.ledger().as_bytes();
-        let row: Option<KeyRow> = sqlx::query_as(
-            "SELECT request_digest::bytea, outcome, result_pos::bigint, result_record_id::bytea, \
-             reason::text, (extract(epoch FROM created_at) * 1000)::bigint \
-             FROM work.idempotency_key \
-             WHERE ledger_id = $1 AND caller_ref = $2 AND idem_key = $3 \
-             ORDER BY created_at LIMIT 1",
+        let row = sqlx::query_as!(
+            KeyRow,
+            r#"SELECT request_digest::bytea AS "request_digest!", outcome AS "outcome!",
+                      result_pos::bigint AS "pos?", result_record_id::bytea AS "record_id?",
+                      reason::text AS "reason?",
+                      (extract(epoch FROM created_at) * 1000)::bigint AS "created_at_ms!"
+               FROM work.idempotency_key
+               WHERE ledger_id = $1 AND caller_ref = $2 AND idem_key = $3
+               ORDER BY created_at LIMIT 1"#,
+            ledger.as_slice(),
+            caller.as_str(),
+            key.to_text()
         )
-        .bind(ledger.as_slice())
-        .bind(caller.as_str())
-        .bind(key.to_text())
         .fetch_optional(self.conn())
         .await?;
         row.map(stored).transpose()
@@ -286,22 +289,22 @@ impl LedgerTx<'_> {
             ),
             StoredOutcome::Rejected { reason } => ("rejected", None, None, Some(reason.as_str())),
         };
-        sqlx::query(
-            "INSERT INTO work.idempotency_key \
-             (ledger_id, caller_ref, idem_key, request_digest, outcome, result_pos, \
-              result_record_id, reason, created_at) \
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, \
+        sqlx::query!(
+            "INSERT INTO work.idempotency_key
+             (ledger_id, caller_ref, idem_key, request_digest, outcome, result_pos,
+              result_record_id, reason, created_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8,
              pg_catalog.to_timestamp(0) + interval '1 millisecond' * $9::bigint::double precision)",
+            ledger.as_slice(),
+            caller.as_str(),
+            key.to_text(),
+            row.request_digest.as_slice(),
+            outcome,
+            pos,
+            record_id,
+            reason,
+            row.created_at_ms
         )
-        .bind(ledger.as_slice())
-        .bind(caller.as_str())
-        .bind(key.to_text())
-        .bind(row.request_digest.as_slice())
-        .bind(outcome)
-        .bind(pos)
-        .bind(record_id)
-        .bind(reason)
-        .bind(row.created_at_ms)
         .execute(self.conn())
         .await?;
         Ok(())
@@ -312,9 +315,15 @@ fn digest(bytes: &[u8]) -> Result<[u8; 32], StoreError> {
     <[u8; 32]>::try_from(bytes).map_err(|_| StoreError::Corrupt)
 }
 
-fn stored(
-    (request_digest, outcome, pos, record_id, reason, created_at_ms): KeyRow,
-) -> Result<StoredKey, StoreError> {
+fn stored(row: KeyRow) -> Result<StoredKey, StoreError> {
+    let KeyRow {
+        request_digest,
+        outcome,
+        pos,
+        record_id,
+        reason,
+        created_at_ms,
+    } = row;
     let outcome = match (outcome.as_str(), pos, record_id, reason) {
         ("recorded", Some(pos), Some(record_id), None) => StoredOutcome::Recorded {
             pos: u64::try_from(pos).map_err(|_| StoreError::Corrupt)?,

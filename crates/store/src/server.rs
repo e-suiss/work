@@ -28,9 +28,9 @@ pub async fn connect(
 /// # Errors
 /// [`StoreError::Db`].
 pub async fn server_version_num(pool: &PgPool) -> Result<i32, StoreError> {
-    Ok(
-        sqlx::query_scalar("SELECT pg_catalog.current_setting('server_version_num')::int4")
-            .fetch_one(pool)
-            .await?,
+    Ok(sqlx::query_scalar!(
+        r#"SELECT pg_catalog.current_setting('server_version_num')::int4 AS "version!""#
     )
+    .fetch_one(pool)
+    .await?)
 }

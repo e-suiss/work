@@ -112,11 +112,13 @@ pub struct CheckpointerPool {
     pool: PgPool,
 }
 
-type SnapshotRow = (i64, Option<Vec<u8>>, Option<i64>, Vec<u8>);
-type StoredCheckpoint = (i64, Vec<u8>, Vec<u8>, i64, Vec<u8>);
-type LogLeaf = (i64, Vec<u8>, Vec<u8>);
-type Received = (i64, String, Vec<u8>);
-type StoredCosignature = (String, i64, Vec<u8>);
+struct StoredCheckpoint {
+    size: i64,
+    root: Vec<u8>,
+    head_leaf: Vec<u8>,
+    issued_at: i64,
+    signed_note: Vec<u8>,
+}
 
 fn signed(v: u64) -> Result<i64, StoreError> {
     i64::try_from(v).map_err(|_| StoreError::Corrupt)
@@ -131,13 +133,12 @@ fn digest(raw: &[u8]) -> Result<[u8; 32], StoreError> {
 }
 
 fn checkpoint_row(row: StoredCheckpoint) -> Result<CheckpointRow, StoreError> {
-    let (size, root, head_leaf, issued_at, signed_note) = row;
     Ok(CheckpointRow {
-        size: unsigned(size)?,
-        root: digest(&root)?,
-        head_leaf: digest(&head_leaf)?,
-        issued_at_ms: unsigned(issued_at)?,
-        signed_note,
+        size: unsigned(row.size)?,
+        root: digest(&row.root)?,
+        head_leaf: digest(&row.head_leaf)?,
+        issued_at_ms: unsigned(row.issued_at)?,
+        signed_note: row.signed_note,
     })
 }
 
@@ -166,16 +167,19 @@ impl CheckpointerPool {
     /// [`StoreError::Db`].
     pub async fn head(&self, ledger: &LedgerId) -> Result<HeadSnapshot, StoreError> {
         let mut tx = self.begin(ledger).await?;
-        let row: Option<SnapshotRow> = sqlx::query_as(
-            "SELECT pos, head_leaf::bytea, \
-             (extract(epoch FROM head_recorded_at) * 1000)::bigint, frontier \
-             FROM ledger.head WHERE ledger_id = $1",
+        let row = sqlx::query!(
+            r#"SELECT pos AS "pos!", head_leaf::bytea AS "leaf?",
+                      (extract(epoch FROM head_recorded_at) * 1000)::bigint AS "at?",
+                      frontier AS "frontier!"
+               FROM ledger.head WHERE ledger_id = $1"#,
+            ledger.as_bytes().as_slice()
         )
-        .bind(ledger.as_bytes().as_slice())
         .fetch_optional(tx.conn())
         .await?;
         tx.commit().await?;
-        let Some((pos, Some(leaf), Some(at), frontier)) = row else {
+        let Some((pos, Some(leaf), Some(at), frontier)) =
+            row.map(|r| (r.pos, r.leaf, r.at, r.frontier))
+        else {
             return Err(StoreError::NotOpened);
         };
         let pos = unsigned(pos)?;
@@ -200,10 +204,11 @@ impl CheckpointerPool {
     /// [`StoreError::Db`].
     pub async fn durability(&self, ledger: &LedgerId) -> Result<Durability, StoreError> {
         let mut tx = self.begin(ledger).await?;
-        let profile: Option<String> = sqlx::query_scalar(
-            "SELECT durability_profile FROM work.ledger_profile WHERE ledger_id = $1",
+        let profile = sqlx::query_scalar!(
+            r#"SELECT durability_profile AS "profile!" FROM work.ledger_profile
+               WHERE ledger_id = $1"#,
+            ledger.as_bytes().as_slice()
         )
-        .bind(ledger.as_bytes().as_slice())
         .fetch_optional(tx.conn())
         .await?;
         tx.commit().await?;
@@ -221,12 +226,14 @@ impl CheckpointerPool {
     /// [`StoreError::Corrupt`] for an out-of-range row, otherwise [`StoreError::Db`].
     pub async fn latest(&self, ledger: &LedgerId) -> Result<Option<CheckpointRow>, StoreError> {
         let mut tx = self.begin(ledger).await?;
-        let row: Option<StoredCheckpoint> = sqlx::query_as(
-            "SELECT size, root::bytea, head_leaf::bytea, \
-             (extract(epoch FROM issued_at) * 1000)::bigint, signed_note \
-             FROM ledger.checkpoint WHERE ledger_id = $1 ORDER BY size DESC LIMIT 1",
+        let row = sqlx::query_as!(
+            StoredCheckpoint,
+            r#"SELECT size AS "size!", root::bytea AS "root!", head_leaf::bytea AS "head_leaf!",
+                      (extract(epoch FROM issued_at) * 1000)::bigint AS "issued_at!",
+                      signed_note AS "signed_note!"
+               FROM ledger.checkpoint WHERE ledger_id = $1 ORDER BY size DESC LIMIT 1"#,
+            ledger.as_bytes().as_slice()
         )
-        .bind(ledger.as_bytes().as_slice())
         .fetch_optional(tx.conn())
         .await?;
         tx.commit().await?;
@@ -243,13 +250,15 @@ impl CheckpointerPool {
         size: u64,
     ) -> Result<Option<CheckpointRow>, StoreError> {
         let mut tx = self.begin(ledger).await?;
-        let row: Option<StoredCheckpoint> = sqlx::query_as(
-            "SELECT size, root::bytea, head_leaf::bytea, \
-             (extract(epoch FROM issued_at) * 1000)::bigint, signed_note \
-             FROM ledger.checkpoint WHERE ledger_id = $1 AND size = $2",
+        let row = sqlx::query_as!(
+            StoredCheckpoint,
+            r#"SELECT size AS "size!", root::bytea AS "root!", head_leaf::bytea AS "head_leaf!",
+                      (extract(epoch FROM issued_at) * 1000)::bigint AS "issued_at!",
+                      signed_note AS "signed_note!"
+               FROM ledger.checkpoint WHERE ledger_id = $1 AND size = $2"#,
+            ledger.as_bytes().as_slice(),
+            signed(size)?
         )
-        .bind(ledger.as_bytes().as_slice())
-        .bind(signed(size)?)
         .fetch_optional(tx.conn())
         .await?;
         tx.commit().await?;
@@ -265,18 +274,18 @@ impl CheckpointerPool {
     /// [`StoreError::Db`].
     pub async fn insert(&self, ledger: &LedgerId, row: &CheckpointRow) -> Result<bool, StoreError> {
         let mut tx = self.begin(ledger).await?;
-        let inserted = sqlx::query(
-            "INSERT INTO ledger.checkpoint \
-             (ledger_id, size, root, head_leaf, issued_at, signed_note) VALUES ($1, $2, $3, $4, \
-             pg_catalog.to_timestamp(0) + interval '1 millisecond' * $5::bigint::double precision, \
+        let inserted = sqlx::query!(
+            "INSERT INTO ledger.checkpoint
+             (ledger_id, size, root, head_leaf, issued_at, signed_note) VALUES ($1, $2, $3, $4,
+             pg_catalog.to_timestamp(0) + interval '1 millisecond' * $5::bigint::double precision,
              $6) ON CONFLICT (ledger_id, size) DO NOTHING",
+            ledger.as_bytes().as_slice(),
+            signed(row.size)?,
+            row.root.as_slice(),
+            row.head_leaf.as_slice(),
+            signed(row.issued_at_ms)?,
+            row.signed_note.as_slice()
         )
-        .bind(ledger.as_bytes().as_slice())
-        .bind(signed(row.size)?)
-        .bind(row.root.as_slice())
-        .bind(row.head_leaf.as_slice())
-        .bind(signed(row.issued_at_ms)?)
-        .bind(row.signed_note.as_slice())
         .execute(tx.conn())
         .await
         .map_err(refused)?;
@@ -297,43 +306,45 @@ impl CheckpointerPool {
     ) -> Result<Vec<MirrorEntry>, StoreError> {
         let id = ledger.as_bytes().as_slice();
         let mut tx = self.begin(ledger).await?;
-        let leaves: Vec<LogLeaf> = sqlx::query_as(
-            "SELECT pos, leaf_hash::bytea, envelope_bytes FROM ledger.log \
-             WHERE ledger_id = $1 AND pos >= $2 AND pos < $3 ORDER BY pos",
+        let leaves = sqlx::query!(
+            r#"SELECT pos AS "pos!", leaf_hash::bytea AS "leaf!",
+                      envelope_bytes AS "envelope_bytes!"
+               FROM ledger.log
+               WHERE ledger_id = $1 AND pos >= $2 AND pos < $3 ORDER BY pos"#,
+            id,
+            signed(from)?,
+            signed(to)?
         )
-        .bind(id)
-        .bind(signed(from)?)
-        .bind(signed(to)?)
         .fetch_all(tx.conn())
         .await?;
-        let received: Vec<Received> = sqlx::query_as(
-            "SELECT r.pos, r.role, b.bytes FROM work.log_received r \
-             JOIN work.received_bytes b ON b.ledger_id = r.ledger_id AND b.digest = r.digest \
-             WHERE r.ledger_id = $1 AND r.pos >= $2 AND r.pos < $3 ORDER BY r.pos, r.role",
+        let received = sqlx::query!(
+            r#"SELECT r.pos AS "pos!", r.role AS "role!", b.bytes AS "bytes!"
+               FROM work.log_received r
+               JOIN work.received_bytes b ON b.ledger_id = r.ledger_id AND b.digest = r.digest
+               WHERE r.ledger_id = $1 AND r.pos >= $2 AND r.pos < $3 ORDER BY r.pos, r.role"#,
+            id,
+            signed(from)?,
+            signed(to)?
         )
-        .bind(id)
-        .bind(signed(from)?)
-        .bind(signed(to)?)
         .fetch_all(tx.conn())
         .await?;
         tx.commit().await?;
         let mut out = Vec::with_capacity(leaves.len());
-        for (pos, leaf, envelope_bytes) in leaves {
-            let pos = unsigned(pos)?;
+        for l in leaves {
             out.push(MirrorEntry {
-                pos,
-                leaf: digest(&leaf)?,
-                envelope_bytes,
+                pos: unsigned(l.pos)?,
+                leaf: digest(&l.leaf)?,
+                envelope_bytes: l.envelope_bytes,
                 received: Vec::new(),
             });
         }
-        for (pos, role, bytes) in received {
-            let pos = unsigned(pos)?;
+        for r in received {
+            let pos = unsigned(r.pos)?;
             let entry = out
                 .iter_mut()
                 .find(|e| e.pos == pos)
                 .ok_or(StoreError::Corrupt)?;
-            entry.received.push((role, bytes));
+            entry.received.push((r.role, r.bytes));
         }
         Ok(out)
     }
@@ -350,12 +361,12 @@ impl CheckpointerPool {
         size: u64,
     ) -> Result<Vec<[u8; 32]>, StoreError> {
         let mut tx = self.begin(ledger).await?;
-        let rows: Vec<Vec<u8>> = sqlx::query_scalar(
-            "SELECT leaf_hash::bytea FROM ledger.log \
-             WHERE ledger_id = $1 AND pos < $2 ORDER BY pos",
+        let rows = sqlx::query_scalar!(
+            r#"SELECT leaf_hash::bytea AS "leaf!" FROM ledger.log
+               WHERE ledger_id = $1 AND pos < $2 ORDER BY pos"#,
+            ledger.as_bytes().as_slice(),
+            signed(size)?
         )
-        .bind(ledger.as_bytes().as_slice())
-        .bind(signed(size)?)
         .fetch_all(tx.conn())
         .await?;
         tx.commit().await?;
@@ -371,12 +382,12 @@ impl CheckpointerPool {
     /// [`StoreError::Corrupt`] for an out-of-range row, otherwise [`StoreError::Db`].
     pub async fn mirrored(&self, ledger: &LedgerId, replica: &str) -> Result<u64, StoreError> {
         let mut tx = self.begin(ledger).await?;
-        let size: Option<i64> = sqlx::query_scalar(
-            "SELECT mirrored_size FROM ledger.replica_progress \
-             WHERE ledger_id = $1 AND replica_id = $2",
+        let size = sqlx::query_scalar!(
+            r#"SELECT mirrored_size AS "size!" FROM ledger.replica_progress
+               WHERE ledger_id = $1 AND replica_id = $2"#,
+            ledger.as_bytes().as_slice(),
+            replica
         )
-        .bind(ledger.as_bytes().as_slice())
-        .bind(replica)
         .fetch_optional(tx.conn())
         .await?;
         tx.commit().await?;
@@ -395,14 +406,14 @@ impl CheckpointerPool {
         size: u64,
     ) -> Result<(), StoreError> {
         let mut tx = self.begin(ledger).await?;
-        sqlx::query(
-            "INSERT INTO ledger.replica_progress (ledger_id, replica_id, mirrored_size) \
-             VALUES ($1, $2, $3) ON CONFLICT (ledger_id, replica_id) DO UPDATE \
+        sqlx::query!(
+            "INSERT INTO ledger.replica_progress (ledger_id, replica_id, mirrored_size)
+             VALUES ($1, $2, $3) ON CONFLICT (ledger_id, replica_id) DO UPDATE
              SET mirrored_size = EXCLUDED.mirrored_size, updated_at = pg_catalog.now()",
+            ledger.as_bytes().as_slice(),
+            replica,
+            signed(size)?
         )
-        .bind(ledger.as_bytes().as_slice())
-        .bind(replica)
-        .bind(signed(size)?)
         .execute(tx.conn())
         .await
         .map_err(refused)?;
@@ -421,18 +432,18 @@ impl CheckpointerPool {
         row: &CosignatureRow,
     ) -> Result<bool, StoreError> {
         let mut tx = self.begin(ledger).await?;
-        let inserted = sqlx::query(
-            "INSERT INTO ledger.checkpoint_cosignature \
-             (ledger_id, size, witness_id, cosign_kind, cosigned_at, signature) \
-             VALUES ($1, $2, $3, 'witness', \
-             pg_catalog.to_timestamp(0) + interval '1 millisecond' * $4::bigint::double precision, \
+        let inserted = sqlx::query!(
+            "INSERT INTO ledger.checkpoint_cosignature
+             (ledger_id, size, witness_id, cosign_kind, cosigned_at, signature)
+             VALUES ($1, $2, $3, 'witness',
+             pg_catalog.to_timestamp(0) + interval '1 millisecond' * $4::bigint::double precision,
              $5) ON CONFLICT (ledger_id, size, witness_id) DO NOTHING",
+            ledger.as_bytes().as_slice(),
+            signed(row.size)?,
+            row.witness_id.as_str(),
+            signed(row.cosigned_at_ms)?,
+            row.signature.as_slice()
         )
-        .bind(ledger.as_bytes().as_slice())
-        .bind(signed(row.size)?)
-        .bind(row.witness_id.as_str())
-        .bind(signed(row.cosigned_at_ms)?)
-        .bind(row.signature.as_slice())
         .execute(tx.conn())
         .await
         .map_err(refused)?;
@@ -450,23 +461,26 @@ impl CheckpointerPool {
         size: u64,
     ) -> Result<Vec<CosignatureRow>, StoreError> {
         let mut tx = self.begin(ledger).await?;
-        let rows: Vec<StoredCosignature> = sqlx::query_as(
-            "SELECT witness_id::text, (extract(epoch FROM cosigned_at) * 1000)::bigint, signature \
-             FROM ledger.checkpoint_cosignature \
-             WHERE ledger_id = $1 AND size = $2 AND cosign_kind = 'witness' ORDER BY witness_id",
+        let rows = sqlx::query!(
+            r#"SELECT witness_id::text AS "witness_id!",
+                      (extract(epoch FROM cosigned_at) * 1000)::bigint AS "at!",
+                      signature AS "signature!"
+               FROM ledger.checkpoint_cosignature
+               WHERE ledger_id = $1 AND size = $2 AND cosign_kind = 'witness'
+               ORDER BY witness_id"#,
+            ledger.as_bytes().as_slice(),
+            signed(size)?
         )
-        .bind(ledger.as_bytes().as_slice())
-        .bind(signed(size)?)
         .fetch_all(tx.conn())
         .await?;
         tx.commit().await?;
         rows.into_iter()
-            .map(|(witness_id, at, signature)| {
+            .map(|r| {
                 Ok(CosignatureRow {
                     size,
-                    witness_id,
-                    cosigned_at_ms: unsigned(at)?,
-                    signature,
+                    witness_id: r.witness_id,
+                    cosigned_at_ms: unsigned(r.at)?,
+                    signature: r.signature,
                 })
             })
             .collect()
@@ -494,11 +508,12 @@ impl LedgerTx<'_> {
     /// [`StoreError::Corrupt`] for an unknown value, otherwise [`StoreError::Db`].
     pub async fn durability(&mut self, pos: u64) -> Result<Option<RecordDurability>, StoreError> {
         let ledger = *self.ledger();
-        let state: Option<String> = sqlx::query_scalar(
-            "SELECT durability FROM ledger.record_durability WHERE ledger_id = $1 AND pos = $2",
+        let state = sqlx::query_scalar!(
+            r#"SELECT durability AS "durability!" FROM ledger.record_durability
+               WHERE ledger_id = $1 AND pos = $2"#,
+            ledger.as_bytes().as_slice(),
+            signed(pos)?
         )
-        .bind(ledger.as_bytes().as_slice())
-        .bind(signed(pos)?)
         .fetch_optional(self.conn())
         .await?;
         state

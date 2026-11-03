@@ -35,8 +35,6 @@ impl ObservationVerdict {
     }
 }
 
-type ObservationRow = (String, i64, Vec<u8>);
-
 impl LedgerTx<'_> {
     /// Stores `observation` as `pending` unless the same one is stored; returns whether it was
     /// new.
@@ -49,15 +47,15 @@ impl LedgerTx<'_> {
     ) -> Result<bool, StoreError> {
         let ledger = *self.ledger().as_bytes();
         let size = i64::try_from(observation.size).map_err(|_| StoreError::Corrupt)?;
-        let done = sqlx::query(
-            "INSERT INTO derived.witness_comparison_v1 \
-             (ledger_id, witness_id, observed_size, observed_root, verdict) \
+        let done = sqlx::query!(
+            "INSERT INTO derived.witness_comparison_v1
+             (ledger_id, witness_id, observed_size, observed_root, verdict)
              VALUES ($1, $2, $3, $4, 'pending') ON CONFLICT DO NOTHING",
+            ledger.as_slice(),
+            observation.witness_id.as_str(),
+            size,
+            observation.root.as_slice()
         )
-        .bind(ledger.as_slice())
-        .bind(observation.witness_id.as_str())
-        .bind(size)
-        .bind(observation.root.as_slice())
         .execute(self.conn())
         .await?;
         Ok(done.rows_affected() == 1)
@@ -72,22 +70,24 @@ impl LedgerTx<'_> {
         limit: u32,
     ) -> Result<Vec<WitnessObservation>, StoreError> {
         let ledger = *self.ledger().as_bytes();
-        let rows: Vec<ObservationRow> = sqlx::query_as(
-            "SELECT witness_id::text, observed_size, observed_root::bytea \
-             FROM derived.witness_comparison_v1 \
-             WHERE ledger_id = $1 AND verdict = 'pending' \
-             ORDER BY observed_at, witness_id, observed_size LIMIT $2",
+        let rows = sqlx::query!(
+            r#"SELECT witness_id::text AS "witness_id!", observed_size AS "size!",
+                      observed_root::bytea AS "root!"
+               FROM derived.witness_comparison_v1
+               WHERE ledger_id = $1 AND verdict = 'pending'
+               ORDER BY observed_at, witness_id, observed_size LIMIT $2"#,
+            ledger.as_slice(),
+            i64::from(limit)
         )
-        .bind(ledger.as_slice())
-        .bind(i64::from(limit))
         .fetch_all(self.conn())
         .await?;
         rows.into_iter()
-            .map(|(witness_id, size, root)| {
+            .map(|r| {
                 Ok(WitnessObservation {
-                    witness_id,
-                    size: u64::try_from(size).map_err(|_| StoreError::Corrupt)?,
-                    root: <[u8; 32]>::try_from(root.as_slice()).map_err(|_| StoreError::Corrupt)?,
+                    witness_id: r.witness_id,
+                    size: u64::try_from(r.size).map_err(|_| StoreError::Corrupt)?,
+                    root: <[u8; 32]>::try_from(r.root.as_slice())
+                        .map_err(|_| StoreError::Corrupt)?,
                 })
             })
             .collect()
@@ -104,17 +104,17 @@ impl LedgerTx<'_> {
     ) -> Result<bool, StoreError> {
         let ledger = *self.ledger().as_bytes();
         let size = i64::try_from(observation.size).map_err(|_| StoreError::Corrupt)?;
-        let done = sqlx::query(
-            "UPDATE derived.witness_comparison_v1 \
-             SET verdict = $5, decided_at = pg_catalog.now() \
-             WHERE ledger_id = $1 AND witness_id = $2 AND observed_size = $3 \
+        let done = sqlx::query!(
+            "UPDATE derived.witness_comparison_v1
+             SET verdict = $5, decided_at = pg_catalog.now()
+             WHERE ledger_id = $1 AND witness_id = $2 AND observed_size = $3
              AND observed_root = $4 AND verdict = 'pending'",
+            ledger.as_slice(),
+            observation.witness_id.as_str(),
+            size,
+            observation.root.as_slice(),
+            verdict.as_str()
         )
-        .bind(ledger.as_slice())
-        .bind(observation.witness_id.as_str())
-        .bind(size)
-        .bind(observation.root.as_slice())
-        .bind(verdict.as_str())
         .execute(self.conn())
         .await?;
         Ok(done.rows_affected() == 1)

@@ -14,18 +14,18 @@ impl LedgerTx<'_> {
     /// for an out-of-range position.
     pub async fn consumer_cursor(&mut self, group: &str) -> Result<Option<PointerKey>, StoreError> {
         let ledger = *self.ledger().as_bytes();
-        let row: Option<(i64, String)> = sqlx::query_as(
-            "SELECT pos, event_id::text FROM derived.consumer_cursor \
-             WHERE ledger_id = $1 AND consumer_group = $2",
+        let row = sqlx::query!(
+            r#"SELECT pos AS "pos!", event_id::text AS "event_id!" FROM derived.consumer_cursor
+               WHERE ledger_id = $1 AND consumer_group = $2"#,
+            ledger.as_slice(),
+            group
         )
-        .bind(ledger.as_slice())
-        .bind(group)
         .fetch_optional(self.conn())
         .await?;
-        row.map(|(pos, event_id)| {
+        row.map(|r| {
             Ok(PointerKey {
-                pos: u64::try_from(pos).map_err(|_| StoreError::Corrupt)?,
-                event_id,
+                pos: u64::try_from(r.pos).map_err(|_| StoreError::Corrupt)?,
+                event_id: r.event_id,
             })
         })
         .transpose()
@@ -45,17 +45,17 @@ impl LedgerTx<'_> {
     ) -> Result<bool, StoreError> {
         let ledger = *self.ledger().as_bytes();
         let pos = i64::try_from(to.pos).map_err(|_| StoreError::Corrupt)?;
-        let done = sqlx::query(
-            "INSERT INTO derived.consumer_cursor AS c (ledger_id, consumer_group, pos, event_id) \
-             VALUES ($1, $2, $3, $4) \
-             ON CONFLICT (ledger_id, consumer_group) DO UPDATE \
-             SET pos = excluded.pos, event_id = excluded.event_id \
+        let done = sqlx::query!(
+            "INSERT INTO derived.consumer_cursor AS c (ledger_id, consumer_group, pos, event_id)
+             VALUES ($1, $2, $3, $4)
+             ON CONFLICT (ledger_id, consumer_group) DO UPDATE
+             SET pos = excluded.pos, event_id = excluded.event_id
              WHERE (c.pos, c.event_id::text) < (excluded.pos, excluded.event_id::text)",
+            ledger.as_slice(),
+            group,
+            pos,
+            to.event_id.as_str()
         )
-        .bind(ledger.as_slice())
-        .bind(group)
-        .bind(pos)
-        .bind(to.event_id.as_str())
         .execute(self.conn())
         .await?;
         Ok(done.rows_affected() > 0)

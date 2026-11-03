@@ -18,11 +18,12 @@ pub const PUBLISHER_ROLE: &str = "work_publisher";
 pub const DERIVER_ROLE: &str = "work_deriver";
 
 pub(crate) async fn check_role(pool: &PgPool, role: &str) -> Result<(), StoreError> {
-    let member: bool =
-        sqlx::query_scalar("SELECT pg_catalog.pg_has_role(current_user, $1, 'USAGE')")
-            .bind(role)
-            .fetch_one(pool)
-            .await?;
+    let member = sqlx::query_scalar!(
+        r#"SELECT pg_catalog.pg_has_role(current_user, $1::text::name, 'USAGE') AS "member!""#,
+        role
+    )
+    .fetch_one(pool)
+    .await?;
     if member {
         Ok(())
     } else {
@@ -110,11 +111,12 @@ impl<R: DiscoveryRole> DiscoveryPool<R> {
         after: Option<&LedgerId>,
         limit: u32,
     ) -> Result<Vec<LedgerId>, StoreError> {
-        let rows: Vec<Vec<u8>> = sqlx::query_scalar(
-            "SELECT l::bytea FROM ledger.outbox_ledgers($1::bytea::ledger.digest32, $2) AS t(l)",
+        let rows = sqlx::query_scalar!(
+            r#"SELECT l::bytea AS "l!"
+               FROM ledger.outbox_ledgers($1::bytea::ledger.digest32, $2) AS t(l)"#,
+            after.map(|l| l.as_bytes().as_slice()),
+            i64::from(limit)
         )
-        .bind(after.map(|l| l.as_bytes().as_slice()))
-        .bind(i64::from(limit))
         .fetch_all(&self.pool)
         .await?;
         rows.iter()

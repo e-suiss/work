@@ -17,8 +17,6 @@ pub struct LedgerTx<'c> {
     ledger: LedgerId,
 }
 
-type HeadRow = (i64, i64, Option<Vec<u8>>, Option<i64>);
-
 /// The sequencing head of a ledger (OP-5, OP-9).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Head {
@@ -48,7 +46,7 @@ impl LedgerTx<'static> {
     /// [`StoreError::Db`], or [`StoreError::Scope`] if the setting did not take.
     pub async fn begin_snapshot(pool: &PgPool, ledger: &LedgerId) -> Result<Self, StoreError> {
         let mut tx = pool.begin().await?;
-        sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
+        sqlx::query!("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
             .execute(&mut *tx)
             .await?;
         Self::scoped(tx, ledger).await
@@ -72,11 +70,12 @@ impl<'c> LedgerTx<'c> {
         ledger: &LedgerId,
     ) -> Result<Self, StoreError> {
         let hex = ledger.to_hex();
-        let set: Option<String> =
-            sqlx::query_scalar("SELECT set_config('app.ledger_id', $1, true)")
-                .bind(&hex)
-                .fetch_one(&mut *tx)
-                .await?;
+        let set = sqlx::query_scalar!(
+            r#"SELECT set_config('app.ledger_id', $1, true) AS "set?""#,
+            hex.as_str()
+        )
+        .fetch_one(&mut *tx)
+        .await?;
         if set.as_deref() != Some(hex.as_str()) {
             return Err(StoreError::Scope);
         }
@@ -102,17 +101,18 @@ impl<'c> LedgerTx<'c> {
     /// # Errors
     /// [`StoreError::Db`], or [`StoreError::Corrupt`] for an out-of-range row.
     pub async fn head(&mut self) -> Result<Option<Head>, StoreError> {
-        let row: Option<HeadRow> = sqlx::query_as(
-            "SELECT pos, epoch, head_leaf::bytea, \
-             (extract(epoch FROM head_recorded_at) * 1000)::bigint \
-             FROM ledger.head WHERE ledger_id = $1",
+        let row = sqlx::query!(
+            r#"SELECT pos AS "pos!", epoch AS "epoch!", head_leaf::bytea AS "leaf?",
+                      (extract(epoch FROM head_recorded_at) * 1000)::bigint AS "recorded_at_ms?"
+               FROM ledger.head WHERE ledger_id = $1"#,
+            self.ledger.as_bytes().as_slice()
         )
-        .bind(self.ledger.as_bytes().as_slice())
         .fetch_optional(&mut *self.tx)
         .await?;
-        let Some((pos, epoch, leaf, recorded_at_ms)) = row else {
+        let Some(row) = row else {
             return Ok(None);
         };
+        let (pos, epoch, leaf, recorded_at_ms) = (row.pos, row.epoch, row.leaf, row.recorded_at_ms);
         let pos = match pos {
             -1 => None,
             p => Some(u64::try_from(p).map_err(|_| StoreError::Corrupt)?),

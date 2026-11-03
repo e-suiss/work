@@ -11,15 +11,9 @@ pub const REBUILD_ROLE: &str = "work_app";
 /// The only tables a rebuild reads (§18 OP-1 item 3, OP-2, T-90).
 pub const CANONICAL_INPUTS: [&str; 3] = ["ledger.log", "work.log_received", "work.received_bytes"];
 
-const LOG_PAGE: &str = "SELECT pos, (extract(epoch FROM recorded_at) * 1000)::bigint, \
-     record_bytes, envelope_bytes \
-     FROM ledger.log WHERE ledger_id = $1 AND pos >= $2 ORDER BY pos LIMIT $3";
+const LOG_PAGE: &str = include_str!("../queries/rebuild/log_page.sql");
 
-const RECEIVED_PAGE: &str = "SELECT r.pos, r.role, b.kind, b.bytes \
-     FROM work.log_received r \
-     JOIN work.received_bytes b ON b.ledger_id = r.ledger_id AND b.digest = r.digest \
-     WHERE r.ledger_id = $1 AND r.pos BETWEEN $2 AND $3 \
-     ORDER BY r.pos, r.role, r.digest";
+const RECEIVED_PAGE: &str = include_str!("../queries/rebuild/received_page.sql");
 
 /// The statements of [`CanonicalLog`], the whole of what a rebuild reads.
 pub const CANONICAL_READS: [&str; 2] = [LOG_PAGE, RECEIVED_PAGE];
@@ -27,87 +21,74 @@ pub const CANONICAL_READS: [&str; 2] = [LOG_PAGE, RECEIVED_PAGE];
 /// The tables the append writes beside the log and a rebuild reconstructs, each with the
 /// statement that reads its rows as text: without the ledger id and the leader epoch, times as
 /// Unix milliseconds and the stored bytes of the log by their SHA-256 (T-10, T-89, T-90).
+/// [`LedgerTx::snapshot`] runs the same files, checked at compile time, in this order.
 const COMPARED: [(&str, &str); 13] = [
     (
         "ledger.head",
-        "SELECT ROW(pos, head_leaf, (extract(epoch FROM head_recorded_at) * 1000)::bigint, \
-         frontier)::text FROM ledger.head WHERE ledger_id = $1",
+        include_str!("../queries/rebuild/ledger_head.sql"),
     ),
     (
         "ledger.log",
-        "SELECT ROW(pos, record_id, (extract(epoch FROM recorded_at) * 1000)::bigint, prev, \
-         leaf_hash, pg_catalog.sha256(record_bytes), pg_catalog.sha256(envelope_bytes))::text \
-         FROM ledger.log WHERE ledger_id = $1",
+        include_str!("../queries/rebuild/ledger_log.sql"),
     ),
     (
         "work.ledger_profile",
-        "SELECT ROW(durability_profile)::text FROM work.ledger_profile WHERE ledger_id = $1",
+        include_str!("../queries/rebuild/ledger_profile.sql"),
     ),
     (
         "work.received_bytes",
-        "SELECT ROW(digest, kind, first_pos)::text FROM work.received_bytes WHERE ledger_id = $1",
+        include_str!("../queries/rebuild/received_bytes.sql"),
     ),
     (
         "work.log_received",
-        "SELECT ROW(pos, role, digest)::text FROM work.log_received WHERE ledger_id = $1",
+        include_str!("../queries/rebuild/log_received.sql"),
     ),
     (
         "work.record_header",
-        "SELECT ROW(pos, kind, record_type, author, author_actor_type, \
-         author_actor_type_source, (extract(epoch FROM occurred_at) * 1000)::bigint, ingest, \
-         ingest_reason, proof_commit, auth_context_ref, protocol_major, protocol_minor, \
-         schema_digest)::text FROM work.record_header WHERE ledger_id = $1",
+        include_str!("../queries/rebuild/record_header.sql"),
     ),
     (
         "work.work_root",
-        "SELECT ROW(work_id, first_pos)::text FROM work.work_root WHERE ledger_id = $1",
+        include_str!("../queries/rebuild/work_root.sql"),
     ),
     (
         "work.log_concerns",
-        "SELECT ROW(work_id, pos)::text FROM work.log_concerns WHERE ledger_id = $1",
+        include_str!("../queries/rebuild/log_concerns.sql"),
     ),
     (
         "work.log_basis",
-        "SELECT ROW(pos, basis_record_id)::text FROM work.log_basis WHERE ledger_id = $1",
+        include_str!("../queries/rebuild/log_basis.sql"),
     ),
     (
         "work.log_relation",
-        "SELECT ROW(pos, ordinal, rel, source_kind, source_bytes, source_text, target_kind, \
-         target_bytes, target_text, qualifier)::text FROM work.log_relation WHERE ledger_id = $1",
+        include_str!("../queries/rebuild/log_relation.sql"),
     ),
     (
         "work.body_commitment",
-        "SELECT ROW(pos, part, part_commit)::text FROM work.body_commitment WHERE ledger_id = $1",
+        include_str!("../queries/rebuild/body_commitment.sql"),
     ),
     (
         "work.item_head",
-        "SELECT ROW(item_kind, item_id, version, last_pos, heads)::text FROM work.item_head \
-         WHERE ledger_id = $1",
+        include_str!("../queries/rebuild/item_head.sql"),
     ),
     (
         "work.one_time_flag",
-        "SELECT ROW(flag_kind, flag_key, consumed_pos)::text FROM work.one_time_flag \
-         WHERE ledger_id = $1",
+        include_str!("../queries/rebuild/one_time_flag.sql"),
     ),
 ];
 
 /// The tables whose rows carry what the request said and are checked against the log row they
 /// answer instead of being rebuilt, each with the statement that reads the rows that do not
-/// match it (OP-8, OP-36 item 1, OP-38 item 5, T-91 item 5).
+/// match it (OP-8, OP-36 item 1, OP-38 item 5, T-91 item 5). [`LedgerTx::log_mismatches`] runs
+/// the same files, checked at compile time, in this order.
 const CHECKED: [(&str, &str); 2] = [
     (
         "work.idempotency_key",
-        "SELECT ROW(k.idem_key, k.result_pos)::text FROM work.idempotency_key k \
-         JOIN ledger.log l ON l.ledger_id = k.ledger_id AND l.pos = k.result_pos \
-         WHERE k.ledger_id = $1 AND k.outcome = 'recorded' \
-         AND (l.record_id <> k.result_record_id OR l.recorded_at <> k.created_at)",
+        include_str!("../queries/rebuild/idempotency_key.sql"),
     ),
     (
         "work.inbound_seen",
-        "SELECT ROW(i.source, i.source_id, i.result_pos)::text FROM work.inbound_seen i \
-         JOIN ledger.log l ON l.ledger_id = i.ledger_id AND l.pos = i.result_pos \
-         WHERE i.ledger_id = $1 \
-         AND (l.record_id <> i.content_digest OR l.recorded_at <> i.seen_at)",
+        include_str!("../queries/rebuild/inbound_seen.sql"),
     ),
 ];
 
@@ -158,9 +139,6 @@ impl std::fmt::Debug for CanonicalEntry {
     }
 }
 
-type LogPageRow = (i64, i64, Vec<u8>, Vec<u8>);
-type ReceivedPageRow = (i64, String, String, Vec<u8>);
-
 /// The canonical log as a rebuild reads it, over a pool logged in as `work_app`. It is not an
 /// executor and has no statement but [`CANONICAL_READS`], so a rebuild cannot take a derived row
 /// as input (§18 OP-1 item 3, T-11):
@@ -198,34 +176,38 @@ impl CanonicalLog {
     ) -> Result<Vec<CanonicalEntry>, StoreError> {
         let id = *ledger.as_bytes();
         let mut tx = LedgerTx::begin_snapshot(&self.pool, ledger).await?;
-        let rows: Vec<LogPageRow> = sqlx::query_as(LOG_PAGE)
-            .bind(id.as_slice())
-            .bind(signed(from)?)
-            .bind(i64::from(limit))
-            .fetch_all(tx.conn())
-            .await?;
+        let rows = sqlx::query_file!(
+            "queries/rebuild/log_page.sql",
+            id.as_slice(),
+            signed(from)?,
+            i64::from(limit)
+        )
+        .fetch_all(tx.conn())
+        .await?;
         let mut out = rows
             .into_iter()
-            .map(|(pos, at, record_bytes, envelope_bytes)| {
+            .map(|r| {
                 Ok(CanonicalEntry {
-                    pos: unsigned(pos)?,
-                    recorded_at_ms: unsigned(at)?,
-                    record_bytes,
-                    envelope_bytes,
+                    pos: unsigned(r.pos)?,
+                    recorded_at_ms: unsigned(r.at)?,
+                    record_bytes: r.record_bytes,
+                    envelope_bytes: r.envelope_bytes,
                     received: Vec::new(),
                 })
             })
             .collect::<Result<Vec<_>, StoreError>>()?;
         let span = out.first().map(|e| e.pos).zip(out.last().map(|e| e.pos));
         if let Some((first, last)) = span {
-            let received: Vec<ReceivedPageRow> = sqlx::query_as(RECEIVED_PAGE)
-                .bind(id.as_slice())
-                .bind(signed(first)?)
-                .bind(signed(last)?)
-                .fetch_all(tx.conn())
-                .await?;
-            for (pos, role, kind, bytes) in received {
-                let pos = unsigned(pos)?;
+            let received = sqlx::query_file!(
+                "queries/rebuild/received_page.sql",
+                id.as_slice(),
+                signed(first)?,
+                signed(last)?
+            )
+            .fetch_all(tx.conn())
+            .await?;
+            for r in received {
+                let (pos, role, kind, bytes) = (unsigned(r.pos)?, r.role, r.kind, r.bytes);
                 let at = out
                     .binary_search_by_key(&pos, |e| e.pos)
                     .map_err(|_| StoreError::Corrupt)?;
@@ -427,14 +409,49 @@ impl LedgerTx<'_> {
     /// [`StoreError::Db`].
     pub async fn snapshot(&mut self) -> Result<Snapshot, StoreError> {
         let id = *self.ledger().as_bytes();
-        let mut tables = Vec::with_capacity(COMPARED.len());
-        for (table, sql) in COMPARED {
-            let rows: Vec<String> = sqlx::query_scalar(sql)
-                .bind(id.as_slice())
+        let id = id.as_slice();
+        let rows = [
+            sqlx::query_file_scalar!("queries/rebuild/ledger_head.sql", id)
                 .fetch_all(self.conn())
-                .await?;
-            tables.push((table, rows));
-        }
+                .await?,
+            sqlx::query_file_scalar!("queries/rebuild/ledger_log.sql", id)
+                .fetch_all(self.conn())
+                .await?,
+            sqlx::query_file_scalar!("queries/rebuild/ledger_profile.sql", id)
+                .fetch_all(self.conn())
+                .await?,
+            sqlx::query_file_scalar!("queries/rebuild/received_bytes.sql", id)
+                .fetch_all(self.conn())
+                .await?,
+            sqlx::query_file_scalar!("queries/rebuild/log_received.sql", id)
+                .fetch_all(self.conn())
+                .await?,
+            sqlx::query_file_scalar!("queries/rebuild/record_header.sql", id)
+                .fetch_all(self.conn())
+                .await?,
+            sqlx::query_file_scalar!("queries/rebuild/work_root.sql", id)
+                .fetch_all(self.conn())
+                .await?,
+            sqlx::query_file_scalar!("queries/rebuild/log_concerns.sql", id)
+                .fetch_all(self.conn())
+                .await?,
+            sqlx::query_file_scalar!("queries/rebuild/log_basis.sql", id)
+                .fetch_all(self.conn())
+                .await?,
+            sqlx::query_file_scalar!("queries/rebuild/log_relation.sql", id)
+                .fetch_all(self.conn())
+                .await?,
+            sqlx::query_file_scalar!("queries/rebuild/body_commitment.sql", id)
+                .fetch_all(self.conn())
+                .await?,
+            sqlx::query_file_scalar!("queries/rebuild/item_head.sql", id)
+                .fetch_all(self.conn())
+                .await?,
+            sqlx::query_file_scalar!("queries/rebuild/one_time_flag.sql", id)
+                .fetch_all(self.conn())
+                .await?,
+        ];
+        let tables = COMPARED.iter().map(|(table, _)| *table).zip(rows).collect();
         Ok(Snapshot::new(tables))
     }
 
@@ -446,20 +463,27 @@ impl LedgerTx<'_> {
     /// [`StoreError::Db`].
     pub async fn log_mismatches(&mut self) -> Result<Vec<TableDiff>, StoreError> {
         let id = *self.ledger().as_bytes();
-        let mut out = Vec::with_capacity(CHECKED.len());
-        for (table, sql) in CHECKED {
-            let mut unexpected: Vec<String> = sqlx::query_scalar(sql)
-                .bind(id.as_slice())
+        let id = id.as_slice();
+        let rows = [
+            sqlx::query_file_scalar!("queries/rebuild/idempotency_key.sql", id)
                 .fetch_all(self.conn())
-                .await?;
-            unexpected.sort_unstable();
-            out.push(TableDiff {
-                table,
-                missing: Vec::new(),
-                unexpected,
-            });
-        }
-        Ok(out)
+                .await?,
+            sqlx::query_file_scalar!("queries/rebuild/inbound_seen.sql", id)
+                .fetch_all(self.conn())
+                .await?,
+        ];
+        Ok(CHECKED
+            .iter()
+            .zip(rows)
+            .map(|(&(table, _), mut unexpected)| {
+                unexpected.sort_unstable();
+                TableDiff {
+                    table,
+                    missing: Vec::new(),
+                    unexpected,
+                }
+            })
+            .collect())
     }
 }
 

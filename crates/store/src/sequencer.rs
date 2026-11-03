@@ -218,9 +218,6 @@ pub struct SequencerPool {
     pool: PgPool,
 }
 
-type AcquiredRow = (i64, i64, Option<Vec<u8>>, Option<i64>, Vec<u8>);
-type LastRow = (i64, Vec<u8>, i64);
-
 fn signed(v: u64) -> Result<i64, StoreError> {
     i64::try_from(v).map_err(|_| StoreError::Corrupt)
 }
@@ -321,23 +318,23 @@ async fn insert_records(
     let id = *tx.ledger().as_bytes();
     let id = id.as_slice();
     for r in records {
-        sqlx::query(
-            "INSERT INTO ledger.log \
-             (ledger_id, pos, epoch, record_id, recorded_at, prev, leaf_hash, record_bytes, \
-              envelope_bytes) \
-             VALUES ($1, $2, $3, $4, \
-             pg_catalog.to_timestamp(0) + interval '1 millisecond' * $5::bigint::double precision, \
+        sqlx::query!(
+            "INSERT INTO ledger.log
+             (ledger_id, pos, epoch, record_id, recorded_at, prev, leaf_hash, record_bytes,
+              envelope_bytes)
+             VALUES ($1, $2, $3, $4,
+             pg_catalog.to_timestamp(0) + interval '1 millisecond' * $5::bigint::double precision,
              $6, $7, $8, $9)",
+            id,
+            signed(r.pos).map_err(failed)?,
+            epoch,
+            r.record_id.as_slice(),
+            signed(r.recorded_at_ms).map_err(failed)?,
+            r.prev.as_slice(),
+            r.leaf.as_slice(),
+            r.record_bytes.as_slice(),
+            r.envelope_bytes.as_slice()
         )
-        .bind(id)
-        .bind(signed(r.pos).map_err(failed)?)
-        .bind(epoch)
-        .bind(r.record_id.as_slice())
-        .bind(signed(r.recorded_at_ms).map_err(failed)?)
-        .bind(r.prev.as_slice())
-        .bind(r.leaf.as_slice())
-        .bind(r.record_bytes.as_slice())
-        .bind(r.envelope_bytes.as_slice())
         .execute(tx.conn())
         .await
         .map_err(log_failure)?;
@@ -373,24 +370,6 @@ async fn insert_record_rows(tx: &mut LedgerTx<'_>, records: &[LogRow]) -> Result
 /// The version each `(pos, item)` of the batch has after its record (T-81 item 1, T-89).
 type Versions = BTreeMap<(u64, ItemRef), u64>;
 
-const NEXT_VERSION: &str = "INSERT INTO work.item_head \
-     (ledger_id, item_kind, item_id, version, last_pos, heads) \
-     VALUES ($1, $2, $3, 1, $4, $5::bytea[]::ledger.digest32[]) \
-     ON CONFLICT ON CONSTRAINT item_head_pk DO UPDATE \
-     SET version = work.item_head.version + 1, last_pos = EXCLUDED.last_pos, \
-         heads = EXCLUDED.heads \
-     RETURNING version";
-
-const NEW_ITEM: &str = "INSERT INTO work.item_head \
-     (ledger_id, item_kind, item_id, version, last_pos, heads) \
-     VALUES ($1, $2, $3, 1, $4, $5::bytea[]::ledger.digest32[]) \
-     RETURNING version";
-
-const STORED_VERSION: &str = "UPDATE work.item_head \
-     SET version = version + 1, last_pos = $4, heads = $5::bytea[]::ledger.digest32[] \
-     WHERE ledger_id = $1 AND item_kind = $2 AND item_id = $3 AND version = $6 \
-     RETURNING version";
-
 /// Writes the item heads in batch order and returns the version each one has after its record:
 /// [`Expect::Next`] takes the stored version plus one, or 1, and is never refused (T-89, OP-7);
 /// [`Expect::Version`] is a compare-and-set refused with [`StoreError::ItemConflict`].
@@ -407,24 +386,61 @@ async fn write_items(
             .heads
             .as_ref()
             .map(|h| h.iter().map(|d| d.to_vec()).collect());
-        let (sql, stored) = match i.expect {
-            Expect::Next => (NEXT_VERSION, None),
-            Expect::Version(0) => (NEW_ITEM, None),
-            Expect::Version(v) => (STORED_VERSION, Some(signed(v).map_err(failed)?)),
-        };
-        let mut query = sqlx::query_scalar(sql)
-            .bind(id)
-            .bind(i.item.kind())
-            .bind(i.item.id())
-            .bind(last_pos)
-            .bind(heads);
-        if let Some(stored) = stored {
-            query = query.bind(stored);
+        let heads = heads.as_deref();
+        let written = match i.expect {
+            Expect::Next => {
+                sqlx::query_scalar!(
+                    r#"INSERT INTO work.item_head
+                       (ledger_id, item_kind, item_id, version, last_pos, heads)
+                       VALUES ($1, $2, $3, 1, $4, $5::bytea[]::ledger.digest32[])
+                       ON CONFLICT ON CONSTRAINT item_head_pk DO UPDATE
+                       SET version = work.item_head.version + 1, last_pos = EXCLUDED.last_pos,
+                           heads = EXCLUDED.heads
+                       RETURNING version AS "version!""#,
+                    id,
+                    i.item.kind(),
+                    i.item.id(),
+                    last_pos,
+                    heads
+                )
+                .fetch_optional(tx.conn())
+                .await
+            }
+            Expect::Version(0) => {
+                sqlx::query_scalar!(
+                    r#"INSERT INTO work.item_head
+                       (ledger_id, item_kind, item_id, version, last_pos, heads)
+                       VALUES ($1, $2, $3, 1, $4, $5::bytea[]::ledger.digest32[])
+                       RETURNING version AS "version!""#,
+                    id,
+                    i.item.kind(),
+                    i.item.id(),
+                    last_pos,
+                    heads
+                )
+                .fetch_optional(tx.conn())
+                .await
+            }
+            Expect::Version(v) => {
+                let stored = signed(v).map_err(failed)?;
+                sqlx::query_scalar!(
+                    r#"UPDATE work.item_head
+                       SET version = version + 1, last_pos = $4,
+                           heads = $5::bytea[]::ledger.digest32[]
+                       WHERE ledger_id = $1 AND item_kind = $2 AND item_id = $3 AND version = $6
+                       RETURNING version AS "version!""#,
+                    id,
+                    i.item.kind(),
+                    i.item.id(),
+                    last_pos,
+                    heads,
+                    stored
+                )
+                .fetch_optional(tx.conn())
+                .await
+            }
         }
-        let written: Option<i64> = query
-            .fetch_optional(tx.conn())
-            .await
-            .map_err(|e| item_failure(e, i.item))?;
+        .map_err(|e| item_failure(e, i.item))?;
         let Some(version) = written else {
             return Err(AppendError::Refused(StoreError::ItemConflict(i.item)));
         };
@@ -451,33 +467,33 @@ async fn insert_outbox(
     let mut versions = Vec::with_capacity(outbox.len());
     for o in outbox {
         pos.push(signed(o.pos).map_err(failed)?);
-        event_ids.push(o.event_id.as_str());
-        event_types.push(o.event_type.as_str());
-        traces.push(o.traceparent.as_str());
-        kinds.push(o.item.kind());
-        items.push(o.item.id());
+        event_ids.push(o.event_id.clone());
+        event_types.push(o.event_type.clone());
+        traces.push(o.traceparent.clone());
+        kinds.push(o.item.kind().to_owned());
+        items.push(o.item.id().to_vec());
         let version = written
             .get(&(o.pos, o.item))
             .ok_or(AppendError::Refused(StoreError::OutboxItem(o.item)))?;
         versions.push(signed(*version).map_err(failed)?);
     }
-    sqlx::query(
-        "INSERT INTO ledger.outbox \
-         (ledger_id, pos, event_id, event_type, traceparent, item_kind, item_id, version) \
-         SELECT $1, u.pos, u.event_id, u.event_type, u.traceparent, u.item_kind, \
-                u.item_id, u.version \
-         FROM unnest($2::bigint[], $3::text[], $4::text[], $5::text[], $6::text[], \
-                     $7::bytea[], $8::bigint[]) \
+    sqlx::query!(
+        "INSERT INTO ledger.outbox
+         (ledger_id, pos, event_id, event_type, traceparent, item_kind, item_id, version)
+         SELECT $1::bytea, u.pos, u.event_id, u.event_type, u.traceparent, u.item_kind,
+                u.item_id, u.version
+         FROM unnest($2::bigint[], $3::text[], $4::text[], $5::text[], $6::text[],
+                     $7::bytea[], $8::bigint[])
               AS u(pos, event_id, event_type, traceparent, item_kind, item_id, version)",
+        id.as_slice(),
+        pos.as_slice(),
+        event_ids.as_slice(),
+        event_types.as_slice(),
+        traces.as_slice(),
+        kinds.as_slice(),
+        items.as_slice(),
+        versions.as_slice()
     )
-    .bind(id.as_slice())
-    .bind(pos)
-    .bind(event_ids)
-    .bind(event_types)
-    .bind(traces)
-    .bind(kinds)
-    .bind(items)
-    .bind(versions)
     .execute(tx.conn())
     .await
     .map_err(failed)?;
@@ -513,10 +529,10 @@ impl SequencerPool {
         let id = g.ledger.as_bytes().as_slice();
         let at = signed(g.recorded_at_ms)?;
         let mut tx = self.begin(&g.ledger).await?;
-        let inserted = sqlx::query(
+        let inserted = sqlx::query!(
             "INSERT INTO ledger.head (ledger_id, pos, epoch, frontier) VALUES ($1, -1, 0, '\\x')",
+            id
         )
-        .bind(id)
         .execute(tx.conn())
         .await;
         if let Err(e) = inserted {
@@ -529,37 +545,37 @@ impl SequencerPool {
                 StoreError::Db(e)
             });
         }
-        sqlx::query(
+        sqlx::query!(
             "INSERT INTO work.ledger_profile (ledger_id, durability_profile) VALUES ($1, $2)",
+            id,
+            g.durability.as_str()
         )
-        .bind(id)
-        .bind(g.durability.as_str())
         .execute(tx.conn())
         .await?;
-        sqlx::query(
-            "INSERT INTO ledger.log \
-             (ledger_id, pos, epoch, record_id, recorded_at, prev, leaf_hash, record_bytes, \
-              envelope_bytes) \
-             VALUES ($1, 0, 0, $1, \
-             pg_catalog.to_timestamp(0) + interval '1 millisecond' * $2::bigint::double precision, \
-             NULL, $3, $4, $4)",
+        sqlx::query!(
+            "INSERT INTO ledger.log
+             (ledger_id, pos, epoch, record_id, recorded_at, prev, leaf_hash, record_bytes,
+              envelope_bytes)
+             VALUES ($1::bytea, 0, 0, $1::bytea,
+             pg_catalog.to_timestamp(0) + interval '1 millisecond' * $2::bigint::double precision,
+             NULL, $3, $4::bytea, $4::bytea)",
+            id,
+            at,
+            g.leaf.as_slice(),
+            g.bytes.as_slice()
         )
-        .bind(id)
-        .bind(at)
-        .bind(g.leaf.as_slice())
-        .bind(g.bytes.as_slice())
         .execute(tx.conn())
         .await?;
-        sqlx::query(
-            "UPDATE ledger.head SET pos = 0, head_leaf = $2, \
-             head_recorded_at = pg_catalog.to_timestamp(0) \
-               + interval '1 millisecond' * $3::bigint::double precision, \
-             frontier = $2 \
+        sqlx::query!(
+            "UPDATE ledger.head SET pos = 0, head_leaf = $2::bytea,
+             head_recorded_at = pg_catalog.to_timestamp(0)
+               + interval '1 millisecond' * $3::bigint::double precision,
+             frontier = $2::bytea
              WHERE ledger_id = $1 AND pos = -1 AND epoch = 0",
+            id,
+            g.leaf.as_slice(),
+            at
         )
-        .bind(id)
-        .bind(g.leaf.as_slice())
-        .bind(at)
         .execute(tx.conn())
         .await?;
         tx.commit().await
@@ -575,15 +591,18 @@ impl SequencerPool {
     pub async fn acquire(&self, ledger: &LedgerId) -> Result<StoredHead, StoreError> {
         let id = ledger.as_bytes().as_slice();
         let mut tx = self.begin(ledger).await?;
-        let row: Option<AcquiredRow> = sqlx::query_as(
-            "UPDATE ledger.head SET epoch = epoch + 1 WHERE ledger_id = $1 \
-             RETURNING epoch, pos, head_leaf::bytea, \
-             (extract(epoch FROM head_recorded_at) * 1000)::bigint, frontier",
+        let row = sqlx::query!(
+            r#"UPDATE ledger.head SET epoch = epoch + 1 WHERE ledger_id = $1
+               RETURNING epoch AS "epoch!", pos AS "pos!", head_leaf::bytea AS "leaf?",
+                         (extract(epoch FROM head_recorded_at) * 1000)::bigint AS "at?",
+                         frontier AS "frontier!""#,
+            id
         )
-        .bind(id)
         .fetch_optional(tx.conn())
         .await?;
-        let Some((epoch, pos, Some(leaf), Some(at), frontier)) = row else {
+        let Some((epoch, pos, Some(leaf), Some(at), frontier)) =
+            row.map(|r| (r.epoch, r.pos, r.leaf, r.at, r.frontier))
+        else {
             tx.rollback().await?;
             return Err(StoreError::NotOpened);
         };
@@ -595,18 +614,19 @@ impl SequencerPool {
             recorded_at_ms: unsigned(at)?,
             frontier: frontier_of(&frontier, pos)?,
         };
-        let last: Option<LastRow> = sqlx::query_as(
-            "SELECT pos, leaf_hash::bytea, (extract(epoch FROM recorded_at) * 1000)::bigint \
-             FROM ledger.log WHERE ledger_id = $1 ORDER BY pos DESC LIMIT 1",
+        let last = sqlx::query!(
+            r#"SELECT pos AS "pos!", leaf_hash::bytea AS "leaf!",
+                      (extract(epoch FROM recorded_at) * 1000)::bigint AS "at!"
+               FROM ledger.log WHERE ledger_id = $1 ORDER BY pos DESC LIMIT 1"#,
+            id
         )
-        .bind(id)
         .fetch_optional(tx.conn())
         .await?;
         let matches = match last {
-            Some((p, l, t)) => {
-                unsigned(p)? == head.pos
-                    && digest(&l)? == head.leaf
-                    && unsigned(t)? == head.recorded_at_ms
+            Some(l) => {
+                unsigned(l.pos)? == head.pos
+                    && digest(&l.leaf)? == head.leaf
+                    && unsigned(l.at)? == head.recorded_at_ms
             }
             None => false,
         };
@@ -648,15 +668,17 @@ impl SequencerPool {
         let epoch = signed(b.epoch).map_err(failed)?;
         let after = signed(b.after).map_err(failed)?;
         let mut tx = self.begin(ledger).await.map_err(failed)?;
-        let locked: Option<(i64, i64)> =
-            sqlx::query_as("SELECT pos, epoch FROM ledger.head WHERE ledger_id = $1 FOR UPDATE")
-                .bind(id)
-                .fetch_optional(tx.conn())
-                .await
-                .map_err(failed)?;
+        let locked = sqlx::query!(
+            r#"SELECT pos AS "pos!", epoch AS "epoch!" FROM ledger.head
+               WHERE ledger_id = $1 FOR UPDATE"#,
+            id
+        )
+        .fetch_optional(tx.conn())
+        .await
+        .map_err(failed)?;
         match locked {
             None => return Err(failed(StoreError::NotOpened)),
-            Some((p, e)) if p != after || e != epoch => {
+            Some(h) if h.pos != after || h.epoch != epoch => {
                 return Err(failed(StoreError::HeadMoved));
             }
             Some(_) => {}
@@ -684,20 +706,21 @@ impl SequencerPool {
             }
             tx.insert_inbound(i).await.map_err(row_failure)?;
         }
-        let moved = sqlx::query(
-            "UPDATE ledger.head SET pos = $2, head_leaf = $3, \
-             head_recorded_at = pg_catalog.to_timestamp(0) \
-               + interval '1 millisecond' * $4::bigint::double precision, \
-             frontier = $5 \
+        let frontier = b.head.frontier.concat();
+        let moved = sqlx::query!(
+            "UPDATE ledger.head SET pos = $2, head_leaf = $3,
+             head_recorded_at = pg_catalog.to_timestamp(0)
+               + interval '1 millisecond' * $4::bigint::double precision,
+             frontier = $5
              WHERE ledger_id = $1 AND pos = $6 AND epoch = $7",
+            id,
+            signed(b.head.pos).map_err(failed)?,
+            b.head.leaf.as_slice(),
+            signed(b.head.recorded_at_ms).map_err(failed)?,
+            frontier.as_slice(),
+            after,
+            epoch
         )
-        .bind(id)
-        .bind(signed(b.head.pos).map_err(failed)?)
-        .bind(b.head.leaf.as_slice())
-        .bind(signed(b.head.recorded_at_ms).map_err(failed)?)
-        .bind(b.head.frontier.concat())
-        .bind(after)
-        .bind(epoch)
         .execute(tx.conn())
         .await
         .map_err(failed)?;
