@@ -64,7 +64,7 @@ fn name(s: &str) -> PartName {
     PartName::parse(s).unwrap()
 }
 
-// T-72 SEC-35 P-95
+// T-72 SEC-35 P-95 T-94
 #[test]
 fn t_72_sec_35_the_parser_worker_scans_only_inside_its_lockdown() {
     let mut worker = locked_worker();
@@ -122,7 +122,7 @@ fn t_72_sec_35_the_parser_worker_scans_only_inside_its_lockdown() {
     assert_eq!(worker.scan(&report).unwrap(), ScanOutcome::Clean);
 }
 
-// T-72
+// T-72 T-94
 #[test]
 fn t_72_the_parser_worker_refuses_to_start_when_its_lockdown_cannot_be_set_up() {
     let out = Command::new(EXE).arg("parser-worker").output().unwrap();

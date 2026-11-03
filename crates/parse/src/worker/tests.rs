@@ -33,7 +33,7 @@ fn scan_kind() -> u8 {
     Kind::Scan.as_byte()
 }
 
-// SEC-35 P-95 T-72
+// SEC-35 P-95 T-72 T-94
 #[test]
 fn sec_35_p_95_the_worker_answers_clean_or_the_part_and_rule_of_a_detection_only() {
     let s = scanner();
@@ -53,7 +53,7 @@ fn sec_35_p_95_the_worker_answers_clean_or_the_part_and_rule_of_a_detection_only
     assert!(!payload.windows(fill.len()).any(|w| w == fill));
 }
 
-// T-72 SEC-18
+// T-72 SEC-18 T-94
 #[test]
 fn t_72_malformed_or_oversized_requests_are_refused_with_stable_codes() {
     let s = scanner();
@@ -83,7 +83,7 @@ fn t_72_malformed_or_oversized_requests_are_refused_with_stable_codes() {
     assert_eq!(answer(&s, scan_kind(), &two), refused(refusal::TOO_LARGE));
 }
 
-// T-72
+// T-72 T-94
 #[test]
 fn t_72_the_worker_loop_answers_until_its_input_closes_and_stops_at_an_untrusted_frame() {
     let s = scanner();
@@ -115,7 +115,7 @@ fn t_72_the_worker_loop_answers_until_its_input_closes_and_stops_at_an_untrusted
     assert_eq!(output, Vec::<u8>::new());
 }
 
-// T-72
+// T-72 T-94
 #[test]
 fn t_72_a_worker_that_does_not_answer_in_time_is_killed_and_not_used_again() {
     let mut command = Command::new("sleep");
@@ -141,7 +141,7 @@ fn answering(request_len: usize, answer: &[u8]) -> Worker {
     Worker::spawn(&mut command, Duration::from_secs(10)).unwrap()
 }
 
-// T-72 P-95
+// T-72 P-95 T-94
 #[test]
 fn t_72_an_answer_that_does_not_belong_to_the_request_retires_the_worker() {
     let part = name("note");

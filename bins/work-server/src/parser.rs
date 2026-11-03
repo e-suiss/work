@@ -112,7 +112,7 @@ mod tests {
         list.iter().map(|a| (*a).to_owned()).collect()
     }
 
-    // T-72
+    // T-72 T-94
     #[test]
     fn t_72_the_parser_worker_lockdown_declares_no_path_and_no_port() {
         let plain = lockdown(None);
@@ -135,7 +135,7 @@ mod tests {
         assert!(switched.contains("read_only: []"), "{switched}");
     }
 
-    // T-72
+    // T-72 T-94
     #[test]
     fn t_72_the_parser_worker_takes_only_an_unprivileged_run_as_identity() {
         assert!(matches!(run_as(&args(&[])), Ok(None)));

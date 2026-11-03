@@ -271,7 +271,7 @@ mod tests {
 
     use super::*;
 
-    // T-72
+    // T-72 T-94
     #[test]
     fn t_72_only_the_scan_kind_is_answered_and_the_status_bytes_round_trip() {
         let answered: Vec<Kind> = (0..=u8::MAX).filter_map(Kind::from_byte).collect();
@@ -286,7 +286,7 @@ mod tests {
         assert!(refusal::ALL.iter().all(|c| c.starts_with("parser-")));
     }
 
-    // T-72 SEC-18 P-33
+    // T-72 SEC-18 P-33 T-94
     #[test]
     fn t_72_the_frame_ceiling_holds_the_largest_scan_request_and_no_more() {
         let overhead = MAX_PARTS.checked_mul(1 + MAX_NAME + 4).unwrap();
@@ -318,7 +318,7 @@ mod tests {
         );
     }
 
-    // T-72
+    // T-72 T-94
     #[test]
     fn t_72_a_scan_request_decodes_only_in_its_exact_shape() {
         let parts: [(&str, &[u8]); 2] = [("title", b"hello".as_slice()), ("note", &[])];
@@ -358,7 +358,7 @@ mod tests {
         );
     }
 
-    // T-72 P-95
+    // T-72 P-95 T-94
     #[test]
     fn t_72_a_detection_carries_the_part_name_and_the_rule_id_only() {
         let payload = detection("note", "github-pat").unwrap();
