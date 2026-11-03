@@ -427,6 +427,28 @@ mod tests {
         assert!(!format!("{caller:?}").contains("alice"));
     }
 
+    type Tuple = (
+        Vec<u8>,
+        String,
+        Option<i64>,
+        Option<Vec<u8>>,
+        Option<String>,
+        i64,
+    );
+
+    fn stored(
+        (request_digest, outcome, pos, record_id, reason, created_at_ms): Tuple,
+    ) -> Result<StoredKey, StoreError> {
+        super::stored(KeyRow {
+            request_digest,
+            outcome,
+            pos,
+            record_id,
+            reason,
+            created_at_ms,
+        })
+    }
+
     #[test]
     fn op_8_a_stored_row_maps_to_one_outcome_or_is_corrupt() {
         let d = vec![7_u8; 32];
