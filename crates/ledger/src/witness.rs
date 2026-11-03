@@ -1,9 +1,26 @@
-//! Witness cosignatures of the ledger's checkpoints (§18 OP-4 item 3, OP-33, SEC-32, Access
-//! T21): a cosigned note is accepted only for a checkpoint the log signed and stored, only once
-//! the replica holds its size (mirror before witness, through the shared engine's publication
-//! order), and only with the `tlog-cosignature/v1` lines of configured witnesses that verify;
-//! a cosigned note that names another tree at a stored size is an equivocation, a security
-//! event, and nothing of it is stored.
+//! Witness cosignatures of the ledger's checkpoints (§18 OP-4 item 3, OP-32 item 3, OP-33,
+//! OP-46, SEC-32, Access T21): a cosigned note is accepted only for a checkpoint the log signed
+//! and stored, only once the replica holds its size (mirror before witness, through the shared
+//! engine's publication order), and only with the `tlog-cosignature/v1` lines of configured
+//! witnesses that verify; a cosigned note that names another tree at a stored size is an
+//! equivocation, a security event, and nothing of it is stored. The C2SP `tlog-witness` client
+//! sends each mirrored checkpoint to the configured witnesses with a consistency proof, the
+//! counted witnesses' cosignature times check ledger time, and the checkpoints the witnesses
+//! hold are compared against the ledger's own tree in the derived gossip rows.
+
+mod client;
+mod gossip;
+mod proof;
+mod round;
+
+pub use client::{
+    DEFAULT_WITNESS_TIMEOUT, WitnessAnswer, WitnessCallError, WitnessClient, witness_tls,
+};
+pub use gossip::Comparison;
+pub use round::{
+    MAX_WITNESS_PAUSE, WITNESS_RECHECK, WITNESS_TICK, WitnessEndpoint, WitnessPass, WitnessRole,
+    WitnessSetup, WitnessStates, run_witnessing,
+};
 
 use suiss_ledger::checkpoint::{OrderError, Publication};
 use work_kernel::proof::{Checkpoint, NoteError, Verifier, verify_checkpoint};
