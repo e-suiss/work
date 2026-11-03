@@ -1,0 +1,1240 @@
+{
+  "file": "mapping.json",
+  "notes": [
+    "P-49 PROV-JSON and P-51 ActivityStreams 2.0 mappings of one record, computed from its signed fields only: the expect of a case is the answer of map_record for its hex and context",
+    "context.actor_type is the envelope ActorTypeAnnotation without its evidence entries; context.withheld lists the records the viewer may not see, and every statement naming one is left out (EV-12, P-49)",
+    "identifiers: record:<record id hex>, party:<PartyRef percent-encoded outside the RFC 3986 unreserved set>, _:s<n> for statements in emission order, _:ref<n> for external objects an Act produced",
+    "an Act is a prov:Activity, a Declaration or Claim a prov:Entity; the author is wasAssociatedWith (Act) or wasAttributedTo; each on_behalf_of ring is actedOnBehalfOf from the previous party; basis is used (Act) or wasDerivedFrom with the basis role; a derived_from record target is used (Act) or wasDerivedFrom with its role, and the fulfills target of an Act is the prov:Plan of its association; supersedes is a prov:Revision plus wasInvalidatedBy of the older record; an external object an Act references is wasGeneratedBy the Act",
+    "as2 is the activity of a Declaration: a record carrying supersedes is an Update; otherwise request and counter are Offer, promise Accept, decline Reject, promise_conditional TentativeAccept, the four revocation requests Undo, assign the ForgeFed Assign, and open_condition of the core information type Question; every other record maps to null",
+    "reimport cases are export documents given back as record bytes: neither is a record (P-48 JSON-LD and AS2 canonical form REJECT, P-52)"
+  ],
+  "cases": [
+    {
+      "id": "record/declaration-promise-for-principal",
+      "rules": [
+        "P-49",
+        "P-51"
+      ],
+      "hex": "ae64626f647981a26470617274657465726d7366636f6d6d6974822f582062b38a840000a72b70ada334eb12c9dba46e2ac7cbd1ff648c28af1be0cd046e646b696e646b6465636c61726174696f6e6474797065782d68747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f70726f6d69736565626173697381822f582034652546558611697ac7366fb82fa846579b73842dfdd35bd368148ef5a6aa2166617574686f72781a70617274793a61636d653a6167656e742d70726f637572652d37666c6564676572822f582093be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc6863617061636974798263666f727470617274793a61636d653a62757965722d6f726768636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786870726f6475636572a3656d6f64656c781b75726e3a6578616d706c653a6d6f64656c3a6d2d323032362d303966636f6e666967822f5820eeca01d5aad719bb2d97b002128a3dc82b270df133900492d033ed3792dd51296776657273696f6e7370726f637572652d6167656e742f332e322e306876657273696f6e73a266736368656d61822f58203f765db7a715d24969b634a12d2c8a65d7673af9c682b851ecf49a8ae0e468016870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f582053694badcc59f1049a25ef040b3e97eb9dd174e11add1af787d1eb477e9d63f06a7669736962696c697479a16373656564776f726b6b636f7272656c6174696f6e8182782368747470733a2f2f6132612d70726f746f636f6c2e6f72672f636f6e746578742d6964686374782d386632636c6f6e5f626568616c665f6f66817470617274793a61636d653a62757965722d6f7267",
+      "context": {
+        "actor_type": {
+          "author": [
+            "agent",
+            "access_binding"
+          ],
+          "on_behalf_of": [
+            [
+              "organization",
+              "access_binding"
+            ]
+          ]
+        }
+      },
+      "expect": {
+        "outcome": "accept",
+        "prov": {
+          "prefix": {
+            "party": "https://suiss.app/ns/work/party/",
+            "record": "https://suiss.app/ns/work/record/",
+            "work": "https://suiss.app/ns/work/"
+          },
+          "agent": {
+            "party:party%3Aacme%3Aagent-procure-7": {
+              "work:actorType": "agent",
+              "work:actorTypeSource": "access_binding"
+            },
+            "party:party%3Aacme%3Abuyer-org": {
+              "work:actorType": "organization",
+              "work:actorTypeSource": "access_binding"
+            }
+          },
+          "entity": {
+            "record:b1c72b699cbfd324bb6f5e935fd51c85677c7d37a831fe830dfccf210bbfb7eb": {
+              "work:kind": "declaration",
+              "work:type": "https://suiss.app/ns/work/declaration/promise"
+            }
+          },
+          "wasAttributedTo": {
+            "_:s1": {
+              "prov:entity": "record:b1c72b699cbfd324bb6f5e935fd51c85677c7d37a831fe830dfccf210bbfb7eb",
+              "prov:agent": "party:party%3Aacme%3Aagent-procure-7"
+            }
+          },
+          "actedOnBehalfOf": {
+            "_:s2": {
+              "prov:delegate": "party:party%3Aacme%3Aagent-procure-7",
+              "prov:responsible": "party:party%3Aacme%3Abuyer-org"
+            }
+          },
+          "wasDerivedFrom": {
+            "_:s3": {
+              "prov:generatedEntity": "record:b1c72b699cbfd324bb6f5e935fd51c85677c7d37a831fe830dfccf210bbfb7eb",
+              "prov:usedEntity": "record:34652546558611697ac7366fb82fa846579b73842dfdd35bd368148ef5a6aa21",
+              "work:role": "https://suiss.app/ns/work/derived_from/basis"
+            }
+          }
+        },
+        "as2": {
+          "type": "Accept",
+          "vocabulary": "https://www.w3.org/ns/activitystreams"
+        }
+      }
+    },
+    {
+      "id": "record/act-action-fulfills",
+      "rules": [
+        "P-49",
+        "P-51"
+      ],
+      "hex": "ab646b696e64636163746474797065782468747470733a2f2f73756973732e6170702f6e732f776f726b2f6163742f616374696f6e66617574686f727570617274793a676c6f6265783a737570706c696572666c6564676572822f582093be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786865766964656e636581a56474797065782b68747470733a2f2f73756973732e6170702f6e732f776f726b2f65766964656e63652f6172746966616374677375626a656374822f582028c1e1b4ac9dd0997ed2a7b0a8f6ecc4206fba0a5d7154ead488756e7e32a1be6970726573656e7465727570617274793a676c6f6265783a737570706c696572697369676e6174757265822f5820662d76c65ca52cf4aa3bc93e138352026dfc84d3c53b248973a9967a4454587e6a636c61696d65645f61741b000001a14200a1606876657273696f6e73a266736368656d61822f5820e3d879c679f23944c8ad7cab05b4c152ebd656800c9c0fbabe8a69835f1c72046870726f746f636f6c8201006972656c6174696f6e7381a36372656c6c646572697665645f66726f6d6674617267657482667265636f7264822f5820c913b1f400bee6a835134b25d4fa2ce2265e887070fa69b7889fd778b1278405697175616c6966696572782f68747470733a2f2f73756973732e6170702f6e732f776f726b2f646572697665645f66726f6d2f66756c66696c6c736a7669736962696c697479a16373656564776f726b6b6f636375727265645f61741b000001a142022800",
+      "context": {
+        "actor_type": {
+          "author": [
+            "organization",
+            "access_binding"
+          ]
+        }
+      },
+      "expect": {
+        "outcome": "accept",
+        "prov": {
+          "prefix": {
+            "party": "https://suiss.app/ns/work/party/",
+            "record": "https://suiss.app/ns/work/record/",
+            "work": "https://suiss.app/ns/work/"
+          },
+          "agent": {
+            "party:party%3Aglobex%3Asupplier": {
+              "work:actorType": "organization",
+              "work:actorTypeSource": "access_binding"
+            }
+          },
+          "activity": {
+            "record:c0916a753d6f228a349d219cc31e88d46938f47ed731ef18c6856f301edce527": {
+              "work:kind": "act",
+              "work:type": "https://suiss.app/ns/work/act/action"
+            }
+          },
+          "entity": {
+            "record:c913b1f400bee6a835134b25d4fa2ce2265e887070fa69b7889fd778b1278405": {
+              "prov:type": "prov:Plan"
+            }
+          },
+          "wasAssociatedWith": {
+            "_:s1": {
+              "prov:activity": "record:c0916a753d6f228a349d219cc31e88d46938f47ed731ef18c6856f301edce527",
+              "prov:agent": "party:party%3Aglobex%3Asupplier",
+              "prov:plan": "record:c913b1f400bee6a835134b25d4fa2ce2265e887070fa69b7889fd778b1278405"
+            }
+          }
+        },
+        "as2": null
+      }
+    },
+    {
+      "id": "record/claim-observation-system",
+      "rules": [
+        "P-49",
+        "P-51"
+      ],
+      "hex": "aa646b696e6465636c61696d6474797065782b68747470733a2f2f73756973732e6170702f6e732f776f726b2f636c61696d2f6f62736572766174696f6e65626173697381822f582016f21ed89262b0016025c2703d68fc7028d8ecbc736b2617d27025a365a265e366617574686f72781970617274793a61636d653a776f726b2d7363686564756c6572666c6564676572822f582093be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc68636f6e6365726e738250019a2f4c8e1b7c3da5e6f7081234567850019a2f4c8e1b7c3da5e6f708876543216876657273696f6e73a266736368656d61822f582008c478cb5168164f861aae4f1ac3d5b0a7d475b9a59cfa400676024d98b767f16870726f746f636f6c8201006972656c6174696f6e7381a26372656c6a7265666572656e63657366746172676574826865787465726e616c782268747470733a2f2f6572702e6578616d706c652f6f72646572732f504f2d343437316a7669736962696c697479a26373656564776f726b6d6167656e745f636f6e74657874f46b6f636375727265645f61741b000001a142053540",
+      "context": {
+        "actor_type": {
+          "author": [
+            "system",
+            "access_binding"
+          ]
+        }
+      },
+      "expect": {
+        "outcome": "accept",
+        "prov": {
+          "prefix": {
+            "party": "https://suiss.app/ns/work/party/",
+            "record": "https://suiss.app/ns/work/record/",
+            "work": "https://suiss.app/ns/work/"
+          },
+          "agent": {
+            "party:party%3Aacme%3Awork-scheduler": {
+              "work:actorType": "system",
+              "work:actorTypeSource": "access_binding"
+            }
+          },
+          "entity": {
+            "record:64519a94e8968ef902d478bc32b1333b7783d1867a6edc661b7c80bfe4396f03": {
+              "work:kind": "claim",
+              "work:type": "https://suiss.app/ns/work/claim/observation"
+            }
+          },
+          "wasAttributedTo": {
+            "_:s1": {
+              "prov:entity": "record:64519a94e8968ef902d478bc32b1333b7783d1867a6edc661b7c80bfe4396f03",
+              "prov:agent": "party:party%3Aacme%3Awork-scheduler"
+            }
+          },
+          "wasDerivedFrom": {
+            "_:s2": {
+              "prov:generatedEntity": "record:64519a94e8968ef902d478bc32b1333b7783d1867a6edc661b7c80bfe4396f03",
+              "prov:usedEntity": "record:16f21ed89262b0016025c2703d68fc7028d8ecbc736b2617d27025a365a265e3",
+              "work:role": "https://suiss.app/ns/work/derived_from/basis"
+            }
+          }
+        },
+        "as2": null
+      }
+    },
+    {
+      "id": "record/declaration-amend-supersedes-ext",
+      "rules": [
+        "P-49",
+        "P-51"
+      ],
+      "hex": "ae63657874a1782e68747470733a2f2f70726f637572656d656e742e6578616d706c652f6e732f6578742f636f73745f63656e7465726743432d3434313064626f647982a26470617274646e6f746566636f6d6d6974822f5820579c99a14bf9ec7023b0cffaa74672e5d5469912ff3fbdb7b54c12232ecb5a51a26470617274657465726d7366636f6d6d6974822f5820a6c9a67367ea9942cbd565f31b9deee7ca3170c3887ce0bbaf701562edad534e646b696e646b6465636c61726174696f6e6474797065782b68747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f616d656e6465626173697382822f582012cae033186309f659063dbd91e267983caec2f488f1c50f8794e8901e27741c822f582079256c6126bb0a8f50a9037ce86d92cd2fed7632c159f8c656311ccbd61750cd66617574686f727070617274793a61636d653a616c696365666c6564676572822f582093be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc66706172616d73a16c6566666563746976655f61741b000001a147288400686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a366736368656d61822f582087ba9a78e4967682f583748b7995e709a90f884c47541bf1ae3e9485075048dd6870726f746f636f6c82010069707261637469636573a1781f68747470733a2f2f70726f637572656d656e742e6578616d706c652f6e732f822f5820a44f23f8a3aae2c1d733a4008c1cf213f87d9af3baa57d378183828971574efe69617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f58207e113a2744a4c1fe412cebc60c312801d7b76b74c16965e89ab805a9eab10c356972656c6174696f6e7381a26372656c6a737570657273656465736674617267657482667265636f7264822f582079256c6126bb0a8f50a9037ce86d92cd2fed7632c159f8c656311ccbd61750cd6a7669736962696c697479a16373656564776f726b",
+      "context": {
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        }
+      },
+      "expect": {
+        "outcome": "accept",
+        "prov": {
+          "prefix": {
+            "party": "https://suiss.app/ns/work/party/",
+            "record": "https://suiss.app/ns/work/record/",
+            "work": "https://suiss.app/ns/work/"
+          },
+          "agent": {
+            "party:party%3Aacme%3Aalice": {
+              "work:actorType": "human",
+              "work:actorTypeSource": "access_binding"
+            }
+          },
+          "entity": {
+            "record:88b8fb036fa1d5ee542839068aae0958c757b4acb6a7246ac2930a0d63586fd0": {
+              "work:kind": "declaration",
+              "work:type": "https://suiss.app/ns/work/declaration/amend"
+            }
+          },
+          "wasAttributedTo": {
+            "_:s1": {
+              "prov:entity": "record:88b8fb036fa1d5ee542839068aae0958c757b4acb6a7246ac2930a0d63586fd0",
+              "prov:agent": "party:party%3Aacme%3Aalice"
+            }
+          },
+          "wasDerivedFrom": {
+            "_:s2": {
+              "prov:generatedEntity": "record:88b8fb036fa1d5ee542839068aae0958c757b4acb6a7246ac2930a0d63586fd0",
+              "prov:usedEntity": "record:12cae033186309f659063dbd91e267983caec2f488f1c50f8794e8901e27741c",
+              "work:role": "https://suiss.app/ns/work/derived_from/basis"
+            },
+            "_:s3": {
+              "prov:generatedEntity": "record:88b8fb036fa1d5ee542839068aae0958c757b4acb6a7246ac2930a0d63586fd0",
+              "prov:usedEntity": "record:79256c6126bb0a8f50a9037ce86d92cd2fed7632c159f8c656311ccbd61750cd",
+              "work:role": "https://suiss.app/ns/work/derived_from/basis"
+            },
+            "_:s4": {
+              "prov:generatedEntity": "record:88b8fb036fa1d5ee542839068aae0958c757b4acb6a7246ac2930a0d63586fd0",
+              "prov:usedEntity": "record:79256c6126bb0a8f50a9037ce86d92cd2fed7632c159f8c656311ccbd61750cd",
+              "prov:type": "prov:Revision"
+            }
+          },
+          "wasInvalidatedBy": {
+            "_:s5": {
+              "prov:entity": "record:79256c6126bb0a8f50a9037ce86d92cd2fed7632c159f8c656311ccbd61750cd"
+            }
+          }
+        },
+        "as2": {
+          "type": "Update",
+          "vocabulary": "https://www.w3.org/ns/activitystreams"
+        }
+      }
+    },
+    {
+      "id": "record/claim-comment-private",
+      "rules": [
+        "P-49",
+        "P-51"
+      ],
+      "hex": "a8646b696e6465636c61696d6474797065782c68747470733a2f2f70726f637572656d656e742e6578616d706c652f6e732f636c61696d2f636f6d6d656e7466617574686f727070617274793a61636d653a616c696365666c6564676572822f582093be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc68636f6e6365726e73806876657273696f6e73a366736368656d61822f58209be79166b289f275ad1b9cca8dbd8400a7fafc117a419dca2e218f10445418396870726f746f636f6c82010069707261637469636573a1781f68747470733a2f2f70726f637572656d656e742e6578616d706c652f6e732f822f5820a44f23f8a3aae2c1d733a4008c1cf213f87d9af3baa57d378183828971574efe6a7669736962696c697479a16373656566617574686f726b6f636375727265645f61741b000001a14205f890",
+      "context": {
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        }
+      },
+      "expect": {
+        "outcome": "accept",
+        "prov": {
+          "prefix": {
+            "party": "https://suiss.app/ns/work/party/",
+            "record": "https://suiss.app/ns/work/record/",
+            "work": "https://suiss.app/ns/work/"
+          },
+          "agent": {
+            "party:party%3Aacme%3Aalice": {
+              "work:actorType": "human",
+              "work:actorTypeSource": "access_binding"
+            }
+          },
+          "entity": {
+            "record:64944ff4057f44d2d5cc44c1c554693f0ed55d65ffad357baeec113f4a226d34": {
+              "work:kind": "claim",
+              "work:type": "https://procurement.example/ns/claim/comment"
+            }
+          },
+          "wasAttributedTo": {
+            "_:s1": {
+              "prov:entity": "record:64944ff4057f44d2d5cc44c1c554693f0ed55d65ffad357baeec113f4a226d34",
+              "prov:agent": "party:party%3Aacme%3Aalice"
+            }
+          }
+        },
+        "as2": null
+      }
+    },
+    {
+      "id": "record/claim-critical-ext-understood",
+      "rules": [
+        "P-49",
+        "P-51"
+      ],
+      "hex": "ac63657874a2782268747470733a2f2f636c696e69632e6578616d706c652f6e732f6578742f7761726463422d32782d68747470733a2f2f636c696e69632e6578616d706c652f6e732f6578742f70617469656e745f636f6e73656e74822f5820d08c458c62d346fcb1ecf537aa6e5668447a32b74941d0a2fd03f1e99fe4935e64626f647981a26470617274646e6f746566636f6d6d6974822f5820f33c57f8d5ccb4578dbce1382182aa969abd9cad458d6ad7c152ade97af0d233646b696e6465636c61696d6474797065782968747470733a2f2f636c696e69632e6578616d706c652f6e732f636c61696d2f636172655f6e6f746566617574686f727070617274793a61636d653a616c696365666c6564676572822f582093be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f7088765432168637269746963616c81782d68747470733a2f2f636c696e69632e6578616d706c652f6e732f6578742f70617469656e745f636f6e73656e746876657273696f6e73a366736368656d61822f582057e6c9f6e885215721e4f3044cf52565d8a33fcec596438aef990ff8e63774ed6870726f746f636f6c82010069707261637469636573a1781a68747470733a2f2f636c696e69632e6578616d706c652f6e732f822f5820df259ebbd0eb5295241b011dbf82d2a0a72d0bb303de8f921d8cf17fcee357f56a7669736962696c697479a26373656564776f726b66736561726368f46b6f636375727265645f61741b000001a142061fa0",
+      "context": {
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        }
+      },
+      "expect": {
+        "outcome": "accept",
+        "prov": {
+          "prefix": {
+            "party": "https://suiss.app/ns/work/party/",
+            "record": "https://suiss.app/ns/work/record/",
+            "work": "https://suiss.app/ns/work/"
+          },
+          "agent": {
+            "party:party%3Aacme%3Aalice": {
+              "work:actorType": "human",
+              "work:actorTypeSource": "access_binding"
+            }
+          },
+          "entity": {
+            "record:b652303d71cdc46faf4369ec0e2da8449303a4e09ef7094b83f66864045f4ce8": {
+              "work:kind": "claim",
+              "work:type": "https://clinic.example/ns/claim/care_note"
+            }
+          },
+          "wasAttributedTo": {
+            "_:s1": {
+              "prov:entity": "record:b652303d71cdc46faf4369ec0e2da8449303a4e09ef7094b83f66864045f4ce8",
+              "prov:agent": "party:party%3Aacme%3Aalice"
+            }
+          }
+        },
+        "as2": null
+      }
+    },
+    {
+      "id": "record/declaration-decline-parties",
+      "rules": [
+        "P-49",
+        "P-51"
+      ],
+      "hex": "ab646b696e646b6465636c61726174696f6e6474797065782d68747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f6465636c696e6565626173697381822f58207ef3ae0510e2274e38c569715ea2f06a5d73f78ca76f3a344b164921cce3c90c66617574686f727570617274793a676c6f6265783a737570706c696572666c6564676572822f582093be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc66706172616d73a166726561736f6e6b6e6f5f6361706163697479686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708876543216876657273696f6e73a266736368656d61822f582021c7204b2ed64f633bb938997d1c2806858b97464109009c7e682203fdd714d06870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f582038dd5f5e57910aa84388aa76df0e1b0a6690187b137d4df747b00e848a4626e06a7669736962696c697479a163736565826770617274696573817470617274793a61636d653a62757965722d6f7267",
+      "context": {
+        "actor_type": {
+          "author": [
+            "organization",
+            "access_binding"
+          ]
+        }
+      },
+      "expect": {
+        "outcome": "accept",
+        "prov": {
+          "prefix": {
+            "party": "https://suiss.app/ns/work/party/",
+            "record": "https://suiss.app/ns/work/record/",
+            "work": "https://suiss.app/ns/work/"
+          },
+          "agent": {
+            "party:party%3Aglobex%3Asupplier": {
+              "work:actorType": "organization",
+              "work:actorTypeSource": "access_binding"
+            }
+          },
+          "entity": {
+            "record:77640f1f319c0e6570cde6d3cdcce4bc3b4579fd4d35722d659ba952edc807a5": {
+              "work:kind": "declaration",
+              "work:type": "https://suiss.app/ns/work/declaration/decline"
+            }
+          },
+          "wasAttributedTo": {
+            "_:s1": {
+              "prov:entity": "record:77640f1f319c0e6570cde6d3cdcce4bc3b4579fd4d35722d659ba952edc807a5",
+              "prov:agent": "party:party%3Aglobex%3Asupplier"
+            }
+          },
+          "wasDerivedFrom": {
+            "_:s2": {
+              "prov:generatedEntity": "record:77640f1f319c0e6570cde6d3cdcce4bc3b4579fd4d35722d659ba952edc807a5",
+              "prov:usedEntity": "record:7ef3ae0510e2274e38c569715ea2f06a5d73f78ca76f3a344b164921cce3c90c",
+              "work:role": "https://suiss.app/ns/work/derived_from/basis"
+            }
+          }
+        },
+        "as2": {
+          "type": "Reject",
+          "vocabulary": "https://www.w3.org/ns/activitystreams"
+        }
+      }
+    },
+    {
+      "id": "record/declaration-open-condition-decision-gate",
+      "rules": [
+        "P-49",
+        "P-51"
+      ],
+      "hex": "ab646b696e646b6465636c61726174696f6e6474797065783468747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f6f70656e5f636f6e646974696f6e65626173697381822f582079256c6126bb0a8f50a9037ce86d92cd2fed7632c159f8c656311ccbd61750cd66617574686f727070617274793a61636d653a616c696365666c6564676572822f582093be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc66706172616d73a667616464726573737470617274793a61636d653a62757965722d6f726768646561646c696e651b000001a16b35080069637269746572696f6e783868747470733a2f2f70726f637572656d656e742e6578616d706c652f6e732f637269746572696f6e2f6275646765745f617070726f76656469676174655f666f726d68617070726f76616c6b776169745f726561736f6e68696e7465726e616c6e636f6e646974696f6e5f74797065782c68747470733a2f2f73756973732e6170702f6e732f776f726b2f636f6e646974696f6e2f6465636973696f6e686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f58200038deaaa556b892bedb09187b5df227e20b25cc180c7f162ce45f3814deea786870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f58206eb638ac1a0c4dadca311d59a69820d8efaacd1f343e4b3815a25eb084135c976a7669736962696c697479a16373656564776f726b",
+      "context": {
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        }
+      },
+      "expect": {
+        "outcome": "accept",
+        "prov": {
+          "prefix": {
+            "party": "https://suiss.app/ns/work/party/",
+            "record": "https://suiss.app/ns/work/record/",
+            "work": "https://suiss.app/ns/work/"
+          },
+          "agent": {
+            "party:party%3Aacme%3Aalice": {
+              "work:actorType": "human",
+              "work:actorTypeSource": "access_binding"
+            }
+          },
+          "entity": {
+            "record:a97e314ac819744ff9ad2c804b9d6b9c2e093aa3e4bd52edc241d0799d363e00": {
+              "work:kind": "declaration",
+              "work:type": "https://suiss.app/ns/work/declaration/open_condition"
+            }
+          },
+          "wasAttributedTo": {
+            "_:s1": {
+              "prov:entity": "record:a97e314ac819744ff9ad2c804b9d6b9c2e093aa3e4bd52edc241d0799d363e00",
+              "prov:agent": "party:party%3Aacme%3Aalice"
+            }
+          },
+          "wasDerivedFrom": {
+            "_:s2": {
+              "prov:generatedEntity": "record:a97e314ac819744ff9ad2c804b9d6b9c2e093aa3e4bd52edc241d0799d363e00",
+              "prov:usedEntity": "record:79256c6126bb0a8f50a9037ce86d92cd2fed7632c159f8c656311ccbd61750cd",
+              "work:role": "https://suiss.app/ns/work/derived_from/basis"
+            }
+          }
+        },
+        "as2": null
+      }
+    },
+    {
+      "id": "record/declaration-open-condition-practice-type",
+      "rules": [
+        "P-49",
+        "P-51"
+      ],
+      "hex": "ab646b696e646b6465636c61726174696f6e6474797065783468747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f6f70656e5f636f6e646974696f6e65626173697381822f5820c913b1f400bee6a835134b25d4fa2ce2265e887070fa69b7889fd778b127840566617574686f727570617274793a676c6f6265783a737570706c696572666c6564676572822f582093be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc66706172616d73a56761646472657373782568747470733a2f2f637573746f6d732e6578616d706c652f6e732f6f66666963652f69737468646561646c696e65646e6f6e6569637269746572696f6e783968747470733a2f2f70726f637572656d656e742e6578616d706c652f6e732f637269746572696f6e2f637573746f6d735f72656c65617365646b776169745f726561736f6e6865787465726e616c6e636f6e646974696f6e5f74797065783a68747470733a2f2f70726f637572656d656e742e6578616d706c652f6e732f636f6e646974696f6e2f637573746f6d735f636c656172616e6365686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708876543216876657273696f6e73a366736368656d61822f58200038deaaa556b892bedb09187b5df227e20b25cc180c7f162ce45f3814deea786870726f746f636f6c82010069707261637469636573a1781f68747470733a2f2f70726f637572656d656e742e6578616d706c652f6e732f822f5820a44f23f8a3aae2c1d733a4008c1cf213f87d9af3baa57d378183828971574efe69617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f5820e506973dd3bf287e1301bcf79b9fc9cb201fdaa19ac1f5ff085ae2cf924a81b36a7669736962696c697479a16373656564776f726b",
+      "context": {
+        "actor_type": {
+          "author": [
+            "organization",
+            "access_binding"
+          ]
+        }
+      },
+      "expect": {
+        "outcome": "accept",
+        "prov": {
+          "prefix": {
+            "party": "https://suiss.app/ns/work/party/",
+            "record": "https://suiss.app/ns/work/record/",
+            "work": "https://suiss.app/ns/work/"
+          },
+          "agent": {
+            "party:party%3Aglobex%3Asupplier": {
+              "work:actorType": "organization",
+              "work:actorTypeSource": "access_binding"
+            }
+          },
+          "entity": {
+            "record:80f37996878dc54f916bff52798b18ce7fca64178360af1ad472f1442c6a2361": {
+              "work:kind": "declaration",
+              "work:type": "https://suiss.app/ns/work/declaration/open_condition"
+            }
+          },
+          "wasAttributedTo": {
+            "_:s1": {
+              "prov:entity": "record:80f37996878dc54f916bff52798b18ce7fca64178360af1ad472f1442c6a2361",
+              "prov:agent": "party:party%3Aglobex%3Asupplier"
+            }
+          },
+          "wasDerivedFrom": {
+            "_:s2": {
+              "prov:generatedEntity": "record:80f37996878dc54f916bff52798b18ce7fca64178360af1ad472f1442c6a2361",
+              "prov:usedEntity": "record:c913b1f400bee6a835134b25d4fa2ce2265e887070fa69b7889fd778b1278405",
+              "work:role": "https://suiss.app/ns/work/derived_from/basis"
+            }
+          }
+        },
+        "as2": null
+      }
+    },
+    {
+      "id": "record/declaration-cancel-reason-sub-code",
+      "rules": [
+        "P-49",
+        "P-51"
+      ],
+      "hex": "ab646b696e646b6465636c61726174696f6e6474797065782c68747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f63616e63656c65626173697381822f582012cae033186309f659063dbd91e267983caec2f488f1c50f8794e8901e27741c66617574686f727070617274793a61636d653a616c696365666c6564676572822f582093be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc66706172616d73a166726561736f6e78396f746865723a68747470733a2f2f70726f637572656d656e742e6578616d706c652f6e732f726561736f6e2f6275646765745f66726f7a656e686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f58203cc45505b948cf4458a37be66c0dc8a75e5c5589c1e792140898681a1a64cd1b6870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f582085006766d2a386db1745999403348a71603736a1b9d8f43e79e34b1dc7f4cd486a7669736962696c697479a16373656564776f726b",
+      "context": {
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        }
+      },
+      "expect": {
+        "outcome": "accept",
+        "prov": {
+          "prefix": {
+            "party": "https://suiss.app/ns/work/party/",
+            "record": "https://suiss.app/ns/work/record/",
+            "work": "https://suiss.app/ns/work/"
+          },
+          "agent": {
+            "party:party%3Aacme%3Aalice": {
+              "work:actorType": "human",
+              "work:actorTypeSource": "access_binding"
+            }
+          },
+          "entity": {
+            "record:18352856f9412a70feee13fdb759eeacbbd87659f0672a8f9eb210e260268920": {
+              "work:kind": "declaration",
+              "work:type": "https://suiss.app/ns/work/declaration/cancel"
+            }
+          },
+          "wasAttributedTo": {
+            "_:s1": {
+              "prov:entity": "record:18352856f9412a70feee13fdb759eeacbbd87659f0672a8f9eb210e260268920",
+              "prov:agent": "party:party%3Aacme%3Aalice"
+            }
+          },
+          "wasDerivedFrom": {
+            "_:s2": {
+              "prov:generatedEntity": "record:18352856f9412a70feee13fdb759eeacbbd87659f0672a8f9eb210e260268920",
+              "prov:usedEntity": "record:12cae033186309f659063dbd91e267983caec2f488f1c50f8794e8901e27741c",
+              "work:role": "https://suiss.app/ns/work/derived_from/basis"
+            }
+          }
+        },
+        "as2": null
+      }
+    },
+    {
+      "id": "record/claim-practice-params-digest-and-list",
+      "rules": [
+        "P-49",
+        "P-51"
+      ],
+      "hex": "ab646b696e6465636c61696d6474797065782f68747470733a2f2f70726f637572656d656e742e6578616d706c652f6e732f636c61696d2f696e7370656374696f6e66617574686f727070617274793a61636d653a616c696365666c6564676572822f582093be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc66706172616d73a26a73616d706c655f696473826d6c6f742d343437312d612d30316d6c6f742d343437312d612d30326d696e737065637465645f6c6f74822f5820f8bde7945a497693288991cd6b2f9d19995bf9f4602c2b3907528d20646457e5686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a366736368656d61822f582032ca4092b67152798d222c623b897e159b1ea60ebcfa3bc7447227ec8e814c8e6870726f746f636f6c82010069707261637469636573a1781f68747470733a2f2f70726f637572656d656e742e6578616d706c652f6e732f822f5820a44f23f8a3aae2c1d733a4008c1cf213f87d9af3baa57d378183828971574efe6972656c6174696f6e7381a36372656c6a7265666572656e63657366746172676574826865787465726e616c782268747470733a2f2f6572702e6578616d706c652f6f72646572732f504f2d34343731697175616c6966696572783768747470733a2f2f70726f637572656d656e742e6578616d706c652f6e732f72656c6174696f6e2f696e737065637465645f6f726465726a7669736962696c697479a16373656564776f726b6b6f636375727265645f61741b000001a1420646b0",
+      "context": {
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        }
+      },
+      "expect": {
+        "outcome": "accept",
+        "prov": {
+          "prefix": {
+            "party": "https://suiss.app/ns/work/party/",
+            "record": "https://suiss.app/ns/work/record/",
+            "work": "https://suiss.app/ns/work/"
+          },
+          "agent": {
+            "party:party%3Aacme%3Aalice": {
+              "work:actorType": "human",
+              "work:actorTypeSource": "access_binding"
+            }
+          },
+          "entity": {
+            "record:e802ceefba9a0c8c14dcd914ba90369a3b837a3cc3ee530654d324c888a6b65b": {
+              "work:kind": "claim",
+              "work:type": "https://procurement.example/ns/claim/inspection"
+            }
+          },
+          "wasAttributedTo": {
+            "_:s1": {
+              "prov:entity": "record:e802ceefba9a0c8c14dcd914ba90369a3b837a3cc3ee530654d324c888a6b65b",
+              "prov:agent": "party:party%3Aacme%3Aalice"
+            }
+          }
+        },
+        "as2": null
+      }
+    },
+    {
+      "id": "withheld/declaration-promise-for-principal",
+      "rules": [
+        "P-49",
+        "EV-12"
+      ],
+      "hex": "ae64626f647981a26470617274657465726d7366636f6d6d6974822f582062b38a840000a72b70ada334eb12c9dba46e2ac7cbd1ff648c28af1be0cd046e646b696e646b6465636c61726174696f6e6474797065782d68747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f70726f6d69736565626173697381822f582034652546558611697ac7366fb82fa846579b73842dfdd35bd368148ef5a6aa2166617574686f72781a70617274793a61636d653a6167656e742d70726f637572652d37666c6564676572822f582093be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc6863617061636974798263666f727470617274793a61636d653a62757965722d6f726768636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786870726f6475636572a3656d6f64656c781b75726e3a6578616d706c653a6d6f64656c3a6d2d323032362d303966636f6e666967822f5820eeca01d5aad719bb2d97b002128a3dc82b270df133900492d033ed3792dd51296776657273696f6e7370726f637572652d6167656e742f332e322e306876657273696f6e73a266736368656d61822f58203f765db7a715d24969b634a12d2c8a65d7673af9c682b851ecf49a8ae0e468016870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f582053694badcc59f1049a25ef040b3e97eb9dd174e11add1af787d1eb477e9d63f06a7669736962696c697479a16373656564776f726b6b636f7272656c6174696f6e8182782368747470733a2f2f6132612d70726f746f636f6c2e6f72672f636f6e746578742d6964686374782d386632636c6f6e5f626568616c665f6f66817470617274793a61636d653a62757965722d6f7267",
+      "context": {
+        "actor_type": {
+          "author": [
+            "agent",
+            "access_binding"
+          ],
+          "on_behalf_of": [
+            [
+              "organization",
+              "access_binding"
+            ]
+          ]
+        },
+        "withheld": [
+          [
+            -16,
+            "34652546558611697ac7366fb82fa846579b73842dfdd35bd368148ef5a6aa21"
+          ]
+        ]
+      },
+      "expect": {
+        "outcome": "accept",
+        "prov": {
+          "prefix": {
+            "party": "https://suiss.app/ns/work/party/",
+            "record": "https://suiss.app/ns/work/record/",
+            "work": "https://suiss.app/ns/work/"
+          },
+          "agent": {
+            "party:party%3Aacme%3Aagent-procure-7": {
+              "work:actorType": "agent",
+              "work:actorTypeSource": "access_binding"
+            },
+            "party:party%3Aacme%3Abuyer-org": {
+              "work:actorType": "organization",
+              "work:actorTypeSource": "access_binding"
+            }
+          },
+          "entity": {
+            "record:b1c72b699cbfd324bb6f5e935fd51c85677c7d37a831fe830dfccf210bbfb7eb": {
+              "work:kind": "declaration",
+              "work:type": "https://suiss.app/ns/work/declaration/promise"
+            }
+          },
+          "wasAttributedTo": {
+            "_:s1": {
+              "prov:entity": "record:b1c72b699cbfd324bb6f5e935fd51c85677c7d37a831fe830dfccf210bbfb7eb",
+              "prov:agent": "party:party%3Aacme%3Aagent-procure-7"
+            }
+          },
+          "actedOnBehalfOf": {
+            "_:s2": {
+              "prov:delegate": "party:party%3Aacme%3Aagent-procure-7",
+              "prov:responsible": "party:party%3Aacme%3Abuyer-org"
+            }
+          }
+        },
+        "as2": {
+          "type": "Accept",
+          "vocabulary": "https://www.w3.org/ns/activitystreams"
+        }
+      }
+    },
+    {
+      "id": "mapping/declaration-request",
+      "rules": [
+        "P-51",
+        "CM-17"
+      ],
+      "hex": "ae64626f647981a26470617274657465726d7366636f6d6d6974822f582062b38a840000a72b70ada334eb12c9dba46e2ac7cbd1ff648c28af1be0cd046e646b696e646b6465636c61726174696f6e6474797065782d68747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f7265717565737465626173697381822f582034652546558611697ac7366fb82fa846579b73842dfdd35bd368148ef5a6aa2166617574686f72781a70617274793a61636d653a6167656e742d70726f637572652d37666c6564676572822f582093be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc6863617061636974798263666f727470617274793a61636d653a62757965722d6f726768636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786870726f6475636572a3656d6f64656c781b75726e3a6578616d706c653a6d6f64656c3a6d2d323032362d303966636f6e666967822f5820eeca01d5aad719bb2d97b002128a3dc82b270df133900492d033ed3792dd51296776657273696f6e7370726f637572652d6167656e742f332e322e306876657273696f6e73a266736368656d61822f58203f765db7a715d24969b634a12d2c8a65d7673af9c682b851ecf49a8ae0e468016870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f582053694badcc59f1049a25ef040b3e97eb9dd174e11add1af787d1eb477e9d63f06a7669736962696c697479a16373656564776f726b6b636f7272656c6174696f6e8182782368747470733a2f2f6132612d70726f746f636f6c2e6f72672f636f6e746578742d6964686374782d386632636c6f6e5f626568616c665f6f66817470617274793a61636d653a62757965722d6f7267",
+      "context": {
+        "actor_type": {
+          "author": [
+            "agent",
+            "access_binding"
+          ],
+          "on_behalf_of": [
+            [
+              "organization",
+              "access_binding"
+            ]
+          ]
+        }
+      },
+      "expect": {
+        "outcome": "accept",
+        "prov": {
+          "prefix": {
+            "party": "https://suiss.app/ns/work/party/",
+            "record": "https://suiss.app/ns/work/record/",
+            "work": "https://suiss.app/ns/work/"
+          },
+          "agent": {
+            "party:party%3Aacme%3Aagent-procure-7": {
+              "work:actorType": "agent",
+              "work:actorTypeSource": "access_binding"
+            },
+            "party:party%3Aacme%3Abuyer-org": {
+              "work:actorType": "organization",
+              "work:actorTypeSource": "access_binding"
+            }
+          },
+          "entity": {
+            "record:d5f337b6590ddcd9c35aedc7b39ad2b093580d5ec2479862a54e0257ce2684dd": {
+              "work:kind": "declaration",
+              "work:type": "https://suiss.app/ns/work/declaration/request"
+            }
+          },
+          "wasAttributedTo": {
+            "_:s1": {
+              "prov:entity": "record:d5f337b6590ddcd9c35aedc7b39ad2b093580d5ec2479862a54e0257ce2684dd",
+              "prov:agent": "party:party%3Aacme%3Aagent-procure-7"
+            }
+          },
+          "actedOnBehalfOf": {
+            "_:s2": {
+              "prov:delegate": "party:party%3Aacme%3Aagent-procure-7",
+              "prov:responsible": "party:party%3Aacme%3Abuyer-org"
+            }
+          },
+          "wasDerivedFrom": {
+            "_:s3": {
+              "prov:generatedEntity": "record:d5f337b6590ddcd9c35aedc7b39ad2b093580d5ec2479862a54e0257ce2684dd",
+              "prov:usedEntity": "record:34652546558611697ac7366fb82fa846579b73842dfdd35bd368148ef5a6aa21",
+              "work:role": "https://suiss.app/ns/work/derived_from/basis"
+            }
+          }
+        },
+        "as2": {
+          "type": "Offer",
+          "vocabulary": "https://www.w3.org/ns/activitystreams"
+        }
+      }
+    },
+    {
+      "id": "mapping/declaration-counter",
+      "rules": [
+        "P-51",
+        "CM-17"
+      ],
+      "hex": "ae64626f647981a26470617274657465726d7366636f6d6d6974822f582062b38a840000a72b70ada334eb12c9dba46e2ac7cbd1ff648c28af1be0cd046e646b696e646b6465636c61726174696f6e6474797065782d68747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f636f756e74657265626173697381822f582034652546558611697ac7366fb82fa846579b73842dfdd35bd368148ef5a6aa2166617574686f72781a70617274793a61636d653a6167656e742d70726f637572652d37666c6564676572822f582093be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc6863617061636974798263666f727470617274793a61636d653a62757965722d6f726768636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786870726f6475636572a3656d6f64656c781b75726e3a6578616d706c653a6d6f64656c3a6d2d323032362d303966636f6e666967822f5820eeca01d5aad719bb2d97b002128a3dc82b270df133900492d033ed3792dd51296776657273696f6e7370726f637572652d6167656e742f332e322e306876657273696f6e73a266736368656d61822f58203f765db7a715d24969b634a12d2c8a65d7673af9c682b851ecf49a8ae0e468016870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f582053694badcc59f1049a25ef040b3e97eb9dd174e11add1af787d1eb477e9d63f06a7669736962696c697479a16373656564776f726b6b636f7272656c6174696f6e8182782368747470733a2f2f6132612d70726f746f636f6c2e6f72672f636f6e746578742d6964686374782d386632636c6f6e5f626568616c665f6f66817470617274793a61636d653a62757965722d6f7267",
+      "context": {
+        "actor_type": {
+          "author": [
+            "agent",
+            "access_binding"
+          ],
+          "on_behalf_of": [
+            [
+              "organization",
+              "access_binding"
+            ]
+          ]
+        }
+      },
+      "expect": {
+        "outcome": "accept",
+        "prov": {
+          "prefix": {
+            "party": "https://suiss.app/ns/work/party/",
+            "record": "https://suiss.app/ns/work/record/",
+            "work": "https://suiss.app/ns/work/"
+          },
+          "agent": {
+            "party:party%3Aacme%3Aagent-procure-7": {
+              "work:actorType": "agent",
+              "work:actorTypeSource": "access_binding"
+            },
+            "party:party%3Aacme%3Abuyer-org": {
+              "work:actorType": "organization",
+              "work:actorTypeSource": "access_binding"
+            }
+          },
+          "entity": {
+            "record:f86e1c7183d3ab80c4c7b741fe37858c67780f9c69889332d7d82b2bed195680": {
+              "work:kind": "declaration",
+              "work:type": "https://suiss.app/ns/work/declaration/counter"
+            }
+          },
+          "wasAttributedTo": {
+            "_:s1": {
+              "prov:entity": "record:f86e1c7183d3ab80c4c7b741fe37858c67780f9c69889332d7d82b2bed195680",
+              "prov:agent": "party:party%3Aacme%3Aagent-procure-7"
+            }
+          },
+          "actedOnBehalfOf": {
+            "_:s2": {
+              "prov:delegate": "party:party%3Aacme%3Aagent-procure-7",
+              "prov:responsible": "party:party%3Aacme%3Abuyer-org"
+            }
+          },
+          "wasDerivedFrom": {
+            "_:s3": {
+              "prov:generatedEntity": "record:f86e1c7183d3ab80c4c7b741fe37858c67780f9c69889332d7d82b2bed195680",
+              "prov:usedEntity": "record:34652546558611697ac7366fb82fa846579b73842dfdd35bd368148ef5a6aa21",
+              "work:role": "https://suiss.app/ns/work/derived_from/basis"
+            }
+          }
+        },
+        "as2": {
+          "type": "Offer",
+          "vocabulary": "https://www.w3.org/ns/activitystreams"
+        }
+      }
+    },
+    {
+      "id": "mapping/declaration-promise-conditional",
+      "rules": [
+        "P-51",
+        "CM-17"
+      ],
+      "hex": "ae64626f647981a26470617274657465726d7366636f6d6d6974822f582062b38a840000a72b70ada334eb12c9dba46e2ac7cbd1ff648c28af1be0cd046e646b696e646b6465636c61726174696f6e6474797065783968747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f70726f6d6973655f636f6e646974696f6e616c65626173697381822f582034652546558611697ac7366fb82fa846579b73842dfdd35bd368148ef5a6aa2166617574686f72781a70617274793a61636d653a6167656e742d70726f637572652d37666c6564676572822f582093be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc6863617061636974798263666f727470617274793a61636d653a62757965722d6f726768636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786870726f6475636572a3656d6f64656c781b75726e3a6578616d706c653a6d6f64656c3a6d2d323032362d303966636f6e666967822f5820eeca01d5aad719bb2d97b002128a3dc82b270df133900492d033ed3792dd51296776657273696f6e7370726f637572652d6167656e742f332e322e306876657273696f6e73a266736368656d61822f58203f765db7a715d24969b634a12d2c8a65d7673af9c682b851ecf49a8ae0e468016870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f582053694badcc59f1049a25ef040b3e97eb9dd174e11add1af787d1eb477e9d63f06a7669736962696c697479a16373656564776f726b6b636f7272656c6174696f6e8182782368747470733a2f2f6132612d70726f746f636f6c2e6f72672f636f6e746578742d6964686374782d386632636c6f6e5f626568616c665f6f66817470617274793a61636d653a62757965722d6f7267",
+      "context": {
+        "actor_type": {
+          "author": [
+            "agent",
+            "access_binding"
+          ],
+          "on_behalf_of": [
+            [
+              "organization",
+              "access_binding"
+            ]
+          ]
+        }
+      },
+      "expect": {
+        "outcome": "accept",
+        "prov": {
+          "prefix": {
+            "party": "https://suiss.app/ns/work/party/",
+            "record": "https://suiss.app/ns/work/record/",
+            "work": "https://suiss.app/ns/work/"
+          },
+          "agent": {
+            "party:party%3Aacme%3Aagent-procure-7": {
+              "work:actorType": "agent",
+              "work:actorTypeSource": "access_binding"
+            },
+            "party:party%3Aacme%3Abuyer-org": {
+              "work:actorType": "organization",
+              "work:actorTypeSource": "access_binding"
+            }
+          },
+          "entity": {
+            "record:0965b77ff207c538969fb5941538ce362ad35ec7d03c5c1dcc39e55b09481f4e": {
+              "work:kind": "declaration",
+              "work:type": "https://suiss.app/ns/work/declaration/promise_conditional"
+            }
+          },
+          "wasAttributedTo": {
+            "_:s1": {
+              "prov:entity": "record:0965b77ff207c538969fb5941538ce362ad35ec7d03c5c1dcc39e55b09481f4e",
+              "prov:agent": "party:party%3Aacme%3Aagent-procure-7"
+            }
+          },
+          "actedOnBehalfOf": {
+            "_:s2": {
+              "prov:delegate": "party:party%3Aacme%3Aagent-procure-7",
+              "prov:responsible": "party:party%3Aacme%3Abuyer-org"
+            }
+          },
+          "wasDerivedFrom": {
+            "_:s3": {
+              "prov:generatedEntity": "record:0965b77ff207c538969fb5941538ce362ad35ec7d03c5c1dcc39e55b09481f4e",
+              "prov:usedEntity": "record:34652546558611697ac7366fb82fa846579b73842dfdd35bd368148ef5a6aa21",
+              "work:role": "https://suiss.app/ns/work/derived_from/basis"
+            }
+          }
+        },
+        "as2": {
+          "type": "TentativeAccept",
+          "vocabulary": "https://www.w3.org/ns/activitystreams"
+        }
+      }
+    },
+    {
+      "id": "mapping/declaration-revoke-promise",
+      "rules": [
+        "P-51",
+        "CM-35"
+      ],
+      "hex": "aa646b696e646b6465636c61726174696f6e6474797065783468747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f7265766f6b655f70726f6d69736565626173697381822f58207ef3ae0510e2274e38c569715ea2f06a5d73f78ca76f3a344b164921cce3c90c66617574686f727570617274793a676c6f6265783a737570706c696572666c6564676572822f582093be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708876543216876657273696f6e73a266736368656d61822f582021c7204b2ed64f633bb938997d1c2806858b97464109009c7e682203fdd714d06870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f582038dd5f5e57910aa84388aa76df0e1b0a6690187b137d4df747b00e848a4626e06a7669736962696c697479a16373656564776f726b",
+      "context": {
+        "actor_type": {
+          "author": [
+            "organization",
+            "access_binding"
+          ]
+        }
+      },
+      "expect": {
+        "outcome": "accept",
+        "prov": {
+          "prefix": {
+            "party": "https://suiss.app/ns/work/party/",
+            "record": "https://suiss.app/ns/work/record/",
+            "work": "https://suiss.app/ns/work/"
+          },
+          "agent": {
+            "party:party%3Aglobex%3Asupplier": {
+              "work:actorType": "organization",
+              "work:actorTypeSource": "access_binding"
+            }
+          },
+          "entity": {
+            "record:ed97d958e43932f59eae69d75e9095e4c702c937febbaa1a2c6da32e08a763cd": {
+              "work:kind": "declaration",
+              "work:type": "https://suiss.app/ns/work/declaration/revoke_promise"
+            }
+          },
+          "wasAttributedTo": {
+            "_:s1": {
+              "prov:entity": "record:ed97d958e43932f59eae69d75e9095e4c702c937febbaa1a2c6da32e08a763cd",
+              "prov:agent": "party:party%3Aglobex%3Asupplier"
+            }
+          },
+          "wasDerivedFrom": {
+            "_:s2": {
+              "prov:generatedEntity": "record:ed97d958e43932f59eae69d75e9095e4c702c937febbaa1a2c6da32e08a763cd",
+              "prov:usedEntity": "record:7ef3ae0510e2274e38c569715ea2f06a5d73f78ca76f3a344b164921cce3c90c",
+              "work:role": "https://suiss.app/ns/work/derived_from/basis"
+            }
+          }
+        },
+        "as2": {
+          "type": "Undo",
+          "vocabulary": "https://www.w3.org/ns/activitystreams"
+        }
+      }
+    },
+    {
+      "id": "mapping/declaration-assign",
+      "rules": [
+        "P-51",
+        "CM-17"
+      ],
+      "hex": "aa646b696e646b6465636c61726174696f6e6474797065782c68747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f61737369676e65626173697381822f58207ef3ae0510e2274e38c569715ea2f06a5d73f78ca76f3a344b164921cce3c90c66617574686f727570617274793a676c6f6265783a737570706c696572666c6564676572822f582093be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708876543216876657273696f6e73a266736368656d61822f582021c7204b2ed64f633bb938997d1c2806858b97464109009c7e682203fdd714d06870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f582038dd5f5e57910aa84388aa76df0e1b0a6690187b137d4df747b00e848a4626e06a7669736962696c697479a16373656564776f726b",
+      "context": {
+        "actor_type": {
+          "author": [
+            "organization",
+            "access_binding"
+          ]
+        }
+      },
+      "expect": {
+        "outcome": "accept",
+        "prov": {
+          "prefix": {
+            "party": "https://suiss.app/ns/work/party/",
+            "record": "https://suiss.app/ns/work/record/",
+            "work": "https://suiss.app/ns/work/"
+          },
+          "agent": {
+            "party:party%3Aglobex%3Asupplier": {
+              "work:actorType": "organization",
+              "work:actorTypeSource": "access_binding"
+            }
+          },
+          "entity": {
+            "record:eacf77280bc0f3025e452454620a8386af46451e4f0fcc650b21cb4f0db68bb6": {
+              "work:kind": "declaration",
+              "work:type": "https://suiss.app/ns/work/declaration/assign"
+            }
+          },
+          "wasAttributedTo": {
+            "_:s1": {
+              "prov:entity": "record:eacf77280bc0f3025e452454620a8386af46451e4f0fcc650b21cb4f0db68bb6",
+              "prov:agent": "party:party%3Aglobex%3Asupplier"
+            }
+          },
+          "wasDerivedFrom": {
+            "_:s2": {
+              "prov:generatedEntity": "record:eacf77280bc0f3025e452454620a8386af46451e4f0fcc650b21cb4f0db68bb6",
+              "prov:usedEntity": "record:7ef3ae0510e2274e38c569715ea2f06a5d73f78ca76f3a344b164921cce3c90c",
+              "work:role": "https://suiss.app/ns/work/derived_from/basis"
+            }
+          }
+        },
+        "as2": {
+          "type": "Assign",
+          "vocabulary": "https://forgefed.org/ns"
+        }
+      }
+    },
+    {
+      "id": "mapping/declaration-open-condition-information",
+      "rules": [
+        "P-51",
+        "ST-10",
+        "ST-12"
+      ],
+      "hex": "ab646b696e646b6465636c61726174696f6e6474797065783468747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f6f70656e5f636f6e646974696f6e65626173697381822f582079256c6126bb0a8f50a9037ce86d92cd2fed7632c159f8c656311ccbd61750cd66617574686f727070617274793a61636d653a616c696365666c6564676572822f582093be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc66706172616d73a567616464726573737470617274793a61636d653a62757965722d6f726768646561646c696e65646e6f6e6569637269746572696f6e783d68747470733a2f2f70726f637572656d656e742e6578616d706c652f6e732f637269746572696f6e2f696e666f726d6174696f6e5f72656365697665646b776169745f726561736f6e68696e7465726e616c6e636f6e646974696f6e5f74797065782f68747470733a2f2f73756973732e6170702f6e732f776f726b2f636f6e646974696f6e2f696e666f726d6174696f6e686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f58200038deaaa556b892bedb09187b5df227e20b25cc180c7f162ce45f3814deea786870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f58206eb638ac1a0c4dadca311d59a69820d8efaacd1f343e4b3815a25eb084135c976a7669736962696c697479a16373656564776f726b",
+      "context": {
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        }
+      },
+      "expect": {
+        "outcome": "accept",
+        "prov": {
+          "prefix": {
+            "party": "https://suiss.app/ns/work/party/",
+            "record": "https://suiss.app/ns/work/record/",
+            "work": "https://suiss.app/ns/work/"
+          },
+          "agent": {
+            "party:party%3Aacme%3Aalice": {
+              "work:actorType": "human",
+              "work:actorTypeSource": "access_binding"
+            }
+          },
+          "entity": {
+            "record:c42b4d78f3f64e99402784e0fd09a60224432287f6835648a42e2796dff0e8f3": {
+              "work:kind": "declaration",
+              "work:type": "https://suiss.app/ns/work/declaration/open_condition"
+            }
+          },
+          "wasAttributedTo": {
+            "_:s1": {
+              "prov:entity": "record:c42b4d78f3f64e99402784e0fd09a60224432287f6835648a42e2796dff0e8f3",
+              "prov:agent": "party:party%3Aacme%3Aalice"
+            }
+          },
+          "wasDerivedFrom": {
+            "_:s2": {
+              "prov:generatedEntity": "record:c42b4d78f3f64e99402784e0fd09a60224432287f6835648a42e2796dff0e8f3",
+              "prov:usedEntity": "record:79256c6126bb0a8f50a9037ce86d92cd2fed7632c159f8c656311ccbd61750cd",
+              "work:role": "https://suiss.app/ns/work/derived_from/basis"
+            }
+          }
+        },
+        "as2": {
+          "type": "Question",
+          "vocabulary": "https://www.w3.org/ns/activitystreams"
+        }
+      }
+    },
+    {
+      "id": "mapping/act-basis-roles-and-reference",
+      "rules": [
+        "P-49",
+        "C-27",
+        "C-29"
+      ],
+      "hex": "ac646b696e64636163746474797065782468747470733a2f2f73756973732e6170702f6e732f776f726b2f6163742f616374696f6e65626173697381822f58207ef3ae0510e2274e38c569715ea2f06a5d73f78ca76f3a344b164921cce3c90c66617574686f727570617274793a676c6f6265783a737570706c696572666c6564676572822f582093be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786865766964656e636581a56474797065782b68747470733a2f2f73756973732e6170702f6e732f776f726b2f65766964656e63652f6172746966616374677375626a656374822f582028c1e1b4ac9dd0997ed2a7b0a8f6ecc4206fba0a5d7154ead488756e7e32a1be6970726573656e7465727570617274793a676c6f6265783a737570706c696572697369676e6174757265822f5820662d76c65ca52cf4aa3bc93e138352026dfc84d3c53b248973a9967a4454587e6a636c61696d65645f61741b000001a14200a1606876657273696f6e73a266736368656d61822f5820e3d879c679f23944c8ad7cab05b4c152ebd656800c9c0fbabe8a69835f1c72046870726f746f636f6c8201006972656c6174696f6e7383a36372656c6c646572697665645f66726f6d6674617267657482667265636f7264822f5820c913b1f400bee6a835134b25d4fa2ce2265e887070fa69b7889fd778b1278405697175616c6966696572782f68747470733a2f2f73756973732e6170702f6e732f776f726b2f646572697665645f66726f6d2f66756c66696c6c73a36372656c6c646572697665645f66726f6d6674617267657482667265636f7264822f58208cf32a415ac4f9c0909810d6577fd734ecbac2f52d88c1f5d4e81c1bb2a7a383697175616c6966696572782d68747470733a2f2f73756973732e6170702f6e732f776f726b2f646572697665645f66726f6d2f736f75726365a26372656c6a7265666572656e63657366746172676574826865787465726e616c782368747470733a2f2f6572702e6578616d706c652f64656c697665726965732f442d31376a7669736962696c697479a16373656564776f726b6b6f636375727265645f61741b000001a142022800",
+      "context": {
+        "actor_type": {
+          "author": [
+            "organization",
+            "access_binding"
+          ]
+        }
+      },
+      "expect": {
+        "outcome": "accept",
+        "prov": {
+          "prefix": {
+            "party": "https://suiss.app/ns/work/party/",
+            "record": "https://suiss.app/ns/work/record/",
+            "work": "https://suiss.app/ns/work/"
+          },
+          "agent": {
+            "party:party%3Aglobex%3Asupplier": {
+              "work:actorType": "organization",
+              "work:actorTypeSource": "access_binding"
+            }
+          },
+          "activity": {
+            "record:37f8a6ee3535d80c6c4ec065b9edef59be20aaa0bb97f4ca0e59cc26ead398b4": {
+              "work:kind": "act",
+              "work:type": "https://suiss.app/ns/work/act/action"
+            }
+          },
+          "entity": {
+            "record:c913b1f400bee6a835134b25d4fa2ce2265e887070fa69b7889fd778b1278405": {
+              "prov:type": "prov:Plan"
+            },
+            "_:ref1": {
+              "prov:type": "work:Reference",
+              "work:ref": "https://erp.example/deliveries/D-17"
+            }
+          },
+          "wasAssociatedWith": {
+            "_:s1": {
+              "prov:activity": "record:37f8a6ee3535d80c6c4ec065b9edef59be20aaa0bb97f4ca0e59cc26ead398b4",
+              "prov:agent": "party:party%3Aglobex%3Asupplier",
+              "prov:plan": "record:c913b1f400bee6a835134b25d4fa2ce2265e887070fa69b7889fd778b1278405"
+            }
+          },
+          "used": {
+            "_:s2": {
+              "prov:activity": "record:37f8a6ee3535d80c6c4ec065b9edef59be20aaa0bb97f4ca0e59cc26ead398b4",
+              "prov:entity": "record:7ef3ae0510e2274e38c569715ea2f06a5d73f78ca76f3a344b164921cce3c90c",
+              "work:role": "https://suiss.app/ns/work/derived_from/basis"
+            },
+            "_:s3": {
+              "prov:activity": "record:37f8a6ee3535d80c6c4ec065b9edef59be20aaa0bb97f4ca0e59cc26ead398b4",
+              "prov:entity": "record:8cf32a415ac4f9c0909810d6577fd734ecbac2f52d88c1f5d4e81c1bb2a7a383",
+              "work:role": "https://suiss.app/ns/work/derived_from/source"
+            }
+          },
+          "wasGeneratedBy": {
+            "_:s4": {
+              "prov:entity": "_:ref1",
+              "prov:activity": "record:37f8a6ee3535d80c6c4ec065b9edef59be20aaa0bb97f4ca0e59cc26ead398b4"
+            }
+          }
+        },
+        "as2": null
+      }
+    },
+    {
+      "id": "mapping/claim-derived-from-source",
+      "rules": [
+        "P-49",
+        "C-27"
+      ],
+      "hex": "aa646b696e6465636c61696d6474797065782b68747470733a2f2f73756973732e6170702f6e732f776f726b2f636c61696d2f6f62736572766174696f6e65626173697381822f582016f21ed89262b0016025c2703d68fc7028d8ecbc736b2617d27025a365a265e366617574686f72781970617274793a61636d653a776f726b2d7363686564756c6572666c6564676572822f582093be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc68636f6e6365726e738250019a2f4c8e1b7c3da5e6f7081234567850019a2f4c8e1b7c3da5e6f708876543216876657273696f6e73a266736368656d61822f582008c478cb5168164f861aae4f1ac3d5b0a7d475b9a59cfa400676024d98b767f16870726f746f636f6c8201006972656c6174696f6e7382a36372656c6c646572697665645f66726f6d6674617267657482667265636f7264822f582087e55ec63554a69d2b1876cf8f46c81558b7a5a54e21c12faa20eaaa5ee8239d697175616c6966696572782d68747470733a2f2f73756973732e6170702f6e732f776f726b2f646572697665645f66726f6d2f736f75726365a46372656c6c646572697665645f66726f6d66736f7572636582667265636f7264822f582087e55ec63554a69d2b1876cf8f46c81558b7a5a54e21c12faa20eaaa5ee8239d6674617267657482667265636f7264822f5820863b9e68680016bcd3068a1acf8e01eb76d63ac6b14507651e73a534ded0f71b697175616c6966696572782d68747470733a2f2f73756973732e6170702f6e732f776f726b2f646572697665645f66726f6d2f736f757263656a7669736962696c697479a26373656564776f726b6d6167656e745f636f6e74657874f46b6f636375727265645f61741b000001a142053540",
+      "context": {
+        "actor_type": {
+          "author": [
+            "system",
+            "access_binding"
+          ]
+        }
+      },
+      "expect": {
+        "outcome": "accept",
+        "prov": {
+          "prefix": {
+            "party": "https://suiss.app/ns/work/party/",
+            "record": "https://suiss.app/ns/work/record/",
+            "work": "https://suiss.app/ns/work/"
+          },
+          "agent": {
+            "party:party%3Aacme%3Awork-scheduler": {
+              "work:actorType": "system",
+              "work:actorTypeSource": "access_binding"
+            }
+          },
+          "entity": {
+            "record:ebbdd9b8c55c583e3830b7a655491c7d137f2269ecc14d8bd666cc648e54e516": {
+              "work:kind": "claim",
+              "work:type": "https://suiss.app/ns/work/claim/observation"
+            }
+          },
+          "wasAttributedTo": {
+            "_:s1": {
+              "prov:entity": "record:ebbdd9b8c55c583e3830b7a655491c7d137f2269ecc14d8bd666cc648e54e516",
+              "prov:agent": "party:party%3Aacme%3Awork-scheduler"
+            }
+          },
+          "wasDerivedFrom": {
+            "_:s2": {
+              "prov:generatedEntity": "record:ebbdd9b8c55c583e3830b7a655491c7d137f2269ecc14d8bd666cc648e54e516",
+              "prov:usedEntity": "record:16f21ed89262b0016025c2703d68fc7028d8ecbc736b2617d27025a365a265e3",
+              "work:role": "https://suiss.app/ns/work/derived_from/basis"
+            },
+            "_:s3": {
+              "prov:generatedEntity": "record:ebbdd9b8c55c583e3830b7a655491c7d137f2269ecc14d8bd666cc648e54e516",
+              "prov:usedEntity": "record:87e55ec63554a69d2b1876cf8f46c81558b7a5a54e21c12faa20eaaa5ee8239d",
+              "work:role": "https://suiss.app/ns/work/derived_from/source"
+            },
+            "_:s4": {
+              "prov:generatedEntity": "record:87e55ec63554a69d2b1876cf8f46c81558b7a5a54e21c12faa20eaaa5ee8239d",
+              "prov:usedEntity": "record:863b9e68680016bcd3068a1acf8e01eb76d63ac6b14507651e73a534ded0f71b",
+              "work:role": "https://suiss.app/ns/work/derived_from/source"
+            }
+          }
+        },
+        "as2": null
+      }
+    },
+    {
+      "id": "record-quarantine/protocol-version-unknown",
+      "rules": [
+        "P-49",
+        "P-87"
+      ],
+      "hex": "ad64626f647981a26470617274657465726d7366636f6d6d6974822f582062b38a840000a72b70ada334eb12c9dba46e2ac7cbd1ff648c28af1be0cd046e646b696e646b6465636c61726174696f6e6474797065782d68747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f70726f6d69736565626173697381822f582034652546558611697ac7366fb82fa846579b73842dfdd35bd368148ef5a6aa2166617574686f72781a70617274793a61636d653a6167656e742d70726f637572652d37666c6564676572822f582093be800cbcc26a05ed7bb755d1bbe13000715d18e79354d827343a7baee4aedc6863617061636974798263666f727470617274793a61636d653a62757965722d6f726768636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786870726f6475636572a3656d6f64656c781b75726e3a6578616d706c653a6d6f64656c3a6d2d323032362d303966636f6e666967822f5820eeca01d5aad719bb2d97b002128a3dc82b270df133900492d033ed3792dd51296776657273696f6e7370726f637572652d6167656e742f332e322e306876657273696f6e73a266736368656d61822f58203f765db7a715d24969b634a12d2c8a65d7673af9c682b851ecf49a8ae0e468016870726f746f636f6c8202006a7669736962696c697479a16373656564776f726b6b636f7272656c6174696f6e8182782368747470733a2f2f6132612d70726f746f636f6c2e6f72672f636f6e746578742d6964686374782d386632636c6f6e5f626568616c665f6f66817470617274793a61636d653a62757965722d6f7267",
+      "context": {
+        "actor_type": {
+          "author": [
+            "agent",
+            "access_binding"
+          ],
+          "on_behalf_of": [
+            [
+              "organization",
+              "access_binding"
+            ]
+          ]
+        }
+      },
+      "expect": {
+        "outcome": "quarantine",
+        "reason": "protocol_version_unknown"
+      }
+    }
+  ],
+  "reimport": [
+    {
+      "id": "reimport/prov/record/declaration-promise-for-principal",
+      "rules": [
+        "P-48",
+        "P-52"
+      ],
+      "hex": "7b2261637465644f6e426568616c664f66223a7b225f3a7332223a7b2270726f763a64656c6567617465223a2270617274793a706172747925334161636d652533416167656e742d70726f637572652d37222c2270726f763a726573706f6e7369626c65223a2270617274793a706172747925334161636d6525334162757965722d6f7267227d7d2c226167656e74223a7b2270617274793a706172747925334161636d652533416167656e742d70726f637572652d37223a7b22776f726b3a6163746f7254797065223a226167656e74222c22776f726b3a6163746f7254797065536f75726365223a226163636573735f62696e64696e67227d2c2270617274793a706172747925334161636d6525334162757965722d6f7267223a7b22776f726b3a6163746f7254797065223a226f7267616e697a6174696f6e222c22776f726b3a6163746f7254797065536f75726365223a226163636573735f62696e64696e67227d7d2c22656e74697479223a7b227265636f72643a62316337326236393963626664333234626236663565393335666435316338353637376337643337613833316665383330646663636632313062626662376562223a7b22776f726b3a6b696e64223a226465636c61726174696f6e222c22776f726b3a74797065223a2268747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f70726f6d697365227d7d2c22707265666978223a7b227061727479223a2268747470733a2f2f73756973732e6170702f6e732f776f726b2f70617274792f222c227265636f7264223a2268747470733a2f2f73756973732e6170702f6e732f776f726b2f7265636f72642f222c22776f726b223a2268747470733a2f2f73756973732e6170702f6e732f776f726b2f227d2c2277617341747472696275746564546f223a7b225f3a7331223a7b2270726f763a6167656e74223a2270617274793a706172747925334161636d652533416167656e742d70726f637572652d37222c2270726f763a656e74697479223a227265636f72643a62316337326236393963626664333234626236663565393335666435316338353637376337643337613833316665383330646663636632313062626662376562227d7d2c227761734465726976656446726f6d223a7b225f3a7333223a7b2270726f763a67656e657261746564456e74697479223a227265636f72643a62316337326236393963626664333234626236663565393335666435316338353637376337643337613833316665383330646663636632313062626662376562222c2270726f763a75736564456e74697479223a227265636f72643a33343635323534363535383631313639376163373336366662383266613834363537396237333834326466646433356264333638313438656635613661613231222c22776f726b3a726f6c65223a2268747470733a2f2f73756973732e6170702f6e732f776f726b2f646572697665645f66726f6d2f6261736973227d7d7d",
+      "expect": {
+        "outcome": "reject",
+        "reason": "limit_exceeded:string"
+      }
+    },
+    {
+      "id": "reimport/as2/record/declaration-promise-for-principal",
+      "rules": [
+        "P-48",
+        "P-52"
+      ],
+      "hex": "7b2274797065223a22416363657074222c22766f636162756c617279223a2268747470733a2f2f7777772e77332e6f72672f6e732f616374697669747973747265616d73227d",
+      "expect": {
+        "outcome": "reject",
+        "reason": "limit_exceeded:string"
+      }
+    }
+  ]
+}

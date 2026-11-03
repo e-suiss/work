@@ -1595,6 +1595,209 @@ write_json("records-quarantine.json", {
               "no record of records.json or records-quarantine.json repeats the bytes of another, so the golden ledger stores each once (P-109)"],
     "cases": out_q})
 
+# P-48 P-49 P-51 P-52
+PROV_PREFIX = {"party": CORE + "party/", "record": CORE + "record/", "work": CORE}
+AS2 = "https://www.w3.org/ns/activitystreams"
+FORGEFED = "https://forgefed.org/ns"
+UNRESERVED = set(b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~")
+BASIS_ROLE = ROLE + "basis"
+AS2_ACTIVITIES = {
+    "request": ("Offer", AS2), "counter": ("Offer", AS2), "promise": ("Accept", AS2),
+    "decline": ("Reject", AS2), "promise_conditional": ("TentativeAccept", AS2),
+    "revoke_request": ("Undo", AS2), "revoke_promise": ("Undo", AS2),
+    "revoke_statement": ("Undo", AS2), "revoke_acceptance": ("Undo", AS2),
+    "assign": ("Assign", FORGEFED), "amend": ("Update", AS2),
+}
+
+
+def party_ref(p):
+    return "party:" + "".join(chr(b) if b in UNRESERVED else "%%%02X" % b for b in p.encode())
+
+
+def record_ref(d):
+    return "record:" + d[1].hex()
+
+
+def prov_document(rec, rid, actors, withheld):
+    me = record_ref(rid)
+    act = rec["kind"] == "act"
+    hidden = {w[1] for w in withheld}
+    entities, agents, statements = {}, {}, {}
+    count = [0]
+
+    def emit(kind, body):
+        count[0] += 1
+        statements.setdefault(kind, {})["_:s%d" % count[0]] = body
+
+    def agent(p, entry):
+        agents.setdefault(party_ref(p), {"work:actorType": entry[0], "work:actorTypeSource": entry[1]})
+
+    def visible(d):
+        return d[1] not in hidden
+
+    node = {"work:kind": rec["kind"], "work:type": rec["type"]}
+    if not act:
+        entities[me] = node
+    agent(rec["author"], actors["author"])
+    author = party_ref(rec["author"])
+    relations = rec.get("relations", [])
+    if act:
+        plans = [r["target"][1] for r in relations
+                 if r["rel"] == "derived_from" and "source" not in r and r["target"][0] == "record"
+                 and r["qualifier"] == ROLE + "fulfills" and visible(r["target"][1])]
+        for plan in plans:
+            entities[record_ref(plan)] = {"prov:type": "prov:Plan"}
+            emit("wasAssociatedWith", {"prov:activity": me, "prov:agent": author, "prov:plan": record_ref(plan)})
+        if not plans:
+            emit("wasAssociatedWith", {"prov:activity": me, "prov:agent": author})
+    else:
+        emit("wasAttributedTo", {"prov:entity": me, "prov:agent": author})
+    previous = rec["author"]
+    for p, entry in zip(rec.get("on_behalf_of", []), actors.get("on_behalf_of", [])):
+        agent(p, entry)
+        emit("actedOnBehalfOf", {"prov:delegate": party_ref(previous), "prov:responsible": party_ref(p)})
+        previous = p
+    for b in rec.get("basis", []):
+        if not visible(b):
+            continue
+        if act:
+            emit("used", {"prov:activity": me, "prov:entity": record_ref(b), "work:role": BASIS_ROLE})
+        else:
+            emit("wasDerivedFrom", {"prov:generatedEntity": me, "prov:usedEntity": record_ref(b),
+                                    "work:role": BASIS_ROLE})
+    references = []
+    for r in relations:
+        target = r["target"]
+        if r["rel"] == "derived_from" and target[0] == "record":
+            source = r.get("source")
+            if not visible(target[1]) or (source is not None and not visible(source[1])):
+                continue
+            if source is None and act:
+                if r["qualifier"] != ROLE + "fulfills":
+                    emit("used", {"prov:activity": me, "prov:entity": record_ref(target[1]),
+                                  "work:role": r["qualifier"]})
+            else:
+                emit("wasDerivedFrom", {"prov:generatedEntity": me if source is None else record_ref(source[1]),
+                                        "prov:usedEntity": record_ref(target[1]), "work:role": r["qualifier"]})
+        elif r["rel"] == "supersedes" and visible(target[1]):
+            emit("wasDerivedFrom", {"prov:generatedEntity": me, "prov:usedEntity": record_ref(target[1]),
+                                    "prov:type": "prov:Revision"})
+            emit("wasInvalidatedBy", {"prov:entity": record_ref(target[1])})
+        elif r["rel"] == "references" and act and "source" not in r and target[0] == "external":
+            if target[1] not in references:
+                references.append(target[1])
+            ref = "_:ref%d" % (references.index(target[1]) + 1)
+            entities[ref] = {"prov:type": "work:Reference", "work:ref": target[1]}
+            emit("wasGeneratedBy", {"prov:entity": ref, "prov:activity": me})
+    doc = {"prefix": PROV_PREFIX, "agent": agents}
+    if act:
+        doc["activity"] = {me: node}
+    if entities:
+        doc["entity"] = entities
+    doc.update(statements)
+    return doc
+
+
+def as2_activity(rec):
+    if rec["kind"] != "declaration":
+        return None
+    if any(r["rel"] == "supersedes" for r in rec.get("relations", [])):
+        found = ("Update", AS2)
+    elif rec["type"] == DECLARATION + "open_condition":
+        information = rec["params"]["condition_type"] == CORE + "condition/information"
+        found = ("Question", AS2) if information else None
+    elif rec["type"].startswith(DECLARATION):
+        found = AS2_ACTIVITIES.get(rec["type"][len(DECLARATION):])
+    else:
+        found = None
+    return None if found is None else {"type": found[0], "vocabulary": found[1]}
+
+
+def mapping_context(c, withheld=()):
+    actors = {k: v for k, v in c["actor_type"].items() if k != "evidence"}
+    out = {"actor_type": actors}
+    if withheld:
+        out["withheld"] = [[-16, w[1].hex()] for w in withheld]
+    return out
+
+
+information_wait = variant(rec_open_gate, params=dict(FAMILY_PARAMS["open_condition"]))
+mapping_only = [
+    ("declaration-request", variant(rec_promise, type=DECLARATION + "request", relations=None),
+     ["P-51", "CM-17"], "A request maps to an AS2 Offer."),
+    ("declaration-counter", variant(rec_promise, type=DECLARATION + "counter"),
+     ["P-51", "CM-17"], "A counter-offer maps to a new AS2 Offer."),
+    ("declaration-promise-conditional", variant(rec_promise, type=DECLARATION + "promise_conditional"),
+     ["P-51", "CM-17"], "A conditional yes maps to an AS2 TentativeAccept."),
+    ("declaration-revoke-promise", variant(rec_decline, type=DECLARATION + "revoke_promise", params=None,
+                                           visibility=vis()),
+     ["P-51", "CM-35"], "A revocation request maps to an AS2 Undo."),
+    ("declaration-assign", variant(rec_decline, type=DECLARATION + "assign", params=None, visibility=vis()),
+     ["P-51", "CM-17"], "An assignment maps to the ForgeFed Assign activity."),
+    ("declaration-open-condition-information", information_wait,
+     ["P-51", "ST-10", "ST-12"], "A wait for information maps to an AS2 Question."),
+    ("act-basis-roles-and-reference", variant(rec_act, basis=[label("record:commitment.request:supplier")],
+                                              relations=[
+        {"rel": "derived_from", "target": ["record", label("record:commitment.promise:supplier")],
+         "qualifier": ROLE + "fulfills"},
+        {"rel": "derived_from", "target": ["record", label("record:work-order:supplier")],
+         "qualifier": ROLE + "source"},
+        {"rel": "references", "target": ["external", "https://erp.example/deliveries/D-17"]}]),
+     ["P-49", "C-27", "C-29"],
+     "An Act with a basis, the fulfilled promise as its PROV plan, a source it used and an external object it produced."),
+    ("claim-derived-from-source", variant(rec_obs, relations=[
+        {"rel": "derived_from", "target": ["record", label("record:sensor-reading:dock-3")],
+         "qualifier": ROLE + "source"},
+        {"rel": "derived_from", "source": ["record", label("record:sensor-reading:dock-3")],
+         "target": ["record", label("record:sensor-calibration:dock-3")], "qualifier": ROLE + "source"}]),
+     ["P-49", "C-27"], "A Claim derived from a source record, and a lineage between two other records it states."),
+]
+mapping_cases = []
+for r in out_recs:
+    rec = check(bytes.fromhex(r["hex"]))
+    mapping_cases.append((r["id"], r["hex"], rec, r["context"], [], ["P-49", "P-51"]))
+mapping_cases.append(("withheld/declaration-promise-for-principal", out_recs[0]["hex"],
+                      check(bytes.fromhex(out_recs[0]["hex"])), out_recs[0]["context"],
+                      [label("record:commitment.request")], ["P-49", "EV-12"]))
+mapping_records = []
+for name, rec, rules, purpose in mapping_only:
+    b = enc(rec)
+    c = ctx(rec, **({"origin": "automation"} if rec["author"] == SYS else {}))
+    assert semantic(rec, c) == ("accept", None), (name, semantic(rec, c))
+    write_cbor("SignedRecord", "mapping-" + name, b, "pass")
+    mapping_cases.append(("mapping/" + name, b.hex(), rec, c, [], rules))
+    mapping_records.append(purpose)
+out_map = []
+for case_id, hx, rec, c, withheld, rules in mapping_cases:
+    rid = [-16, sha(bytes.fromhex(hx))]
+    expect = {"outcome": "accept", "prov": prov_document(rec, rid, c["actor_type"], withheld),
+              "as2": as2_activity(rec)}
+    out_map.append({"id": case_id, "rules": rules, "hex": hx, "context": mapping_context(c, withheld),
+                    "expect": expect})
+unknown = next(q for q in out_q if q["expect"]["reason"] == "protocol_version_unknown")
+out_map.append({"id": unknown["id"], "rules": ["P-49", "P-87"], "hex": unknown["hex"],
+                "context": mapping_context(unknown["context"]), "expect": unknown["expect"]})
+reimport = []
+for case in out_map[:1]:
+    for key in ("prov", "as2"):
+        text = json.dumps(case["expect"][key], sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+        try:
+            check(text)
+            raise SystemExit("an export document decodes as CBOR")
+        except Reject as e:
+            reason = str(e)
+        reimport.append({"id": "reimport/" + key + "/" + case["id"], "rules": ["P-48", "P-52"],
+                         "hex": text.hex(), "expect": {"outcome": "reject", "reason": reason}})
+write_json("mapping.json", {
+    "file": "mapping.json",
+    "notes": ["P-49 PROV-JSON and P-51 ActivityStreams 2.0 mappings of one record, computed from its signed fields only: the expect of a case is the answer of map_record for its hex and context",
+              "context.actor_type is the envelope ActorTypeAnnotation without its evidence entries; context.withheld lists the records the viewer may not see, and every statement naming one is left out (EV-12, P-49)",
+              "identifiers: record:<record id hex>, party:<PartyRef percent-encoded outside the RFC 3986 unreserved set>, _:s<n> for statements in emission order, _:ref<n> for external objects an Act produced",
+              "an Act is a prov:Activity, a Declaration or Claim a prov:Entity; the author is wasAssociatedWith (Act) or wasAttributedTo; each on_behalf_of ring is actedOnBehalfOf from the previous party; basis is used (Act) or wasDerivedFrom with the basis role; a derived_from record target is used (Act) or wasDerivedFrom with its role, and the fulfills target of an Act is the prov:Plan of its association; supersedes is a prov:Revision plus wasInvalidatedBy of the older record; an external object an Act references is wasGeneratedBy the Act",
+              "as2 is the activity of a Declaration: a record carrying supersedes is an Update; otherwise request and counter are Offer, promise Accept, decline Reject, promise_conditional TentativeAccept, the four revocation requests Undo, assign the ForgeFed Assign, and open_condition of the core information type Question; every other record maps to null",
+              "reimport cases are export documents given back as record bytes: neither is a record (P-48 JSON-LD and AS2 canonical form REJECT, P-52)"],
+    "cases": out_map, "reimport": reimport})
+
 # P-6 P-7 P-32 P-102 P-103 P-105 P-106 Access CR-9
 AGENT_ES256 = {"id": "agent-es256", "alg": -7, "kid": b"\x21" * 32, "x": RFC6979_X,
                "source": "RFC 6979 appendix A.2.5"}
