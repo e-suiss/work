@@ -585,12 +585,12 @@ fn t_5_t_37_byte_entry_points_answer_input_errors_without_deciding() {
     let error = |code: &str| json!({ "error": { "code": code } });
     same("tags", &check_cbor(&[0], "{"), &error("invalid_json"));
     same("tags", &check_cbor(&[0], "[-1]"), &error("invalid_tags"));
-    same(
-        "salt",
-        &body_commitment(&[0; 31], "terms", "text/plain", &[]),
-        &error("invalid_salt"),
-    );
-    let named = body_commitment(&[0; 32], "Terms", "text/plain", &[]);
+    let digests = cases(&file(DIGEST), "cases");
+    let salted = digests.iter().find_map(|c| c.get("salt_hex")).unwrap();
+    let salt = bytes(salted);
+    let short = body_commitment(&salt[..31], "terms", "text/plain", &[]);
+    same("salt", &short, &error("invalid_salt"));
+    let named = body_commitment(&salt, "Terms", "text/plain", &[]);
     same("name", &named, &error("invalid_part_name"));
     same(
         "key",
