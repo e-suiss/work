@@ -280,13 +280,8 @@ async fn op_45_a_shredded_body_is_unreadable_while_its_skeleton_verifies() {
         )
         .await
         .unwrap();
-    assert!(
-        eraser
-            .redact_record(&ledger, unknown.pos)
-            .await
-            .unwrap()
-            .is_empty()
-    );
+    let nothing = eraser.redact_record(&ledger, unknown.pos).await.unwrap();
+    assert_eq!(nothing, Vec::new());
     assert_eq!(
         read(&reader, &ledger, committed.pos).await,
         vec![
