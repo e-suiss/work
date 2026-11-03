@@ -12,7 +12,7 @@ const kernel = await loadKernel(
 );
 const checks = byteChecks(kernel, raw, byteVectors);
 
-// T-5 T-37 T-69 INV-7 INV-8 X-24
+// T-5 T-37 T-69 INV-7 INV-8 X-24 T-95
 describe("t_5_t_37_inv_7 WebAssembly byte entry points match their vectors", () => {
   it("runs every record format vector file and the touched item vectors", () => {
     expect(new Set(checks.map((c) => c.file)).size).toBe(9);
@@ -23,7 +23,7 @@ describe("t_5_t_37_inv_7 WebAssembly byte entry points match their vectors", () 
   });
 });
 
-// T-5 T-34 T-69
+// T-5 T-34 T-69 T-95
 describe("t_5_t_34 byte entry points raise kernel input errors instead of deciding", () => {
   it("rejects keys, proofs and integers the binding cannot map", () => {
     const keys = { party: "party:acme:alice", allowed: [-19], keys: [] };

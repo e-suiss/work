@@ -2149,6 +2149,7 @@ pd = "unset"
 title = ""
 tests = [
   "crates/ledger/src/admit/tests.rs::p_100_the_admission_path_seals_the_golden_ledger_byte_for_byte",
+  "crates/ledger/src/leader.rs::t_32_the_leader_commits_each_batch_through_the_store_port",
 ]
 
 [[rule]]

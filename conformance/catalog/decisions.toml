@@ -3513,6 +3513,7 @@ tests = [
   "crates/ledger/src/body/tests.rs::op_45_another_ledger_another_part_commit_or_another_class_dek_does_not_open",
   "crates/ledger/src/body/tests.rs::p_104_a_part_above_64_kib_round_trips_and_commits_by_its_digest",
   "crates/ledger/src/body/tests.rs::p_68_an_opening_that_does_not_give_its_commitment_is_refused",
+  "crates/ledger/src/body/tests.rs::p_68_each_part_takes_a_fresh_salt_from_the_rng_port",
   "sdks/bindings/core/tests/bytes.rs::p_79_digest_vectors_through_bindings_core",
   "sdks/bindings/uniffi/tests/swift/main.swift::p_79_swift_digest_vectors_match",
 ]
@@ -3990,6 +3991,7 @@ tests = [
   "crates/kernel/tests/ledger_vectors.rs::t_10_the_verifier_recomputes_every_record_id_from_the_stored_bytes",
   "crates/ledger/src/admit/tests.rs::p_100_the_admission_path_seals_the_golden_ledger_byte_for_byte",
   "crates/ledger/src/envelope.rs::p_100_every_golden_envelope_is_sealed_from_its_slot",
+  "crates/ledger/src/genesis.rs::p_100_every_new_ledger_takes_a_fresh_nonce_from_the_rng_port",
   "crates/ledger/src/genesis.rs::p_100_genesis_matches_the_golden_vector",
   "sdks/bindings/core/tests/bytes.rs::p_100_genesis_envelope_and_record_bytes_decode_through_bindings_core",
   "sdks/bindings/core/tests/bytes.rs::t_10_stored_entries_verify_from_their_bytes_through_bindings_core",
@@ -4512,6 +4514,12 @@ tests = [
   "crates/dispatch/src/domain.rs::t_32_invalid_consumer_settings_are_rejected",
   "crates/dispatch/src/domain.rs::t_32_invalid_publisher_settings_are_rejected",
   "crates/kernel/tests/codec_vectors.rs::p_100_genesis_vectors_select_the_schema_by_position",
+  "crates/ledger/src/adapters.rs::t_32_a_fixed_seed_gives_the_same_bytes_and_never_repeats_a_block",
+  "crates/ledger/src/adapters.rs::t_32_the_system_rng_draws_fresh_bytes_through_the_port",
+  "crates/ledger/src/body/tests.rs::p_68_each_part_takes_a_fresh_salt_from_the_rng_port",
+  "crates/ledger/src/checkpoint.rs::t_32_the_signer_client_answers_through_the_signer_port",
+  "crates/ledger/src/genesis.rs::p_100_every_new_ledger_takes_a_fresh_nonce_from_the_rng_port",
+  "crates/ledger/src/leader.rs::t_32_the_leader_commits_each_batch_through_the_store_port",
   "crates/ledger/src/witness/client.rs::op_33_a_witness_is_named_by_an_http_url_and_https_needs_tls",
   "crates/ledger/src/witness/round.rs::op_33_a_witness_that_fails_waits_one_second_doubling_up_to_a_minute",
   "crates/telemetry/tests/trace_export.rs::t_39_a_stalled_exporter_never_blocks_span_creation",
@@ -5475,6 +5483,7 @@ tests = [
   "bins/work-signer/src/answer.rs::t_7_only_the_canonical_body_of_a_configured_ledger_checkpoint_is_signed",
   "bins/work-signer/src/answer.rs::t_92_a_body_without_its_profile_lines_or_a_non_ledger_origin_is_refused",
   "bins/work-signer/tests/signer.rs::t_7_the_signer_signs_checkpoints_of_its_ledgers_only",
+  "crates/ledger/src/checkpoint.rs::t_32_the_signer_client_answers_through_the_signer_port",
 ]
 
 [[rule]]
@@ -5521,6 +5530,36 @@ tests = [
   "crates/proto/src/parser.rs::t_72_a_scan_request_decodes_only_in_its_exact_shape",
   "crates/proto/src/parser.rs::t_72_only_the_scan_kind_is_answered_and_the_status_bytes_round_trip",
   "crates/proto/src/parser.rs::t_72_the_frame_ceiling_holds_the_largest_scan_request_and_no_more",
+]
+
+[[rule]]
+id = "T-95"
+family = "T"
+status = "frozen-technical"
+stage = 1
+acceptance = "filled"
+title = ""
+tests = [
+  "packages/kernel/e2e/kernel.spec.ts::t_5_t_37_inv_7 browser WebAssembly byte entry points match their vectors",
+  "packages/kernel/src/bytes.test.ts::t_5_t_34 byte entry points raise kernel input errors instead of deciding",
+  "packages/kernel/src/bytes.test.ts::t_5_t_37_inv_7 WebAssembly byte entry points match their vectors",
+  "sdks/bindings/core/tests/bytes.rs::ev_3_evidence_vectors_through_bindings_core",
+  "sdks/bindings/core/tests/bytes.rs::p_100_genesis_envelope_and_record_bytes_decode_through_bindings_core",
+  "sdks/bindings/core/tests/bytes.rs::p_32_cose_sign1_and_key_vectors_through_bindings_core",
+  "sdks/bindings/core/tests/bytes.rs::p_5_cbor_canonical_vectors_through_bindings_core",
+  "sdks/bindings/core/tests/bytes.rs::p_79_digest_vectors_through_bindings_core",
+  "sdks/bindings/core/tests/bytes.rs::t_10_stored_entries_verify_from_their_bytes_through_bindings_core",
+  "sdks/bindings/core/tests/bytes.rs::t_4_merkle_vectors_through_bindings_core",
+  "sdks/bindings/core/tests/bytes.rs::t_5_t_37_byte_entry_points_answer_input_errors_without_deciding",
+  "sdks/bindings/core/tests/bytes.rs::t_88_checkpoint_vectors_through_bindings_core",
+  "sdks/bindings/core/tests/bytes.rs::t_89_touched_item_vectors_through_bindings_core",
+  "sdks/bindings/uniffi/tests/swift/main.swift::p_100_swift_genesis_envelope_and_record_bytes_match",
+  "sdks/bindings/uniffi/tests/swift/main.swift::p_32_swift_signature_and_evidence_vectors_match",
+  "sdks/bindings/uniffi/tests/swift/main.swift::p_5_swift_cbor_canonical_vectors_match",
+  "sdks/bindings/uniffi/tests/swift/main.swift::p_79_swift_digest_vectors_match",
+  "sdks/bindings/uniffi/tests/swift/main.swift::t_10_swift_stored_entries_verify_from_their_bytes",
+  "sdks/bindings/uniffi/tests/swift/main.swift::t_4_swift_merkle_and_checkpoint_vectors_match",
+  "sdks/bindings/uniffi/tests/swift/main.swift::t_89_swift_touched_item_vectors_match",
 ]
 
 [[rule]]
@@ -5572,7 +5611,9 @@ status = "frozen-technical"
 stage = 14
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/ledger/src/leader.rs::t_32_the_leader_commits_each_batch_through_the_store_port",
+]
 
 [[rule]]
 id = "OP-14"

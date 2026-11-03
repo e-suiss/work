@@ -327,7 +327,7 @@ func keysOf(_ sets: [String: [JSONObject]], _ party: String) throws -> String {
     return try json(keys, party)
 }
 
-// P-5 P-7 P-72 P-103 T-37 Access CR-10
+// P-5 P-7 P-72 P-103 T-37 T-95 Access CR-10
 func p_5_swift_cbor_canonical_vectors_match(_ records: URL, _ tally: inout Tally) throws {
     let name = #function
     for c in try cases(try vectorFile(records, "cbor-canonical.json"), "cases", name) {
@@ -353,7 +353,7 @@ func p_5_swift_cbor_canonical_vectors_match(_ records: URL, _ tally: inout Tally
     }
 }
 
-// P-5 P-67 P-68 P-75 P-79 P-101 P-104 T-37 Access CR-1
+// P-5 P-67 P-68 P-75 P-79 P-101 P-104 T-37 T-95 Access CR-1
 func p_79_swift_digest_vectors_match(_ records: URL, _ tally: inout Tally) throws {
     let name = #function
     let file = try vectorFile(records, "records.json")
@@ -404,7 +404,7 @@ func p_79_swift_digest_vectors_match(_ records: URL, _ tally: inout Tally) throw
     }
 }
 
-// P-100 P-11 P-67 P-87 P-101 T-37 T-69
+// P-100 P-11 P-67 P-87 P-101 T-37 T-69 T-95
 func p_100_swift_genesis_envelope_and_record_bytes_match(_ records: URL, _ tally: inout Tally) throws {
     let name = #function
     let genesis = try cases(try vectorFile(records, "genesis.json"), "cases", name)
@@ -455,7 +455,7 @@ func p_100_swift_genesis_envelope_and_record_bytes_match(_ records: URL, _ tally
     }
 }
 
-// P-32 P-6 P-7 P-75 P-102 P-105 P-106 EV-3 EV-8 P-107 T-37 Access CR-9
+// P-32 P-6 P-7 P-75 P-102 P-105 P-106 EV-3 EV-8 P-107 T-37 T-95 Access CR-9
 func p_32_swift_signature_and_evidence_vectors_match(_ records: URL, _ tally: inout Tally) throws {
     let name = #function
     let sets = try keySets(records)
@@ -510,7 +510,7 @@ func p_32_swift_signature_and_evidence_vectors_match(_ records: URL, _ tally: in
     }
 }
 
-// T-10 P-11 P-21 P-75 P-79 P-100 P-108 EV-35 T-37
+// T-10 P-11 P-21 P-75 P-79 P-100 P-108 EV-35 T-37 T-95
 func t_10_swift_stored_entries_verify_from_their_bytes(_ records: URL, _ tally: inout Tally) throws {
     let name = #function
     let sets = try keySets(records)
@@ -570,7 +570,7 @@ func noteKey(_ value: Any?, _ id: String) throws -> JSONObject {
     return ["name": k["name"] ?? NSNull(), "public_key": k["public_key_hex"] ?? NSNull()]
 }
 
-// T-4 T-88 P-11 P-20 P-100 P-101 P-108 OP-33 OP-46 T-37
+// T-4 T-88 P-11 P-20 P-100 P-101 P-108 OP-33 OP-46 T-37 T-95
 func t_4_swift_merkle_and_checkpoint_vectors_match(_ records: URL, _ tally: inout Tally) throws {
     let name = #function
     let merkle = try vectorFile(records, "merkle.json")
@@ -659,7 +659,7 @@ func t_4_swift_merkle_and_checkpoint_vectors_match(_ records: URL, _ tally: inou
     try same(&tally, name, "extends", got, accepted())
 }
 
-// T-89 P-29 C-34 T-37
+// T-89 P-29 C-34 T-37 T-95
 func t_89_swift_touched_item_vectors_match(_ records: URL, _ kernel: URL, _ tally: inout Tally) throws {
     let name = #function
     var byId: [String: JSONObject] = [:]

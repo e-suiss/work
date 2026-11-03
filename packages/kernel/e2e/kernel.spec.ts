@@ -164,7 +164,7 @@ test.describe("t_5_t_37_inv_7 browser WebAssembly derivation matches the native 
   });
 });
 
-// T-5 T-37 T-69 INV-7 INV-8 X-24
+// T-5 T-37 T-69 INV-7 INV-8 X-24 T-95
 test.describe("t_5_t_37_inv_7 browser WebAssembly byte entry points match their vectors", () => {
   test("every byte entry point answers as its vector states", async ({ page }) => {
     const checks = await page.evaluate(

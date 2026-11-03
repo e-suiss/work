@@ -122,7 +122,7 @@ fn cbor_input(case: &Value) -> Vec<u8> {
     out
 }
 
-// P-5 P-7 P-72 P-103 T-37 Access CR-10
+// P-5 P-7 P-72 P-103 T-37 T-95 Access CR-10
 #[test]
 fn p_5_cbor_canonical_vectors_through_bindings_core() {
     let all = cases(&file(CBOR), "cases");
@@ -141,7 +141,7 @@ fn p_5_cbor_canonical_vectors_through_bindings_core() {
     assert_eq!(all.len(), 43);
 }
 
-// P-5 P-67 P-68 P-75 P-79 P-101 P-104 T-37 Access CR-1
+// P-5 P-67 P-68 P-75 P-79 P-101 P-104 T-37 T-95 Access CR-1
 #[test]
 fn p_79_digest_vectors_through_bindings_core() {
     let records = file(RECORDS);
@@ -220,7 +220,7 @@ fn records_and_envelopes() -> Vec<(Value, Value)> {
     out
 }
 
-// P-100 P-11 P-67 P-87 P-101 T-37
+// P-100 P-11 P-67 P-87 P-101 T-37 T-95
 #[test]
 fn p_100_genesis_envelope_and_record_bytes_decode_through_bindings_core() {
     let genesis = cases(&file(GENESIS), "cases");
@@ -267,7 +267,7 @@ fn p_100_genesis_envelope_and_record_bytes_decode_through_bindings_core() {
     }
 }
 
-// P-32 P-6 P-7 P-75 P-102 P-105 P-106 T-37 Access CR-9
+// P-32 P-6 P-7 P-75 P-102 P-105 P-106 T-37 T-95 Access CR-9
 #[test]
 fn p_32_cose_sign1_and_key_vectors_through_bindings_core() {
     let sets = key_sets();
@@ -308,7 +308,7 @@ fn p_32_cose_sign1_and_key_vectors_through_bindings_core() {
     }
 }
 
-// EV-3 EV-8 P-6 P-10 P-102 P-107 T-37
+// EV-3 EV-8 P-6 P-10 P-102 P-107 T-37 T-95
 #[test]
 fn ev_3_evidence_vectors_through_bindings_core() {
     let sets = key_sets();
@@ -359,7 +359,7 @@ fn envelope_name(record: &Value, envelope: &Value) -> String {
     }
 }
 
-// T-10 P-11 P-21 P-75 P-79 P-100 P-108 EV-35 T-37
+// T-10 P-11 P-21 P-75 P-79 P-100 P-108 EV-35 T-37 T-95
 #[test]
 fn t_10_stored_entries_verify_from_their_bytes_through_bindings_core() {
     let sets = key_sets();
@@ -427,7 +427,7 @@ fn path(v: &Value) -> Value {
     Value::Array(v.as_array().unwrap().iter().map(digest).collect())
 }
 
-// T-4 P-11 P-100 P-101 T-88 T-37
+// T-4 P-11 P-100 P-101 T-88 T-37 T-95
 #[test]
 fn t_4_merkle_vectors_through_bindings_core() {
     let merkle = file(MERKLE);
@@ -501,7 +501,7 @@ fn checkpoint(case: &Value, witnesses: bool) -> String {
     .to_string()
 }
 
-// T-4 T-88 P-11 P-20 P-108 OP-33 OP-46 T-37
+// T-4 T-88 P-11 P-20 P-108 OP-33 OP-46 T-37 T-95
 #[test]
 fn t_88_checkpoint_vectors_through_bindings_core() {
     let merkle = file(MERKLE);
@@ -560,7 +560,7 @@ fn record_hex(files: &[Value], id: &str) -> Vec<u8> {
     panic!("{id}");
 }
 
-// T-89 P-29 C-34 T-37
+// T-89 P-29 C-34 T-37 T-95
 #[test]
 fn t_89_touched_item_vectors_through_bindings_core() {
     let files = [file(RECORDS), file(QUARANTINE)];
@@ -579,7 +579,7 @@ fn t_89_touched_item_vectors_through_bindings_core() {
     }
 }
 
-// T-5 T-37 T-69
+// T-5 T-37 T-69 T-95
 #[test]
 fn t_5_t_37_byte_entry_points_answer_input_errors_without_deciding() {
     let error = |code: &str| json!({ "error": { "code": code } });
