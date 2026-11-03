@@ -674,7 +674,7 @@ async fn op_46_a_real_witness_cosigns_each_mirrored_checkpoint_from_the_size_it_
             inconsistent: 2,
         }
     );
-    assert!(pending_observations(&derived, &ledger).await.is_empty());
+    assert_eq!(pending_observations(&derived, &ledger).await, Vec::<WitnessObservation>::new());
     assert_eq!(
         local
             .compare_observations(&local_ledger, &derived)

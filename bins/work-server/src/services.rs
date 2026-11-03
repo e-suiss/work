@@ -79,7 +79,7 @@ impl Services {
                 Arc::clone(&checkpoints),
             )),
         ];
-        let witnessed = witnesses.len();
+        let witness_count = witnesses.len();
         if !witnesses.is_empty() {
             let witnessing = WitnessSetup {
                 pool: infrastructure.checkpointer.clone(),
@@ -98,7 +98,7 @@ impl Services {
         }
         tracing::info!(
             event = "server.services_started",
-            witnesses = witnessed,
+            witnesses = witness_count,
             "outbox publisher, checkpointer and witnessing started"
         );
         Ok(Self {

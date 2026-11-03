@@ -166,8 +166,8 @@ impl Infrastructure {
             PublisherPool::new(publisher_pool.clone()),
         )
         .await?;
-        let deriver = postgres("deriver", &pg.deriver, limit).await?;
-        role("deriver", limit, DeriverPool::new(deriver.clone())).await?;
+        let deriver_pool = postgres("deriver", &pg.deriver, limit).await?;
+        role("deriver", limit, DeriverPool::new(deriver_pool.clone())).await?;
         let nats = nats(&config.nats.url, limit).await?;
         Ok(Self {
             canonical,
@@ -176,12 +176,12 @@ impl Infrastructure {
             sequencer,
             checkpointer,
             publisher,
-            deriver: deriver.clone(),
+            deriver: deriver_pool.clone(),
             roles: vec![
                 ("sequencer", sequencer_pool),
                 ("checkpointer", checkpointer_pool),
                 ("publisher", publisher_pool),
-                ("deriver", deriver),
+                ("deriver", deriver_pool),
             ],
         })
     }
