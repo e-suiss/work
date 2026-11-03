@@ -665,13 +665,22 @@ async fn t_28_a_live_lease_keeps_another_node_out_until_it_is_released_or_expire
     ));
     assert_eq!(epoch_of(&env).await, 1);
     seq.renew(&ledger, &a, 1).await.unwrap();
-    assert!(matches!(seq.renew(&ledger, &b, 1).await, Err(StoreError::LeaseLost)));
+    assert!(matches!(
+        seq.renew(&ledger, &b, 1).await,
+        Err(StoreError::LeaseLost)
+    ));
     seq.release(&ledger, &a, 1).await.unwrap();
-    assert!(matches!(seq.release(&ledger, &a, 1).await, Err(StoreError::LeaseLost)));
+    assert!(matches!(
+        seq.release(&ledger, &a, 1).await,
+        Err(StoreError::LeaseLost)
+    ));
 
     let second = seq.acquire(&ledger, &b, any).await.unwrap();
     assert_eq!(second.epoch, 2);
-    assert!(matches!(seq.renew(&ledger, &a, 1).await, Err(StoreError::LeaseLost)));
+    assert!(matches!(
+        seq.renew(&ledger, &a, 1).await,
+        Err(StoreError::LeaseLost)
+    ));
     assert!(matches!(
         seq.append(&ledger, &batch(1, 0, 1)).await,
         Err(AppendError::Failed(StoreError::HeadMoved))

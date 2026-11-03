@@ -93,10 +93,12 @@ impl Node {
     #[must_use]
     pub fn supports(&self, activations: &[Vec<u8>]) -> bool {
         !activations.is_empty()
-            && activations.iter().all(|bytes| match decode_envelope(bytes) {
-                Ok(Envelope::Genesis(g)) => self.protocols.contains(&g.versions.protocol),
-                Ok(Envelope::Ledger(_)) | Err(_) => false,
-            })
+            && activations
+                .iter()
+                .all(|bytes| match decode_envelope(bytes) {
+                    Ok(Envelope::Genesis(g)) => self.protocols.contains(&g.versions.protocol),
+                    Ok(Envelope::Ledger(_)) | Err(_) => false,
+                })
     }
 }
 

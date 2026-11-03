@@ -57,7 +57,6 @@ use work_testkit::{LiteWitness, Postgres};
 
 use support::{PIN, PREFIX, Signer, Token, module};
 
-
 #[derive(Debug)]
 struct Holder(u8);
 
@@ -473,7 +472,12 @@ async fn op_33_a_led_ledger_is_checkpointed_on_its_cadence_and_mirrored() {
     let ledger = opened.ledger;
     Leader::open(&sequencer, &opened, &cell()).await.unwrap();
     let clock = Fixed(AT + 5);
-    let ledgers = Arc::new(Ledgers::new(sequencer, node(), clock, GroupConfig::default()));
+    let ledgers = Arc::new(Ledgers::new(
+        sequencer,
+        node(),
+        clock,
+        GroupConfig::default(),
+    ));
     let actors = ActorTypes {
         author: ActorTypeEntry {
             actor_type: ActorType::Human,

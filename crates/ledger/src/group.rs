@@ -314,7 +314,9 @@ async fn one_by_one(leader: &mut Leader, now: u64, batch: Vec<Request>) -> Resul
                 let _sent = r.reply.send(Err(SubmitError::Refused(e)));
             }
             Err(LedgerError::SteppedDown) => {
-                let _sent = r.reply.send(Err(SubmitError::Lead(LedgerError::SteppedDown)));
+                let _sent = r
+                    .reply
+                    .send(Err(SubmitError::Lead(LedgerError::SteppedDown)));
                 answer(rest.collect(), |_| {
                     Err(SubmitError::Lead(LedgerError::SteppedDown))
                 });

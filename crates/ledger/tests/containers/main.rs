@@ -1037,7 +1037,12 @@ async fn t_28_a_leader_that_cannot_renew_its_lease_steps_down_and_is_taken_again
     Leader::open(&pool, &opened, &cell()).await.unwrap();
     let clock = Steady(Arc::new(AtomicU64::new(1000)));
     let lease = Duration::from_millis(300);
-    let a = Ledgers::new(pool, node().with_lease(lease), clock, GroupConfig::default());
+    let a = Ledgers::new(
+        pool,
+        node().with_lease(lease),
+        clock,
+        GroupConfig::default(),
+    );
     let record = |n: u8| pending(&ledger, &comment(&ledger, n));
     assert_eq!(a.submit(&ledger, record(1)).await.unwrap().pos, 1);
 

@@ -15,8 +15,8 @@ use work_dispatch::{JetStreamBus, PgOutbox, Publisher};
 use work_ledger::time::{LedgerTime, ProcessMonotonic};
 use work_ledger::{
     AnyReplica, CheckpointSetup, CheckpointStats, DirectoryReplica, Ledgers, S3Config,
-    SignerClient, SystemRng, WitnessSetup, WormReplica, WormStore, run_checkpoints,
-    run_witnessing, tls_trusting,
+    SignerClient, SystemRng, WitnessSetup, WormReplica, WormStore, run_checkpoints, run_witnessing,
+    tls_trusting,
 };
 
 use crate::config::{Config, ReplicaTarget};
