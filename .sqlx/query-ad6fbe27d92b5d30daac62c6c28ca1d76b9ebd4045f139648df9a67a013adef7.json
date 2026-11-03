@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "-- T-10 OP-1 T-90\nSELECT ROW(digest, kind, first_pos)::text AS \"row!\" FROM work.received_bytes\nWHERE ledger_id = $1\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "row!",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "ad6fbe27d92b5d30daac62c6c28ca1d76b9ebd4045f139648df9a67a013adef7"
+}

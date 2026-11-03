@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT leaf_hash::bytea AS \"leaf!\" FROM ledger.log\n               WHERE ledger_id = $1 AND pos < $2 ORDER BY pos",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "leaf!",
+        "type_info": "Bytea",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "f8af0be71a3d81cb5a6741e8d614287997f313883cf964eb57cdeaf8ef490add"
+}

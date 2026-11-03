@@ -1,0 +1,27 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE ledger.head SET pos = $2, head_leaf = $3,\n             head_recorded_at = pg_catalog.to_timestamp(0)\n               + interval '1 millisecond' * $4::bigint::double precision,\n             frontier = $5\n             WHERE ledger_id = $1 AND pos = $6 AND epoch = $7",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Int8",
+        {
+          "Custom": {
+            "name": "ledger.digest32",
+            "kind": {
+              "Domain": "Bytea"
+            }
+          }
+        },
+        "Int8",
+        "Bytea",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "81e85ab6aca257fc88df908208af9c1e5ead8325ed12c137c54ea8024df782d5"
+}

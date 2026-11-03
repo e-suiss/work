@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE work.body_dek\n             SET wrapped_key = NULL, state = 'destroyed', destroyed_at = pg_catalog.now()\n             WHERE ledger_id = $1 AND dek_id = $2::text::uuid",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e27508c6475ddf0d53433b88272794c374ce40a51ee57205ce7d6b57472e490d"
+}

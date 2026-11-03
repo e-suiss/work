@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT l::bytea AS \"l!\"\n               FROM ledger.outbox_ledgers($1::bytea::ledger.digest32, $2) AS t(l)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "l!",
+        "type_info": "Bytea",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "696efe6910b2be5d7eaac16a3c043ec5219552f1c158e943e6b1286cb9819490"
+}

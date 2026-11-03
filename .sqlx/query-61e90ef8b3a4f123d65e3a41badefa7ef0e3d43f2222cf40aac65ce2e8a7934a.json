@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT mirrored_size AS \"size!\" FROM ledger.replica_progress\n               WHERE ledger_id = $1 AND replica_id = $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "size!",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "ledger.replica_progress",
+            "name": "mirrored_size"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "61e90ef8b3a4f123d65e3a41badefa7ef0e3d43f2222cf40aac65ce2e8a7934a"
+}

@@ -1,0 +1,45 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO work.body_commitment (ledger_id, pos, part, part_commit)\n                 VALUES ($1, $2, $3, $4)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "ledger.digest32",
+            "kind": {
+              "Domain": "Bytea"
+            }
+          }
+        },
+        {
+          "Custom": {
+            "name": "ledger.log_pos",
+            "kind": {
+              "Domain": "Int8"
+            }
+          }
+        },
+        {
+          "Custom": {
+            "name": "work.snake_name",
+            "kind": {
+              "Domain": "Text"
+            }
+          }
+        },
+        {
+          "Custom": {
+            "name": "ledger.digest32",
+            "kind": {
+              "Domain": "Bytea"
+            }
+          }
+        }
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "24cfc694ed1d1f0ab12646a316199cc0b4cc46ab528048f0b82547c849cf59b9"
+}

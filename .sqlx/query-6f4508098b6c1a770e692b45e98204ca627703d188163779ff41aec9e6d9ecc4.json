@@ -1,0 +1,38 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO derived.consumer_cursor AS c (ledger_id, consumer_group, pos, event_id)\n             VALUES ($1, $2, $3, $4)\n             ON CONFLICT (ledger_id, consumer_group) DO UPDATE\n             SET pos = excluded.pos, event_id = excluded.event_id\n             WHERE (c.pos, c.event_id::text) < (excluded.pos, excluded.event_id::text)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "ledger.digest32",
+            "kind": {
+              "Domain": "Bytea"
+            }
+          }
+        },
+        "Text",
+        {
+          "Custom": {
+            "name": "ledger.log_pos",
+            "kind": {
+              "Domain": "Int8"
+            }
+          }
+        },
+        {
+          "Custom": {
+            "name": "ledger.event_id",
+            "kind": {
+              "Domain": "Text"
+            }
+          }
+        }
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6f4508098b6c1a770e692b45e98204ca627703d188163779ff41aec9e6d9ecc4"
+}

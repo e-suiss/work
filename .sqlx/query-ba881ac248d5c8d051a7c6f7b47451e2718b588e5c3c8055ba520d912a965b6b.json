@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE ledger.head SET pos = 0, head_leaf = $2::bytea,\n             head_recorded_at = pg_catalog.to_timestamp(0)\n               + interval '1 millisecond' * $3::bigint::double precision,\n             frontier = $2::bytea\n             WHERE ledger_id = $1 AND pos = -1 AND epoch = 0",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Bytea",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "ba881ac248d5c8d051a7c6f7b47451e2718b588e5c3c8055ba520d912a965b6b"
+}

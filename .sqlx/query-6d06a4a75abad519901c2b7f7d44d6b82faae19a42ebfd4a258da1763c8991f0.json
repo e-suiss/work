@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE work.body_dek SET kek_id = $4, wrapped_key = $5\n             WHERE ledger_id = $1 AND dek_id = $2::text::uuid AND kek_id = $3\n               AND state = 'active'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Text",
+        "Text",
+        "Text",
+        "Bytea"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6d06a4a75abad519901c2b7f7d44d6b82faae19a42ebfd4a258da1763c8991f0"
+}

@@ -1,0 +1,48 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT object_key AS \"object_key!\", copy_digest::bytea AS \"copy_digest!\",\n                      row_count AS \"row_count!\"\n               FROM work.partition_archive\n               WHERE ledger_id = $1 AND cold_partition = $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "object_key!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "work.partition_archive",
+            "name": "object_key"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "copy_digest!",
+        "type_info": "Bytea",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "row_count!",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "work.partition_archive",
+            "name": "row_count"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      null,
+      false
+    ]
+  },
+  "hash": "8470738108c38d06abe35daac4b178064bbebeab1c3fbfdc072a490f071028b8"
+}

@@ -1,0 +1,66 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE ledger.head SET epoch = epoch + 1 WHERE ledger_id = $1\n               RETURNING epoch AS \"epoch!\", pos AS \"pos!\", head_leaf::bytea AS \"leaf?\",\n                         (extract(epoch FROM head_recorded_at) * 1000)::bigint AS \"at?\",\n                         frontier AS \"frontier!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "epoch!",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "ledger.head",
+            "name": "epoch"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "pos!",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "ledger.head",
+            "name": "pos"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "leaf?",
+        "type_info": "Bytea",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "at?",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "frontier!",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "ledger.head",
+            "name": "frontier"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null,
+      null,
+      false
+    ]
+  },
+  "hash": "256e81530470f7138ee94a2348277d10c0722e648b981b8bd351c4eb052a8cfe"
+}

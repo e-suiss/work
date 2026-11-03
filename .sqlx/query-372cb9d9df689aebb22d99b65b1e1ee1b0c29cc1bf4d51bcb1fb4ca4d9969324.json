@@ -1,0 +1,54 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT pos AS \"pos!\", head_leaf::bytea AS \"leaf?\",\n                      (extract(epoch FROM head_recorded_at) * 1000)::bigint AS \"at?\",\n                      frontier AS \"frontier!\"\n               FROM ledger.head WHERE ledger_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "pos!",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "ledger.head",
+            "name": "pos"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "leaf?",
+        "type_info": "Bytea",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "at?",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "frontier!",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "ledger.head",
+            "name": "frontier"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea"
+      ]
+    },
+    "nullable": [
+      false,
+      null,
+      null,
+      false
+    ]
+  },
+  "hash": "372cb9d9df689aebb22d99b65b1e1ee1b0c29cc1bf4d51bcb1fb4ca4d9969324"
+}

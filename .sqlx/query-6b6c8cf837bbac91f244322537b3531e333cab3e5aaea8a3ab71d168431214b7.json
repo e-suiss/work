@@ -1,0 +1,43 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT witness_id::text AS \"witness_id!\", observed_size AS \"size!\",\n                      observed_root::bytea AS \"root!\"\n               FROM derived.witness_comparison_v1\n               WHERE ledger_id = $1 AND verdict = 'pending'\n               ORDER BY observed_at, witness_id, observed_size LIMIT $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "witness_id!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "size!",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "derived.witness_comparison_v1",
+            "name": "observed_size"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "root!",
+        "type_info": "Bytea",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null,
+      false,
+      null
+    ]
+  },
+  "hash": "6b6c8cf837bbac91f244322537b3531e333cab3e5aaea8a3ab71d168431214b7"
+}

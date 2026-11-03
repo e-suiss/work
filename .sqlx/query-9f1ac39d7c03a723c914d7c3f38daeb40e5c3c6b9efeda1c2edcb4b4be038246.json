@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM ledger.outbox o\n             USING unnest($2::bigint[], $3::text[]) AS k(pos, event_id)\n             WHERE o.ledger_id = $1 AND o.pos = k.pos AND o.event_id = k.event_id",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Int8Array",
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9f1ac39d7c03a723c914d7c3f38daeb40e5c3c6b9efeda1c2edcb4b4be038246"
+}

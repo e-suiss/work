@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT durability_profile AS \"profile!\" FROM work.ledger_profile\n               WHERE ledger_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "profile!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "work.ledger_profile",
+            "name": "durability_profile"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "daf018c34155e01ac4199fa22d3ca186598753fd3166bb76e6bf8c6052ba1fb8"
+}

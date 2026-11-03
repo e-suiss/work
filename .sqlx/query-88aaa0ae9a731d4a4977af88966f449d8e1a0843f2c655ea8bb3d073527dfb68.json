@@ -1,0 +1,84 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO work.record_header\n             (ledger_id, pos, kind, record_type, author, author_actor_type,\n              author_actor_type_source, occurred_at, ingest, ingest_reason, proof_commit,\n              auth_context_ref, protocol_major, protocol_minor, schema_digest)\n             VALUES ($1, $2, $3, $4, $5, $6, $7,\n             pg_catalog.to_timestamp(0) + interval '1 millisecond' * $8::bigint::double precision,\n             $9, $10, $11, $12, $13, $14, $15)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "ledger.digest32",
+            "kind": {
+              "Domain": "Bytea"
+            }
+          }
+        },
+        {
+          "Custom": {
+            "name": "ledger.log_pos",
+            "kind": {
+              "Domain": "Int8"
+            }
+          }
+        },
+        "Text",
+        {
+          "Custom": {
+            "name": "work.type_uri",
+            "kind": {
+              "Domain": "Text"
+            }
+          }
+        },
+        {
+          "Custom": {
+            "name": "work.party_ref",
+            "kind": {
+              "Domain": "Text"
+            }
+          }
+        },
+        "Text",
+        "Text",
+        "Int8",
+        "Text",
+        {
+          "Custom": {
+            "name": "work.reason_code",
+            "kind": {
+              "Domain": "Text"
+            }
+          }
+        },
+        {
+          "Custom": {
+            "name": "ledger.digest32",
+            "kind": {
+              "Domain": "Bytea"
+            }
+          }
+        },
+        {
+          "Custom": {
+            "name": "ledger.digest32",
+            "kind": {
+              "Domain": "Bytea"
+            }
+          }
+        },
+        "Int8",
+        "Int8",
+        {
+          "Custom": {
+            "name": "ledger.digest32",
+            "kind": {
+              "Domain": "Bytea"
+            }
+          }
+        }
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "88aaa0ae9a731d4a4977af88966f449d8e1a0843f2c655ea8bb3d073527dfb68"
+}

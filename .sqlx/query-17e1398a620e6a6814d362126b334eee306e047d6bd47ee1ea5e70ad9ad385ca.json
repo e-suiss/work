@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT t::text AS \"row!\" FROM work.inbound_seen t\n                   WHERE t.tableoid = $1::text::regclass ORDER BY t::text COLLATE \"C\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "row!",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "17e1398a620e6a6814d362126b334eee306e047d6bd47ee1ea5e70ad9ad385ca"
+}

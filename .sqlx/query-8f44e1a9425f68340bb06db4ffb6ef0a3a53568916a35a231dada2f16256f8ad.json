@@ -1,0 +1,46 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO work.item_head\n                       (ledger_id, item_kind, item_id, version, last_pos, heads)\n                       VALUES ($1, $2, $3, 1, $4, $5::bytea[]::ledger.digest32[])\n                       ON CONFLICT ON CONSTRAINT item_head_pk DO UPDATE\n                       SET version = work.item_head.version + 1, last_pos = EXCLUDED.last_pos,\n                           heads = EXCLUDED.heads\n                       RETURNING version AS \"version!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "version!",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "work.item_head",
+            "name": "version"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "ledger.digest32",
+            "kind": {
+              "Domain": "Bytea"
+            }
+          }
+        },
+        "Text",
+        "Bytea",
+        {
+          "Custom": {
+            "name": "ledger.log_pos",
+            "kind": {
+              "Domain": "Int8"
+            }
+          }
+        },
+        "ByteaArray"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "8f44e1a9425f68340bb06db4ffb6ef0a3a53568916a35a231dada2f16256f8ad"
+}

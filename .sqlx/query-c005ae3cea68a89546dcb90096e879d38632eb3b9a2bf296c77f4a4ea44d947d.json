@@ -1,0 +1,58 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO work.body_part\n                 (ledger_id, pos, part, dek_id, retention_class, storage, nonce, ciphertext,\n                  object_key, ciphertext_digest)\n                 VALUES ($1, $2, $3, $4::text::uuid, $5, $6, $7, $8, $9, $10)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "ledger.digest32",
+            "kind": {
+              "Domain": "Bytea"
+            }
+          }
+        },
+        {
+          "Custom": {
+            "name": "ledger.log_pos",
+            "kind": {
+              "Domain": "Int8"
+            }
+          }
+        },
+        {
+          "Custom": {
+            "name": "work.snake_name",
+            "kind": {
+              "Domain": "Text"
+            }
+          }
+        },
+        "Text",
+        {
+          "Custom": {
+            "name": "work.retention_class",
+            "kind": {
+              "Domain": "Text"
+            }
+          }
+        },
+        "Text",
+        "Bytea",
+        "Bytea",
+        "Text",
+        {
+          "Custom": {
+            "name": "ledger.digest32",
+            "kind": {
+              "Domain": "Bytea"
+            }
+          }
+        }
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c005ae3cea68a89546dcb90096e879d38632eb3b9a2bf296c77f4a4ea44d947d"
+}

@@ -1,0 +1,38 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO derived.witness_comparison_v1\n             (ledger_id, witness_id, observed_size, observed_root, verdict)\n             VALUES ($1, $2, $3, $4, 'pending') ON CONFLICT DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "ledger.digest32",
+            "kind": {
+              "Domain": "Bytea"
+            }
+          }
+        },
+        {
+          "Custom": {
+            "name": "work.snake_name",
+            "kind": {
+              "Domain": "Text"
+            }
+          }
+        },
+        "Int8",
+        {
+          "Custom": {
+            "name": "ledger.digest32",
+            "kind": {
+              "Domain": "Bytea"
+            }
+          }
+        }
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b278dce3e5e1e0509b1c433ef43ac0826c6f5c8045ba8459fd2ef4a8f2762519"
+}

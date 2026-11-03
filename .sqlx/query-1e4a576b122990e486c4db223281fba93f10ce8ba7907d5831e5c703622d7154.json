@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO ledger.head (ledger_id, pos, epoch, frontier) VALUES ($1, -1, 0, '\\x')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "ledger.digest32",
+            "kind": {
+              "Domain": "Bytea"
+            }
+          }
+        }
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1e4a576b122990e486c4db223281fba93f10ce8ba7907d5831e5c703622d7154"
+}

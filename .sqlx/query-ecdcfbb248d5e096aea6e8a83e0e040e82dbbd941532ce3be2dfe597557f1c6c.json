@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT c.oid::regclass::text AS \"part!\" FROM pg_catalog.pg_inherits h\n               JOIN pg_catalog.pg_class c ON c.oid = h.inhrelid\n               WHERE h.inhparent IN ('work.idempotency_key'::regclass, 'work.inbound_seen'::regclass)\n               AND work.partition_is_cold(substring(pg_catalog.pg_get_expr(c.relpartbound, c.oid)\n                   FROM 'TO \\(''([^'']+)''\\)')::timestamptz, pg_catalog.now())\n               ORDER BY 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "part!",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "ecdcfbb248d5e096aea6e8a83e0e040e82dbbd941532ce3be2dfe597557f1c6c"
+}

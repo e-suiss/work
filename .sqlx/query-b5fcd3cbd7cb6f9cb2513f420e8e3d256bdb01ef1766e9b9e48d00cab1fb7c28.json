@@ -1,0 +1,36 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT pos AS \"pos!\", event_id::text AS \"event_id!\" FROM derived.consumer_cursor\n               WHERE ledger_id = $1 AND consumer_group = $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "pos!",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "derived.consumer_cursor",
+            "name": "pos"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "event_id!",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      null
+    ]
+  },
+  "hash": "b5fcd3cbd7cb6f9cb2513f420e8e3d256bdb01ef1766e9b9e48d00cab1fb7c28"
+}

@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "-- T-10 OP-1\nSELECT ROW(work_id, first_pos)::text AS \"row!\" FROM work.work_root WHERE ledger_id = $1\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "row!",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "363d6c28ac3e2ab845a44a6d283c126f626b04b8d6e6fc1254c9678fed6d54dc"
+}

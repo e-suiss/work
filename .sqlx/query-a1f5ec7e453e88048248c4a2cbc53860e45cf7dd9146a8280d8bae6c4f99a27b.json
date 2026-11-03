@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "-- T-10 OP-8 OP-38 T-91\nSELECT ROW(i.source, i.source_id, i.result_pos)::text AS \"row!\" FROM work.inbound_seen i\nJOIN ledger.log l ON l.ledger_id = i.ledger_id AND l.pos = i.result_pos\nWHERE i.ledger_id = $1\nAND (l.record_id <> i.content_digest OR l.recorded_at <> i.seen_at)\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "row!",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "a1f5ec7e453e88048248c4a2cbc53860e45cf7dd9146a8280d8bae6c4f99a27b"
+}

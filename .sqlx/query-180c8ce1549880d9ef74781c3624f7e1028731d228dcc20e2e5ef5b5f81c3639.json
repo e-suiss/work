@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT row_count AS \"row_count!\", slice_digest::bytea AS \"digest!\"\n               FROM work.partition_slice($1::text::regclass)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "row_count!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "digest!",
+        "type_info": "Bytea",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "180c8ce1549880d9ef74781c3624f7e1028731d228dcc20e2e5ef5b5f81c3639"
+}

@@ -1,0 +1,39 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO work.body_dek\n             (ledger_id, subject_ref, retention_class, kek_id, wrapped_key, state)\n             VALUES ($1, $2, $3, $4, $5, 'active')\n             ON CONFLICT (ledger_id, subject_ref, retention_class) WHERE state = 'active'\n             DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "ledger.digest32",
+            "kind": {
+              "Domain": "Bytea"
+            }
+          }
+        },
+        {
+          "Custom": {
+            "name": "work.party_ref",
+            "kind": {
+              "Domain": "Text"
+            }
+          }
+        },
+        {
+          "Custom": {
+            "name": "work.retention_class",
+            "kind": {
+              "Domain": "Text"
+            }
+          }
+        },
+        "Text",
+        "Bytea"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4777ed62f7417a8a72919eccc64a15849ce3413dfb603f75dbd170e149e3448b"
+}

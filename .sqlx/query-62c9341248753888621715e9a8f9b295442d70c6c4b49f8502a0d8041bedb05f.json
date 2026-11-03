@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT pos AS \"pos!\", epoch AS \"epoch!\" FROM ledger.head\n               WHERE ledger_id = $1 FOR UPDATE",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "pos!",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "ledger.head",
+            "name": "pos"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "epoch!",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "ledger.head",
+            "name": "epoch"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "62c9341248753888621715e9a8f9b295442d70c6c4b49f8502a0d8041bedb05f"
+}

@@ -1,0 +1,32 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO ledger.checkpoint_cosignature\n             (ledger_id, size, witness_id, cosign_kind, cosigned_at, signature)\n             VALUES ($1, $2, $3, 'witness',\n             pg_catalog.to_timestamp(0) + interval '1 millisecond' * $4::bigint::double precision,\n             $5) ON CONFLICT (ledger_id, size, witness_id) DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "ledger.digest32",
+            "kind": {
+              "Domain": "Bytea"
+            }
+          }
+        },
+        "Int8",
+        {
+          "Custom": {
+            "name": "ledger.ident",
+            "kind": {
+              "Domain": "Text"
+            }
+          }
+        },
+        "Int8",
+        "Bytea"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "bcbbf5f6bcfec0c1654e1245148172db00d9f9d825690b8bdbd935ad84827b27"
+}

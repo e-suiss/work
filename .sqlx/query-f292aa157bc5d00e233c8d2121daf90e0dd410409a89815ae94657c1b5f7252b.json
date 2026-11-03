@@ -1,0 +1,66 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "-- OP-1 T-11 T-90\nSELECT r.pos AS \"pos!\", r.role AS \"role!\", b.kind AS \"kind!\", b.bytes AS \"bytes!\"\nFROM work.log_received r\nJOIN work.received_bytes b ON b.ledger_id = r.ledger_id AND b.digest = r.digest\nWHERE r.ledger_id = $1 AND r.pos BETWEEN $2 AND $3\nORDER BY r.pos, r.role, r.digest\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "pos!",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "work.log_received",
+            "name": "pos"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "role!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "work.log_received",
+            "name": "role"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "kind!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "work.received_bytes",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "bytes!",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "work.received_bytes",
+            "name": "bytes"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "f292aa157bc5d00e233c8d2121daf90e0dd410409a89815ae94657c1b5f7252b"
+}

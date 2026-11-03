@@ -1,0 +1,32 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO work.partition_archive\n             (ledger_id, cold_partition, object_key, copy_digest, row_count)\n             VALUES ($1, $2, $3, $4, $5) ON CONFLICT (ledger_id, cold_partition) DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "ledger.digest32",
+            "kind": {
+              "Domain": "Bytea"
+            }
+          }
+        },
+        "Text",
+        "Text",
+        {
+          "Custom": {
+            "name": "ledger.digest32",
+            "kind": {
+              "Domain": "Bytea"
+            }
+          }
+        },
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1358baa5ba7499de9c915089f84a808c019a4a59a465b4729f1ae811b253cb74"
+}

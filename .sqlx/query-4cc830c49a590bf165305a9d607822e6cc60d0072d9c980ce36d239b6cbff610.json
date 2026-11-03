@@ -1,0 +1,65 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT request_digest::bytea AS \"request_digest!\", outcome AS \"outcome!\",\n                      result_pos::bigint AS \"pos?\", result_record_id::bytea AS \"record_id?\",\n                      reason::text AS \"reason?\",\n                      (extract(epoch FROM created_at) * 1000)::bigint AS \"created_at_ms!\"\n               FROM work.idempotency_key\n               WHERE ledger_id = $1 AND caller_ref = $2 AND idem_key = $3\n               ORDER BY created_at LIMIT 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "request_digest!",
+        "type_info": "Bytea",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "outcome!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "work.idempotency_key",
+            "name": "outcome"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "pos?",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "record_id?",
+        "type_info": "Bytea",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "reason?",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "created_at_ms!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null,
+      false,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "4cc830c49a590bf165305a9d607822e6cc60d0072d9c980ce36d239b6cbff610"
+}

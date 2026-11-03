@@ -1,0 +1,31 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO work.received_bytes (ledger_id, digest, kind, bytes, first_pos)\n                 VALUES ($1, pg_catalog.sha256($3::bytea), $2, $3::bytea, $4)\n                 ON CONFLICT (ledger_id, digest) DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "ledger.digest32",
+            "kind": {
+              "Domain": "Bytea"
+            }
+          }
+        },
+        "Text",
+        "Bytea",
+        {
+          "Custom": {
+            "name": "ledger.log_pos",
+            "kind": {
+              "Domain": "Int8"
+            }
+          }
+        }
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "89ed16e733c886d0b5b55f63cd276e60bd4e05aa8488f42cffb52fb334dff8f2"
+}

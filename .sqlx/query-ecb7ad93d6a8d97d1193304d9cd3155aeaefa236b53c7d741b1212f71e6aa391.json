@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE work.body_part_key SET wrapped_key = NULL, shredded_at = pg_catalog.now()\n             WHERE ledger_id = $1 AND pos = $2 AND part = $3",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Int8",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "ecb7ad93d6a8d97d1193304d9cd3155aeaefa236b53c7d741b1212f71e6aa391"
+}

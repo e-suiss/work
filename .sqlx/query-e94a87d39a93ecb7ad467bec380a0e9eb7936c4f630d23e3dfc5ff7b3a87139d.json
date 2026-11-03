@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "-- T-10 OP-1\nSELECT ROW(pos, basis_record_id)::text AS \"row!\" FROM work.log_basis WHERE ledger_id = $1\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "row!",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "e94a87d39a93ecb7ad467bec380a0e9eb7936c4f630d23e3dfc5ff7b3a87139d"
+}

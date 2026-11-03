@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO work.work_root (ledger_id, work_id, first_pos)\n                 VALUES ($1, pg_catalog.encode($2::bytea, 'hex')::uuid, $3)\n                 ON CONFLICT (ledger_id, work_id) DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "ledger.digest32",
+            "kind": {
+              "Domain": "Bytea"
+            }
+          }
+        },
+        "Bytea",
+        {
+          "Custom": {
+            "name": "ledger.log_pos",
+            "kind": {
+              "Domain": "Int8"
+            }
+          }
+        }
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b12625eae8134edc8d132f43a43c586e30b500d99aea39897996e7da9d3f6e8b"
+}

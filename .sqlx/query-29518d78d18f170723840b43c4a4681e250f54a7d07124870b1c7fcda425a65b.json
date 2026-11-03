@@ -1,0 +1,49 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT dek_id::text AS \"dek_id!\", kek_id AS \"kek_id!\", wrapped_key AS \"wrapped_key?\"\n               FROM work.body_dek\n               WHERE ledger_id = $1 AND subject_ref = $2 AND retention_class = $3\n                 AND state = 'active'",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "dek_id!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "kek_id!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "work.body_dek",
+            "name": "kek_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "wrapped_key?",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "work.body_dek",
+            "name": "wrapped_key"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null,
+      false,
+      true
+    ]
+  },
+  "hash": "29518d78d18f170723840b43c4a4681e250f54a7d07124870b1c7fcda425a65b"
+}

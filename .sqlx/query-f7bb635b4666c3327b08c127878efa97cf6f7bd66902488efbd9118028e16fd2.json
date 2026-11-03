@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO work.inbound_seen\n             (ledger_id, source, source_id, content_digest, result_pos, seen_at)\n             VALUES ($1, $2, $3, $4, $5,\n             pg_catalog.to_timestamp(0) + interval '1 millisecond' * $6::bigint::double precision)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "ledger.digest32",
+            "kind": {
+              "Domain": "Bytea"
+            }
+          }
+        },
+        "Text",
+        "Text",
+        {
+          "Custom": {
+            "name": "ledger.digest32",
+            "kind": {
+              "Domain": "Bytea"
+            }
+          }
+        },
+        {
+          "Custom": {
+            "name": "ledger.log_pos",
+            "kind": {
+              "Domain": "Int8"
+            }
+          }
+        },
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f7bb635b4666c3327b08c127878efa97cf6f7bd66902488efbd9118028e16fd2"
+}

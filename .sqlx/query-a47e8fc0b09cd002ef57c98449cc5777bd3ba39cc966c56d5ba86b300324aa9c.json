@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO ledger.log\n             (ledger_id, pos, epoch, record_id, recorded_at, prev, leaf_hash, record_bytes,\n              envelope_bytes)\n             VALUES ($1::bytea, 0, 0, $1::bytea,\n             pg_catalog.to_timestamp(0) + interval '1 millisecond' * $2::bigint::double precision,\n             NULL, $3, $4::bytea, $4::bytea)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Int8",
+        {
+          "Custom": {
+            "name": "ledger.digest32",
+            "kind": {
+              "Domain": "Bytea"
+            }
+          }
+        },
+        "Bytea"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "a47e8fc0b09cd002ef57c98449cc5777bd3ba39cc966c56d5ba86b300324aa9c"
+}

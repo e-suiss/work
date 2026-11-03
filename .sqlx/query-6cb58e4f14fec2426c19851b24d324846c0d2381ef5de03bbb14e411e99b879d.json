@@ -1,0 +1,102 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT o.pos AS \"pos!\", o.event_id::text AS \"event_id!\",\n                      o.event_type::text AS \"event_type!\", o.traceparent::text AS \"traceparent!\",\n                      l.record_id::bytea AS \"record_id!\",\n                      (extract(epoch FROM l.recorded_at) * 1000)::bigint AS \"recorded_at_ms!\",\n                      o.item_kind AS \"item_kind!\", o.item_id AS \"item_id!\", o.version AS \"version!\"\n               FROM ledger.outbox o\n               JOIN ledger.log l ON l.ledger_id = o.ledger_id AND l.pos = o.pos\n               WHERE o.ledger_id = $1 AND (o.pos, o.event_id) > ($2::bigint, $3::text)\n               ORDER BY o.pos, o.event_id\n               LIMIT $4",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "pos!",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "ledger.outbox",
+            "name": "pos"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "event_id!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "event_type!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "traceparent!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "record_id!",
+        "type_info": "Bytea",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "recorded_at_ms!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "item_kind!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ledger.outbox",
+            "name": "item_kind"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "item_id!",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "ledger.outbox",
+            "name": "item_id"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "version!",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "ledger.outbox",
+            "name": "version"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Int8",
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      null,
+      null,
+      null,
+      null,
+      null,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "6cb58e4f14fec2426c19851b24d324846c0d2381ef5de03bbb14e411e99b879d"
+}

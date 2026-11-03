@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO work.body_part_tombstone (ledger_id, pos, part, cause)\n             SELECT p.ledger_id, p.pos, p.part, $3::text FROM work.body_part p\n             WHERE p.ledger_id = $1 AND p.dek_id = $2::text::uuid\n             ON CONFLICT (ledger_id, pos, part) DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4bf0df662a3e738f45dfc26adc63ba74bf79e77f9417afd4054b2bd2f6277e10"
+}

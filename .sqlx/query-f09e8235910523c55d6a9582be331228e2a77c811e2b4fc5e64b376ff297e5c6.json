@@ -1,0 +1,61 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "-- OP-1 T-11 T-90\nSELECT pos AS \"pos!\", (extract(epoch FROM recorded_at) * 1000)::bigint AS \"at!\",\n       record_bytes AS \"record_bytes!\", envelope_bytes AS \"envelope_bytes!\"\nFROM ledger.log WHERE ledger_id = $1 AND pos >= $2 ORDER BY pos LIMIT $3\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "pos!",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "ledger.log",
+            "name": "pos"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "at!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "record_bytes!",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "ledger.log",
+            "name": "record_bytes"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "envelope_bytes!",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "ledger.log",
+            "name": "envelope_bytes"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      null,
+      false,
+      false
+    ]
+  },
+  "hash": "f09e8235910523c55d6a9582be331228e2a77c811e2b4fc5e64b376ff297e5c6"
+}

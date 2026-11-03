@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO ledger.replica_progress (ledger_id, replica_id, mirrored_size)\n             VALUES ($1, $2, $3) ON CONFLICT (ledger_id, replica_id) DO UPDATE\n             SET mirrored_size = EXCLUDED.mirrored_size, updated_at = pg_catalog.now()",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "ledger.digest32",
+            "kind": {
+              "Domain": "Bytea"
+            }
+          }
+        },
+        {
+          "Custom": {
+            "name": "ledger.ident",
+            "kind": {
+              "Domain": "Text"
+            }
+          }
+        },
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "45c3c1e500771aa92190efa0f05de5989d7a157baaa9bb5ff41647841713b88e"
+}

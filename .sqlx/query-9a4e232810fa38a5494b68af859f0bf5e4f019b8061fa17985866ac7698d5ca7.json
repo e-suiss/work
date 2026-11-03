@@ -1,0 +1,45 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO work.log_relation\n                 (ledger_id, pos, ordinal, rel, source_kind, source_bytes, source_text,\n                  target_kind, target_bytes, target_text, qualifier)\n                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "ledger.digest32",
+            "kind": {
+              "Domain": "Bytea"
+            }
+          }
+        },
+        {
+          "Custom": {
+            "name": "ledger.log_pos",
+            "kind": {
+              "Domain": "Int8"
+            }
+          }
+        },
+        "Int8",
+        "Text",
+        "Text",
+        "Bytea",
+        "Text",
+        "Text",
+        "Bytea",
+        "Text",
+        {
+          "Custom": {
+            "name": "work.type_uri",
+            "kind": {
+              "Domain": "Text"
+            }
+          }
+        }
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9a4e232810fa38a5494b68af859f0bf5e4f019b8061fa17985866ac7698d5ca7"
+}

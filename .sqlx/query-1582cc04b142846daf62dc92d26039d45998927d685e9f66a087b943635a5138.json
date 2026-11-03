@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SET LOCAL timezone = 'UTC'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "1582cc04b142846daf62dc92d26039d45998927d685e9f66a087b943635a5138"
+}

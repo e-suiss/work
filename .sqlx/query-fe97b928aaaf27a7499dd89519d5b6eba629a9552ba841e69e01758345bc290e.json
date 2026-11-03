@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "-- T-10 OP-1\nSELECT ROW(pos, kind, record_type, author, author_actor_type, author_actor_type_source,\n           (extract(epoch FROM occurred_at) * 1000)::bigint, ingest, ingest_reason, proof_commit,\n           auth_context_ref, protocol_major, protocol_minor, schema_digest)::text AS \"row!\"\nFROM work.record_header WHERE ledger_id = $1\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "row!",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "fe97b928aaaf27a7499dd89519d5b6eba629a9552ba841e69e01758345bc290e"
+}

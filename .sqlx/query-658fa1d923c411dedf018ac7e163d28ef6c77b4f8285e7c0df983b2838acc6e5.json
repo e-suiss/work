@@ -1,0 +1,124 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT p.part::text AS \"part!\", c.part_commit::bytea AS \"commit!\",\n                      p.retention_class::text AS \"class!\", p.nonce AS \"nonce!\",\n                      p.ciphertext AS \"ciphertext?\", p.object_key AS \"object_key?\",\n                      p.ciphertext_digest::bytea AS \"digest!\", k.wrapped_key AS \"part_key?\",\n                      d.dek_id::text AS \"dek_id!\", d.kek_id AS \"kek_id!\",\n                      d.wrapped_key AS \"dek?\"\n               FROM work.body_part p\n               JOIN work.body_commitment c\n                 ON c.ledger_id = p.ledger_id AND c.pos = p.pos AND c.part = p.part\n               JOIN work.body_part_key k\n                 ON k.ledger_id = p.ledger_id AND k.pos = p.pos AND k.part = p.part\n               JOIN work.body_dek d ON d.ledger_id = p.ledger_id AND d.dek_id = p.dek_id\n               WHERE p.ledger_id = $1 AND p.pos = $2\n               ORDER BY p.part",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "part!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "commit!",
+        "type_info": "Bytea",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "class!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "nonce!",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "work.body_part",
+            "name": "nonce"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "ciphertext?",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "work.body_part",
+            "name": "ciphertext"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "object_key?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "work.body_part",
+            "name": "object_key"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "digest!",
+        "type_info": "Bytea",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 7,
+        "name": "part_key?",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "work.body_part_key",
+            "name": "wrapped_key"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "dek_id!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 9,
+        "name": "kek_id!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "work.body_dek",
+            "name": "kek_id"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "dek?",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "work.body_dek",
+            "name": "wrapped_key"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      false,
+      true,
+      true,
+      null,
+      true,
+      null,
+      false,
+      true
+    ]
+  },
+  "hash": "658fa1d923c411dedf018ac7e163d28ef6c77b4f8285e7c0df983b2838acc6e5"
+}

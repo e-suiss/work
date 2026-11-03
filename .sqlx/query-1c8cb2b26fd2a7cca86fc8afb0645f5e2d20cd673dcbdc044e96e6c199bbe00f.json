@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "-- T-10 OP-1\nSELECT ROW(pos, ordinal, rel, source_kind, source_bytes, source_text, target_kind,\n           target_bytes, target_text, qualifier)::text AS \"row!\"\nFROM work.log_relation WHERE ledger_id = $1\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "row!",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "1c8cb2b26fd2a7cca86fc8afb0645f5e2d20cd673dcbdc044e96e6c199bbe00f"
+}

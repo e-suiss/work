@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "-- T-10 OP-1 T-89\nSELECT ROW(item_kind, item_id, version, last_pos, heads)::text AS \"row!\" FROM work.item_head\nWHERE ledger_id = $1\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "row!",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "08fde92ab441324781a9a17973fb5b8d87f2613b46cafd272ecc9194d8d926ca"
+}

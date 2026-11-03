@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "-- T-10 OP-1 T-90\nSELECT ROW(pos, record_id, (extract(epoch FROM recorded_at) * 1000)::bigint, prev,\n           leaf_hash, pg_catalog.sha256(record_bytes), pg_catalog.sha256(envelope_bytes))::text\n       AS \"row!\"\nFROM ledger.log WHERE ledger_id = $1\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "row!",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "b7f247281523d89c6fa5191b9e5ec80a80441579827cf23f9fb32745da2c7176"
+}

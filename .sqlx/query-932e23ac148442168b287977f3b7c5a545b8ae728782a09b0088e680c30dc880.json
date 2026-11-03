@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "-- T-10 OP-8 OP-36 T-91\nSELECT ROW(k.idem_key, k.result_pos)::text AS \"row!\" FROM work.idempotency_key k\nJOIN ledger.log l ON l.ledger_id = k.ledger_id AND l.pos = k.result_pos\nWHERE k.ledger_id = $1 AND k.outcome = 'recorded'\nAND (l.record_id <> k.result_record_id OR l.recorded_at <> k.created_at)\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "row!",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "932e23ac148442168b287977f3b7c5a545b8ae728782a09b0088e680c30dc880"
+}

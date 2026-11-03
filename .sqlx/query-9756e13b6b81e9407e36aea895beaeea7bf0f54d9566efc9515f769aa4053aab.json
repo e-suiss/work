@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO ledger.checkpoint\n             (ledger_id, size, root, head_leaf, issued_at, signed_note) VALUES ($1, $2, $3, $4,\n             pg_catalog.to_timestamp(0) + interval '1 millisecond' * $5::bigint::double precision,\n             $6) ON CONFLICT (ledger_id, size) DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "ledger.digest32",
+            "kind": {
+              "Domain": "Bytea"
+            }
+          }
+        },
+        "Int8",
+        {
+          "Custom": {
+            "name": "ledger.digest32",
+            "kind": {
+              "Domain": "Bytea"
+            }
+          }
+        },
+        {
+          "Custom": {
+            "name": "ledger.digest32",
+            "kind": {
+              "Domain": "Bytea"
+            }
+          }
+        },
+        "Int8",
+        "Bytea"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9756e13b6b81e9407e36aea895beaeea7bf0f54d9566efc9515f769aa4053aab"
+}

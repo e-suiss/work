@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT durability AS \"durability!\" FROM ledger.record_durability\n               WHERE ledger_id = $1 AND pos = $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "durability!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ledger.record_durability",
+            "name": "durability"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "7db4e881714685ade215cf7ed619abb60025892dc3e31688a6aebbde78a51501"
+}

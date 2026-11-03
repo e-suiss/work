@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT wrapped_key AS \"wrapped_key?\" FROM work.body_part_key\n               WHERE ledger_id = $1 AND pos = $2 AND part = $3 FOR UPDATE",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "wrapped_key?",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "work.body_part_key",
+            "name": "wrapped_key"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Int8",
+        "Text"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "42c9d0c12afacaba2dc280790af01f60b65051391437ccca104c85489fda55d0"
+}

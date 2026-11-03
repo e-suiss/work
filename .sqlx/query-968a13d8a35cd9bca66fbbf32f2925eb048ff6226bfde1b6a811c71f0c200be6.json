@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE work.item_head\n                       SET version = version + 1, last_pos = $4,\n                           heads = $5::bytea[]::ledger.digest32[]\n                       WHERE ledger_id = $1 AND item_kind = $2 AND item_id = $3 AND version = $6\n                       RETURNING version AS \"version!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "version!",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "work.item_head",
+            "name": "version"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Text",
+        "Bytea",
+        {
+          "Custom": {
+            "name": "ledger.log_pos",
+            "kind": {
+              "Domain": "Int8"
+            }
+          }
+        },
+        "ByteaArray",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "968a13d8a35cd9bca66fbbf32f2925eb048ff6226bfde1b6a811c71f0c200be6"
+}

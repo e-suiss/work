@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO ledger.outbox\n         (ledger_id, pos, event_id, event_type, traceparent, item_kind, item_id, version)\n         SELECT $1::bytea, u.pos, u.event_id, u.event_type, u.traceparent, u.item_kind,\n                u.item_id, u.version\n         FROM unnest($2::bigint[], $3::text[], $4::text[], $5::text[], $6::text[],\n                     $7::bytea[], $8::bigint[])\n              AS u(pos, event_id, event_type, traceparent, item_kind, item_id, version)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Int8Array",
+        "TextArray",
+        "TextArray",
+        "TextArray",
+        "TextArray",
+        "ByteaArray",
+        "Int8Array"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "680d474dd70a26bcd279800a5dc6b13075ec26bb5e5f7463ea14eddac3f7dfdd"
+}
