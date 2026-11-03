@@ -198,7 +198,7 @@ pub fn unseal(token: &PositionToken) -> Result<Unsealed, PositionError> {
         .split_at_checked(pairs_len)
         .ok_or(PositionError::Malformed)?;
     let mut entries: Vec<(LedgerId, u64)> = Vec::with_capacity(n);
-    for pair in pairs.chunks_exact(PAIR) {
+    for pair in pairs.as_chunks::<PAIR>().0 {
         let (ledger, pos) = pair.split_at_checked(32).ok_or(PositionError::Malformed)?;
         let ledger = LedgerId(Digest::sha256(
             ledger.try_into().map_err(|_| PositionError::Malformed)?,

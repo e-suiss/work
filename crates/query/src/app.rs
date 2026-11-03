@@ -59,17 +59,15 @@ pub async fn wait_for(
         .ok()
         .and_then(Result::ok)
         .map(|view| standing(wanted, &view));
-    match reached {
-        Some(positions) => Ok(Freshness::Fresh(positions?)),
-        None => {
-            let view = applied.borrow().clone();
-            let positions = standing(wanted, &view)?;
-            if wanted.reached_by(&view) {
-                Ok(Freshness::Fresh(positions))
-            } else {
-                Ok(Freshness::Stale(positions))
-            }
-        }
+    if let Some(positions) = reached {
+        return Ok(Freshness::Fresh(positions?));
+    }
+    let view = applied.borrow().clone();
+    let positions = standing(wanted, &view)?;
+    if wanted.reached_by(&view) {
+        Ok(Freshness::Fresh(positions))
+    } else {
+        Ok(Freshness::Stale(positions))
     }
 }
 

@@ -1,5 +1,7 @@
 //! The `OpenAPI` 3.1 document of the REST API (T-98 item 1, P-54 item 2): generated from the `utoipa` derives of this crate with every object's keys in sorted order, written to `sdks/openapi/work-v1.json` by `cargo xtask openapi` and compared byte for byte by `cargo xtask check openapi`, which also checks that every operation names one Access action (E-45 item 3).
 
+use std::collections::BTreeMap;
+
 use serde_json::{Map, Value};
 use utoipa::OpenApi as _;
 
@@ -25,8 +27,7 @@ struct Api;
 fn sorted(value: Value) -> Value {
     match value {
         Value::Object(map) => {
-            let mut entries: Vec<(String, Value)> = map.into_iter().collect();
-            entries.sort_by(|(a, _), (b, _)| a.cmp(b));
+            let entries: BTreeMap<String, Value> = map.into_iter().collect();
             Value::Object(
                 entries
                     .into_iter()

@@ -61,30 +61,24 @@ fn emit(value: &Value, indent: usize, out: &mut String) {
                 } else {
                     quoted(key)
                 };
-                match scalar(item) {
-                    Some(text) => {
-                        let _ = writeln!(out, "{key}: {text}");
-                    }
-                    None => {
-                        let _ = writeln!(out, "{key}:");
-                        emit(item, indent.saturating_add(2), out);
-                    }
+                if let Some(text) = scalar(item) {
+                    let _ = writeln!(out, "{key}: {text}");
+                } else {
+                    let _ = writeln!(out, "{key}:");
+                    emit(item, indent.saturating_add(2), out);
                 }
             }
         }
         Value::Array(items) => {
             for item in items {
                 pad(out, indent);
-                match scalar(item) {
-                    Some(text) => {
-                        let _ = writeln!(out, "- {text}");
-                    }
-                    None => {
-                        let mut nested = String::new();
-                        emit(item, indent.saturating_add(2), &mut nested);
-                        out.push_str("- ");
-                        out.push_str(nested.get(indent.saturating_add(2)..).unwrap_or_default());
-                    }
+                if let Some(text) = scalar(item) {
+                    let _ = writeln!(out, "- {text}");
+                } else {
+                    let mut nested = String::new();
+                    emit(item, indent.saturating_add(2), &mut nested);
+                    out.push_str("- ");
+                    out.push_str(nested.get(indent.saturating_add(2)..).unwrap_or_default());
                 }
             }
         }

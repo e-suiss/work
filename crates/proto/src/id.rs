@@ -43,7 +43,7 @@ pub enum Prefix {
 
 /// How the body after a prefix is written (P-112 item 2).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum Body {
+pub enum BodyForm {
     /// Exactly this many bytes in lower-case hex.
     Hex(usize),
     /// One or more bytes in unpadded base64url.
@@ -91,17 +91,17 @@ impl Prefix {
     /// How the body is written: 16 bytes for a Work and the `UUIDv7` rows, 32 bytes for a record
     /// digest, a ledger, a package digest and the items a record opens, base64url otherwise.
     #[must_use]
-    pub const fn body(self) -> Body {
+    pub const fn body(self) -> BodyForm {
         match self {
-            Self::Work | Self::Subscription | Self::Export => Body::Hex(16),
+            Self::Work | Self::Subscription | Self::Export => BodyForm::Hex(16),
             Self::Commitment
             | Self::Condition
             | Self::Aim
             | Self::Reference
             | Self::Record
             | Self::Ledger
-            | Self::Practice => Body::Hex(32),
-            Self::Party | Self::Cursor | Self::Position => Body::Base64Url,
+            | Self::Practice => BodyForm::Hex(32),
+            Self::Party | Self::Cursor | Self::Position => BodyForm::Base64Url,
         }
     }
 
@@ -168,11 +168,10 @@ fn unhex(text: &str, len: usize) -> Option<Vec<u8>> {
         return None;
     }
     digits
-        .chunks_exact(2)
-        .map(|pair| match pair {
-            [high, low] => nibble(*high)?.checked_mul(16)?.checked_add(nibble(*low)?),
-            _ => None,
-        })
+        .as_chunks::<2>()
+        .0
+        .iter()
+        .map(|&[high, low]| nibble(high)?.checked_mul(16)?.checked_add(nibble(low)?))
         .collect()
 }
 
@@ -180,8 +179,8 @@ fn unhex(text: &str, len: usize) -> Option<Vec<u8>> {
 #[must_use]
 pub fn format(prefix: Prefix, bytes: &[u8]) -> String {
     let body = match prefix.body() {
-        Body::Hex(_) => hex(bytes),
-        Body::Base64Url => URL_SAFE_NO_PAD.encode(bytes),
+        BodyForm::Hex(_) => hex(bytes),
+        BodyForm::Base64Url => URL_SAFE_NO_PAD.encode(bytes),
     };
     let mut out = String::with_capacity(prefix.as_str().len().saturating_add(body.len()));
     out.push_str(prefix.as_str());
@@ -201,8 +200,8 @@ pub fn parse(expected: Prefix, text: &str) -> Result<Vec<u8>, InvalidId> {
     }
     let body = text.get(found.as_str().len()..).ok_or(InvalidId::Body)?;
     let bytes = match found.body() {
-        Body::Hex(len) => unhex(body, len),
-        Body::Base64Url => URL_SAFE_NO_PAD.decode(body).ok(),
+        BodyForm::Hex(len) => unhex(body, len),
+        BodyForm::Base64Url => URL_SAFE_NO_PAD.decode(body).ok(),
     };
     bytes
         .filter(|bytes| !bytes.is_empty())
