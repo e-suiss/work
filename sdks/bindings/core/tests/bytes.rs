@@ -100,13 +100,12 @@ fn keys_of(sets: &BTreeMap<String, Vec<Value>>, party: &Value) -> String {
 }
 
 fn content(part: &Value) -> Vec<u8> {
-    match part.get("content_hex") {
-        Some(h) => bytes(h),
-        None => {
-            let spec = &part["content"];
-            let count = usize::try_from(spec["fill_count"].as_u64().unwrap()).unwrap();
-            bytes(&spec["fill_hex"]).repeat(count)
-        }
+    if let Some(h) = part.get("content_hex") {
+        bytes(h)
+    } else {
+        let spec = &part["content"];
+        let count = usize::try_from(spec["fill_count"].as_u64().unwrap()).unwrap();
+        bytes(&spec["fill_hex"]).repeat(count)
     }
 }
 
