@@ -1,0 +1,9 @@
+asyncapi: "3.0.0"
+channels: {}
+info:
+  description: "The thin WebSocket live layer (T-19): presence, shared sessions and control handover. Presence is not a record; a client reads the query service again after a signal. Its messages are added with their catalog."
+  license:
+    name: "Apache-2.0"
+  title: "Work live layer"
+  version: "1"
+operations: {}

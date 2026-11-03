@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "parties": {
+      "description": "The related Party ids (P-37).",
+      "items": {
+        "pattern": "^pty_[A-Za-z0-9_-]+$",
+        "type": "string"
+      },
+      "type": "array",
+      "uniqueItems": true
+    }
+  },
+  "required": [
+    "parties"
+  ],
+  "title": "work.attention_requested data, version 1",
+  "type": "object"
+}

@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "cause": {
+      "description": "The primary event type of the record (T-98 item 4).",
+      "enum": [
+        "work.opened",
+        "work.updated",
+        "commitment.requested",
+        "commitment.promised",
+        "commitment.promised_conditionally",
+        "commitment.declined",
+        "commitment.countered",
+        "commitment.counter_accepted",
+        "commitment.stated",
+        "commitment.accepted",
+        "commitment.rejected",
+        "commitment.cancelled",
+        "commitment.released",
+        "commitment.delegated",
+        "commitment.assigned",
+        "commitment.disputed",
+        "commitment.deferred",
+        "commitment.resumed",
+        "commitment.noticed",
+        "commitment.refused",
+        "commitment.revoked",
+        "commitment.expired",
+        "commitment.closed_administratively",
+        "commitment.claimed",
+        "commitment.unclaimed",
+        "commitment.forwarded",
+        "commitment.nominated",
+        "commitment.offered",
+        "commitment.reassigned",
+        "commitment.lease_renewed",
+        "condition.opened",
+        "condition.withdrawn",
+        "gate.opened",
+        "gate.withdrawn",
+        "gate.decided",
+        "work.stop_requested",
+        "work.stop_responded",
+        "work.resumed_after_stop",
+        "work.control_leased",
+        "work.handed_off",
+        "work.conflict_resolved",
+        "work.conflicted",
+        "work.autonomy_policy_declared",
+        "work.waiver_declared",
+        "commitment.implicit_acceptance_declared",
+        "work.practice_adopted",
+        "work.queue_defined",
+        "work.attention_requested",
+        "work.acknowledged",
+        "record.disclosed",
+        "record.admitted",
+        "record.redacted",
+        "record.compromise_marked",
+        "ledger.version_activated"
+      ],
+      "type": "string"
+    },
+    "parties": {
+      "description": "The related Party ids (P-37).",
+      "items": {
+        "pattern": "^pty_[A-Za-z0-9_-]+$",
+        "type": "string"
+      },
+      "type": "array",
+      "uniqueItems": true
+    }
+  },
+  "required": [
+    "parties",
+    "cause"
+  ],
+  "title": "condition.changed data, version 1",
+  "type": "object"
+}

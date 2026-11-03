@@ -1,0 +1,147 @@
+{
+  "components": {
+    "schemas": {
+      "FieldError": {
+        "description": "A field error with the JSON Pointer of the field (RFC 9457 section 3).",
+        "properties": {
+          "detail": {
+            "description": "What is wrong with it.",
+            "type": "string"
+          },
+          "pointer": {
+            "description": "JSON Pointer of the field in the request body.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "pointer",
+          "detail"
+        ],
+        "type": "object"
+      },
+      "Problem": {
+        "description": "An RFC 9457 problem response (T-98 item 6).",
+        "properties": {
+          "code": {
+            "$ref": "#/components/schemas/ProblemCode",
+            "description": "The stable code."
+          },
+          "code_detail": {
+            "description": "The stable code of the shared crate that refused, such as `policy-cost-too-high`.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "detail": {
+            "description": "What happened in this occurrence.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "errors": {
+            "description": "Field errors.",
+            "items": {
+              "$ref": "#/components/schemas/FieldError"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "instance": {
+            "description": "`urn:work:request:<Request-Id>`.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reason": {
+            "description": "The protocol reason pair `[code, detail]` of a kernel refusal (P-93).",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "retry_after": {
+            "description": "Seconds after which the request may be sent again.",
+            "format": "int32",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "retryable": {
+            "description": "Whether the same request may be sent again.",
+            "type": "boolean"
+          },
+          "status": {
+            "description": "The HTTP status.",
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "title": {
+            "description": "The short title of the code.",
+            "type": "string"
+          },
+          "type": {
+            "description": "`https://suiss.app/ns/work/problems/<code>`.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "title",
+          "status",
+          "code",
+          "retryable"
+        ],
+        "type": "object"
+      },
+      "ProblemCode": {
+        "description": "The stable code of a problem (T-98 item 6).",
+        "enum": [
+          "invalid_request",
+          "invalid_id",
+          "idempotency_key_missing",
+          "idempotency_key_malformed",
+          "idempotency_key_expired",
+          "idempotency_key_conflict",
+          "precondition_required",
+          "precondition_failed",
+          "read_position_invalid",
+          "read_position_ahead",
+          "unauthenticated",
+          "access_denied",
+          "not_found",
+          "request_too_large",
+          "record_rejected",
+          "secret_detected",
+          "restriction_compile_refused",
+          "rate_limited",
+          "busy",
+          "not_recorded",
+          "authority_unverifiable"
+        ],
+        "type": "string"
+      }
+    }
+  },
+  "info": {
+    "description": "The Work REST API. Errors are RFC 9457 problems; every operation names the Access action it asks for in x-work-action.",
+    "license": {
+      "identifier": "Apache-2.0",
+      "name": "Apache-2.0"
+    },
+    "title": "Work API",
+    "version": "1"
+  },
+  "openapi": "3.1.0",
+  "paths": {}
+}

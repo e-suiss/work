@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "kind": {
+      "description": "The revoking wire name (T-98 item 5).",
+      "enum": [
+        "revoke_request",
+        "revoke_promise",
+        "revoke_statement",
+        "revoke_acceptance"
+      ],
+      "type": "string"
+    },
+    "parties": {
+      "description": "The related Party ids (P-37).",
+      "items": {
+        "pattern": "^pty_[A-Za-z0-9_-]+$",
+        "type": "string"
+      },
+      "type": "array",
+      "uniqueItems": true
+    }
+  },
+  "required": [
+    "parties",
+    "kind"
+  ],
+  "title": "commitment.revoked data, version 1",
+  "type": "object"
+}

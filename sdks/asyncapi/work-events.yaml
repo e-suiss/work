@@ -1,0 +1,1250 @@
+asyncapi: "3.0.0"
+channels:
+  events:
+    address: null
+    description: "Work events as subscriptions and webhooks deliver them."
+    messages:
+      commitment.accepted:
+        "$ref": "#/components/messages/commitment.accepted"
+      commitment.assigned:
+        "$ref": "#/components/messages/commitment.assigned"
+      commitment.cancelled:
+        "$ref": "#/components/messages/commitment.cancelled"
+      commitment.changed:
+        "$ref": "#/components/messages/commitment.changed"
+      commitment.claimed:
+        "$ref": "#/components/messages/commitment.claimed"
+      commitment.closed_administratively:
+        "$ref": "#/components/messages/commitment.closed_administratively"
+      commitment.counter_accepted:
+        "$ref": "#/components/messages/commitment.counter_accepted"
+      commitment.countered:
+        "$ref": "#/components/messages/commitment.countered"
+      commitment.declined:
+        "$ref": "#/components/messages/commitment.declined"
+      commitment.deferred:
+        "$ref": "#/components/messages/commitment.deferred"
+      commitment.delegated:
+        "$ref": "#/components/messages/commitment.delegated"
+      commitment.disputed:
+        "$ref": "#/components/messages/commitment.disputed"
+      commitment.expired:
+        "$ref": "#/components/messages/commitment.expired"
+      commitment.forwarded:
+        "$ref": "#/components/messages/commitment.forwarded"
+      commitment.implicit_acceptance_declared:
+        "$ref": "#/components/messages/commitment.implicit_acceptance_declared"
+      commitment.lease_renewed:
+        "$ref": "#/components/messages/commitment.lease_renewed"
+      commitment.nominated:
+        "$ref": "#/components/messages/commitment.nominated"
+      commitment.noticed:
+        "$ref": "#/components/messages/commitment.noticed"
+      commitment.offered:
+        "$ref": "#/components/messages/commitment.offered"
+      commitment.promised:
+        "$ref": "#/components/messages/commitment.promised"
+      commitment.promised_conditionally:
+        "$ref": "#/components/messages/commitment.promised_conditionally"
+      commitment.reassigned:
+        "$ref": "#/components/messages/commitment.reassigned"
+      commitment.refused:
+        "$ref": "#/components/messages/commitment.refused"
+      commitment.rejected:
+        "$ref": "#/components/messages/commitment.rejected"
+      commitment.released:
+        "$ref": "#/components/messages/commitment.released"
+      commitment.requested:
+        "$ref": "#/components/messages/commitment.requested"
+      commitment.resumed:
+        "$ref": "#/components/messages/commitment.resumed"
+      commitment.revoked:
+        "$ref": "#/components/messages/commitment.revoked"
+      commitment.stated:
+        "$ref": "#/components/messages/commitment.stated"
+      commitment.unclaimed:
+        "$ref": "#/components/messages/commitment.unclaimed"
+      condition.changed:
+        "$ref": "#/components/messages/condition.changed"
+      condition.opened:
+        "$ref": "#/components/messages/condition.opened"
+      condition.withdrawn:
+        "$ref": "#/components/messages/condition.withdrawn"
+      gate.changed:
+        "$ref": "#/components/messages/gate.changed"
+      gate.decided:
+        "$ref": "#/components/messages/gate.decided"
+      gate.opened:
+        "$ref": "#/components/messages/gate.opened"
+      gate.withdrawn:
+        "$ref": "#/components/messages/gate.withdrawn"
+      ledger.version_activated:
+        "$ref": "#/components/messages/ledger.version_activated"
+      record.admitted:
+        "$ref": "#/components/messages/record.admitted"
+      record.compromise_marked:
+        "$ref": "#/components/messages/record.compromise_marked"
+      record.disclosed:
+        "$ref": "#/components/messages/record.disclosed"
+      record.redacted:
+        "$ref": "#/components/messages/record.redacted"
+      work.acknowledged:
+        "$ref": "#/components/messages/work.acknowledged"
+      work.attention_requested:
+        "$ref": "#/components/messages/work.attention_requested"
+      work.autonomy_policy_declared:
+        "$ref": "#/components/messages/work.autonomy_policy_declared"
+      work.changed:
+        "$ref": "#/components/messages/work.changed"
+      work.conflict_resolved:
+        "$ref": "#/components/messages/work.conflict_resolved"
+      work.conflicted:
+        "$ref": "#/components/messages/work.conflicted"
+      work.control_leased:
+        "$ref": "#/components/messages/work.control_leased"
+      work.handed_off:
+        "$ref": "#/components/messages/work.handed_off"
+      work.opened:
+        "$ref": "#/components/messages/work.opened"
+      work.practice_adopted:
+        "$ref": "#/components/messages/work.practice_adopted"
+      work.queue_defined:
+        "$ref": "#/components/messages/work.queue_defined"
+      work.resumed_after_stop:
+        "$ref": "#/components/messages/work.resumed_after_stop"
+      work.stop_requested:
+        "$ref": "#/components/messages/work.stop_requested"
+      work.stop_responded:
+        "$ref": "#/components/messages/work.stop_responded"
+      work.updated:
+        "$ref": "#/components/messages/work.updated"
+      work.waiver_declared:
+        "$ref": "#/components/messages/work.waiver_declared"
+    title: "events"
+components:
+  messages:
+    commitment.accepted:
+      contentType: "application/cloudevents+json"
+      name: "commitment.accepted"
+      payload:
+        schema:
+          allOf:
+            - "$ref": "#/components/schemas/CloudEvent"
+            - properties:
+                data:
+                  "$ref": "./schemas/commitment.accepted/1.json"
+                dataschema:
+                  const: "schemas/commitment.accepted/1.json"
+                type:
+                  const: "commitment.accepted"
+              type: "object"
+        schemaFormat: "application/schema+json;version=2020-12"
+      title: "commitment.accepted"
+    commitment.assigned:
+      contentType: "application/cloudevents+json"
+      name: "commitment.assigned"
+      payload:
+        schema:
+          allOf:
+            - "$ref": "#/components/schemas/CloudEvent"
+            - properties:
+                data:
+                  "$ref": "./schemas/commitment.assigned/1.json"
+                dataschema:
+                  const: "schemas/commitment.assigned/1.json"
+                type:
+                  const: "commitment.assigned"
+              type: "object"
+        schemaFormat: "application/schema+json;version=2020-12"
+      title: "commitment.assigned"
+    commitment.cancelled:
+      contentType: "application/cloudevents+json"
+      name: "commitment.cancelled"
+      payload:
+        schema:
+          allOf:
+            - "$ref": "#/components/schemas/CloudEvent"
+            - properties:
+                data:
+                  "$ref": "./schemas/commitment.cancelled/1.json"
+                dataschema:
+                  const: "schemas/commitment.cancelled/1.json"
+                type:
+                  const: "commitment.cancelled"
+              type: "object"
+        schemaFormat: "application/schema+json;version=2020-12"
+      title: "commitment.cancelled"
+    commitment.changed:
+      contentType: "application/cloudevents+json"
+      name: "commitment.changed"
+      payload:
+        schema:
+          allOf:
+            - "$ref": "#/components/schemas/CloudEvent"
+            - properties:
+                data:
+                  "$ref": "./schemas/commitment.changed/1.json"
+                dataschema:
+                  const: "schemas/commitment.changed/1.json"
+                type:
+                  const: "commitment.changed"
+              type: "object"
+        schemaFormat: "application/schema+json;version=2020-12"
+      title: "commitment.changed"
+    commitment.claimed:
+      contentType: "application/cloudevents+json"
+      name: "commitment.claimed"
+      payload:
+        schema:
+          allOf:
+            - "$ref": "#/components/schemas/CloudEvent"
+            - properties:
+                data:
+                  "$ref": "./schemas/commitment.claimed/1.json"
+                dataschema:
+                  const: "schemas/commitment.claimed/1.json"
+                type:
+                  const: "commitment.claimed"
+              type: "object"
+        schemaFormat: "application/schema+json;version=2020-12"
+      title: "commitment.claimed"
+    commitment.closed_administratively:
+      contentType: "application/cloudevents+json"
+      name: "commitment.closed_administratively"
+      payload:
+        schema:
+          allOf:
+            - "$ref": "#/components/schemas/CloudEvent"
+            - properties:
+                data:
+                  "$ref": "./schemas/commitment.closed_administratively/1.json"
+                dataschema:
+                  const: "schemas/commitment.closed_administratively/1.json"
+                type:
+                  const: "commitment.closed_administratively"
+              type: "object"
+        schemaFormat: "application/schema+json;version=2020-12"
+      title: "commitment.closed_administratively"
+    commitment.counter_accepted:
+      contentType: "application/cloudevents+json"
+      name: "commitment.counter_accepted"
+      payload:
+        schema:
+          allOf:
+            - "$ref": "#/components/schemas/CloudEvent"
+            - properties:
+                data:
+                  "$ref": "./schemas/commitment.counter_accepted/1.json"
+                dataschema:
+                  const: "schemas/commitment.counter_accepted/1.json"
+                type:
+                  const: "commitment.counter_accepted"
+              type: "object"
+        schemaFormat: "application/schema+json;version=2020-12"
+      title: "commitment.counter_accepted"
+    commitment.countered:
+      contentType: "application/cloudevents+json"
+      name: "commitment.countered"
+      payload:
+        schema:
+          allOf:
+            - "$ref": "#/components/schemas/CloudEvent"
+            - properties:
+                data:
+                  "$ref": "./schemas/commitment.countered/1.json"
+                dataschema:
+                  const: "schemas/commitment.countered/1.json"
+                type:
+                  const: "commitment.countered"
+              type: "object"
+        schemaFormat: "application/schema+json;version=2020-12"
+      title: "commitment.countered"
+    commitment.declined:
+      contentType: "application/cloudevents+json"
+      name: "commitment.declined"
+      payload:
+        schema:
+          allOf:
+            - "$ref": "#/components/schemas/CloudEvent"
+            - properties:
+                data:
+                  "$ref": "./schemas/commitment.declined/1.json"
+                dataschema:
+                  const: "schemas/commitment.declined/1.json"
+                type:
+                  const: "commitment.declined"
+              type: "object"
+        schemaFormat: "application/schema+json;version=2020-12"
+      title: "commitment.declined"
+    commitment.deferred:
+      contentType: "application/cloudevents+json"
+      name: "commitment.deferred"
+      payload:
+        schema:
+          allOf:
+            - "$ref": "#/components/schemas/CloudEvent"
+            - properties:
+                data:
+                  "$ref": "./schemas/commitment.deferred/1.json"
+                dataschema:
+                  const: "schemas/commitment.deferred/1.json"
+                type:
+                  const: "commitment.deferred"
+              type: "object"
+        schemaFormat: "application/schema+json;version=2020-12"
+      title: "commitment.deferred"
+    commitment.delegated:
+      contentType: "application/cloudevents+json"
+      name: "commitment.delegated"
+      payload:
+        schema:
+          allOf:
+            - "$ref": "#/components/schemas/CloudEvent"
+            - properties:
+                data:
+                  "$ref": "./schemas/commitment.delegated/1.json"
+                dataschema:
+                  const: "schemas/commitment.delegated/1.json"
+                type:
+                  const: "commitment.delegated"
+              type: "object"
+        schemaFormat: "application/schema+json;version=2020-12"
+      title: "commitment.delegated"
+    commitment.disputed:
+      contentType: "application/cloudevents+json"
+      name: "commitment.disputed"
+      payload:
+        schema:
+          allOf:
+            - "$ref": "#/components/schemas/CloudEvent"
+            - properties:
+                data:
+                  "$ref": "./schemas/commitment.disputed/1.json"
+                dataschema:
+                  const: "schemas/commitment.disputed/1.json"
+                type:
+                  const: "commitment.disputed"
+              type: "object"
+        schemaFormat: "application/schema+json;version=2020-12"
+      title: "commitment.disputed"
+    commitment.expired:
+      contentType: "application/cloudevents+json"
+      name: "commitment.expired"
+      payload:
+        schema:
+          allOf:
+            - "$ref": "#/components/schemas/CloudEvent"
+            - properties:
+                data:
+                  "$ref": "./schemas/commitment.expired/1.json"
+                dataschema:
+                  const: "schemas/commitment.expired/1.json"
+                type:
+                  const: "commitment.expired"
+              type: "object"
+        schemaFormat: "application/schema+json;version=2020-12"
+      title: "commitment.expired"
+    commitment.forwarded:
+      contentType: "application/cloudevents+json"
+      name: "commitment.forwarded"
+      payload:
+        schema:
+          allOf:
+            - "$ref": "#/components/schemas/CloudEvent"
+            - properties:
+                data:
+                  "$ref": "./schemas/commitment.forwarded/1.json"
+                dataschema:
+                  const: "schemas/commitment.forwarded/1.json"
+                type:
+                  const: "commitment.forwarded"
+              type: "object"
+        schemaFormat: "application/schema+json;version=2020-12"
+      title: "commitment.forwarded"
+    commitment.implicit_acceptance_declared:
+      contentType: "application/cloudevents+json"
+      name: "commitment.implicit_acceptance_declared"
+      payload:
+        schema:
+          allOf:
+            - "$ref": "#/components/schemas/CloudEvent"
+            - properties:
+                data:
+                  "$ref": "./schemas/commitment.implicit_acceptance_declared/1.json"
+                dataschema:
+                  const: "schemas/commitment.implicit_acceptance_declared/1.json"
+                type:
+                  const: "commitment.implicit_acceptance_declared"
+              type: "object"
+        schemaFormat: "application/schema+json;version=2020-12"
+      title: "commitment.implicit_acceptance_declared"
+    commitment.lease_renewed:
+      contentType: "application/cloudevents+json"
+      name: "commitment.lease_renewed"
+      payload:
+        schema:
+          allOf:
+            - "$ref": "#/components/schemas/CloudEvent"
+            - properties:
+                data:
+                  "$ref": "./schemas/commitment.lease_renewed/1.json"
+                dataschema:
+                  const: "schemas/commitment.lease_renewed/1.json"
+                type:
+                  const: "commitment.lease_renewed"
+              type: "object"
+        schemaFormat: "application/schema+json;version=2020-12"
+      title: "commitment.lease_renewed"
+    commitment.nominated:
+      contentType: "application/cloudevents+json"
+      name: "commitment.nominated"
+      payload:
+        schema:
+          allOf:
+            - "$ref": "#/components/schemas/CloudEvent"
+            - properties:
+                data:
+                  "$ref": "./schemas/commitment.nominated/1.json"
+                dataschema:
+                  const: "schemas/commitment.nominated/1.json"
+                type:
+                  const: "commitment.nominated"
+              type: "object"
+        schemaFormat: "application/schema+json;version=2020-12"
+      title: "commitment.nominated"
+    commitment.noticed:
+      contentType: "application/cloudevents+json"
+      name: "commitment.noticed"
+      payload:
+        schema:
+          allOf:
+            - "$ref": "#/components/schemas/CloudEvent"
+            - properties:
+                data:
+                  "$ref": "./schemas/commitment.noticed/1.json"
+                dataschema:
+                  const: "schemas/commitment.noticed/1.json"
+                type:
+                  const: "commitment.noticed"
+              type: "object"
+        schemaFormat: "application/schema+json;version=2020-12"
+      title: "commitment.noticed"
+    commitment.offered:
+      contentType: "application/cloudevents+json"
+      name: "commitment.offered"
+      payload:
+        schema:
+          allOf:
+            - "$ref": "#/components/schemas/CloudEvent"
+            - properties:
+                data:
+                  "$ref": "./schemas/commitment.offered/1.json"
+                dataschema:
+                  const: "schemas/commitment.offered/1.json"
+                type:
+                  const: "commitment.offered"
+              type: "object"
+        schemaFormat: "application/schema+json;version=2020-12"
+      title: "commitment.offered"
+    commitment.promised:
+      contentType: "application/cloudevents+json"
+      name: "commitment.promised"
+      payload:
+        schema:
+          allOf:
+            - "$ref": "#/components/schemas/CloudEvent"
+            - properties:
+                data:
+                  "$ref": "./schemas/commitment.promised/1.json"
+                dataschema:
+                  const: "schemas/commitment.promised/1.json"
+                type:
+                  const: "commitment.promised"
+              type: "object"
+        schemaFormat: "application/schema+json;version=2020-12"
+      title: "commitment.promised"
+    commitment.promised_conditionally:
+      contentType: "application/cloudevents+json"
+      name: "commitment.promised_conditionally"
+      payload:
+        schema:
+          allOf:
+            - "$ref": "#/components/schemas/CloudEvent"
+            - properties:
+                data:
+                  "$ref": "./schemas/commitment.promised_conditionally/1.json"
+                dataschema:
+                  const: "schemas/commitment.promised_conditionally/1.json"
+                type:
+                  const: "commitment.promised_conditionally"
+              type: "object"
+        schemaFormat: "application/schema+json;version=2020-12"
+      title: "commitment.promised_conditionally"
+    commitment.reassigned:
+      contentType: "application/cloudevents+json"
+      name: "commitment.reassigned"
+      payload:
+        schema:
+          allOf:
+            - "$ref": "#/components/schemas/CloudEvent"
+            - properties:
+                data:
+                  "$ref": "./schemas/commitment.reassigned/1.json"
+                dataschema:
+                  const: "schemas/commitment.reassigned/1.json"
+                type:
+                  const: "commitment.reassigned"
+              type: "object"
+        schemaFormat: "application/schema+json;version=2020-12"
+      title: "commitment.reassigned"
+    commitment.refused:
+      contentType: "application/cloudevents+json"
+      name: "commitment.refused"
+      payload:
+        schema:
+          allOf:
+            - "$ref": "#/components/schemas/CloudEvent"
+            - properties:
+                data:
+                  "$ref": "./schemas/commitment.refused/1.json"
+                dataschema:
+                  const: "schemas/commitment.refused/1.json"
+                type:
+                  const: "commitment.refused"
+              type: "object"
+        schemaFormat: "application/schema+json;version=2020-12"
+      title: "commitment.refused"
+    commitment.rejected:
+      contentType: "application/cloudevents+json"
+      name: "commitment.rejected"
+      payload:
+        schema:
+          allOf:
+            - "$ref": "#/components/schemas/CloudEvent"
+            - properties:
+                data:
+                  "$ref": "./schemas/commitment.rejected/1.json"
+                dataschema:
+                  const: "schemas/commitment.rejected/1.json"
+                type:
+                  const: "commitment.rejected"
+              type: "object"
+        schemaFormat: "application/schema+json;version=2020-12"
+      title: "commitment.rejected"
+    commitment.released:
+      contentType: "application/cloudevents+json"
+      name: "commitment.released"
+      payload:
+        schema:
+          allOf:
+            - "$ref": "#/components/schemas/CloudEvent"
+            - properties:
+                data:
+                  "$ref": "./schemas/commitment.released/1.json"
+                dataschema:
+                  const: "schemas/commitment.released/1.json"
+                type:
+                  const: "commitment.released"
+              type: "object"
+        schemaFormat: "application/schema+json;version=2020-12"
+      title: "commitment.released"
+    commitment.requested:
+      contentType: "application/cloudevents+json"
+      name: "commitment.requested"
+      payload:
+        schema:
+          allOf:
+            - "$ref": "#/components/schemas/CloudEvent"
+            - properties:
+                data:
+                  "$ref": "./schemas/commitment.requested/1.json"
+                dataschema:
+                  const: "schemas/commitment.requested/1.json"
+                type:
+                  const: "commitment.requested"
+              type: "object"
+        schemaFormat: "application/schema+json;version=2020-12"
+      title: "commitment.requested"
+    commitment.resumed:
+      contentType: "application/cloudevents+json"
+      name: "commitment.resumed"
+      payload:
+        schema:
+          allOf:
+            - "$ref": "#/components/schemas/CloudEvent"
+            - properties:
+                data:
+                  "$ref": "./schemas/commitment.resumed/1.json"
+                dataschema:
+                  const: "schemas/commitment.resumed/1.json"
+                type:
+                  const: "commitment.resumed"
+              type: "object"
+        schemaFormat: "application/schema+json;version=2020-12"
+      title: "commitment.resumed"
+    commitment.revoked:
+      contentType: "application/cloudevents+json"
+      name: "commitment.revoked"
+      payload:
+        schema:
+          allOf:
+            - "$ref": "#/components/schemas/CloudEvent"
+            - properties:
+                data:
+                  "$ref": "./schemas/commitment.revoked/1.json"
+                dataschema:
+                  const: "schemas/commitment.revoked/1.json"
+                type:
+                  const: "commitment.revoked"
+              type: "object"
+        schemaFormat: "application/schema+json;version=2020-12"
+      title: "commitment.revoked"
+    commitment.stated:
+      contentType: "application/cloudevents+json"
+      name: "commitment.stated"
+      payload:
+        schema:
+          allOf:
+            - "$ref": "#/components/schemas/CloudEvent"
+            - properties:
+                data:
+                  "$ref": "./schemas/commitment.stated/1.json"
+                dataschema:
+                  const: "schemas/commitment.stated/1.json"
+                type:
+                  const: "commitment.stated"
+              type: "object"
+        schemaFormat: "application/schema+json;version=2020-12"
+      title: "commitment.stated"
+    commitment.unclaimed:
+      contentType: "application/cloudevents+json"
+      name: "commitment.unclaimed"
+      payload:
+        schema:
+          allOf:
+            - "$ref": "#/components/schemas/CloudEvent"
+            - properties:
+                data:
+                  "$ref": "./schemas/commitment.unclaimed/1.json"
+                dataschema:
+                  const: "schemas/commitment.unclaimed/1.json"
+                type:
+                  const: "commitment.unclaimed"
+              type: "object"
+        schemaFormat: "application/schema+json;version=2020-12"
+      title: "commitment.unclaimed"
+    condition.changed:
+      contentType: "application/cloudevents+json"
+      name: "condition.changed"
+      payload:
+        schema:
+          allOf:
+            - "$ref": "#/components/schemas/CloudEvent"
+            - properties:
+                data:
+                  "$ref": "./schemas/condition.changed/1.json"
+                dataschema:
+                  const: "schemas/condition.changed/1.json"
+                type:
+                  const: "condition.changed"
+              type: "object"
+        schemaFormat: "application/schema+json;version=2020-12"
+      title: "condition.changed"
+    condition.opened:
+      contentType: "application/cloudevents+json"
+      name: "condition.opened"
+      payload:
+        schema:
+          allOf:
+            - "$ref": "#/components/schemas/CloudEvent"
+            - properties:
+                data:
+                  "$ref": "./schemas/condition.opened/1.json"
+                dataschema:
+                  const: "schemas/condition.opened/1.json"
+                type:
+                  const: "condition.opened"
+              type: "object"
+        schemaFormat: "application/schema+json;version=2020-12"
+      title: "condition.opened"
+    condition.withdrawn:
+      contentType: "application/cloudevents+json"
+      name: "condition.withdrawn"
+      payload:
+        schema:
+          allOf:
+            - "$ref": "#/components/schemas/CloudEvent"
+            - properties:
+                data:
+                  "$ref": "./schemas/condition.withdrawn/1.json"
+                dataschema:
+                  const: "schemas/condition.withdrawn/1.json"
+                type:
+                  const: "condition.withdrawn"
+              type: "object"
+        schemaFormat: "application/schema+json;version=2020-12"
+      title: "condition.withdrawn"
+    gate.changed:
+      contentType: "application/cloudevents+json"
+      name: "gate.changed"
+      payload:
+        schema:
+          allOf:
+            - "$ref": "#/components/schemas/CloudEvent"
+            - properties:
+                data:
+                  "$ref": "./schemas/gate.changed/1.json"
+                dataschema:
+                  const: "schemas/gate.changed/1.json"
+                type:
+                  const: "gate.changed"
+              type: "object"
+        schemaFormat: "application/schema+json;version=2020-12"
+      title: "gate.changed"
+    gate.decided:
+      contentType: "application/cloudevents+json"
+      name: "gate.decided"
+      payload:
+        schema:
+          allOf:
+            - "$ref": "#/components/schemas/CloudEvent"
+            - properties:
+                data:
+                  "$ref": "./schemas/gate.decided/1.json"
+                dataschema:
+                  const: "schemas/gate.decided/1.json"
+                type:
+                  const: "gate.decided"
+              type: "object"
+        schemaFormat: "application/schema+json;version=2020-12"
+      title: "gate.decided"
+    gate.opened:
+      contentType: "application/cloudevents+json"
+      name: "gate.opened"
+      payload:
+        schema:
+          allOf:
+            - "$ref": "#/components/schemas/CloudEvent"
+            - properties:
+                data:
+                  "$ref": "./schemas/gate.opened/1.json"
+                dataschema:
+                  const: "schemas/gate.opened/1.json"
+                type:
+                  const: "gate.opened"
+              type: "object"
+        schemaFormat: "application/schema+json;version=2020-12"
+      title: "gate.opened"
+    gate.withdrawn:
+      contentType: "application/cloudevents+json"
+      name: "gate.withdrawn"
+      payload:
+        schema:
+          allOf:
+            - "$ref": "#/components/schemas/CloudEvent"
+            - properties:
+                data:
+                  "$ref": "./schemas/gate.withdrawn/1.json"
+                dataschema:
+                  const: "schemas/gate.withdrawn/1.json"
+                type:
+                  const: "gate.withdrawn"
+              type: "object"
+        schemaFormat: "application/schema+json;version=2020-12"
+      title: "gate.withdrawn"
+    ledger.version_activated:
+      contentType: "application/cloudevents+json"
+      name: "ledger.version_activated"
+      payload:
+        schema:
+          allOf:
+            - "$ref": "#/components/schemas/CloudEvent"
+            - properties:
+                data:
+                  "$ref": "./schemas/ledger.version_activated/1.json"
+                dataschema:
+                  const: "schemas/ledger.version_activated/1.json"
+                type:
+                  const: "ledger.version_activated"
+              type: "object"
+        schemaFormat: "application/schema+json;version=2020-12"
+      title: "ledger.version_activated"
+    record.admitted:
+      contentType: "application/cloudevents+json"
+      name: "record.admitted"
+      payload:
+        schema:
+          allOf:
+            - "$ref": "#/components/schemas/CloudEvent"
+            - properties:
+                data:
+                  "$ref": "./schemas/record.admitted/1.json"
+                dataschema:
+                  const: "schemas/record.admitted/1.json"
+                type:
+                  const: "record.admitted"
+              type: "object"
+        schemaFormat: "application/schema+json;version=2020-12"
+      title: "record.admitted"
+    record.compromise_marked:
+      contentType: "application/cloudevents+json"
+      name: "record.compromise_marked"
+      payload:
+        schema:
+          allOf:
+            - "$ref": "#/components/schemas/CloudEvent"
+            - properties:
+                data:
+                  "$ref": "./schemas/record.compromise_marked/1.json"
+                dataschema:
+                  const: "schemas/record.compromise_marked/1.json"
+                type:
+                  const: "record.compromise_marked"
+              type: "object"
+        schemaFormat: "application/schema+json;version=2020-12"
+      title: "record.compromise_marked"
+    record.disclosed:
+      contentType: "application/cloudevents+json"
+      name: "record.disclosed"
+      payload:
+        schema:
+          allOf:
+            - "$ref": "#/components/schemas/CloudEvent"
+            - properties:
+                data:
+                  "$ref": "./schemas/record.disclosed/1.json"
+                dataschema:
+                  const: "schemas/record.disclosed/1.json"
+                type:
+                  const: "record.disclosed"
+              type: "object"
+        schemaFormat: "application/schema+json;version=2020-12"
+      title: "record.disclosed"
+    record.redacted:
+      contentType: "application/cloudevents+json"
+      name: "record.redacted"
+      payload:
+        schema:
+          allOf:
+            - "$ref": "#/components/schemas/CloudEvent"
+            - properties:
+                data:
+                  "$ref": "./schemas/record.redacted/1.json"
+                dataschema:
+                  const: "schemas/record.redacted/1.json"
+                type:
+                  const: "record.redacted"
+              type: "object"
+        schemaFormat: "application/schema+json;version=2020-12"
+      title: "record.redacted"
+    work.acknowledged:
+      contentType: "application/cloudevents+json"
+      name: "work.acknowledged"
+      payload:
+        schema:
+          allOf:
+            - "$ref": "#/components/schemas/CloudEvent"
+            - properties:
+                data:
+                  "$ref": "./schemas/work.acknowledged/1.json"
+                dataschema:
+                  const: "schemas/work.acknowledged/1.json"
+                type:
+                  const: "work.acknowledged"
+              type: "object"
+        schemaFormat: "application/schema+json;version=2020-12"
+      title: "work.acknowledged"
+    work.attention_requested:
+      contentType: "application/cloudevents+json"
+      name: "work.attention_requested"
+      payload:
+        schema:
+          allOf:
+            - "$ref": "#/components/schemas/CloudEvent"
+            - properties:
+                data:
+                  "$ref": "./schemas/work.attention_requested/1.json"
+                dataschema:
+                  const: "schemas/work.attention_requested/1.json"
+                type:
+                  const: "work.attention_requested"
+              type: "object"
+        schemaFormat: "application/schema+json;version=2020-12"
+      title: "work.attention_requested"
+    work.autonomy_policy_declared:
+      contentType: "application/cloudevents+json"
+      name: "work.autonomy_policy_declared"
+      payload:
+        schema:
+          allOf:
+            - "$ref": "#/components/schemas/CloudEvent"
+            - properties:
+                data:
+                  "$ref": "./schemas/work.autonomy_policy_declared/1.json"
+                dataschema:
+                  const: "schemas/work.autonomy_policy_declared/1.json"
+                type:
+                  const: "work.autonomy_policy_declared"
+              type: "object"
+        schemaFormat: "application/schema+json;version=2020-12"
+      title: "work.autonomy_policy_declared"
+    work.changed:
+      contentType: "application/cloudevents+json"
+      name: "work.changed"
+      payload:
+        schema:
+          allOf:
+            - "$ref": "#/components/schemas/CloudEvent"
+            - properties:
+                data:
+                  "$ref": "./schemas/work.changed/1.json"
+                dataschema:
+                  const: "schemas/work.changed/1.json"
+                type:
+                  const: "work.changed"
+              type: "object"
+        schemaFormat: "application/schema+json;version=2020-12"
+      title: "work.changed"
+    work.conflict_resolved:
+      contentType: "application/cloudevents+json"
+      name: "work.conflict_resolved"
+      payload:
+        schema:
+          allOf:
+            - "$ref": "#/components/schemas/CloudEvent"
+            - properties:
+                data:
+                  "$ref": "./schemas/work.conflict_resolved/1.json"
+                dataschema:
+                  const: "schemas/work.conflict_resolved/1.json"
+                type:
+                  const: "work.conflict_resolved"
+              type: "object"
+        schemaFormat: "application/schema+json;version=2020-12"
+      title: "work.conflict_resolved"
+    work.conflicted:
+      contentType: "application/cloudevents+json"
+      name: "work.conflicted"
+      payload:
+        schema:
+          allOf:
+            - "$ref": "#/components/schemas/CloudEvent"
+            - properties:
+                data:
+                  "$ref": "./schemas/work.conflicted/1.json"
+                dataschema:
+                  const: "schemas/work.conflicted/1.json"
+                type:
+                  const: "work.conflicted"
+              type: "object"
+        schemaFormat: "application/schema+json;version=2020-12"
+      title: "work.conflicted"
+    work.control_leased:
+      contentType: "application/cloudevents+json"
+      name: "work.control_leased"
+      payload:
+        schema:
+          allOf:
+            - "$ref": "#/components/schemas/CloudEvent"
+            - properties:
+                data:
+                  "$ref": "./schemas/work.control_leased/1.json"
+                dataschema:
+                  const: "schemas/work.control_leased/1.json"
+                type:
+                  const: "work.control_leased"
+              type: "object"
+        schemaFormat: "application/schema+json;version=2020-12"
+      title: "work.control_leased"
+    work.handed_off:
+      contentType: "application/cloudevents+json"
+      name: "work.handed_off"
+      payload:
+        schema:
+          allOf:
+            - "$ref": "#/components/schemas/CloudEvent"
+            - properties:
+                data:
+                  "$ref": "./schemas/work.handed_off/1.json"
+                dataschema:
+                  const: "schemas/work.handed_off/1.json"
+                type:
+                  const: "work.handed_off"
+              type: "object"
+        schemaFormat: "application/schema+json;version=2020-12"
+      title: "work.handed_off"
+    work.opened:
+      contentType: "application/cloudevents+json"
+      name: "work.opened"
+      payload:
+        schema:
+          allOf:
+            - "$ref": "#/components/schemas/CloudEvent"
+            - properties:
+                data:
+                  "$ref": "./schemas/work.opened/1.json"
+                dataschema:
+                  const: "schemas/work.opened/1.json"
+                type:
+                  const: "work.opened"
+              type: "object"
+        schemaFormat: "application/schema+json;version=2020-12"
+      title: "work.opened"
+    work.practice_adopted:
+      contentType: "application/cloudevents+json"
+      name: "work.practice_adopted"
+      payload:
+        schema:
+          allOf:
+            - "$ref": "#/components/schemas/CloudEvent"
+            - properties:
+                data:
+                  "$ref": "./schemas/work.practice_adopted/1.json"
+                dataschema:
+                  const: "schemas/work.practice_adopted/1.json"
+                type:
+                  const: "work.practice_adopted"
+              type: "object"
+        schemaFormat: "application/schema+json;version=2020-12"
+      title: "work.practice_adopted"
+    work.queue_defined:
+      contentType: "application/cloudevents+json"
+      name: "work.queue_defined"
+      payload:
+        schema:
+          allOf:
+            - "$ref": "#/components/schemas/CloudEvent"
+            - properties:
+                data:
+                  "$ref": "./schemas/work.queue_defined/1.json"
+                dataschema:
+                  const: "schemas/work.queue_defined/1.json"
+                type:
+                  const: "work.queue_defined"
+              type: "object"
+        schemaFormat: "application/schema+json;version=2020-12"
+      title: "work.queue_defined"
+    work.resumed_after_stop:
+      contentType: "application/cloudevents+json"
+      name: "work.resumed_after_stop"
+      payload:
+        schema:
+          allOf:
+            - "$ref": "#/components/schemas/CloudEvent"
+            - properties:
+                data:
+                  "$ref": "./schemas/work.resumed_after_stop/1.json"
+                dataschema:
+                  const: "schemas/work.resumed_after_stop/1.json"
+                type:
+                  const: "work.resumed_after_stop"
+              type: "object"
+        schemaFormat: "application/schema+json;version=2020-12"
+      title: "work.resumed_after_stop"
+    work.stop_requested:
+      contentType: "application/cloudevents+json"
+      name: "work.stop_requested"
+      payload:
+        schema:
+          allOf:
+            - "$ref": "#/components/schemas/CloudEvent"
+            - properties:
+                data:
+                  "$ref": "./schemas/work.stop_requested/1.json"
+                dataschema:
+                  const: "schemas/work.stop_requested/1.json"
+                type:
+                  const: "work.stop_requested"
+              type: "object"
+        schemaFormat: "application/schema+json;version=2020-12"
+      title: "work.stop_requested"
+    work.stop_responded:
+      contentType: "application/cloudevents+json"
+      name: "work.stop_responded"
+      payload:
+        schema:
+          allOf:
+            - "$ref": "#/components/schemas/CloudEvent"
+            - properties:
+                data:
+                  "$ref": "./schemas/work.stop_responded/1.json"
+                dataschema:
+                  const: "schemas/work.stop_responded/1.json"
+                type:
+                  const: "work.stop_responded"
+              type: "object"
+        schemaFormat: "application/schema+json;version=2020-12"
+      title: "work.stop_responded"
+    work.updated:
+      contentType: "application/cloudevents+json"
+      name: "work.updated"
+      payload:
+        schema:
+          allOf:
+            - "$ref": "#/components/schemas/CloudEvent"
+            - properties:
+                data:
+                  "$ref": "./schemas/work.updated/1.json"
+                dataschema:
+                  const: "schemas/work.updated/1.json"
+                type:
+                  const: "work.updated"
+              type: "object"
+        schemaFormat: "application/schema+json;version=2020-12"
+      title: "work.updated"
+    work.waiver_declared:
+      contentType: "application/cloudevents+json"
+      name: "work.waiver_declared"
+      payload:
+        schema:
+          allOf:
+            - "$ref": "#/components/schemas/CloudEvent"
+            - properties:
+                data:
+                  "$ref": "./schemas/work.waiver_declared/1.json"
+                dataschema:
+                  const: "schemas/work.waiver_declared/1.json"
+                type:
+                  const: "work.waiver_declared"
+              type: "object"
+        schemaFormat: "application/schema+json;version=2020-12"
+      title: "work.waiver_declared"
+  schemas:
+    CloudEvent:
+      description: "The CloudEvents 1.0 structured envelope of every Work event (P-35); the event is thin and carries no record body (P-37)."
+      properties:
+        correlationid:
+          type: "string"
+        data:
+          type: "object"
+        datacontenttype:
+          const: "application/json"
+          type: "string"
+        dataschema:
+          description: "The versioned data schema path."
+          type: "string"
+        id:
+          description: "Event id, the same in every delivery attempt."
+          type: "string"
+        ledger:
+          description: "LedgerID of the source record, lower-case hex."
+          pattern: "^[0-9a-f]{64}$"
+          type: "string"
+        pos:
+          description: "Ledger position of the source record, decimal."
+          pattern: "^(0|[1-9][0-9]*)$"
+          type: "string"
+        recordid:
+          description: "Digest of the source record, lower-case hex."
+          pattern: "^[0-9a-f]{64}$"
+          type: "string"
+        seq:
+          description: "Monotonic version per subject, decimal (T-81)."
+          pattern: "^[1-9][0-9]*$"
+          type: "string"
+        source:
+          description: "The installation URI and the ledger: <installation>/ledgers/<ledger hex> (P-98)."
+          format: "uri"
+          type: "string"
+        specversion:
+          const: "1.0"
+          type: "string"
+        subject:
+          description: "The prefixed id of the item (P-112)."
+          type: "string"
+        time:
+          description: "recorded_at of the source record."
+          format: "date-time"
+          type: "string"
+        traceparent:
+          pattern: "^00-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}$"
+          type: "string"
+        type:
+          description: "<item>.<past tense> (P-38)."
+          type: "string"
+      required:
+        - "specversion"
+        - "id"
+        - "source"
+        - "type"
+        - "time"
+        - "subject"
+        - "datacontenttype"
+        - "dataschema"
+        - "seq"
+        - "recordid"
+        - "ledger"
+        - "pos"
+        - "data"
+      type: "object"
+defaultContentType: "application/cloudevents+json"
+info:
+  description: "Every Work event type: one event per record and affected item, named <item>.<past tense>; the item a record is about takes the type of its wire name and every other item it touches takes <item>.changed (T-98 items 4 and 5). Events are CloudEvents 1.0, thin, and come from the transactional outbox after the record is durable."
+  license:
+    name: "Apache-2.0"
+  title: "Work events"
+  version: "1"
+operations:
+  sendEvents:
+    action: "send"
+    channel:
+      "$ref": "#/channels/events"
+    messages:
+      - "$ref": "#/channels/events/messages/work.opened"
+      - "$ref": "#/channels/events/messages/work.updated"
+      - "$ref": "#/channels/events/messages/commitment.requested"
+      - "$ref": "#/channels/events/messages/commitment.promised"
+      - "$ref": "#/channels/events/messages/commitment.promised_conditionally"
+      - "$ref": "#/channels/events/messages/commitment.declined"
+      - "$ref": "#/channels/events/messages/commitment.countered"
+      - "$ref": "#/channels/events/messages/commitment.counter_accepted"
+      - "$ref": "#/channels/events/messages/commitment.stated"
+      - "$ref": "#/channels/events/messages/commitment.accepted"
+      - "$ref": "#/channels/events/messages/commitment.rejected"
+      - "$ref": "#/channels/events/messages/commitment.cancelled"
+      - "$ref": "#/channels/events/messages/commitment.released"
+      - "$ref": "#/channels/events/messages/commitment.delegated"
+      - "$ref": "#/channels/events/messages/commitment.assigned"
+      - "$ref": "#/channels/events/messages/commitment.disputed"
+      - "$ref": "#/channels/events/messages/commitment.deferred"
+      - "$ref": "#/channels/events/messages/commitment.resumed"
+      - "$ref": "#/channels/events/messages/commitment.noticed"
+      - "$ref": "#/channels/events/messages/commitment.refused"
+      - "$ref": "#/channels/events/messages/commitment.revoked"
+      - "$ref": "#/channels/events/messages/commitment.expired"
+      - "$ref": "#/channels/events/messages/commitment.closed_administratively"
+      - "$ref": "#/channels/events/messages/commitment.claimed"
+      - "$ref": "#/channels/events/messages/commitment.unclaimed"
+      - "$ref": "#/channels/events/messages/commitment.forwarded"
+      - "$ref": "#/channels/events/messages/commitment.nominated"
+      - "$ref": "#/channels/events/messages/commitment.offered"
+      - "$ref": "#/channels/events/messages/commitment.reassigned"
+      - "$ref": "#/channels/events/messages/commitment.lease_renewed"
+      - "$ref": "#/channels/events/messages/condition.opened"
+      - "$ref": "#/channels/events/messages/condition.withdrawn"
+      - "$ref": "#/channels/events/messages/gate.opened"
+      - "$ref": "#/channels/events/messages/gate.withdrawn"
+      - "$ref": "#/channels/events/messages/gate.decided"
+      - "$ref": "#/channels/events/messages/work.stop_requested"
+      - "$ref": "#/channels/events/messages/work.stop_responded"
+      - "$ref": "#/channels/events/messages/work.resumed_after_stop"
+      - "$ref": "#/channels/events/messages/work.control_leased"
+      - "$ref": "#/channels/events/messages/work.handed_off"
+      - "$ref": "#/channels/events/messages/work.conflict_resolved"
+      - "$ref": "#/channels/events/messages/work.conflicted"
+      - "$ref": "#/channels/events/messages/work.autonomy_policy_declared"
+      - "$ref": "#/channels/events/messages/work.waiver_declared"
+      - "$ref": "#/channels/events/messages/commitment.implicit_acceptance_declared"
+      - "$ref": "#/channels/events/messages/work.practice_adopted"
+      - "$ref": "#/channels/events/messages/work.queue_defined"
+      - "$ref": "#/channels/events/messages/work.attention_requested"
+      - "$ref": "#/channels/events/messages/work.acknowledged"
+      - "$ref": "#/channels/events/messages/record.disclosed"
+      - "$ref": "#/channels/events/messages/record.admitted"
+      - "$ref": "#/channels/events/messages/record.redacted"
+      - "$ref": "#/channels/events/messages/record.compromise_marked"
+      - "$ref": "#/channels/events/messages/ledger.version_activated"
+      - "$ref": "#/channels/events/messages/work.changed"
+      - "$ref": "#/channels/events/messages/commitment.changed"
+      - "$ref": "#/channels/events/messages/condition.changed"
+      - "$ref": "#/channels/events/messages/gate.changed"
