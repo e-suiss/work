@@ -9,9 +9,11 @@ repository.workspace = true
 publish = false
 
 [dependencies]
+suiss-sandbox = { workspace = true }
 work-dispatch = { workspace = true }
 work-kernel = { workspace = true }
 work-ledger = { workspace = true }
+work-parse = { workspace = true }
 work-store = { workspace = true }
 work-telemetry = { workspace = true }
 async-nats = { workspace = true, features = ["jetstream"] }
@@ -28,6 +30,7 @@ futures-util = { workspace = true }
 serde_json = { workspace = true, features = ["std"] }
 suiss-crypto = { workspace = true, features = ["aead", "pkcs11"] }
 tokio = { workspace = true, features = ["io-util", "macros", "net", "rt-multi-thread", "time"] }
+work-proto = { workspace = true }
 work-testkit = { workspace = true }
 
 [lints]

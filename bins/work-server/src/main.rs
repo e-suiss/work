@@ -1,8 +1,10 @@
 //! Work server (T-1). Reads configuration, installs telemetry and composes crates;
-//! business logic lives in `crates/` (T-31).
+//! business logic lives in `crates/` (T-31). Started as `work-server parser-worker` it is a
+//! locked-down parser worker instead (T-72).
 
 mod config;
 mod health;
+mod parser;
 mod services;
 mod startup;
 
@@ -14,6 +16,10 @@ use startup::{Infrastructure, TimeDriver};
 use tokio::sync::watch;
 
 fn main() -> ExitCode {
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    if args.first().map(String::as_str) == Some(parser::MODE) {
+        return parser::main(args.get(1..).unwrap_or_default());
+    }
     let config = match Config::load() {
         Ok(config) => config,
         Err(error) => {
