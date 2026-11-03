@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT erasure_id::text AS \"erasure_id!\" FROM work.erasure_log\n           WHERE ledger_id = $1 AND dek_id = $2::text::uuid AND state = 'waiting_on_hold'\n             AND pos IS NOT DISTINCT FROM $3::bigint AND part IS NOT DISTINCT FROM $4::text\n           ORDER BY requested_at, erasure_id LIMIT 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "erasure_id!",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Text",
+        "Int8",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "7baf2862989376bb861228e7365be0457685866989a458ff54d291b87fbdb0f8"
+}

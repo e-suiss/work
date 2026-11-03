@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE work.erasure_log e\n                 SET state = 'shredded',\n                     settles_at = coalesce(k.shredded_at, pg_catalog.now())\n                                  + $4::bigint * interval '1 millisecond'\n                 FROM work.body_part_key k\n                 WHERE e.ledger_id = $1 AND e.state = 'waiting_on_hold'\n                   AND e.pos = $2 AND e.part = $3\n                   AND k.ledger_id = e.ledger_id AND k.pos = e.pos AND k.part = e.part\n                   AND k.wrapped_key IS NULL",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Int8",
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d8a446c166d622a77f25c0bcf66e53fd7dff908d12509067793fdccf37b2f9eb"
+}

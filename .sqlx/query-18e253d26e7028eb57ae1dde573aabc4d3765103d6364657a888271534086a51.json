@@ -1,0 +1,42 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO work.erasure_log (ledger_id, dek_id, cause, state, settles_at, pos, part)\n           VALUES ($1, $2::text::uuid, $3, 'shredded',\n                   pg_catalog.now() + $4::bigint * interval '1 millisecond', $5::bigint, $6::text)\n           RETURNING erasure_id::text AS \"erasure_id!\",\n                     (extract(epoch FROM settles_at) * 1000)::bigint AS \"settles_at!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "erasure_id!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "settles_at!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "ledger.digest32",
+            "kind": {
+              "Domain": "Bytea"
+            }
+          }
+        },
+        "Text",
+        "Text",
+        "Int8",
+        "Int8",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "18e253d26e7028eb57ae1dde573aabc4d3765103d6364657a888271534086a51"
+}

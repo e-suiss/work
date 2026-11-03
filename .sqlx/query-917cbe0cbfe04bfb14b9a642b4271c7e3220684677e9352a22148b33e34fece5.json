@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE work.erasure_log SET state = 'completed', completed_at = pg_catalog.now()\n               WHERE ledger_id = $1 AND state = 'shredded' AND settles_at <= pg_catalog.now()\n               RETURNING erasure_id::text AS \"erasure_id!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "erasure_id!",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "917cbe0cbfe04bfb14b9a642b4271c7e3220684677e9352a22148b33e34fece5"
+}

@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT EXISTS (\n                   SELECT 1 FROM work.retention_hold h\n                   WHERE h.ledger_id = $1 AND h.state = 'active'\n                     AND (h.subject_ref IS NULL OR h.subject_ref = $2)\n                     AND (h.retention_class IS NULL OR h.retention_class = $3)\n               ) AS \"held!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "held!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "ae2f7aa12625d36186a8b90194b4edfde090471bacdf4716cb4fa35ae4e91162"
+}

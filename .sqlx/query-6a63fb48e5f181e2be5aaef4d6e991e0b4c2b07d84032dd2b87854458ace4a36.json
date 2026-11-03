@@ -1,0 +1,34 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE work.erasure_log\n           SET state = 'shredded',\n               settles_at = pg_catalog.now() + $5::bigint * interval '1 millisecond'\n           WHERE ledger_id = $1 AND dek_id = $2::text::uuid AND state = 'waiting_on_hold'\n             AND pos IS NOT DISTINCT FROM $3::bigint AND part IS NOT DISTINCT FROM $4::text\n           RETURNING erasure_id::text AS \"erasure_id!\",\n                     (extract(epoch FROM settles_at) * 1000)::bigint AS \"settles_at!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "erasure_id!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "settles_at!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Text",
+        "Int8",
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "6a63fb48e5f181e2be5aaef4d6e991e0b4c2b07d84032dd2b87854458ace4a36"
+}

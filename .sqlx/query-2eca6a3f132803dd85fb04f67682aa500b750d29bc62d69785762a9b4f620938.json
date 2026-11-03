@@ -1,0 +1,37 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT k.wrapped_key AS \"wrapped_key?\", p.dek_id::text AS \"dek_id!\"\n               FROM work.body_part_key k\n               JOIN work.body_part p\n                 ON p.ledger_id = k.ledger_id AND p.pos = k.pos AND p.part = k.part\n               WHERE k.ledger_id = $1 AND k.pos = $2 AND k.part = $3 FOR UPDATE OF k",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "wrapped_key?",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "work.body_part_key",
+            "name": "wrapped_key"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "dek_id!",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Int8",
+        "Text"
+      ]
+    },
+    "nullable": [
+      true,
+      null
+    ]
+  },
+  "hash": "2eca6a3f132803dd85fb04f67682aa500b750d29bc62d69785762a9b4f620938"
+}

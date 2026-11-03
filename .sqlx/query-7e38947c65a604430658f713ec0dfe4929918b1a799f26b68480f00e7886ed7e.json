@@ -1,0 +1,34 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO work.erasure_log (ledger_id, dek_id, cause, state, pos, part)\n           VALUES ($1, $2::text::uuid, $3, 'waiting_on_hold', $4::bigint, $5::text)\n           RETURNING erasure_id::text AS \"erasure_id!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "erasure_id!",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "ledger.digest32",
+            "kind": {
+              "Domain": "Bytea"
+            }
+          }
+        },
+        "Text",
+        "Text",
+        "Int8",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "7e38947c65a604430658f713ec0dfe4929918b1a799f26b68480f00e7886ed7e"
+}
