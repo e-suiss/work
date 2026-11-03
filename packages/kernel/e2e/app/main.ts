@@ -1,7 +1,10 @@
 // T-5 T-37 T-44
 import type { DecodedRecord, Kernel, RecordContext, Validation } from "../../src/index.js";
 import { loadKernel } from "../../src/index.js";
+import * as raw from "../../wasm/work_kernel_wasm.js";
 import { deriveRecords, validateRecord } from "../../wasm/work_kernel_wasm.js";
+import type { ByteVectors, Check } from "../suite.js";
+import { byteChecks } from "../suite.js";
 
 /** Milliseconds from page code to a usable kernel, and to the first answer after it (T-44). */
 export interface Startup {
@@ -18,6 +21,7 @@ export interface KernelPage {
     readonly validateRecord: typeof validateRecord;
     readonly deriveRecords: typeof deriveRecords;
   };
+  readonly byteChecks: (vectors: ByteVectors) => Promise<Check[]>;
 }
 
 declare global {
@@ -39,4 +43,5 @@ window.workKernel = {
   load: () => loadKernel(),
   startup,
   raw: { validateRecord, deriveRecords },
+  byteChecks: async (vectors) => byteChecks(await loadKernel(), raw, vectors),
 };

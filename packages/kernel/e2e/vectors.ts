@@ -14,6 +14,7 @@ import type {
   Validation,
   VersionOrder,
 } from "../src/index.js";
+import type { ByteVectors } from "./suite.js";
 
 export interface ApiVectors {
   readonly api_version: string;
@@ -63,8 +64,15 @@ interface Envelope {
 const kernelDir = new URL("../../../conformance/vectors/kernel/", import.meta.url);
 const recordsDir = new URL("../../../conformance/vectors/records/", import.meta.url);
 
-/** Record vector files whose inputs are raw CBOR, digest, signature or proof bytes, which the WebAssembly API does not take; until the shared CBOR and crypto crates exist (P-8), the native binding tests check only their reason codes and digest encodings (T-37). */
-export const nativeOnlyRecordFiles = [
+/** Record vector files the browser runs through `validateRecord` and `deriveRecords` on their `decoded` projection. */
+export const recordFiles = [
+  "records.json",
+  "records-reject.json",
+  "records-quarantine.json",
+] as const;
+
+/** Record vector files the browser runs only through the byte entry points. */
+export const byteRecordFiles = [
   "cbor-canonical.json",
   "cose-sign1.json",
   "digest.json",
@@ -73,23 +81,14 @@ export const nativeOnlyRecordFiles = [
   "merkle.json",
 ] as const;
 
-/** Record vector files the browser runs through `validateRecord` and `deriveRecords`. */
-export const recordFiles = [
-  "records.json",
-  "records-reject.json",
-  "records-quarantine.json",
-] as const;
-
 /** Kernel vector files the browser runs. */
 export const kernelFiles = [
   "api-version.json",
   "derive-expected.json",
   "derive-inputs.json",
+  "items-touched.json",
   "policy-default.json",
 ] as const;
-
-/** Kernel vector files of the sequencer's write path, which runs natively only; the WebAssembly API does not name touched items (T-89). */
-export const nativeOnlyKernelFiles = ["items-touched.json"] as const;
 
 async function json<T>(base: URL, name: string): Promise<T> {
   return JSON.parse(await readFile(new URL(name, base), "utf8")) as T;
@@ -145,3 +144,17 @@ export const inputs = await json<DerivationInputs>(kernelDir, "derive-inputs.jso
 export const expectedDerivation = (
   await readFile(new URL("derive-expected.json", kernelDir), "utf8")
 ).trimEnd();
+
+/** Every record format vector file and the touched item vectors, for the byte entry points (T-5, T-37). */
+export const byteVectors: ByteVectors = {
+  cbor: await json<ByteVectors["cbor"]>(recordsDir, "cbor-canonical.json"),
+  cose: await json<ByteVectors["cose"]>(recordsDir, "cose-sign1.json"),
+  digest: await json<ByteVectors["digest"]>(recordsDir, "digest.json"),
+  evidence: await json<ByteVectors["evidence"]>(recordsDir, "evidence.json"),
+  genesis: await json<ByteVectors["genesis"]>(recordsDir, "genesis.json"),
+  merkle: await json<ByteVectors["merkle"]>(recordsDir, "merkle.json"),
+  records: await json<ByteVectors["records"]>(recordsDir, "records.json"),
+  quarantine: await json<ByteVectors["quarantine"]>(recordsDir, "records-quarantine.json"),
+  rejects: await json<ByteVectors["rejects"]>(recordsDir, "records-reject.json"),
+  items: await json<ByteVectors["items"]>(kernelDir, "items-touched.json"),
+};

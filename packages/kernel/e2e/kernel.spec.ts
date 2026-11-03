@@ -8,12 +8,12 @@ import type {
 import { expect, test } from "./fixtures.js";
 import {
   api,
+  byteRecordFiles,
+  byteVectors,
   entries,
   expectedDerivation,
   inputs,
   kernelFiles,
-  nativeOnlyKernelFiles,
-  nativeOnlyRecordFiles,
   policy,
   recordCases,
   recordFiles,
@@ -22,10 +22,10 @@ import {
 
 // T-5 T-37
 test.describe("t_5_t_37 browser WebAssembly kernel matches the shared kernel vectors", () => {
-  test("every vector file is run in the browser or named as native only", async () => {
+  test("every vector file is run in the browser", async () => {
     const files = await vectorFiles();
-    expect(files.kernel).toEqual([...kernelFiles, ...nativeOnlyKernelFiles].sort());
-    expect(files.records).toEqual([...recordFiles, ...nativeOnlyRecordFiles].sort());
+    expect(files.kernel).toEqual([...kernelFiles].sort());
+    expect(files.records).toEqual([...recordFiles, ...byteRecordFiles].sort());
   });
 
   test("api-version.json", async ({ page }) => {
@@ -160,6 +160,18 @@ test.describe("t_5_t_37_inv_7 browser WebAssembly derivation matches the native 
       },
     );
     expect(got).toEqual(["KernelInputError", "KernelInputError"]);
+  });
+});
+
+// T-5 T-37 T-69 INV-7 INV-8 X-24
+test.describe("t_5_t_37_inv_7 browser WebAssembly byte entry points match their vectors", () => {
+  test("every byte entry point answers as its vector states", async ({ page }) => {
+    const checks = await page.evaluate(async (v) => window.workKernel.byteChecks(v), byteVectors);
+    const files = new Set(checks.map((c) => c.file));
+    expect(files.size).toBe(9);
+    for (const c of checks) {
+      expect.soft(c.got, `${c.file} ${c.id}`).toBe(c.want);
+    }
   });
 });
 
