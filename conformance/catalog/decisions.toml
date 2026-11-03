@@ -2851,6 +2851,7 @@ stage = 2
 title = ""
 tests = [
   "bins/work-server/src/config.rs::op_33_witnesses_need_a_unique_id_a_cosigner_key_and_an_http_url",
+  "crates/ledger/src/replica.rs::op_2_a_cosignature_is_archived_once_beside_its_checkpoint",
   "crates/ledger/src/witness.rs::op_33_only_a_configured_witness_cosigning_the_stored_tree_is_taken",
   "crates/ledger/src/witness/client.rs::op_46_witness_answers_are_typed_by_their_status",
   "crates/ledger/src/witness/gossip.rs::sec_32_an_observed_root_is_consistent_only_with_the_ledgers_root_at_its_size",
@@ -4401,9 +4402,9 @@ tests = [
   "bins/work-server/src/config.rs::t_20_urls_with_a_password_are_rejected",
   "bins/work-server/src/startup.rs::t_20_postgres_18_and_later_are_accepted",
   "bins/work-server/src/startup.rs::t_20_postgres_older_than_18_is_refused",
-  "crates/ledger/src/body/s3.rs::t_20_request_time_is_the_utc_date_of_the_clock",
-  "crates/ledger/src/body/s3.rs::t_20_requests_are_signed_with_signature_version_4",
-  "crates/ledger/src/body/s3.rs::t_20_the_object_store_endpoint_and_names_are_checked",
+  "crates/ledger/src/s3.rs::t_20_request_time_is_the_utc_date_of_the_clock",
+  "crates/ledger/src/s3.rs::t_20_requests_are_signed_with_signature_version_4",
+  "crates/ledger/src/s3.rs::t_20_the_object_store_endpoint_and_names_are_checked",
 ]
 
 [[rule]]
@@ -5485,6 +5486,7 @@ acceptance = "to-fill"
 title = ""
 tests = [
   "bins/work-server/src/config.rs::op_33_checkpoints_default_to_60_s_or_1000_records_and_need_a_replica",
+  "bins/work-server/src/config.rs::op_33_the_replica_is_a_directory_or_an_object_locked_s3_bucket",
   "bins/work-server/src/config.rs::op_46_the_declaration_defaults_to_claiming_nothing_and_saas_needs_independence",
   "bins/work-server/src/config.rs::t_20_both_databases_and_nats_are_configured",
   "bins/work-server/src/config.rs::t_20_urls_with_a_password_are_rejected",
@@ -5529,7 +5531,8 @@ acceptance = "to-fill"
 title = ""
 tests = [
   "bins/work-server/src/config.rs::t_20_both_databases_and_nats_are_configured",
-  "crates/ledger/src/body/s3.rs::t_20_the_object_store_endpoint_and_names_are_checked",
+  "crates/ledger/src/replica.rs::op_2_a_cosignature_is_archived_once_beside_its_checkpoint",
+  "crates/ledger/src/s3.rs::t_20_the_object_store_endpoint_and_names_are_checked",
   "crates/store/src/migrate.rs::op_2_tables_live_in_exactly_one_cluster",
   "crates/store/src/rebuild.rs::op_1_a_rebuild_reads_only_canonical_tables",
   "crates/store/src/rebuild.rs::op_45_body_tables_are_neither_rebuilt_nor_compared",
@@ -5754,6 +5757,7 @@ pd = "set"
 title = ""
 tests = [
   "bins/work-server/src/config.rs::op_33_checkpoints_default_to_60_s_or_1000_records_and_need_a_replica",
+  "bins/work-server/src/config.rs::op_33_the_replica_is_a_directory_or_an_object_locked_s3_bucket",
   "bins/work-server/src/config.rs::op_33_witnesses_need_a_unique_id_a_cosigner_key_and_an_http_url",
   "bins/work-server/src/config.rs::op_46_independent_k_needs_k_counted_witnesses_configured",
   "bins/work-server/src/config.rs::op_46_the_declaration_defaults_to_claiming_nothing_and_saas_needs_independence",
@@ -5772,6 +5776,7 @@ tests = [
   "crates/ledger/src/witness/round.rs::op_32_a_pass_that_asked_a_counted_witness_gives_a_witness_round",
   "crates/ledger/src/witness/round.rs::op_33_a_witness_that_fails_waits_one_second_doubling_up_to_a_minute",
   "crates/ledger/src/witness/round.rs::sec_32_a_witness_holding_a_larger_tree_than_the_latest_checkpoint_is_a_split_view",
+  "crates/ledger/src/worm.rs::op_33_objects_are_locked_in_compliance_mode_for_the_configured_days",
   "crates/testkit/src/witness.rs::t_41_the_test_witness_is_the_image_the_local_environment_builds",
   "sdks/bindings/core/tests/bytes.rs::t_88_checkpoint_vectors_through_bindings_core",
   "sdks/bindings/uniffi/tests/swift/main.swift::t_4_swift_merkle_and_checkpoint_vectors_match",
@@ -5796,7 +5801,11 @@ family = "OP"
 status = "frozen-technical"
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/ledger/src/archive.rs::op_35_the_manifest_is_the_drop_functions_digest_over_ledger_ordered_lines",
+  "crates/ledger/src/worm.rs::op_33_objects_are_locked_in_compliance_mode_for_the_configured_days",
+  "crates/store/src/archive.rs::op_35_only_monthly_partitions_of_the_two_tables_are_archived",
+]
 
 [[rule]]
 id = "OP-36"
@@ -5816,7 +5825,9 @@ status = "frozen-technical"
 acceptance = "to-fill"
 pd = "set"
 title = ""
-tests = []
+tests = [
+  "crates/store/src/archive.rs::op_35_only_monthly_partitions_of_the_two_tables_are_archived",
+]
 
 [[rule]]
 id = "OP-38"
@@ -5947,6 +5958,7 @@ stage = 2
 acceptance = "to-fill"
 title = ""
 tests = [
+  "bins/work-server/src/config.rs::op_33_the_replica_is_a_directory_or_an_object_locked_s3_bucket",
   "bins/work-server/src/config.rs::op_33_witnesses_need_a_unique_id_a_cosigner_key_and_an_http_url",
   "bins/work-server/src/config.rs::op_46_independent_k_needs_k_counted_witnesses_configured",
   "bins/work-server/src/config.rs::op_46_the_declaration_defaults_to_claiming_nothing_and_saas_needs_independence",
@@ -5957,6 +5969,7 @@ tests = [
   "crates/kernel/tests/ledger_vectors.rs::op_46_a_checkpoint_without_exactly_its_three_profile_lines_is_malformed",
   "crates/ledger/src/checkpoint.rs::op_46_saas_declares_independent_time_and_at_least_two_witnesses",
   "crates/ledger/src/checkpoint.rs::op_46_the_acknowledgement_declares_the_profile_asked_for",
+  "crates/ledger/src/replica.rs::op_2_a_cosignature_is_archived_once_beside_its_checkpoint",
   "crates/ledger/src/witness/client.rs::op_33_the_add_checkpoint_body_is_old_size_proof_lines_and_the_note",
   "crates/ledger/src/witness/client.rs::op_46_witness_answers_are_typed_by_their_status",
   "crates/ledger/src/witness/gossip.rs::sec_32_an_observed_root_is_consistent_only_with_the_ledgers_root_at_its_size",

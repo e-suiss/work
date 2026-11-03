@@ -2196,6 +2196,7 @@ status = "canonical-invariant"
 stage = 0
 title = "Records are never physically deleted; personal data is crypto-shredded"
 tests = [
+  "crates/ledger/src/archive.rs::op_35_the_manifest_is_the_drop_functions_digest_over_ledger_ordered_lines",
   "crates/ledger/src/body/tests.rs::op_45_a_destroyed_class_dek_or_a_retired_kek_opens_nothing",
   "crates/store/src/migrate.rs::t_36_every_migration_runs_as_the_owner_with_timeouts_in_one_transaction",
   "xtask/src/rules_source.rs::t_36_allowlisted_job_queue_table_needs_a_reason",
