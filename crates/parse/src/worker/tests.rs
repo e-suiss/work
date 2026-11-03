@@ -112,7 +112,7 @@ fn t_72_the_worker_loop_answers_until_its_input_closes_and_stops_at_an_untrusted
     let mut output = Vec::new();
     let served = serve(&s, &mut Cursor::new(cut), &mut output);
     assert!(matches!(served, Err(ServeError::Io(_))), "{served:?}");
-    assert!(output.is_empty());
+    assert_eq!(output, Vec::<u8>::new());
 }
 
 // T-72

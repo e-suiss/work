@@ -324,7 +324,7 @@ mod tests {
         let parts: [(&str, &[u8]); 2] = [("title", b"hello".as_slice()), ("note", &[])];
         let payload = scan_request(&parts).unwrap();
         assert_eq!(scan_parts(&payload).unwrap(), parts);
-        assert!(scan_parts(&[0, 0]).unwrap().is_empty());
+        assert_eq!(scan_parts(&[0, 0]), Ok(Vec::new()));
         let mut trailing = payload.clone();
         trailing.push(0);
         let mut empty_name = alloc::vec![0, 1, 0];

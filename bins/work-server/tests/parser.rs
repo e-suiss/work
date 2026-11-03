@@ -129,7 +129,7 @@ fn t_72_the_parser_worker_refuses_to_start_when_its_lockdown_cannot_be_set_up() 
     let err = String::from_utf8_lossy(&out.stderr);
     assert!(!out.status.success());
     assert!(err.contains("refusing to start: lockdown failed"), "{err}");
-    assert!(out.stdout.is_empty());
+    assert_eq!(out.stdout, Vec::<u8>::new());
 
     let mut command = Command::new(EXE);
     command.arg("parser-worker");
