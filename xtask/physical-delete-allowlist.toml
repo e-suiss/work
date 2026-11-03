@@ -12,6 +12,12 @@ function = "work.drop_archived_partition"
 id = "OP-35"
 reason = "OP-35 rule 2: the same drop path, which now also requires a verified WORM archive record in work.partition_archive for every ledger slice of the partition before the DROP"
 
+[[drop]]
+file = "crates/store/migrations/canonical/20261103120000_work_partition_cold_window.sql"
+function = "work.drop_archived_partition"
+id = "OP-38"
+reason = "OP-38 rule 4: the same drop path, which now judges a partition cold only 30 days and the clock uncertainty U after its range ends, through work.partition_is_cold"
+
 [[table]]
 name = "outbox"
 reason = "OP-12 rule 6, OP-34 rule 2: work_publisher removes an outbox pointer (identity only, no personal data) after the JetStream ack; the log record is the durable result"

@@ -111,8 +111,8 @@ impl ArchivePool {
         unsigned(ms)
     }
 
-    /// The partitions of the archived tables whose range ended at least 30 days ago (OP-36
-    /// item 2), by name.
+    /// The partitions of the archived tables whose range ended at least 30 days and U ago (OP-36
+    /// item 2, OP-38 item 4), by name.
     ///
     /// # Errors
     /// [`StoreError::Db`].
@@ -125,8 +125,8 @@ impl ArchivePool {
             "SELECT c.oid::regclass::text FROM pg_catalog.pg_inherits h \
              JOIN pg_catalog.pg_class c ON c.oid = h.inhrelid \
              WHERE h.inhparent IN ('work.idempotency_key'::regclass, 'work.inbound_seen'::regclass) \
-             AND substring(pg_catalog.pg_get_expr(c.relpartbound, c.oid) FROM 'TO \\(''([^'']+)''\\)')::timestamptz \
-                 <= pg_catalog.now() - interval '30 days' \
+             AND work.partition_is_cold(substring(pg_catalog.pg_get_expr(c.relpartbound, c.oid) \
+                 FROM 'TO \\(''([^'']+)''\\)')::timestamptz, pg_catalog.now()) \
              ORDER BY 1",
         )
         .fetch_all(&mut *tx)

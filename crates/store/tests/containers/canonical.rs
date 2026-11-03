@@ -79,7 +79,7 @@ pub(crate) async fn seeded() -> (Env, String) {
 #[ignore = "needs Docker"]
 async fn t_36_migrations_rerun_as_a_no_op() {
     let env = Env::start().await;
-    for (cluster, applied) in [(Cluster::Canonical, 18), (Cluster::Derived, 7)] {
+    for (cluster, applied) in [(Cluster::Canonical, 19), (Cluster::Derived, 7)] {
         work_store::migrate(&env.pool(cluster, "work_owner"), cluster)
             .await
             .unwrap();
@@ -907,4 +907,31 @@ async fn op_12_only_the_archive_role_drops_a_cold_partition_whose_copy_matches()
         .await,
         1
     );
+}
+
+// OP-38 OP-35 OP-36 OP-32
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs Docker"]
+async fn op_38_a_partition_is_cold_only_30_days_and_u_after_its_range_ends() {
+    let env = Env::start().await;
+    let l = hex(&L);
+    let archive = env.canonical("work_archive");
+    for (as_of, cold) in [
+        ("2026-12-01T00:00:00Z", 0),
+        ("2026-12-01T00:00:00.249Z", 0),
+        ("2026-12-01T00:00:00.250Z", 1),
+        ("2026-12-01T00:00:01Z", 1),
+    ] {
+        let query = format!(
+            "SELECT work.partition_is_cold('2026-11-01T00:00:00Z', '{as_of}')::int::bigint"
+        );
+        assert_eq!(scalar(&archive, &l, &query, false).await, cold, "{as_of}");
+    }
+    let judged = "SELECT count(*) FROM pg_catalog.pg_proc p \
+                  WHERE p.pronamespace = 'work'::regnamespace \
+                  AND p.proname IN ('drop_archived_partition', 'partition_ledgers') \
+                  AND p.prosrc LIKE '%work.partition_is_cold(upper_bound, now())%' \
+                  AND p.prosrc NOT LIKE '%30 days%'";
+    let owner = env.canonical("work_owner");
+    assert_eq!(scalar(&owner, &l, judged, false).await, 2);
 }
