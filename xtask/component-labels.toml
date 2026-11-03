@@ -21,9 +21,11 @@ enforced_by = [
 name = "ledger-sequencer"
 label = "CANONICAL"
 crates = ["crates/ledger"]
+tables = ["ledger.ledger_cell", "ledger.sequencer_lease"]
 never = "is the only write path, and being the leader is not authority"
 enforced_by = [
   "crates/store/tests/containers/canonical.rs::op_5_appends_need_a_contiguous_chain_and_the_head_compare_and_set",
+  "crates/store/tests/containers/sequencer.rs::t_28_a_live_lease_keeps_another_node_out_until_it_is_released_or_expires",
   "crates/store/tests/containers/sequencer.rs::t_85_leadership_is_refused_when_the_head_diverges_from_the_log",
 ]
 
@@ -182,9 +184,13 @@ open = "the live layer is not written yet"
 [[component]]
 name = "placement-directory"
 label = "OPERATIONAL"
+tables = ["work.placement"]
 never = "is not a decision input, and when it is wrong the sequencer refuses"
-enforced_by = ["crates/ledger/src/admit/tests.rs::op_9_a_record_declaring_another_ledger_is_refused"]
-open = "the placement directory itself is not written yet"
+enforced_by = [
+  "crates/ledger/src/admit/tests.rs::op_9_a_record_declaring_another_ledger_is_refused",
+  "crates/store/tests/containers/sequencer.rs::op_9_a_wrong_directory_entry_is_refused_by_the_sequencer",
+]
+open = "the directory lives in the canonical database of the single cell; a global, replicated directory across cells comes with cells and regions"
 
 [[component]]
 name = "export-replay"
