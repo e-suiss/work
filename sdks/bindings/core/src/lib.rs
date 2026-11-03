@@ -38,7 +38,7 @@ const ACTOR_FIELDS: &[&str] = &["author", "on_behalf_of", "evidence"];
 pub(crate) fn error(code: &str, extra: Map<String, Value>) -> String {
     let mut detail = extra;
     detail.insert("code".to_owned(), Value::from(code));
-    json!({ "error": detail }).to_string()
+    project::compact(json!({ "error": detail }))
 }
 
 pub(crate) fn input_error(code: &str) -> String {
@@ -87,14 +87,13 @@ fn context(v: &Value) -> Mapped<Context> {
 }
 
 fn answer(outcome: Outcome) -> String {
-    match outcome {
+    project::compact(match outcome {
         Outcome::Accepted => json!({ "outcome": "accept" }),
         Outcome::Rejected(reason) => json!({ "outcome": "reject", "reason": reason.to_string() }),
         Outcome::Quarantined(reason) => {
             json!({ "outcome": "quarantine", "reason": reason.to_string() })
         }
-    }
-    .to_string()
+    })
 }
 
 fn with_context(

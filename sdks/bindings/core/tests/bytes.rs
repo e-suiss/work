@@ -72,8 +72,24 @@ fn accept(fields: Value) -> Value {
     out
 }
 
+fn sorted(value: &Value) -> Value {
+    match value {
+        Value::Object(map) => {
+            let entries: BTreeMap<&String, &Value> = map.iter().collect();
+            Value::Object(
+                entries
+                    .into_iter()
+                    .map(|(k, v)| (k.clone(), sorted(v)))
+                    .collect(),
+            )
+        }
+        Value::Array(items) => Value::Array(items.iter().map(sorted).collect()),
+        other => other.clone(),
+    }
+}
+
 fn same(id: &str, got: &str, want: &Value) {
-    assert_eq!(got, want.to_string(), "{id}");
+    assert_eq!(got, sorted(want).to_string(), "{id}");
 }
 
 /// The keys Access binds to each party of `cose-sign1.json`, in the binding's keys shape.

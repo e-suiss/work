@@ -17,7 +17,7 @@ use crate::decode::{
     self, Mapped, exact_keys, hex, list, object, optional, pair, party, required, text, uint,
 };
 use crate::ledger::point;
-use crate::project::digest_json;
+use crate::project::{compact, digest_json};
 use crate::signature::keys;
 use crate::{error, input_error, parse};
 
@@ -298,13 +298,12 @@ pub fn derive_records(entries: &str, inputs_json: &str) -> String {
         calendar: inputs.calendar,
     };
     match derive(&entries, &kernel_inputs) {
-        Ok(d) => json!({
+        Ok(d) => compact(json!({
             "derivation": {
                 "records": d.records.iter().map(derived).collect::<Vec<_>>(),
                 "chains": d.chains.iter().map(chain).collect::<Vec<_>>(),
             }
-        })
-        .to_string(),
+        })),
         Err(e) => derive_error(e),
     }
 }

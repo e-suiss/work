@@ -7,6 +7,8 @@
     reason = "test code"
 )]
 
+use std::collections::BTreeMap;
+
 use serde_json::{Value, json};
 use work_bindings_core::{decode_record_cbor, map_record};
 
@@ -25,8 +27,24 @@ fn bytes(v: &Value) -> Vec<u8> {
         .collect()
 }
 
+fn sorted(value: &Value) -> Value {
+    match value {
+        Value::Object(map) => {
+            let entries: BTreeMap<&String, &Value> = map.iter().collect();
+            Value::Object(
+                entries
+                    .into_iter()
+                    .map(|(k, v)| (k.clone(), sorted(v)))
+                    .collect(),
+            )
+        }
+        Value::Array(items) => Value::Array(items.iter().map(sorted).collect()),
+        other => other.clone(),
+    }
+}
+
 fn same(id: &str, got: &str, want: &Value) {
-    assert_eq!(got, want.to_string(), "{id}");
+    assert_eq!(got, sorted(want).to_string(), "{id}");
 }
 
 // P-49 P-51 T-5 T-37

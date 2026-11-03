@@ -1,12 +1,30 @@
 //! Writes kernel values in the `decoded` JSON projection (P-10, P-87): byte strings as lowercase hex, digests as `[-16, hex]`, integers beyond ±2^53 as decimal strings, and kernel decisions as `{"outcome", "reason"?}` objects with the decision's own fields beside them.
 
 use core::fmt::Write as _;
+use std::collections::BTreeMap;
 
 use serde_json::{Map, Value, json};
 use work_kernel::codec::Value as Cbor;
 use work_kernel::id::Digest;
 
 const SAFE: u64 = 1 << 53;
+
+/// `value` as compact JSON text with every object's keys in sorted order, whatever map the JSON
+/// crate is built with, so the answer bytes do not depend on another crate's features (T-95).
+pub(crate) fn compact(value: Value) -> String {
+    sorted(value).to_string()
+}
+
+fn sorted(value: Value) -> Value {
+    match value {
+        Value::Object(map) => {
+            let entries: BTreeMap<String, Value> = map.into_iter().collect();
+            Value::Object(entries.into_iter().map(|(k, v)| (k, sorted(v))).collect())
+        }
+        Value::Array(items) => Value::Array(items.into_iter().map(sorted).collect()),
+        other => other,
+    }
+}
 
 pub(crate) fn hex(bytes: &[u8]) -> String {
     let mut out = String::with_capacity(bytes.len().saturating_mul(2));
@@ -22,7 +40,7 @@ pub(crate) fn digest_json(d: &Digest) -> Value {
 
 /// `{"digest": [-16, hex]}`.
 pub(crate) fn digest_answer(d: &Digest) -> String {
-    json!({ "digest": digest_json(d) }).to_string()
+    compact(json!({ "digest": digest_json(d) }))
 }
 
 pub(crate) fn uint_json(n: u64) -> Value {
@@ -67,7 +85,7 @@ pub(crate) fn cbor(v: &Cbor) -> Option<Value> {
 pub(crate) fn accept(fields: Map<String, Value>) -> String {
     let mut out = fields;
     out.insert("outcome".to_owned(), Value::from("accept"));
-    Value::Object(out).to_string()
+    compact(Value::Object(out))
 }
 
 /// `{"outcome": "accept"}` alone.
@@ -77,12 +95,12 @@ pub(crate) fn accepted() -> String {
 
 /// `{"outcome": "reject", "reason": code}`.
 pub(crate) fn reject(code: &str) -> String {
-    json!({ "outcome": "reject", "reason": code }).to_string()
+    compact(json!({ "outcome": "reject", "reason": code }))
 }
 
 /// `{"outcome": "quarantine", "reason": code}`.
 pub(crate) fn quarantine(code: &str) -> String {
-    json!({ "outcome": "quarantine", "reason": code }).to_string()
+    compact(json!({ "outcome": "quarantine", "reason": code }))
 }
 
 /// A JSON object from key and value pairs.
