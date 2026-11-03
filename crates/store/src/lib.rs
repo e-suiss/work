@@ -20,6 +20,7 @@ mod scope;
 mod sequencer;
 mod server;
 mod skeleton;
+mod witness;
 
 pub use body::{
     BodyPartRow, DekRow, ERASURE_ROLE, ErasurePool, RetentionClass, Shred, Stored, StoredPart,
@@ -56,6 +57,7 @@ pub use skeleton::{
     BodyCommitmentRow, EndpointRow, HeaderRow, InboundRow, ReceivedKind, ReceivedRole, ReceivedRow,
     RelationRow, Skeleton, StoredLogEntry,
 };
+pub use witness::{ObservationVerdict, WitnessObservation};
 
 /// The connection pool type, so other crates need no driver dependency.
 pub use sqlx::PgPool as Pool;

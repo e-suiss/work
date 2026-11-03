@@ -337,6 +337,33 @@ impl CheckpointerPool {
         Ok(out)
     }
 
+    /// The leaf hashes of the records of `ledger` at positions `0..size`, in position order,
+    /// the tree a consistency proof is taken over (OP-33).
+    ///
+    /// # Errors
+    /// [`StoreError::Corrupt`] when the log does not hold `size` records, otherwise
+    /// [`StoreError::Db`].
+    pub async fn leaf_hashes(
+        &self,
+        ledger: &LedgerId,
+        size: u64,
+    ) -> Result<Vec<[u8; 32]>, StoreError> {
+        let mut tx = self.begin(ledger).await?;
+        let rows: Vec<Vec<u8>> = sqlx::query_scalar(
+            "SELECT leaf_hash::bytea FROM ledger.log \
+             WHERE ledger_id = $1 AND pos < $2 ORDER BY pos",
+        )
+        .bind(ledger.as_bytes().as_slice())
+        .bind(signed(size)?)
+        .fetch_all(tx.conn())
+        .await?;
+        tx.commit().await?;
+        if u64::try_from(rows.len()).ok() != Some(size) {
+            return Err(StoreError::Corrupt);
+        }
+        rows.iter().map(|raw| digest(raw.as_slice())).collect()
+    }
+
     /// How many records `replica` holds of `ledger`; 0 before its first mirror.
     ///
     /// # Errors
