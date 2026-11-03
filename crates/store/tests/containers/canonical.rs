@@ -876,7 +876,13 @@ async fn p_111_a_redaction_names_its_request_and_is_written_once() {
         ))
     };
     fails(&erasure, &l, &[&insert("redaction", "NULL")], Some("23514")).await;
-    fails(&erasure, &l, &[&insert("subject_request", "0")], Some("23514")).await;
+    fails(
+        &erasure,
+        &l,
+        &[&insert("subject_request", "0")],
+        Some("23514"),
+    )
+    .await;
     let shredded = pool.shred_part(&ledger, 0, 0, "note", hour).await.unwrap();
     assert!(matches!(shredded, Erased::Shredded { .. }), "{shredded:?}");
     let again = pool.shred_part(&ledger, 0, 0, "note", hour).await.unwrap();

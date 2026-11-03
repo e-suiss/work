@@ -401,10 +401,7 @@ mod tests {
         ));
         assert!(leader.log.appended.lock().unwrap().is_empty());
         assert_eq!(leader.head().pos, 0);
-        assert_eq!(
-            leader.activate(20, &request(v1_0, right)).await.unwrap(),
-            1
-        );
+        assert_eq!(leader.activate(20, &request(v1_0, right)).await.unwrap(), 1);
         assert_eq!(leader.activations().len(), 2);
         assert_eq!(leader.activations()[1].position, 1);
         assert!(matches!(

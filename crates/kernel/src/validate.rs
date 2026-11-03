@@ -15,8 +15,8 @@ use crate::reason::{
     wire_enum,
 };
 use crate::record::{
-    Audience, Capacity, ClaimType, EvidenceSubject, EvidenceType, ParamScalar, ParamValue, PartName,
-    PracticePin, Record, RecordCore, Visibility,
+    Audience, Capacity, ClaimType, EvidenceSubject, EvidenceType, ParamScalar, ParamValue,
+    PartName, PracticePin, Record, RecordCore, Visibility,
 };
 use crate::relation::{DerivedRole, DerivedTarget, ReferenceTarget, Relation, RelationName};
 use crate::rules::RuleSet;

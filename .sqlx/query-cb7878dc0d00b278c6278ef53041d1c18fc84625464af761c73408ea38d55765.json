@@ -1,0 +1,53 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT pos AS \"pos!\", record_bytes AS \"record_bytes!\",\n                      envelope_bytes AS \"envelope_bytes!\"\n               FROM ledger.log WHERE ledger_id = $1 AND pos = $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "pos!",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "ledger.log",
+            "name": "pos"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "record_bytes!",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "ledger.log",
+            "name": "record_bytes"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "envelope_bytes!",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "ledger.log",
+            "name": "envelope_bytes"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "cb7878dc0d00b278c6278ef53041d1c18fc84625464af761c73408ea38d55765"
+}

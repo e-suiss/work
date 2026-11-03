@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT record_bytes FROM ledger.log WHERE ledger_id = $1 AND pos = 0",
+  "query": "SELECT l.record_bytes FROM ledger.version_activation v\n             JOIN ledger.log l ON l.ledger_id = v.ledger_id AND l.pos = v.pos\n             WHERE v.ledger_id = $1 ORDER BY v.pos",
   "describe": {
     "columns": [
       {
@@ -24,5 +24,5 @@
       false
     ]
   },
-  "hash": "0f293098cf812d9eef354b5df6755e6ca29236f715f253226e4671bca89fdc95"
+  "hash": "384d2579e70e8890949984905afbd04dfa7968f678029f4b5b4f07680a4deebf"
 }

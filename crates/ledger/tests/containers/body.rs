@@ -274,7 +274,10 @@ async fn op_45_a_shredded_body_is_unreadable_while_its_skeleton_verifies() {
     ));
     let elsewhere = redaction(&ledger, [0x5e; 32], "note");
     let unknown = group
-        .admit(&Directory::golden(), submission(unsigned(&elsewhere), &actors))
+        .admit(
+            &Directory::golden(),
+            submission(unsigned(&elsewhere), &actors),
+        )
         .await
         .unwrap();
     assert!(

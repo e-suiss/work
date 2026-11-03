@@ -163,8 +163,7 @@ mod tests {
 
     fn check(entries: &[&Vec<u8>]) -> Result<Vec<(u64, ProtocolVersion)>, Reason> {
         let slices: Vec<&[u8]> = entries.iter().copied().map(Vec::as_slice).collect();
-        check_activations(&slices)
-            .map(|a| a.iter().map(|x| (x.position, x.protocol)).collect())
+        check_activations(&slices).map(|a| a.iter().map(|x| (x.position, x.protocol)).collect())
     }
 
     // P-110 P-100 OP-28

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "INSERT INTO work.erasure_log (ledger_id, dek_id, cause, state, pos, part)\n           VALUES ($1, $2::text::uuid, $3, 'waiting_on_hold', $4::bigint, $5::text)\n           RETURNING erasure_id::text AS \"erasure_id!\"",
+  "query": "INSERT INTO work.erasure_log (ledger_id, dek_id, cause, state, pos, part, request_pos)\n           VALUES ($1, $2::text::uuid, $3, 'waiting_on_hold', $4::bigint, $5::text, $6::bigint)\n           RETURNING erasure_id::text AS \"erasure_id!\"",
   "describe": {
     "columns": [
       {
@@ -23,12 +23,13 @@
         "Text",
         "Text",
         "Int8",
-        "Text"
+        "Text",
+        "Int8"
       ]
     },
     "nullable": [
       null
     ]
   },
-  "hash": "7e38947c65a604430658f713ec0dfe4929918b1a799f26b68480f00e7886ed7e"
+  "hash": "542b2cf54f6fdc2fcc580a91501f7096d7ab4ae401f7b29b2807760bb71a8af6"
 }

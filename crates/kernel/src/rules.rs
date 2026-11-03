@@ -55,7 +55,10 @@ impl RuleSet {
     /// The rule set of exactly this protocol version; `None` when this kernel does not carry it and the record is quarantined as `protocol_version_unknown` (P-87).
     #[must_use]
     pub fn for_version(version: ProtocolVersion) -> Option<Self> {
-        Self::KNOWN.iter().copied().find(|r| r.protocol() == version)
+        Self::KNOWN
+            .iter()
+            .copied()
+            .find(|r| r.protocol() == version)
     }
 
     /// The rule set of the protocol version the record carries (P-87).

@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "-- T-10 OP-1 P-110\nSELECT ROW(pos)::text AS \"row!\" FROM ledger.version_activation WHERE ledger_id = $1\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "row!",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "9f48f5e7da0e0c9266f62aa5affc935c4bf4164cb0b64e764c9a2ed8f2dd3435"
+}

@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO ledger.version_activation (ledger_id, pos) VALUES ($1, $2)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "ledger.digest32",
+            "kind": {
+              "Domain": "Bytea"
+            }
+          }
+        },
+        {
+          "Custom": {
+            "name": "ledger.log_pos",
+            "kind": {
+              "Domain": "Int8"
+            }
+          }
+        }
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "082b1f6189f43a51381cba9841b0fc038fb8c6ddf40abea298624c988ab7b395"
+}
