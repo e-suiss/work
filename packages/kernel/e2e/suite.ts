@@ -90,6 +90,11 @@ interface LedgerVector extends RecordVector {
   readonly envelope: EnvelopeVector;
 }
 
+interface ItemsCase {
+  readonly id: string;
+  readonly touches: readonly Touch[];
+}
+
 interface CoseKey {
   readonly id: string;
   readonly party: string;
@@ -197,7 +202,7 @@ export interface ByteVectors {
     readonly cases: readonly LedgerVector[];
   };
   readonly rejects: { readonly cases: readonly RecordVector[] };
-  readonly items: { readonly cases: readonly { readonly id: string; readonly touches: Touch[] }[] };
+  readonly items: { readonly cases: readonly ItemsCase[] };
 }
 
 /** One answer of a binding entry point next to the answer its vector states, both as compact JSON with sorted keys. */
@@ -324,7 +329,8 @@ function digestChecks(kernel: Kernel, raw: typeof Raw, vectors: ByteVectors): Ch
     } else if (v.part !== undefined) {
       const salt = bytes(need(v.salt_hex, "salt"));
       const hex = v.part.content_hex;
-      const content = hex === undefined ? filled("", need(v.part.content, "content")) : bytes(hex);
+      const fill = v.part.content;
+      const content = hex === undefined ? filled("", need(fill, "content")) : bytes(hex);
       const { name, media_type: media } = v.part;
       c.same(
         v.id,
@@ -334,17 +340,22 @@ function digestChecks(kernel: Kernel, raw: typeof Raw, vectors: ByteVectors): Ch
       );
     } else if (v.id === "digest/record-id") {
       const input = bytes(first.hex);
-      c.same(v.id, raw.recordId(input), kernel.recordId(input), found(need(v.digest_hex, "d")));
+      const id = found(need(v.digest_hex, "digest"));
+      c.same(v.id, raw.recordId(input), kernel.recordId(input), id);
     } else if (v.id === "digest/leaf-0x00") {
       const input = bytes(envelope.hex);
-      c.same(v.id, raw.leafHash(input), kernel.leafHash(input), found(need(v.digest_hex, "d")));
+      const leaf = found(need(v.digest_hex, "digest"));
+      c.same(v.id, raw.leafHash(input), kernel.leafHash(input), leaf);
     } else if (v.id === "digest/proof-commit") {
       const cose = bytes(need(v.cose_hex, "cose"));
-      c.same(v.id, raw.proofCommit(cose), kernel.proofCommit(cose), found(need(v.digest_hex, "d")));
+      const commit = found(need(v.digest_hex, "digest"));
+      c.same(v.id, raw.proofCommit(cose), kernel.proofCommit(cose), commit);
+      const kid = need(v.kid_hex, "kid");
+      const key = need(v.public_key_hex, "public key");
       const keys: PartyKeys = {
         party: first.decoded.author,
         allowed: [-19],
-        keys: [{ kid: need(v.kid_hex, "kid"), alg: -19, public_key: need(v.public_key_hex, "pk") }],
+        keys: [{ kid, alg: -19, public_key: key }],
       };
       c.same(
         v.id,
@@ -391,7 +402,7 @@ function decodeChecks(kernel: Kernel, raw: typeof Raw, vectors: ByteVectors): Ch
     const leaf = found(v.envelope.leaf_hash);
     r.same(v.id, raw.leafHash(envelope), kernel.leafHash(envelope), leaf);
   }
-  const all = [...vectors.records.records, ...vectors.rejects.cases, ...vectors.quarantine.cases];
+  const all = [...ledger(vectors), ...vectors.rejects.cases];
   for (const v of all) {
     const record = bytes(v.hex);
     const context = JSON.stringify(v.context);
