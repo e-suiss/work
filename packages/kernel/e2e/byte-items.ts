@@ -8,8 +8,8 @@ export function touchedChecks(kernel: Kernel, raw: typeof Raw, vectors: ByteVect
   const c = new Checks("items-touched.json");
   const records = [...vectors.records.records, ...vectors.quarantine.cases];
   for (const v of vectors.items.cases) {
-    const vector = need(records.find((r) => r.id === v.id), v.id);
-    const record = bytes(vector.hex);
+    const vector = records.find((r) => r.id === v.id);
+    const record = bytes(need(vector, v.id).hex);
     const want = accept({ touches: v.touches });
     c.same(v.id, raw.touched(record), kernel.touched(record), want);
   }
