@@ -11,7 +11,8 @@ function touchedChecks(kernel: Kernel, raw: typeof Raw, vectors: ByteVectors): C
   const c = new Checks("items-touched.json");
   const records = [...vectors.records.records, ...vectors.quarantine.cases];
   for (const v of vectors.items.cases) {
-    const record = bytes(need(records.find((r) => r.id === v.id), v.id).hex);
+    const vector = need(records.find((r) => r.id === v.id), v.id);
+    const record = bytes(vector.hex);
     const want = accept({ touches: v.touches });
     c.same(v.id, raw.touched(record), kernel.touched(record), want);
   }
