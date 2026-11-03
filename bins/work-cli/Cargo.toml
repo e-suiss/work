@@ -8,12 +8,13 @@ license.workspace = true
 repository.workspace = true
 publish = false
 
-# T-36 OP-28 OP-1 OP-35
+# T-36 OP-28 OP-1 OP-35 OP-47 T-39
 [dependencies]
 suiss-crypto = { workspace = true, features = ["aws-lc"] }
 tokio = { workspace = true, features = ["rt"] }
 work-ledger = { workspace = true, features = ["s3"] }
 work-store = { workspace = true }
+work-telemetry = { workspace = true }
 
 [lints]
 workspace = true

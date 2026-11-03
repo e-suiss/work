@@ -4754,6 +4754,7 @@ dependencies = [
  "tokio",
  "work-ledger",
  "work-store",
+ "work-telemetry",
 ]
 
 [[package]]

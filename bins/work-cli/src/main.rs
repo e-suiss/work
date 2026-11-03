@@ -5,6 +5,7 @@ use std::process::ExitCode;
 use suiss_crypto::secret::Secret;
 use work_ledger::{Retention, S3Config, WormStore, tls_trusting};
 use work_store::{ArchivePool, Cluster, Durability, LedgerId, Pool, SequencerPool};
+use work_telemetry::{DEFAULT_METRIC_INTERVAL, MetricConfig, Meters, meter_provider};
 
 const USAGE: &str = "usage: work-cli --version | work-cli migrate <canonical|derived> | \
                      work-cli rebuild <ledger hex> <single-node|quorum> | work-cli archive";
@@ -27,6 +28,10 @@ const LIVE_URL: &str = "WORK_REBUILD_LIVE_URL";
 
 /// The empty, migrated canonical database a rebuild writes, as a `work_sequencer` login (OP-1).
 const TARGET_URL: &str = "WORK_REBUILD_TARGET_URL";
+
+/// The OTLP/gRPC collector the sev-1 rebuild-diff counter is exported to; unset exports nothing
+/// (OP-47 item 9, OP-18).
+const OTLP_ENDPOINT: &str = "WORK_OTLP_ENDPOINT";
 
 enum Command {
     Migrate(Cluster),
@@ -100,6 +105,9 @@ fn main() -> ExitCode {
                         t.missing.len(),
                         t.unexpected.len()
                     );
+                }
+                if let Err(e) = count_diff() {
+                    eprintln!("rebuild-diff {}: metric not exported: {e}", ledger.to_hex());
                 }
                 ExitCode::FAILURE
             }
@@ -193,4 +201,56 @@ fn archive() -> Result<Vec<(String, u64)>, String> {
             .await
             .map_err(|e| e.to_string())
     })
+}
+
+/// The export settings of the rebuild-diff counter: `WORK_OTLP_ENDPOINT`, never with credentials
+/// in it (T-56).
+fn metric_config(endpoint: Option<String>) -> Result<MetricConfig, String> {
+    let endpoint = endpoint.filter(|e| !e.is_empty());
+    if endpoint.as_deref().is_some_and(|e| e.contains('@')) {
+        return Err(format!("{OTLP_ENDPOINT} must not carry credentials"));
+    }
+    Ok(MetricConfig {
+        service: "work-cli".to_owned(),
+        version: env!("CARGO_PKG_VERSION").to_owned(),
+        endpoint,
+        interval: DEFAULT_METRIC_INTERVAL,
+    })
+}
+
+/// Counts one sev-1 rebuild-diff on `work.ledger.rebuild_diff`, with no label, and flushes it to
+/// the collector before the process exits (§18 OP-47 item 9, OP-18 item 3).
+fn count_diff() -> Result<(), String> {
+    let config = metric_config(std::env::var(OTLP_ENDPOINT).ok())?;
+    let runtime = runtime()?;
+    let provider = {
+        let _entered = runtime.enter();
+        meter_provider(&config).map_err(|e| e.to_string())?
+    };
+    Meters::new(&provider).rebuild_diff().add(1, &[]);
+    runtime
+        .block_on(tokio::task::spawn_blocking(move || provider.shutdown()))
+        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // OP-47 OP-18 T-39 T-56
+    #[test]
+    fn op_47_the_rebuild_diff_counter_exports_only_where_configured() {
+        assert_eq!(metric_config(None).unwrap().endpoint, None);
+        assert_eq!(metric_config(Some(String::new())).unwrap().endpoint, None);
+        assert_eq!(
+            metric_config(Some("http://collector:4317".to_owned()))
+                .unwrap()
+                .endpoint
+                .as_deref(),
+            Some("http://collector:4317")
+        );
+        assert!(metric_config(Some("http://u:pw@collector:4317".to_owned())).is_err());
+        assert_eq!(count_diff(), Ok(()));
+    }
 }
