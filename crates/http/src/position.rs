@@ -23,21 +23,22 @@ pub const PREFERENCE_APPLIED: HeaderName = HeaderName::from_static("preference-a
 /// The `Work-Min-Position` token of a request, if it sends one.
 ///
 /// # Errors
-/// The `read_position_invalid` problem for a header that is not one `pos_` token.
-pub fn min_position(headers: &HeaderMap) -> Result<Option<PositionToken>, Problem> {
+/// [`PositionRefusal::Invalid`], answered by [`refusal`], for a header that is not one `pos_`
+/// token.
+pub fn min_position(headers: &HeaderMap) -> Result<Option<PositionToken>, PositionRefusal> {
     let mut values = headers.get_all(&WORK_MIN_POSITION).iter();
     let Some(value) = values.next() else {
         return Ok(None);
     };
     if values.next().is_some() {
-        return Err(Problem::new(ProblemCode::ReadPositionInvalid));
+        return Err(PositionRefusal::Invalid);
     }
     value
         .to_str()
         .ok()
         .and_then(|text| PositionToken::parse_external(text.trim()).ok())
         .map(Some)
-        .ok_or_else(|| Problem::new(ProblemCode::ReadPositionInvalid))
+        .ok_or(PositionRefusal::Invalid)
 }
 
 /// The wait a request asked for with `Prefer: wait=<seconds>`, if any; other preferences and a
@@ -49,7 +50,7 @@ pub fn requested_wait(headers: &HeaderMap) -> Option<Duration> {
         .iter()
         .filter_map(|value| value.to_str().ok())
         .flat_map(|value| value.split(','))
-        .filter_map(|preference| {
+        .find_map(|preference| {
             let first = preference.split(';').next()?.trim();
             let (name, value) = first.split_once('=')?;
             if !name.trim().eq_ignore_ascii_case("wait") {
@@ -62,7 +63,6 @@ pub fn requested_wait(headers: &HeaderMap) -> Option<Duration> {
                 .ok()
                 .map(Duration::from_secs)
         })
-        .next()
 }
 
 /// The wait applied to a request under `wait`, and its `Preference-Applied` value.
@@ -121,8 +121,9 @@ mod tests {
                 (&WORK_MIN_POSITION, text.as_str()),
             ],
         ] {
-            let problem = min_position(&headers(&bad)).unwrap_err();
-            assert_eq!(problem.code, ProblemCode::ReadPositionInvalid, "{bad:?}");
+            let refused = min_position(&headers(&bad)).unwrap_err();
+            assert_eq!(refused, PositionRefusal::Invalid, "{bad:?}");
+            assert_eq!(refusal(refused).code, ProblemCode::ReadPositionInvalid);
         }
         assert_eq!(position_header(&token), text.as_str());
         assert_eq!(
