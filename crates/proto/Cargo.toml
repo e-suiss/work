@@ -1,6 +1,6 @@
 [package]
 name = "work-proto"
-description = "Record, event and API types, checked against the CDDL and test vectors, and the signer socket frames (T-35, T-7)."
+description = "Record, event and API types, checked against the CDDL and test vectors, the signer socket frames and the parser worker frames (T-35, T-7, T-72)."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
