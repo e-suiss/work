@@ -5,98 +5,98 @@
 rule = "F-9"
 number = 1
 title = "Never creates or widens authority, nor overrides an Access denial"
-rules = []
+rules = ["MD-4", "INV-14", "INV-15"]
 tests = []
 
 [[item]]
 rule = "F-9"
 number = 2
 title = "Never gives normative effect to claims, observations, content, chat or notification actions"
-rules = []
+rules = ["MD-6", "INV-9", "INV-10", "INV-16"]
 tests = []
 
 [[item]]
 rule = "F-9"
 number = 3
 title = "Never treats silence, no answer or expiry as approval or acceptance"
-rules = []
+rules = ["MD-5", "MD-20", "INV-11"]
 tests = []
 
 [[item]]
 rule = "F-9"
 number = 4
 title = "Never shows a doer's done statement as acceptance"
-rules = []
+rules = ["MD-5", "INV-9"]
 tests = []
 
 [[item]]
 rule = "F-9"
 number = 5
 title = "Never makes an agent solely accountable or leaves work without an accountable owner"
-rules = []
+rules = ["MD-8", "INV-19", "INV-20"]
 tests = []
 
 [[item]]
 rule = "F-9"
 number = 6
 title = "Never rewrites record history and never deletes physically"
-rules = []
+rules = ["MD-12", "MD-16", "INV-2", "INV-3", "INV-4"]
 tests = []
 
 [[item]]
 rule = "F-9"
 number = 7
 title = "Never keeps state as a hand-edited field or shows unreported work as running"
-rules = []
+rules = ["MD-6", "MD-20", "INV-6", "INV-13"]
 tests = []
 
 [[item]]
 rule = "F-9"
 number = 8
 title = "Never offers controls the executor did not declare, nor shows revoked as stopped"
-rules = []
+rules = ["MD-10", "INV-32"]
 tests = []
 
 [[item]]
 rule = "F-9"
 number = 9
 title = "Never shows or ranks by an agent's self-reported confidence"
-rules = []
+rules = ["MD-9", "INV-34"]
 tests = []
 
 [[item]]
 rule = "F-9"
 number = 10
 title = "Never leaks visibility across organisations nor silently drops an authorised peer's record"
-rules = []
+rules = ["MD-11", "MD-17", "MD-20", "INV-24", "INV-25", "INV-27"]
 tests = []
 
 [[item]]
 rule = "F-9"
 number = 11
 title = "Never stores passwords, tokens, cookies, API secrets or payment data"
-rules = []
+rules = ["MD-3", "INV-26", "SEC-13", "SEC-24"]
 tests = []
 
 [[item]]
 rule = "F-9"
 number = 12
 title = "Never runs a built-in authority mode or a direct notification mode"
-rules = []
+rules = ["MD-3", "INV-14"]
 tests = []
 
 [[item]]
 rule = "F-9"
 number = 13
 title = "Never picks or ranks the best agent, nor sells ranking"
-rules = []
+rules = ["MD-8", "F-13"]
 tests = []
 
 [[item]]
 rule = "F-9"
 number = 14
 title = "Never acts in the outside world or moves money"
-rules = []
+rules = ["MD-2", "INV-28", "INV-29"]
 tests = []
 
 [[item]]
@@ -110,33 +110,33 @@ tests = []
 rule = "F-9"
 number = 16
 title = "Never gives first-party Suiss components semantic privileges others lack"
-rules = []
+rules = ["MD-2", "INV-30"]
 tests = []
 
 [[item]]
 rule = "F-9"
 number = 17
 title = "Never shows raw chain of thought nor reads personal memory"
-rules = []
+rules = ["MD-17", "INV-26", "F-16"]
 tests = []
 
 [[item]]
 rule = "F-9"
 number = 18
 title = "Never presents an agent as a human"
-rules = []
+rules = ["MD-7", "INV-23", "F-4"]
 tests = []
 
 [[item]]
 rule = "F-9"
 number = 19
 title = "Never opens person-level manager views the person cannot see"
-rules = []
+rules = ["MD-17", "INV-24"]
 tests = []
 
 [[item]]
 rule = "F-9"
 number = 20
 title = "Never accepts a generic confirmation or agent-written text as approval content"
-rules = []
+rules = ["MD-4", "INV-12"]
 tests = []

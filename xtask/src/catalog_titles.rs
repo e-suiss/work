@@ -274,7 +274,28 @@ pub(crate) const MUST_NEVER: &[&str] = &[
 ];
 
 /// Rules each must-never item traces to (by item number).
-pub(crate) const MUST_NEVER_RULES: &[(u32, &[&str])] = &[(15, &["MD-15", "P-2", "T-3"])];
+pub(crate) const MUST_NEVER_RULES: &[(u32, &[&str])] = &[
+    (1, &["MD-4", "INV-14", "INV-15"]),
+    (2, &["MD-6", "INV-9", "INV-10", "INV-16"]),
+    (3, &["MD-5", "MD-20", "INV-11"]),
+    (4, &["MD-5", "INV-9"]),
+    (5, &["MD-8", "INV-19", "INV-20"]),
+    (6, &["MD-12", "MD-16", "INV-2", "INV-3", "INV-4"]),
+    (7, &["MD-6", "MD-20", "INV-6", "INV-13"]),
+    (8, &["MD-10", "INV-32"]),
+    (9, &["MD-9", "INV-34"]),
+    (10, &["MD-11", "MD-17", "MD-20", "INV-24", "INV-25", "INV-27"]),
+    (11, &["MD-3", "INV-26", "SEC-13", "SEC-24"]),
+    (12, &["MD-3", "INV-14"]),
+    (13, &["MD-8", "F-13"]),
+    (14, &["MD-2", "INV-28", "INV-29"]),
+    (15, &["MD-15", "P-2", "T-3"]),
+    (16, &["MD-2", "INV-30"]),
+    (17, &["MD-17", "INV-26", "F-16"]),
+    (18, &["MD-7", "INV-23", "F-4"]),
+    (19, &["MD-17", "INV-24"]),
+    (20, &["MD-4", "INV-12"]),
+];
 
 /// Guarantee matrix items: (rule, items in spec order); classes come from the spec.
 pub(crate) const GUARANTEES: &[(&str, &[&str])] = &[
