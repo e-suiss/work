@@ -31,7 +31,7 @@ pub trait Rng: Send + Sync + std::fmt::Debug {
 /// # Errors
 /// [`RngError`].
 pub fn bytes32(rng: &(impl Rng + ?Sized)) -> Result<[u8; 32], RngError> {
-    let mut out = [0_u8; 32];
+    let mut out = <[u8; 32]>::default();
     rng.fill(&mut out)?;
     Ok(out)
 }
