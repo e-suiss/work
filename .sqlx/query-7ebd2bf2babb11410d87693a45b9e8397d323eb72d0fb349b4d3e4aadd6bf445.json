@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO work.placement (ledger_id, cell) VALUES ($1, $2)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "ledger.digest32",
+            "kind": {
+              "Domain": "Bytea"
+            }
+          }
+        },
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "7ebd2bf2babb11410d87693a45b9e8397d323eb72d0fb349b4d3e4aadd6bf445"
+}

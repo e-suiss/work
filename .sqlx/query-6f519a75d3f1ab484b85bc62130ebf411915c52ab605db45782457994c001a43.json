@@ -1,0 +1,38 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO ledger.sequencer_lease AS l\n               (ledger_id, holder, epoch, acquired_at, expires_at)\n               VALUES ($1, $2, $3, pg_catalog.now(),\n                       pg_catalog.now() + interval '1 millisecond' * $4::bigint::double precision)\n               ON CONFLICT ON CONSTRAINT sequencer_lease_pk DO UPDATE\n               SET holder = EXCLUDED.holder, epoch = EXCLUDED.epoch,\n                   acquired_at = EXCLUDED.acquired_at, expires_at = EXCLUDED.expires_at,\n                   released_at = NULL\n               WHERE l.expires_at < pg_catalog.now() OR l.released_at IS NOT NULL\n                  OR l.holder = EXCLUDED.holder\n               RETURNING epoch AS \"epoch!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "epoch!",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "ledger.sequencer_lease",
+            "name": "epoch"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "ledger.digest32",
+            "kind": {
+              "Domain": "Bytea"
+            }
+          }
+        },
+        "Bytea",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "6f519a75d3f1ab484b85bc62130ebf411915c52ab605db45782457994c001a43"
+}

@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT record_bytes FROM ledger.log WHERE ledger_id = $1 AND pos = 0",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "record_bytes",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "ledger.log",
+            "name": "record_bytes"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "0f293098cf812d9eef354b5df6755e6ca29236f715f253226e4671bca89fdc95"
+}

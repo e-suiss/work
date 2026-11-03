@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT cell FROM work.placement WHERE ledger_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "cell",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "work.placement",
+            "name": "cell"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "f439f0efe67efc50a58f8911e1dbcddaffb04197116581215a1fe116d589a4bc"
+}

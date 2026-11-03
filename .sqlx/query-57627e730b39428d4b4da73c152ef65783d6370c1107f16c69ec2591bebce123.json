@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO ledger.ledger_cell (ledger_id, cell) VALUES ($1, $2)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "ledger.digest32",
+            "kind": {
+              "Domain": "Bytea"
+            }
+          }
+        },
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "57627e730b39428d4b4da73c152ef65783d6370c1107f16c69ec2591bebce123"
+}

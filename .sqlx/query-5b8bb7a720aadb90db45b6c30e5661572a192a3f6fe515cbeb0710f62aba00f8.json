@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT cell FROM ledger.ledger_cell WHERE ledger_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "cell",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ledger.ledger_cell",
+            "name": "cell"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "5b8bb7a720aadb90db45b6c30e5661572a192a3f6fe515cbeb0710f62aba00f8"
+}
