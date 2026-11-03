@@ -11,6 +11,8 @@ use crate::{Check, Violation};
 
 #[path = "policy_compat.rs"]
 mod compat;
+#[path = "policy_npm.rs"]
+mod npm;
 #[path = "policy_scan.rs"]
 mod scan;
 #[path = "policy_terms.rs"]
@@ -47,6 +49,7 @@ pub(crate) fn checks() -> Vec<Check> {
             run: terms::check,
         },
     ];
+    all.extend(npm::checks());
     all.extend(scan::checks());
     all
 }
