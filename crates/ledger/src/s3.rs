@@ -77,7 +77,7 @@ pub fn tls_trusting(pem: &[u8]) -> Result<Arc<ClientConfig>, S3Error> {
             .map_err(|e| S3Error::Failed(format!("certificate: {e}")))?;
     }
     if roots.is_empty() {
-        return Err(S3Error::Failed("no certificate".to_owned()));
+        return Err(S3Error::Failed("the PEM holds no certificate".to_owned()));
     }
     let provider = Arc::new(tokio_rustls::rustls::crypto::aws_lc_rs::default_provider());
     let config = ClientConfig::builder_with_provider(provider)
@@ -243,7 +243,7 @@ struct Canonical<'a> {
     method: &'a Method,
     path: &'a str,
     query: &'a str,
-    /// Lowercase names, sorted, each sent exactly once.
+    /// Lowercase names, sorted, each name sent once.
     headers: &'a [(String, String)],
     payload: &'a str,
 }
@@ -403,7 +403,7 @@ impl S3Client {
             .config
             .tls
             .clone()
-            .ok_or_else(|| S3Error::Failed("no TLS settings".to_owned()))?;
+            .ok_or_else(|| S3Error::Failed("an https endpoint needs TLS settings".to_owned()))?;
         let name = ServerName::try_from(self.endpoint.host.clone()).map_err(|e| failed(&e))?;
         let stream = timeout(self.limit, TlsConnector::from(tls).connect(name, tcp))
             .await
