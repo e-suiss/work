@@ -196,9 +196,9 @@ fn pending_with(
     })
 }
 
-fn rejected(e: AdmitError) -> Reason {
+fn rejected(e: &AdmitError) -> Reason {
     match e {
-        AdmitError::Rejected(reason) => reason,
+        AdmitError::Rejected(reason) => *reason,
         AdmitError::AuthContext(invalid) => panic!("auth_context_invalid: {invalid}"),
     }
 }
@@ -338,6 +338,7 @@ fn op_9_a_record_declaring_another_ledger_is_refused() {
     assert_eq!(
         pending(g, &LedgerId::from_bytes([0xee; 32]))
             .err()
+            .as_ref()
             .map(rejected),
         Some(Reason::EnvelopeMismatch(EnvelopeField::Ledger))
     );
@@ -363,7 +364,7 @@ fn p_21_an_unsigned_record_of_an_unknown_protocol_is_refused() {
     };
     let (ledger, _) = slot_of(&g.envelope);
     assert_eq!(
-        pending(&g, &ledger).err().map(rejected),
+        pending(&g, &ledger).err().as_ref().map(rejected),
         Some(Reason::ProtocolVersionUnknown)
     );
 }
@@ -383,7 +384,7 @@ fn p_21_a_signed_agent_record_sent_unsigned_is_refused() {
     };
     let (ledger, _) = slot_of(&g.envelope);
     assert_eq!(
-        pending(&unsigned, &ledger).err().map(rejected),
+        pending(&unsigned, &ledger).err().as_ref().map(rejected),
         Some(Reason::AuthorSignatureMissing)
     );
 }
@@ -403,7 +404,7 @@ fn t_91_received_bytes_above_262_144_are_limit_exceeded_request() {
         understood: g.understood.clone(),
     };
     assert_eq!(
-        pending(&too_long, &ledger).err().map(rejected),
+        pending(&too_long, &ledger).err().as_ref().map(rejected),
         Some(Reason::LimitExceeded(Limit::Request))
     );
 }
@@ -446,7 +447,10 @@ fn ev_35_the_envelope_carries_the_presenter_actor_types_the_caller_resolved() {
     let mut missing = act.actors.clone();
     missing.evidence.clear();
     assert_eq!(
-        pending(&with(missing), &ledger).err().map(rejected),
+        pending(&with(missing), &ledger)
+            .err()
+            .as_ref()
+            .map(rejected),
         Some(Reason::EnvelopeMismatch(EnvelopeField::ActorType))
     );
 }

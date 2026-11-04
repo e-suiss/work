@@ -240,10 +240,101 @@ fn p_116_only_the_realm_token_key_signs_the_artifact() {
     ));
 }
 
+fn outside_the_cddl_by_field(base: &Value) -> Vec<(&'static str, Value)> {
+    vec![
+        ("missing-ais-digest", with(base, "ais_digest", None)),
+        (
+            "unknown-flag",
+            with(
+                base,
+                "assurance_flags",
+                Some(Value::Array(vec![Value::text("telepathy")])),
+            ),
+        ),
+        ("aal-as-number", with(base, "aal", Some(Value::Unsigned(2)))),
+        (
+            "session-id-in-the-clear",
+            with(base, "session_ref", Some(Value::Bytes(vec![1; 16]))),
+        ),
+        (
+            "content-type-with-parameters",
+            with(
+                base,
+                "content_type",
+                Some(Value::text("application/json; charset=utf-8")),
+            ),
+        ),
+        (
+            "unknown-field",
+            with(base, "session_id", Some(Value::Bytes(vec![1; 16]))),
+        ),
+        ("version-2", with(base, "v", Some(Value::Unsigned(2)))),
+    ]
+}
+
+fn outside_the_cddl_by_value(base: &Value) -> Vec<(&'static str, Value)> {
+    vec![
+        (
+            "http-realm",
+            with(
+                base,
+                "realm",
+                Some(Value::text("http://acme.suiss.example")),
+            ),
+        ),
+        (
+            "unordered-flags",
+            with(
+                base,
+                "assurance_flags",
+                Some(Value::Array(vec![Value::text("uv"), Value::text("synced")])),
+            ),
+        ),
+        (
+            "repeated-flag",
+            with(
+                base,
+                "assurance_flags",
+                Some(Value::Array(vec![Value::text("uv"), Value::text("uv")])),
+            ),
+        ),
+        (
+            "sha-512-digest",
+            with(
+                base,
+                "content_digest",
+                Some(Value::Array(vec![
+                    Value::int(-44),
+                    Value::Bytes(vec![0x2a; 32]),
+                ])),
+            ),
+        ),
+        (
+            "short-digest",
+            with(
+                base,
+                "ais_digest",
+                Some(Value::Array(vec![
+                    Value::int(-16),
+                    Value::Bytes(vec![1; 16]),
+                ])),
+            ),
+        ),
+        (
+            "upper-case-type",
+            with(
+                base,
+                "content_type",
+                Some(Value::text("Application/work-record+cbor")),
+            ),
+        ),
+    ]
+}
+
 // P-116
 #[test]
-fn p_116_the_payload_follows_the_access_cddl_and_its_vectors() {
-    let f = Fixture::new("cddl");
+fn p_116_the_access_vectors_are_refused_as_other_content() {
+    let f = Fixture::new("vectors");
     let vectors: Json = serde_json::from_str(ACCESS).unwrap();
     for case in vectors["cases"].as_array().unwrap() {
         let id = case["id"].as_str().unwrap();
@@ -260,110 +351,36 @@ fn p_116_the_payload_follows_the_access_cddl_and_its_vectors() {
         };
         assert_eq!(got, Err(expected), "{id}");
     }
+}
+
+// P-116
+#[test]
+fn p_116_a_payload_outside_the_access_cddl_is_refused() {
+    let f = Fixture::new("cddl");
     let base = realm::record_payload(RECORD);
-    let digest_value = |b: u8| Digest([b; 32]).to_value();
-    let invalid = [
-        ("missing-ais-digest", with(&base, "ais_digest", None)),
-        (
-            "unknown-flag",
-            with(
-                &base,
-                "assurance_flags",
-                Some(Value::Array(vec![Value::text("telepathy")])),
-            ),
-        ),
-        (
-            "aal-as-number",
-            with(&base, "aal", Some(Value::Unsigned(2))),
-        ),
-        (
-            "session-id-in-the-clear",
-            with(&base, "session_ref", Some(Value::Bytes(vec![1; 16]))),
-        ),
-        (
-            "content-type-with-parameters",
-            with(
-                &base,
-                "content_type",
-                Some(Value::text("application/json; charset=utf-8")),
-            ),
-        ),
-        (
-            "unknown-field",
-            with(&base, "session_id", Some(Value::Bytes(vec![1; 16]))),
-        ),
-        ("version-2", with(&base, "v", Some(Value::Unsigned(2)))),
-        (
-            "http-realm",
-            with(
-                &base,
-                "realm",
-                Some(Value::text("http://acme.suiss.example")),
-            ),
-        ),
-        (
-            "unordered-flags",
-            with(
-                &base,
-                "assurance_flags",
-                Some(Value::Array(vec![Value::text("uv"), Value::text("synced")])),
-            ),
-        ),
-        (
-            "repeated-flag",
-            with(
-                &base,
-                "assurance_flags",
-                Some(Value::Array(vec![Value::text("uv"), Value::text("uv")])),
-            ),
-        ),
-        (
-            "sha-512-digest",
-            with(
-                &base,
-                "content_digest",
-                Some(Value::Array(vec![
-                    Value::int(-44),
-                    Value::Bytes(vec![0x2a; 32]),
-                ])),
-            ),
-        ),
-        (
-            "short-digest",
-            with(
-                &base,
-                "ais_digest",
-                Some(Value::Array(vec![
-                    Value::int(-16),
-                    Value::Bytes(vec![1; 16]),
-                ])),
-            ),
-        ),
-        (
-            "upper-case-type",
-            with(
-                &base,
-                "content_type",
-                Some(Value::text("Application/work-record+cbor")),
-            ),
-        ),
-        (
-            "digest-as-session",
-            with(&base, "session_ref", Some(digest_value(3))),
-        ),
-    ];
+    let mut invalid = outside_the_cddl_by_field(&base);
+    invalid.extend(outside_the_cddl_by_value(&base));
     for (id, payload) in &invalid {
-        let got = f.verify_payload(payload);
-        if *id == "digest-as-session" {
-            assert!(got.is_ok(), "{id}: {got:?}");
-        } else {
-            assert_eq!(got, Err(AuthContextInvalid::Payload), "{id}");
-        }
+        assert_eq!(
+            f.verify_payload(payload),
+            Err(AuthContextInvalid::Payload),
+            "{id}"
+        );
     }
     let mut long = encode(&base);
     long.push(0);
     assert_eq!(f.signed_bytes(&long), Err(AuthContextInvalid::Payload));
     assert_eq!(f.signed_bytes(&[0xa0]), Err(AuthContextInvalid::Payload));
+}
+
+// P-116
+#[test]
+fn p_116_a_digest_shaped_session_ref_follows_the_access_cddl() {
+    let f = Fixture::new("session");
+    let base = realm::record_payload(RECORD);
+    let payload = with(&base, "session_ref", Some(Digest([3; 32]).to_value()));
+    let got = f.verify_payload(&payload);
+    assert!(got.is_ok(), "{got:?}");
 }
 
 // P-116 T-98
@@ -380,7 +397,7 @@ fn p_116_every_refusal_is_auth_context_invalid() {
         AuthContextInvalid::AuthTime,
     ] {
         assert_eq!(e.code(), "auth_context_invalid");
-        assert!(!e.detail().is_empty());
+        assert_ne!(e.detail(), "");
     }
     assert_eq!(AUTH_CONTEXT_INVALID, "auth_context_invalid");
     assert_eq!(realm::ARTIFACT_CONTENT_TYPE, ARTIFACT_CONTENT_TYPE);

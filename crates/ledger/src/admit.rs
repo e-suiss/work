@@ -458,14 +458,14 @@ fn arrive<V: SignatureVerifier + ?Sized>(
                 auth_context.bytes,
             )?;
             let id = record_id(record);
-            let verified = auth_context::verify(&auth_context, id.0.as_bytes())?;
-            let value = auth_context_value(&verified.digest, verified.step_up, verified.aal);
+            let context = auth_context::verify(&auth_context, id.0.as_bytes())?;
+            let value = auth_context_value(&context.digest, context.step_up, context.aal);
             Ok(Arrived {
                 record_bytes: record.to_vec(),
                 received: vec![row],
                 binding: Binding {
                     proof_commit: None,
-                    auth_context_ref: Some(verified.digest),
+                    auth_context_ref: Some(context.digest),
                 },
                 auth_context: Some(value),
             })

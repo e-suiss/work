@@ -90,13 +90,13 @@
           "P-76",
           "P-100"
         ],
-        "diag": "{\n  \"pos\": 16,\n  \"prev\": [-16, h'092b8207b41fe86b4ef57df0653cc3d9a37fb64276f0103bccaf09294c665dd2'],\n  \"ingest\": [\"quarantined\", \"extension_critical_unknown\"],\n  \"ledger\": [-16, h'8a857bdd56af2bcd917842a55c135b212b3ca54490c09291e6b393aa0efac3fd'],\n  \"record\": [-16, h'a14045790fe9df5fe379aa3acf6092ef0ec3320139c633dd8efbf57535cda153'],\n  \"actor_type\": {\n    \"author\": [\"human\", \"access_binding\"]\n  },\n  \"recorded_at\": 1792109115000,\n  \"auth_context\": {\n    \"ref\": [-16, h'0b82a4c5620d4a23928c3888a88c7d6c1a2378d4b5b7712e6b60a0f4c24abe1f'],\n    \"step_up\": false,\n    \"assurance\": \"aal2\"\n  }\n}",
-        "hex": "a863706f73106470726576822f5820092b8207b41fe86b4ef57df0653cc3d9a37fb64276f0103bccaf09294c665dd266696e67657374826b71756172616e74696e6564781a657874656e73696f6e5f637269746963616c5f756e6b6e6f776e666c6564676572822f58208a857bdd56af2bcd917842a55c135b212b3ca54490c09291e6b393aa0efac3fd667265636f7264822f5820a14045790fe9df5fe379aa3acf6092ef0ec3320139c633dd8efbf57535cda1536a6163746f725f74797065a166617574686f72826568756d616e6e6163636573735f62696e64696e676b7265636f726465645f61741b000001a14206f6786c617574685f636f6e74657874a363726566822f58200b82a4c5620d4a23928c3888a88c7d6c1a2378d4b5b7712e6b60a0f4c24abe1f67737465705f7570f4696173737572616e63656461616c32",
+        "diag": "{\n  \"pos\": 16,\n  \"prev\": [-16, h'fa6dcd41423fb3bf4d60a6589643fd72e050bf4bc7d4d4ccc8751bd1f6d9e2cf'],\n  \"ingest\": [\"quarantined\", \"extension_critical_unknown\"],\n  \"ledger\": [-16, h'8a857bdd56af2bcd917842a55c135b212b3ca54490c09291e6b393aa0efac3fd'],\n  \"record\": [-16, h'a14045790fe9df5fe379aa3acf6092ef0ec3320139c633dd8efbf57535cda153'],\n  \"actor_type\": {\n    \"author\": [\"human\", \"access_binding\"]\n  },\n  \"recorded_at\": 1792109115000,\n  \"auth_context\": {\n    \"ref\": [-16, h'd13b5e434d19bc536f0d4db154f01e590651a4d6d01989242b5111a0dabab662'],\n    \"step_up\": false,\n    \"assurance\": \"aal2\"\n  }\n}",
+        "hex": "a863706f73106470726576822f5820fa6dcd41423fb3bf4d60a6589643fd72e050bf4bc7d4d4ccc8751bd1f6d9e2cf66696e67657374826b71756172616e74696e6564781a657874656e73696f6e5f637269746963616c5f756e6b6e6f776e666c6564676572822f58208a857bdd56af2bcd917842a55c135b212b3ca54490c09291e6b393aa0efac3fd667265636f7264822f5820a14045790fe9df5fe379aa3acf6092ef0ec3320139c633dd8efbf57535cda1536a6163746f725f74797065a166617574686f72826568756d616e6e6163636573735f62696e64696e676b7265636f726465645f61741b000001a14206f6786c617574685f636f6e74657874a363726566822f5820d13b5e434d19bc536f0d4db154f01e590651a4d6d01989242b5111a0dabab66267737465705f7570f4696173737572616e63656461616c32",
         "decoded": {
           "pos": 16,
           "prev": [
             -16,
-            "092b8207b41fe86b4ef57df0653cc3d9a37fb64276f0103bccaf09294c665dd2"
+            "fa6dcd41423fb3bf4d60a6589643fd72e050bf4bc7d4d4ccc8751bd1f6d9e2cf"
           ],
           "ingest": [
             "quarantined",
@@ -120,13 +120,13 @@
           "auth_context": {
             "ref": [
               -16,
-              "0b82a4c5620d4a23928c3888a88c7d6c1a2378d4b5b7712e6b60a0f4c24abe1f"
+              "d13b5e434d19bc536f0d4db154f01e590651a4d6d01989242b5111a0dabab662"
             ],
             "step_up": false,
             "assurance": "aal2"
           }
         },
-        "leaf_hash": "9225bd02d0718a3c18d8b50fb0d757581fed168c9bb7e75c548d7f9f1a22277e",
+        "leaf_hash": "8cf08becf40b268885519732aa596ad8417d314553aab5707870414fd6c4ea1d",
         "cddl": "pass"
       },
       "expect": {
@@ -220,13 +220,13 @@
           "P-76",
           "P-100"
         ],
-        "diag": "{\n  \"pos\": 17,\n  \"prev\": [-16, h'9225bd02d0718a3c18d8b50fb0d757581fed168c9bb7e75c548d7f9f1a22277e'],\n  \"ingest\": [\"quarantined\", \"extension_critical_unknown\"],\n  \"ledger\": [-16, h'8a857bdd56af2bcd917842a55c135b212b3ca54490c09291e6b393aa0efac3fd'],\n  \"record\": [-16, h'28d222fe33263aa8f9b94a9e406e738833ceb519fd18723292db89d4b19191dd'],\n  \"actor_type\": {\n    \"author\": [\"human\", \"access_binding\"]\n  },\n  \"recorded_at\": 1792109116000,\n  \"auth_context\": {\n    \"ref\": [-16, h'0b82a4c5620d4a23928c3888a88c7d6c1a2378d4b5b7712e6b60a0f4c24abe1f'],\n    \"step_up\": false,\n    \"assurance\": \"aal2\"\n  }\n}",
-        "hex": "a863706f73116470726576822f58209225bd02d0718a3c18d8b50fb0d757581fed168c9bb7e75c548d7f9f1a22277e66696e67657374826b71756172616e74696e6564781a657874656e73696f6e5f637269746963616c5f756e6b6e6f776e666c6564676572822f58208a857bdd56af2bcd917842a55c135b212b3ca54490c09291e6b393aa0efac3fd667265636f7264822f582028d222fe33263aa8f9b94a9e406e738833ceb519fd18723292db89d4b19191dd6a6163746f725f74797065a166617574686f72826568756d616e6e6163636573735f62696e64696e676b7265636f726465645f61741b000001a14206fa606c617574685f636f6e74657874a363726566822f58200b82a4c5620d4a23928c3888a88c7d6c1a2378d4b5b7712e6b60a0f4c24abe1f67737465705f7570f4696173737572616e63656461616c32",
+        "diag": "{\n  \"pos\": 17,\n  \"prev\": [-16, h'8cf08becf40b268885519732aa596ad8417d314553aab5707870414fd6c4ea1d'],\n  \"ingest\": [\"quarantined\", \"extension_critical_unknown\"],\n  \"ledger\": [-16, h'8a857bdd56af2bcd917842a55c135b212b3ca54490c09291e6b393aa0efac3fd'],\n  \"record\": [-16, h'28d222fe33263aa8f9b94a9e406e738833ceb519fd18723292db89d4b19191dd'],\n  \"actor_type\": {\n    \"author\": [\"human\", \"access_binding\"]\n  },\n  \"recorded_at\": 1792109116000,\n  \"auth_context\": {\n    \"ref\": [-16, h'b5eaeb2afd85854f5994b3301ce8fbd29c32a8c78c5409c2003809fde31961f1'],\n    \"step_up\": false,\n    \"assurance\": \"aal2\"\n  }\n}",
+        "hex": "a863706f73116470726576822f58208cf08becf40b268885519732aa596ad8417d314553aab5707870414fd6c4ea1d66696e67657374826b71756172616e74696e6564781a657874656e73696f6e5f637269746963616c5f756e6b6e6f776e666c6564676572822f58208a857bdd56af2bcd917842a55c135b212b3ca54490c09291e6b393aa0efac3fd667265636f7264822f582028d222fe33263aa8f9b94a9e406e738833ceb519fd18723292db89d4b19191dd6a6163746f725f74797065a166617574686f72826568756d616e6e6163636573735f62696e64696e676b7265636f726465645f61741b000001a14206fa606c617574685f636f6e74657874a363726566822f5820b5eaeb2afd85854f5994b3301ce8fbd29c32a8c78c5409c2003809fde31961f167737465705f7570f4696173737572616e63656461616c32",
         "decoded": {
           "pos": 17,
           "prev": [
             -16,
-            "9225bd02d0718a3c18d8b50fb0d757581fed168c9bb7e75c548d7f9f1a22277e"
+            "8cf08becf40b268885519732aa596ad8417d314553aab5707870414fd6c4ea1d"
           ],
           "ingest": [
             "quarantined",
@@ -250,13 +250,13 @@
           "auth_context": {
             "ref": [
               -16,
-              "0b82a4c5620d4a23928c3888a88c7d6c1a2378d4b5b7712e6b60a0f4c24abe1f"
+              "b5eaeb2afd85854f5994b3301ce8fbd29c32a8c78c5409c2003809fde31961f1"
             ],
             "step_up": false,
             "assurance": "aal2"
           }
         },
-        "leaf_hash": "ad29dbe9f0ff6199b0193e818dff4ffa5a62a643ad572a6e73ff43d9a68da25e",
+        "leaf_hash": "232152855dbbc923749eac5dccb8bf58135ffe90ddfb1bced435acce6f15878f",
         "cddl": "pass"
       },
       "expect": {
@@ -363,13 +363,13 @@
           "P-76",
           "P-100"
         ],
-        "diag": "{\n  \"pos\": 18,\n  \"prev\": [-16, h'ad29dbe9f0ff6199b0193e818dff4ffa5a62a643ad572a6e73ff43d9a68da25e'],\n  \"ingest\": [\"quarantined\", \"protocol_version_unknown\"],\n  \"ledger\": [-16, h'8a857bdd56af2bcd917842a55c135b212b3ca54490c09291e6b393aa0efac3fd'],\n  \"record\": [-16, h'9237a5ba7f0c6be4f4e2084cb8d43ca45537e3b3b69c5882ee2afebfe626534b'],\n  \"actor_type\": {\n    \"author\": [\"agent\", \"access_binding\"],\n    \"on_behalf_of\": [\n      [\"organization\", \"access_binding\"]\n    ]\n  },\n  \"recorded_at\": 1792109117000,\n  \"proof_commit\": [-16, h'babcd6169b9e43596f9f562e5c0d7878d0e8f38277d6dbeef3ea90f118ffbb18']\n}",
-        "hex": "a863706f73126470726576822f5820ad29dbe9f0ff6199b0193e818dff4ffa5a62a643ad572a6e73ff43d9a68da25e66696e67657374826b71756172616e74696e6564781870726f746f636f6c5f76657273696f6e5f756e6b6e6f776e666c6564676572822f58208a857bdd56af2bcd917842a55c135b212b3ca54490c09291e6b393aa0efac3fd667265636f7264822f58209237a5ba7f0c6be4f4e2084cb8d43ca45537e3b3b69c5882ee2afebfe626534b6a6163746f725f74797065a266617574686f7282656167656e746e6163636573735f62696e64696e676c6f6e5f626568616c665f6f6681826c6f7267616e697a6174696f6e6e6163636573735f62696e64696e676b7265636f726465645f61741b000001a14206fe486c70726f6f665f636f6d6d6974822f5820babcd6169b9e43596f9f562e5c0d7878d0e8f38277d6dbeef3ea90f118ffbb18",
+        "diag": "{\n  \"pos\": 18,\n  \"prev\": [-16, h'232152855dbbc923749eac5dccb8bf58135ffe90ddfb1bced435acce6f15878f'],\n  \"ingest\": [\"quarantined\", \"protocol_version_unknown\"],\n  \"ledger\": [-16, h'8a857bdd56af2bcd917842a55c135b212b3ca54490c09291e6b393aa0efac3fd'],\n  \"record\": [-16, h'9237a5ba7f0c6be4f4e2084cb8d43ca45537e3b3b69c5882ee2afebfe626534b'],\n  \"actor_type\": {\n    \"author\": [\"agent\", \"access_binding\"],\n    \"on_behalf_of\": [\n      [\"organization\", \"access_binding\"]\n    ]\n  },\n  \"recorded_at\": 1792109117000,\n  \"proof_commit\": [-16, h'babcd6169b9e43596f9f562e5c0d7878d0e8f38277d6dbeef3ea90f118ffbb18']\n}",
+        "hex": "a863706f73126470726576822f5820232152855dbbc923749eac5dccb8bf58135ffe90ddfb1bced435acce6f15878f66696e67657374826b71756172616e74696e6564781870726f746f636f6c5f76657273696f6e5f756e6b6e6f776e666c6564676572822f58208a857bdd56af2bcd917842a55c135b212b3ca54490c09291e6b393aa0efac3fd667265636f7264822f58209237a5ba7f0c6be4f4e2084cb8d43ca45537e3b3b69c5882ee2afebfe626534b6a6163746f725f74797065a266617574686f7282656167656e746e6163636573735f62696e64696e676c6f6e5f626568616c665f6f6681826c6f7267616e697a6174696f6e6e6163636573735f62696e64696e676b7265636f726465645f61741b000001a14206fe486c70726f6f665f636f6d6d6974822f5820babcd6169b9e43596f9f562e5c0d7878d0e8f38277d6dbeef3ea90f118ffbb18",
         "decoded": {
           "pos": 18,
           "prev": [
             -16,
-            "ad29dbe9f0ff6199b0193e818dff4ffa5a62a643ad572a6e73ff43d9a68da25e"
+            "232152855dbbc923749eac5dccb8bf58135ffe90ddfb1bced435acce6f15878f"
           ],
           "ingest": [
             "quarantined",
@@ -401,7 +401,7 @@
             "babcd6169b9e43596f9f562e5c0d7878d0e8f38277d6dbeef3ea90f118ffbb18"
           ]
         },
-        "leaf_hash": "6dcd9219d096126f6911a5df015fe002f4604c4794c61252a2061524d445162a",
+        "leaf_hash": "e3a4df3ddac585f95940cc73dc7d8f70615efaab983429fe008bc5e1f33f4802",
         "cddl": "pass"
       },
       "expect": {
@@ -472,13 +472,13 @@
           "P-76",
           "P-100"
         ],
-        "diag": "{\n  \"pos\": 19,\n  \"prev\": [-16, h'6dcd9219d096126f6911a5df015fe002f4604c4794c61252a2061524d445162a'],\n  \"ingest\": [\"quarantined\", \"protocol_version_unknown\"],\n  \"ledger\": [-16, h'8a857bdd56af2bcd917842a55c135b212b3ca54490c09291e6b393aa0efac3fd'],\n  \"record\": [-16, h'274a85b09bacfa1b330012bc68a8ef51a1511019052a54b95d037daf2d51146b'],\n  \"actor_type\": {\n    \"author\": [\"human\", \"access_binding\"]\n  },\n  \"recorded_at\": 1792109118000,\n  \"auth_context\": {\n    \"ref\": [-16, h'0b82a4c5620d4a23928c3888a88c7d6c1a2378d4b5b7712e6b60a0f4c24abe1f'],\n    \"step_up\": false,\n    \"assurance\": \"aal2\"\n  }\n}",
-        "hex": "a863706f73136470726576822f58206dcd9219d096126f6911a5df015fe002f4604c4794c61252a2061524d445162a66696e67657374826b71756172616e74696e6564781870726f746f636f6c5f76657273696f6e5f756e6b6e6f776e666c6564676572822f58208a857bdd56af2bcd917842a55c135b212b3ca54490c09291e6b393aa0efac3fd667265636f7264822f5820274a85b09bacfa1b330012bc68a8ef51a1511019052a54b95d037daf2d51146b6a6163746f725f74797065a166617574686f72826568756d616e6e6163636573735f62696e64696e676b7265636f726465645f61741b000001a1420702306c617574685f636f6e74657874a363726566822f58200b82a4c5620d4a23928c3888a88c7d6c1a2378d4b5b7712e6b60a0f4c24abe1f67737465705f7570f4696173737572616e63656461616c32",
+        "diag": "{\n  \"pos\": 19,\n  \"prev\": [-16, h'e3a4df3ddac585f95940cc73dc7d8f70615efaab983429fe008bc5e1f33f4802'],\n  \"ingest\": [\"quarantined\", \"protocol_version_unknown\"],\n  \"ledger\": [-16, h'8a857bdd56af2bcd917842a55c135b212b3ca54490c09291e6b393aa0efac3fd'],\n  \"record\": [-16, h'274a85b09bacfa1b330012bc68a8ef51a1511019052a54b95d037daf2d51146b'],\n  \"actor_type\": {\n    \"author\": [\"human\", \"access_binding\"]\n  },\n  \"recorded_at\": 1792109118000,\n  \"auth_context\": {\n    \"ref\": [-16, h'ce5709b9bc1c1aef5b4446fa8593c524c114ff55ba97d2da7952d43276200752'],\n    \"step_up\": false,\n    \"assurance\": \"aal2\"\n  }\n}",
+        "hex": "a863706f73136470726576822f5820e3a4df3ddac585f95940cc73dc7d8f70615efaab983429fe008bc5e1f33f480266696e67657374826b71756172616e74696e6564781870726f746f636f6c5f76657273696f6e5f756e6b6e6f776e666c6564676572822f58208a857bdd56af2bcd917842a55c135b212b3ca54490c09291e6b393aa0efac3fd667265636f7264822f5820274a85b09bacfa1b330012bc68a8ef51a1511019052a54b95d037daf2d51146b6a6163746f725f74797065a166617574686f72826568756d616e6e6163636573735f62696e64696e676b7265636f726465645f61741b000001a1420702306c617574685f636f6e74657874a363726566822f5820ce5709b9bc1c1aef5b4446fa8593c524c114ff55ba97d2da7952d4327620075267737465705f7570f4696173737572616e63656461616c32",
         "decoded": {
           "pos": 19,
           "prev": [
             -16,
-            "6dcd9219d096126f6911a5df015fe002f4604c4794c61252a2061524d445162a"
+            "e3a4df3ddac585f95940cc73dc7d8f70615efaab983429fe008bc5e1f33f4802"
           ],
           "ingest": [
             "quarantined",
@@ -502,13 +502,13 @@
           "auth_context": {
             "ref": [
               -16,
-              "0b82a4c5620d4a23928c3888a88c7d6c1a2378d4b5b7712e6b60a0f4c24abe1f"
+              "ce5709b9bc1c1aef5b4446fa8593c524c114ff55ba97d2da7952d43276200752"
             ],
             "step_up": false,
             "assurance": "aal2"
           }
         },
-        "leaf_hash": "96da4b89b80077ec00acc1abdee5f88d9f2eb78e2900589d6ba9eef4bc37ffed",
+        "leaf_hash": "347fd9b890e8263abefc1ca117e669d78b62f3bfca8807a2d164f29fa79c4cd6",
         "cddl": "pass"
       },
       "expect": {
@@ -578,13 +578,13 @@
           "P-76",
           "P-100"
         ],
-        "diag": "{\n  \"pos\": 20,\n  \"prev\": [-16, h'96da4b89b80077ec00acc1abdee5f88d9f2eb78e2900589d6ba9eef4bc37ffed'],\n  \"ingest\": [\"quarantined\", \"protocol_version_unknown\"],\n  \"ledger\": [-16, h'8a857bdd56af2bcd917842a55c135b212b3ca54490c09291e6b393aa0efac3fd'],\n  \"record\": [-16, h'59018fa27b88b328a4d972784baf68e481e348041e088dafea44ab0714d3b7d4'],\n  \"actor_type\": {\n    \"author\": [\"human\", \"access_binding\"]\n  },\n  \"recorded_at\": 1792109119000,\n  \"auth_context\": {\n    \"ref\": [-16, h'0b82a4c5620d4a23928c3888a88c7d6c1a2378d4b5b7712e6b60a0f4c24abe1f'],\n    \"step_up\": false,\n    \"assurance\": \"aal2\"\n  }\n}",
-        "hex": "a863706f73146470726576822f582096da4b89b80077ec00acc1abdee5f88d9f2eb78e2900589d6ba9eef4bc37ffed66696e67657374826b71756172616e74696e6564781870726f746f636f6c5f76657273696f6e5f756e6b6e6f776e666c6564676572822f58208a857bdd56af2bcd917842a55c135b212b3ca54490c09291e6b393aa0efac3fd667265636f7264822f582059018fa27b88b328a4d972784baf68e481e348041e088dafea44ab0714d3b7d46a6163746f725f74797065a166617574686f72826568756d616e6e6163636573735f62696e64696e676b7265636f726465645f61741b000001a1420706186c617574685f636f6e74657874a363726566822f58200b82a4c5620d4a23928c3888a88c7d6c1a2378d4b5b7712e6b60a0f4c24abe1f67737465705f7570f4696173737572616e63656461616c32",
+        "diag": "{\n  \"pos\": 20,\n  \"prev\": [-16, h'347fd9b890e8263abefc1ca117e669d78b62f3bfca8807a2d164f29fa79c4cd6'],\n  \"ingest\": [\"quarantined\", \"protocol_version_unknown\"],\n  \"ledger\": [-16, h'8a857bdd56af2bcd917842a55c135b212b3ca54490c09291e6b393aa0efac3fd'],\n  \"record\": [-16, h'59018fa27b88b328a4d972784baf68e481e348041e088dafea44ab0714d3b7d4'],\n  \"actor_type\": {\n    \"author\": [\"human\", \"access_binding\"]\n  },\n  \"recorded_at\": 1792109119000,\n  \"auth_context\": {\n    \"ref\": [-16, h'd9c293591cb3a8eea780b08955acec93fe191fb62d3306c034c5d216eb04348a'],\n    \"step_up\": false,\n    \"assurance\": \"aal2\"\n  }\n}",
+        "hex": "a863706f73146470726576822f5820347fd9b890e8263abefc1ca117e669d78b62f3bfca8807a2d164f29fa79c4cd666696e67657374826b71756172616e74696e6564781870726f746f636f6c5f76657273696f6e5f756e6b6e6f776e666c6564676572822f58208a857bdd56af2bcd917842a55c135b212b3ca54490c09291e6b393aa0efac3fd667265636f7264822f582059018fa27b88b328a4d972784baf68e481e348041e088dafea44ab0714d3b7d46a6163746f725f74797065a166617574686f72826568756d616e6e6163636573735f62696e64696e676b7265636f726465645f61741b000001a1420706186c617574685f636f6e74657874a363726566822f5820d9c293591cb3a8eea780b08955acec93fe191fb62d3306c034c5d216eb04348a67737465705f7570f4696173737572616e63656461616c32",
         "decoded": {
           "pos": 20,
           "prev": [
             -16,
-            "96da4b89b80077ec00acc1abdee5f88d9f2eb78e2900589d6ba9eef4bc37ffed"
+            "347fd9b890e8263abefc1ca117e669d78b62f3bfca8807a2d164f29fa79c4cd6"
           ],
           "ingest": [
             "quarantined",
@@ -608,13 +608,13 @@
           "auth_context": {
             "ref": [
               -16,
-              "0b82a4c5620d4a23928c3888a88c7d6c1a2378d4b5b7712e6b60a0f4c24abe1f"
+              "d9c293591cb3a8eea780b08955acec93fe191fb62d3306c034c5d216eb04348a"
             ],
             "step_up": false,
             "assurance": "aal2"
           }
         },
-        "leaf_hash": "fe75fa67835088b85111a34fedb2a71e686cc9cb9b42005efe23225b627a4202",
+        "leaf_hash": "29d2446da8a9d56576ca156ece42b9d49a1a98a0776d2d8f66fdcd42428d7372",
         "cddl": "pass"
       },
       "expect": {

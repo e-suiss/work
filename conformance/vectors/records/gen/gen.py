@@ -1070,7 +1070,7 @@ def auth_context_digest(rid):
 
 
 signed_records = []
-envelope_state ={"prev": [-16, GENESIS_LEAF], "pos": 1, "recorded_at": 1792109100000}
+envelope_state = {"prev": [-16, GENESIS_LEAF], "pos": 1, "recorded_at": 1792109100000}
 
 
 def envelope(rec, c, rid, ingest, name):

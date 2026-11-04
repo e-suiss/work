@@ -29,7 +29,7 @@ fn t_98_the_committed_openapi_document_is_the_generated_one() {
         .as_array()
         .unwrap()
         .len();
-    assert_eq!(codes, 21);
+    assert_eq!(codes, 23);
 }
 
 // E-45 T-98
