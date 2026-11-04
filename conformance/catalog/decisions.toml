@@ -3189,7 +3189,6 @@ tests = [
   "crates/ledger/src/admit/tests.rs::p_21_a_signed_agent_record_sent_unsigned_is_refused",
   "crates/ledger/src/admit/tests.rs::p_21_an_unsigned_record_of_an_unknown_protocol_is_refused",
   "crates/ledger/src/auth_context/tests.rs::p_116_assurance_and_step_up_come_from_the_payload",
-  "crates/ledger/src/auth_context/tests.rs::p_116_the_access_vectors_are_refused_as_other_content",
   "crates/ledger/src/auth_context/tests.rs::p_116_the_reference_is_the_access_digest",
   "sdks/bindings/core/tests/bytes.rs::t_10_stored_entries_verify_from_their_bytes_through_bindings_core",
   "sdks/bindings/uniffi/tests/swift/main.swift::t_10_swift_stored_entries_verify_from_their_bytes",
