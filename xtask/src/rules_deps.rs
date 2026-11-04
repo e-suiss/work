@@ -106,7 +106,8 @@ fn allowed_targets(from: Class) -> Option<&'static [Class]> {
         Parse => &[Kernel, Proto],
         Store => &[Kernel, Proto, SuissLedger],
         Ledger => &[Kernel, Proto, Store, SuissLedger, SuissCrypto],
-        Client => &[Proto, Telemetry, AccessPublic],
+        // T-101
+        Client => &[Proto, Telemetry, AccessPublic, SuissCrypto],
         Component => &[
             Kernel,
             Proto,
@@ -381,6 +382,25 @@ mod tests {
             true,
         )]);
         assert!(ok.is_empty(), "{ok:?}");
+    }
+
+    // T-101
+    #[test]
+    fn t_101_clients_verify_and_keep_keys_through_the_shared_crypto_crate() {
+        let ok = run(&[with_registry_dep(
+            member("crates/access-client", &[]),
+            "esuiss-crypto",
+            None,
+            true,
+        )]);
+        assert!(ok.is_empty(), "{ok:?}");
+        let bad = run(&[with_registry_dep(
+            member("crates/access-client", &[]),
+            "esuiss-ledger",
+            None,
+            true,
+        )]);
+        assert_eq!(bad.len(), 1);
     }
 
     // T-31

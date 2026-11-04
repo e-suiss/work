@@ -1,0 +1,18 @@
+{
+  "suiss_configuration_version": 1,
+  "issuer": "https://acme.id.example",
+  "suiss_region": "eu-central",
+  "suiss_relay": "https://relay.example",
+  "suiss_management_api": "https://api.access.example",
+  "suiss_event_subscriptions": {},
+  "suiss_products": {
+    "work": "https://work.example"
+  },
+  "endpoints": {
+    "adp": "https://access.example/.well-known/authzen-configuration",
+    "eligibility": "https://access.example/access/v1/eligibility:check",
+    "key_batch": "https://access.example/access/v1/keys:batchGet",
+    "key_lookup": "https://access.example/access/v1/keys/{kid}",
+    "tenant_snapshot": "https://access.example/access/v1/tenants/{tenant}/snapshot"
+  }
+}

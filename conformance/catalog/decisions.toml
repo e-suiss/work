@@ -5748,6 +5748,28 @@ tests = [
 ]
 
 [[rule]]
+id = "T-96"
+family = "T"
+status = "frozen-technical"
+acceptance = "filled"
+title = ""
+tests = [
+  "crates/access-client/src/domain.rs::t_96_start_refusals_and_fail_closed_refusals_have_their_codes",
+  "crates/access-client/src/domain/discovery.rs::t_96_a_missing_endpoint_fails_closed_when_used",
+  "crates/access-client/src/domain/discovery.rs::t_96_a_served_endpoint_must_agree_with_the_signed_discovery",
+  "crates/access-client/src/domain/discovery.rs::t_96_a_template_names_only_its_own_variable",
+  "crates/access-client/src/domain/discovery.rs::t_96_another_issuer_or_version_refuses_start",
+  "crates/access-client/src/domain/discovery.rs::t_96_signed_discovery_matches_the_access_vectors",
+  "crates/access-client/src/domain/discovery.rs::t_96_start_needs_adp_the_three_capabilities_and_the_region",
+  "crates/access-client/src/domain/discovery.rs::t_96_the_access_example_document_is_read_with_its_endpoints",
+  "crates/access-client/src/domain/discovery.rs::t_96_the_setting_is_an_https_issuer_without_trailing_slash_query_or_fragment",
+  "crates/access-client/src/domain/discovery.rs::t_96_the_suiss_configuration_is_found_at_the_inserted_well_known_path",
+  "crates/access-client/src/domain/tenants.rs::t_96_reconciliation_maps_new_and_changed_tenants_and_reports_missing_ones",
+  "crates/access-client/src/domain/tenants.rs::t_96_tenant_ids_stay_opaque_and_organizations_unread",
+  "crates/access-client/src/domain/tenants.rs::t_96_the_list_is_found_beside_the_snapshot_template",
+]
+
+[[rule]]
 id = "T-97"
 family = "T"
 status = "frozen-technical"
@@ -5791,6 +5813,46 @@ tests = [
   "xtask/src/contracts_source.rs::t_98_a_wire_name_without_an_event_type_is_refused",
   "xtask/src/contracts_source.rs::t_98_the_committed_tables_agree",
   "xtask/src/contracts_source.rs::t_98_the_event_table_is_read_from_the_proto_source",
+]
+
+[[rule]]
+id = "T-99"
+family = "T"
+status = "frozen-technical"
+acceptance = "filled"
+title = ""
+tests = [
+  "crates/access-client/src/domain/relay.rs::t_99_a_relay_document_of_another_access_refuses_start",
+  "crates/access-client/src/domain/relay.rs::t_99_a_relay_document_whose_issuer_is_not_suiss_relay_refuses_start",
+  "crates/access-client/src/domain/relay.rs::t_99_region_version_and_events_capability_are_needed_at_start",
+  "crates/access-client/src/domain/relay.rs::t_99_relay_is_found_from_access_discovery",
+]
+
+[[rule]]
+id = "T-101"
+family = "T"
+status = "frozen-technical"
+acceptance = "filled"
+title = ""
+tests = [
+  "crates/access-client/src/adapters.rs::t_101_a_certificate_of_another_key_is_refused",
+  "crates/access-client/src/adapters.rs::t_101_an_expired_pep_certificate_refuses_consequential_actions",
+  "crates/access-client/src/adapters.rs::t_101_calls_go_to_https_urls_only",
+  "crates/access-client/src/adapters.rs::t_101_the_pep_certificate_and_its_key_come_from_the_token",
+  "crates/access-client/src/domain.rs::t_101_kernel_identifiers_are_canonical_unpadded_base64url",
+  "crates/access-client/src/domain/cache.rs::t_101_a_compromised_key_is_never_cached_as_immutable",
+  "crates/access-client/src/domain/cache.rs::t_101_cached_keys_follow_max_age_and_never_go_back_in_etag",
+  "crates/access-client/src/domain/eligibility.rs::t_101_the_answer_carries_a_consistency_token",
+  "crates/access-client/src/domain/eligibility.rs::t_101_the_eligibility_request_is_a_check_context_without_mode_or_nonce",
+  "crates/access-client/src/domain/keys.rs::t_101_an_excerpt_without_key_lookup_usage_or_signed_by_another_key_is_refused",
+  "crates/access-client/src/domain/keys.rs::t_101_entries_must_state_their_key_consistently",
+  "crates/access-client/src/domain/keys.rs::t_101_identifiers_and_the_batch_body_are_in_access_wire_form",
+  "crates/access-client/src/domain/keys.rs::t_101_key_lookup_verifies_the_cose_answer_against_domain_metadata",
+  "crates/access-client/src/domain/metadata.rs::t_101_a_key_without_the_key_lookup_usage_does_not_sign_an_answer",
+  "crates/access-client/src/domain/metadata.rs::t_101_the_operational_key_is_resolved_as_the_access_key_scope_vectors_say",
+  "crates/access-client/src/domain/x509.rs::t_101_an_ecdsa_signature_is_sent_to_tls_in_der",
+  "crates/access-client/src/domain/x509.rs::t_101_the_certificate_expiry_and_key_are_read_from_its_der",
+  "xtask/src/rules_deps.rs::t_101_clients_verify_and_keep_keys_through_the_shared_crypto_crate",
 ]
 
 [[rule]]

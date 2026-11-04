@@ -1,12 +1,30 @@
 [package]
 name = "work-access-client"
-description = "Access public API client: authority context, step-up, freshness (T-8, T-28)."
+description = "Access public API client: discovery, the PEP certificate, Instance key lookup, eligibility and tenant snapshots (T-8, T-28, T-96, T-99, T-101)."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 publish = false
+
+[dependencies]
+suiss-crypto = { workspace = true, features = ["verify", "pkcs11"] }
+work-proto = { workspace = true }
+base64 = { workspace = true, features = ["alloc"] }
+bytes = { workspace = true, features = ["std"] }
+cryptoki = { workspace = true }
+http = { workspace = true, features = ["std"] }
+http-body-util = { workspace = true }
+hyper = { workspace = true, features = ["client", "http1"] }
+hyper-util = { workspace = true, features = ["tokio"] }
+rustls = { workspace = true, features = ["aws_lc_rs", "std"] }
+serde = { workspace = true, features = ["derive", "std"] }
+serde_json = { workspace = true, features = ["std"] }
+sha2 = { workspace = true }
+thiserror = { workspace = true, features = ["std"] }
+tokio = { workspace = true, features = ["net", "rt", "time"] }
+tokio-rustls = { workspace = true }
 
 [lints]
 workspace = true

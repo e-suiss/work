@@ -5227,6 +5227,24 @@ dependencies = [
 [[package]]
 name = "work-access-client"
 version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "bytes",
+ "cryptoki",
+ "esuiss-crypto",
+ "http",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
+ "rustls",
+ "serde",
+ "serde_json",
+ "sha2 0.11.1",
+ "thiserror 2.0.21",
+ "tokio",
+ "tokio-rustls",
+ "work-proto",
+]
 
 [[package]]
 name = "work-agents"

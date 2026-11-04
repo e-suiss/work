@@ -1,0 +1,58 @@
+{
+  "cases": [
+    {
+      "cbor": "a261760169656e64706f696e7473a763616470782f68747470733a2f2f61636d652e73756973732e6578616d706c652f6163636573732f76312f6576616c756174696f6e69696e7374616e636573782a68747470733a2f2f61636d652e73756973732e6578616d706c652f76312f6d652f696e7374616e636573696b65795f6261746368783268747470733a2f2f61636d652e73756973732e6578616d706c652f6163636573732f76312f6b6579733a62617463684765746a6b65795f6c6f6f6b7570782f68747470733a2f2f61636d652e73756973732e6578616d706c652f6163636573732f76312f6b6579732f7b6b69647d6b656c69676962696c697479783668747470733a2f2f61636d652e73756973732e6578616d706c652f6163636573732f76312f656c69676962696c6974793a636865636b6c617574685f636f6e74657874782d68747470733a2f2f61636d652e73756973732e6578616d706c652f76312f6d652f617574682d636f6e746578746f74656e616e745f736e617073686f74783e68747470733a2f2f61636d652e73756973732e6578616d706c652f6163636573732f76312f74656e616e74732f7b74656e616e747d2f736e617073686f74",
+      "edn": "{\"v\": 1, \"endpoints\": {\"adp\": \"https://acme.suiss.example/access/v1/evaluation\", \"auth_context\": \"https://acme.suiss.example/v1/me/auth-context\", \"eligibility\": \"https://acme.suiss.example/access/v1/eligibility:check\", \"instances\": \"https://acme.suiss.example/v1/me/instances\", \"key_batch\": \"https://acme.suiss.example/access/v1/keys:batchGet\", \"key_lookup\": \"https://acme.suiss.example/access/v1/keys/{kid}\", \"tenant_snapshot\": \"https://acme.suiss.example/access/v1/tenants/{tenant}/snapshot\"}}",
+      "id": "realm-endpoints",
+      "json": {
+        "endpoints": {
+          "adp": "https://acme.suiss.example/access/v1/evaluation",
+          "auth_context": "https://acme.suiss.example/v1/me/auth-context",
+          "eligibility": "https://acme.suiss.example/access/v1/eligibility:check",
+          "instances": "https://acme.suiss.example/v1/me/instances",
+          "key_batch": "https://acme.suiss.example/access/v1/keys:batchGet",
+          "key_lookup": "https://acme.suiss.example/access/v1/keys/{kid}",
+          "tenant_snapshot": "https://acme.suiss.example/access/v1/tenants/{tenant}/snapshot"
+        },
+        "v": 1
+      },
+      "valid": true
+    },
+    {
+      "cbor": "a261760169656e64706f696e7473a663616470782f68747470733a2f2f61636d652e73756973732e6578616d706c652f6163636573732f76312f6576616c756174696f6e696b65795f6261746368783268747470733a2f2f61636d652e73756973732e6578616d706c652f6163636573732f76312f6b6579733a62617463684765746a6b65795f6c6f6f6b7570782f68747470733a2f2f61636d652e73756973732e6578616d706c652f6163636573732f76312f6b6579732f7b6b69647d6b656c69676962696c697479783668747470733a2f2f61636d652e73756973732e6578616d706c652f6163636573732f76312f656c69676962696c6974793a636865636b6c617574685f636f6e74657874782d68747470733a2f2f61636d652e73756973732e6578616d706c652f76312f6d652f617574682d636f6e746578746f74656e616e745f736e617073686f74783e68747470733a2f2f61636d652e73756973732e6578616d706c652f6163636573732f76312f74656e616e74732f7b74656e616e747d2f736e617073686f74",
+      "edn": "{\"v\": 1, \"endpoints\": {\"adp\": \"https://acme.suiss.example/access/v1/evaluation\", \"auth_context\": \"https://acme.suiss.example/v1/me/auth-context\", \"eligibility\": \"https://acme.suiss.example/access/v1/eligibility:check\", \"key_batch\": \"https://acme.suiss.example/access/v1/keys:batchGet\", \"key_lookup\": \"https://acme.suiss.example/access/v1/keys/{kid}\", \"tenant_snapshot\": \"https://acme.suiss.example/access/v1/tenants/{tenant}/snapshot\"}}",
+      "id": "endpoints-in-service",
+      "json": {
+        "endpoints": {
+          "adp": "https://acme.suiss.example/access/v1/evaluation",
+          "auth_context": "https://acme.suiss.example/v1/me/auth-context",
+          "eligibility": "https://acme.suiss.example/access/v1/eligibility:check",
+          "key_batch": "https://acme.suiss.example/access/v1/keys:batchGet",
+          "key_lookup": "https://acme.suiss.example/access/v1/keys/{kid}",
+          "tenant_snapshot": "https://acme.suiss.example/access/v1/tenants/{tenant}/snapshot"
+        },
+        "v": 1
+      },
+      "valid": true
+    },
+    {
+      "edn": "{\"endpoints\": {\"adp\": \"https://acme.suiss.example/access/v1/evaluation\", \"auth_context\": \"https://acme.suiss.example/v1/me/auth-context\", \"eligibility\": \"https://acme.suiss.example/access/v1/eligibility:check\", \"instances\": \"https://acme.suiss.example/v1/me/instances\", \"key_batch\": \"https://acme.suiss.example/access/v1/keys:batchGet\", \"key_lookup\": \"https://acme.suiss.example/access/v1/keys/{kid}\", \"tenant_snapshot\": \"https://acme.suiss.example/access/v1/tenants/{tenant}/snapshot\"}}",
+      "id": "missing-version",
+      "valid": false
+    },
+    {
+      "edn": "{\"v\": 1, \"endpoints\": {\"adp\": \"http://acme.suiss.example/access/v1/evaluation\", \"auth_context\": \"https://acme.suiss.example/v1/me/auth-context\", \"eligibility\": \"https://acme.suiss.example/access/v1/eligibility:check\", \"instances\": \"https://acme.suiss.example/v1/me/instances\", \"key_batch\": \"https://acme.suiss.example/access/v1/keys:batchGet\", \"key_lookup\": \"https://acme.suiss.example/access/v1/keys/{kid}\", \"tenant_snapshot\": \"https://acme.suiss.example/access/v1/tenants/{tenant}/snapshot\"}}",
+      "id": "plain-http",
+      "valid": false
+    },
+    {
+      "edn": "{\"v\": 1, \"endpoints\": {\"adp\": \"https://acme.suiss.example/access/v1/evaluation\", \"auth_context\": \"https://acme.suiss.example/v1/me/auth-context\", \"eligibility\": \"https://acme.suiss.example/access/v1/eligibility:check\", \"instances\": \"https://acme.suiss.example/v1/me/instances\", \"key_batch\": \"https://acme.suiss.example/access/v1/keys:batchGet\", \"key_lookup\": \"https://acme.suiss.example/access/v1/keys/{kid}\", \"tenant_snapshot\": \"https://acme.suiss.example/access/v1/tenants/{tenant}/snapshot\", \"webhooks\": \"https://acme.suiss.example/v1/webhooks\"}}",
+      "id": "unknown-endpoint",
+      "valid": false
+    }
+  ],
+  "cddl": [
+    "suiss-discovery.cddl"
+  ],
+  "contract": "suiss-discovery"
+}
