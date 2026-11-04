@@ -43,6 +43,7 @@ pub(crate) enum Class {
     SuissCrypto,
     SuissLedger,
     SuissRestriction,
+    SuissRetention,
     AccessPublic,
     Forbidden,
 }
@@ -76,6 +77,7 @@ pub(crate) fn classify_name(name: &str) -> Option<Class> {
         "esuiss-crypto" | "suiss-crypto" => Class::SuissCrypto,
         "esuiss-ledger" | "suiss-ledger" => Class::SuissLedger,
         "esuiss-restriction" | "suiss-restriction" => Class::SuissRestriction,
+        "esuiss-retention" | "suiss-retention" => Class::SuissRetention,
         "esuiss-access-kernel" | "esuiss-access-verify" => Class::AccessPublic,
         n if n.starts_with("esuiss-access-")
             || n.starts_with("access-")
@@ -96,7 +98,7 @@ pub(crate) fn classify_name(name: &str) -> Option<Class> {
 fn allowed_targets(from: Class) -> Option<&'static [Class]> {
     use Class::{
         AccessPublic, Client, Component, Kernel, Ledger, Parse, Proto, Rpc, Store, SuissCrypto,
-        SuissLedger, SuissRestriction, Telemetry,
+        SuissLedger, SuissRestriction, SuissRetention, Telemetry,
     };
     let targets: &'static [Class] = match from {
         Class::Bin | Class::Testkit => return None,
@@ -104,8 +106,16 @@ fn allowed_targets(from: Class) -> Option<&'static [Class]> {
         Kernel => &[SuissCrypto],
         Proto => &[Kernel],
         Parse => &[Kernel, Proto],
-        Store => &[Kernel, Proto, SuissLedger],
-        Ledger => &[Kernel, Proto, Store, SuissLedger, SuissCrypto],
+        // OP-14 Access OP-147
+        Store => &[Kernel, Proto, SuissLedger, SuissRetention],
+        Ledger => &[
+            Kernel,
+            Proto,
+            Store,
+            SuissLedger,
+            SuissCrypto,
+            SuissRetention,
+        ],
         // T-101
         Client => &[Proto, Telemetry, AccessPublic, SuissCrypto],
         Component => &[
@@ -130,6 +140,7 @@ fn allowed_targets(from: Class) -> Option<&'static [Class]> {
         | SuissCrypto
         | SuissLedger
         | SuissRestriction
+        | SuissRetention
         | AccessPublic
         | Class::Forbidden => &[],
     };

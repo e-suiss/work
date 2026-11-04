@@ -12,6 +12,7 @@ publish = false
 [dependencies]
 sqlx = { workspace = true, features = ["postgres", "runtime-tokio", "tls-rustls-aws-lc-rs", "macros", "migrate"] }
 thiserror = { workspace = true, features = ["std"] }
+suiss-retention = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

@@ -32,6 +32,8 @@ suiss-ledger = { package = "esuiss-ledger", version = "=0.2.4", default-features
 suiss-crypto = { package = "esuiss-crypto", version = "=0.2.4", default-features = false }
 suiss-restriction = { package = "esuiss-restriction", version = "=0.2.4", default-features = false }
 suiss-sandbox = { package = "esuiss-sandbox", version = "=0.2.4", default-features = false }
+# OP-14 OP-30 Access OP-147
+suiss-retention = { package = "esuiss-retention", version = "=0.2.5", default-features = false }
 
 # T-60
 thiserror = { version = "2.0.21", default-features = false }

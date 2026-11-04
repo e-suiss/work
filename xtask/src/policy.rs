@@ -220,6 +220,7 @@ const SHARED: &[(&str, &str)] = &[
     ("esuiss-crypto", "suiss-crypto"),
     ("esuiss-ledger", "suiss-ledger"),
     ("esuiss-restriction", "suiss-restriction"),
+    ("esuiss-retention", "suiss-retention"),
 ];
 
 /// Package-name rule violations (T-54).

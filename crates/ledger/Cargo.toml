@@ -11,6 +11,7 @@ publish = false
 [dependencies]
 suiss-ledger = { workspace = true }
 suiss-crypto = { workspace = true, features = ["verify", "pkcs11"] }
+suiss-retention = { workspace = true }
 work-kernel = { workspace = true }
 work-proto = { workspace = true }
 work-store = { workspace = true }

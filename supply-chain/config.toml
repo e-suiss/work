@@ -473,6 +473,10 @@ criteria = "safe-to-deploy"
 version = "0.2.4"
 criteria = "safe-to-deploy"
 
+[[exemptions.esuiss-retention]]
+version = "0.2.5"
+criteria = "safe-to-deploy"
+
 [[exemptions.esuiss-sandbox]]
 version = "0.2.4"
 criteria = "safe-to-deploy"

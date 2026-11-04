@@ -34,6 +34,7 @@ const SHARED_CRATES: &[&str] = &[
     "esuiss-crypto",
     "esuiss-ledger",
     "esuiss-restriction",
+    "esuiss-retention",
     "esuiss-sandbox",
 ];
 
@@ -373,7 +374,7 @@ mod tests {
     use super::*;
     use std::fmt::Write as _;
 
-    const UNPUBLISHED: &str = "[work]\nversion = \"0.0.0\"\n[access]\nstatus = \"unpublished\"\nversion = \"\"\nimage = \"ghcr.io/e-suiss/access\"\ndigest = \"\"\n[relay]\nstatus = \"unpublished\"\nversion = \"\"\nimage = \"ghcr.io/e-suiss/relay\"\ndigest = \"\"\n[shared-crates]\nesuiss-crypto = \"unpublished\"\nesuiss-ledger = \"unpublished\"\nesuiss-restriction = \"unpublished\"\nesuiss-sandbox = \"unpublished\"\n";
+    const UNPUBLISHED: &str = "[work]\nversion = \"0.0.0\"\n[access]\nstatus = \"unpublished\"\nversion = \"\"\nimage = \"ghcr.io/e-suiss/access\"\ndigest = \"\"\n[relay]\nstatus = \"unpublished\"\nversion = \"\"\nimage = \"ghcr.io/e-suiss/relay\"\ndigest = \"\"\n[shared-crates]\nesuiss-crypto = \"unpublished\"\nesuiss-ledger = \"unpublished\"\nesuiss-restriction = \"unpublished\"\nesuiss-retention = \"unpublished\"\nesuiss-sandbox = \"unpublished\"\n";
 
     const DIGEST: &str = "sha256:74935e72241653ca55e0414067e6d8763aceb8a810eb51b452253ec3dcfc4336";
 
