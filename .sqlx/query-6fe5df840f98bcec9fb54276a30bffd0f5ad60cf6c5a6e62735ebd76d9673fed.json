@@ -1,0 +1,46 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT d.dek_id::text AS \"dek_id!\", d.subject_ref::text AS \"subject!\",\n                      d.retention_class::text AS \"class!\",\n                      (extract(epoch FROM max(l.recorded_at)) * 1000)::bigint AS \"newest?\"\n               FROM work.body_dek d\n               LEFT JOIN work.body_part p ON p.ledger_id = d.ledger_id AND p.dek_id = d.dek_id\n               LEFT JOIN ledger.log l ON l.ledger_id = p.ledger_id AND l.pos = p.pos\n               WHERE d.ledger_id = $1 AND d.state = 'active'\n                 AND ($2::text IS NULL OR d.dek_id > $2::text::uuid)\n               GROUP BY d.ledger_id, d.dek_id, d.subject_ref, d.retention_class\n               ORDER BY d.dek_id\n               LIMIT $3",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "dek_id!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "subject!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "class!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "newest?",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "6fe5df840f98bcec9fb54276a30bffd0f5ad60cf6c5a6e62735ebd76d9673fed"
+}

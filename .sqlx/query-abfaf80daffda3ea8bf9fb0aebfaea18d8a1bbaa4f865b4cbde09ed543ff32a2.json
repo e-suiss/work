@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT (extract(epoch FROM max(l.recorded_at)) * 1000)::bigint AS \"newest?\"\n                   FROM work.body_part p\n                   JOIN ledger.log l ON l.ledger_id = p.ledger_id AND l.pos = p.pos\n                   WHERE p.ledger_id = $1 AND p.dek_id = $2::text::uuid",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "newest?",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "abfaf80daffda3ea8bf9fb0aebfaea18d8a1bbaa4f865b4cbde09ed543ff32a2"
+}

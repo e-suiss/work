@@ -1,0 +1,93 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT hold_id AS \"hold_id!\", hold_kind AS \"kind!\", scope AS \"scope!\",\n                      subject_ref::text AS \"subject?\", retention_classes::text[] AS \"classes?\",\n                      suspicious_activity AS \"suspicious!\",\n                      (extract(epoch FROM placed_at) * 1000)::bigint AS \"placed_at!\",\n                      (extract(epoch FROM released_at) * 1000)::bigint AS \"until?\"\n               FROM work.retention_hold WHERE ledger_id = $1 AND hold_id = $2 FOR UPDATE",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "hold_id!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "work.retention_hold",
+            "name": "hold_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "kind!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "work.retention_hold",
+            "name": "hold_kind"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "scope!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "work.retention_hold",
+            "name": "scope"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "subject?",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "classes?",
+        "type_info": "TextArray",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "suspicious!",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "work.retention_hold",
+            "name": "suspicious_activity"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "placed_at!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 7,
+        "name": "until?",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      null,
+      null,
+      false,
+      null,
+      null
+    ]
+  },
+  "hash": "a1571f061f09b3a283c6ccd9d978acb6fef02004d12494d2f098b5c464ed5317"
+}

@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT EXISTS (\n                   SELECT 1 FROM work.body_part p\n                   JOIN work.body_dek d ON d.ledger_id = p.ledger_id AND d.dek_id = p.dek_id\n                   WHERE p.ledger_id = $1 AND p.pos = $2 AND p.part = $3\n                     AND work.retention_held(p.ledger_id, d.subject_ref, p.retention_class)\n               ) AS \"held!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "held!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Int8",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "22cfee639e4dd5a09b8a6f1e1d0af18b727f9c436e15f9eaf1d48de5a0cd61a4"
+}
