@@ -57,7 +57,19 @@ jobs:
           fi
           XTASK_CATALOG_BASE="$CATALOG_BASE" just rules
       - name: Record vectors regenerate byte for byte (P-11, P-72)
+        id: vectors
         run: just vectors
+      - name: Regenerate the record vectors
+        if: failure() && steps.vectors.outcome == 'failure'
+        run: just vectors-write
+      - name: Upload the regenerated record vectors
+        if: failure() && steps.vectors.outcome == 'failure'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: vectors
+          path: conformance/vectors/records/
+          retention-days: 7
+          if-no-files-found: error
       - name: Install squawk 2.68.0 (T-52, T-60)
         env:
           SQUAWK_SHA256: 53070672cbe0b8adce55372931d4435cc2395edd8b5736819a82e483b08d4d09
