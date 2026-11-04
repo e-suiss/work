@@ -124,6 +124,8 @@
           "record_rejected",
           "secret_detected",
           "restriction_compile_refused",
+          "escalation_policy_unsupported",
+          "auth_context_invalid",
           "rate_limited",
           "busy",
           "not_recorded",

@@ -166,14 +166,14 @@ mod tests {
     // P-116
     #[test]
     fn p_116_the_realm_jwks_gives_the_token_keys_by_thumbprint() {
-        let ed_kid = b64url(&thumbprint(&ed()));
-        assert_eq!(ed_kid, "kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k");
-        let ec_kid = b64url(&thumbprint(&ec()));
+        let okp_kid = b64url(&thumbprint(&ed()));
+        assert_eq!(okp_kid, "kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k");
+        let p256_kid = b64url(&thumbprint(&ec()));
         let set = keys(&serde_json::json!({"keys": [
-            ed_jwk(&ed_kid),
-            ec_jwk(&ec_kid),
+            ed_jwk(&okp_kid),
+            ec_jwk(&p256_kid),
             {"kty": "AKP", "alg": "ML-DSA-65", "pub": "AA", "kid": "x"},
-            {"kty": "OKP", "crv": "Ed25519", "x": ED_X, "kid": ed_kid, "use": "enc"},
+            {"kty": "OKP", "crv": "Ed25519", "x": ED_X, "kid": okp_kid, "use": "enc"},
         ]}))
         .unwrap();
         assert_eq!(set.keys.len(), 2);
@@ -188,21 +188,21 @@ mod tests {
     // P-116
     #[test]
     fn p_116_a_realm_key_named_by_another_kid_or_algorithm_is_refused() {
-        let ed_kid = b64url(&thumbprint(&ed()));
-        let ec_kid = b64url(&thumbprint(&ec()));
+        let okp_kid = b64url(&thumbprint(&ed()));
+        let p256_kid = b64url(&thumbprint(&ec()));
         let refused = AccessError::Answer("jwks");
         for jwks in [
-            serde_json::json!({"keys": [ed_jwk(&ec_kid)]}),
-            serde_json::json!({"keys": [ed_jwk(&ed_kid), ed_jwk(&ed_kid)]}),
-            serde_json::json!({"keys": [{"kty": "OKP", "crv": "Ed25519", "x": ED_X, "kid": ed_kid, "alg": "ES256"}]}),
-            serde_json::json!({"keys": [{"kty": "EC", "crv": "P-256", "x": EC_X, "kid": ec_kid}]}),
-            serde_json::json!({"keys": [{"kty": "OKP", "crv": "X25519", "x": ED_X, "kid": ed_kid}]}),
+            serde_json::json!({"keys": [ed_jwk(&p256_kid)]}),
+            serde_json::json!({"keys": [ed_jwk(&okp_kid), ed_jwk(&okp_kid)]}),
+            serde_json::json!({"keys": [{"kty": "OKP", "crv": "Ed25519", "x": ED_X, "kid": okp_kid, "alg": "ES256"}]}),
+            serde_json::json!({"keys": [{"kty": "EC", "crv": "P-256", "x": EC_X, "kid": p256_kid}]}),
+            serde_json::json!({"keys": [{"kty": "OKP", "crv": "X25519", "x": ED_X, "kid": okp_kid}]}),
             serde_json::json!({"keys": [{"kty": "OKP", "crv": "Ed25519", "x": ED_X}]}),
             serde_json::json!({"keys": []}),
         ] {
-            assert_eq!(keys(&jwks), Err(refused.clone()), "{jwks}");
+            assert_eq!(keys(&jwks).err(), Some(refused.clone()), "{jwks}");
         }
-        assert_eq!(realm_keys(b"{}"), Err(AccessError::Document("jwks")));
+        assert_eq!(realm_keys(b"{}").err(), Some(AccessError::Document("jwks")));
     }
 
     // P-116
