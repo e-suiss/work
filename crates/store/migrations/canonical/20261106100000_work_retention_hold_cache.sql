@@ -1,5 +1,5 @@
 -- OP-14 OP-12 OP-45 Access OP-74 Access OP-147
--- squawk-ignore-file changing-column-type, ban-drop-column, adding-required-field, constraint-missing-not-valid, ban-drop-constraint
+-- squawk-ignore-file changing-column-type, adding-required-field, constraint-missing-not-valid, ban-drop-constraint
 SET LOCAL ROLE work_owner;
 SET LOCAL lock_timeout = '10s';
 SET LOCAL statement_timeout = '5min';
@@ -9,7 +9,6 @@ ALTER TABLE work.retention_hold DROP CONSTRAINT retention_hold_kind_ck;
 ALTER TABLE work.retention_hold ALTER COLUMN hold_id DROP DEFAULT;
 ALTER TABLE work.retention_hold ALTER COLUMN hold_id TYPE text USING hold_id::text;
 ALTER TABLE work.retention_hold ALTER COLUMN placed_at DROP DEFAULT;
-ALTER TABLE work.retention_hold DROP COLUMN retention_class;
 ALTER TABLE work.retention_hold ADD COLUMN scope text NOT NULL;
 ALTER TABLE work.retention_hold ADD COLUMN retention_classes work.snake_name[];
 ALTER TABLE work.retention_hold ADD COLUMN suspicious_activity boolean NOT NULL DEFAULT false;
@@ -18,7 +17,8 @@ ALTER TABLE work.retention_hold
     ADD CONSTRAINT retention_hold_id_ck CHECK (pg_catalog.octet_length(hold_id) BETWEEN 1 AND 255),
     ADD CONSTRAINT retention_hold_scope_ck CHECK (scope IN ('subject', 'classes', 'tenant')),
     ADD CONSTRAINT retention_hold_subject_ck CHECK ((scope = 'subject') = (subject_ref IS NOT NULL)),
-    ADD CONSTRAINT retention_hold_classes_ck CHECK ((scope = 'classes') = (retention_classes IS NOT NULL));
+    ADD CONSTRAINT retention_hold_classes_ck CHECK ((scope = 'classes') = (retention_classes IS NOT NULL)),
+    ADD CONSTRAINT retention_hold_class_deprecated_ck CHECK (retention_class IS NULL);
 
 -- OP-14 OP-12 Access OP-74 Access OP-147
 CREATE FUNCTION work.retention_held(bytea, text, text) RETURNS boolean
