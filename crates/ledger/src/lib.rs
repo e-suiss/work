@@ -22,7 +22,9 @@
 //! the read path (OP-45); every opening is scanned for secrets before it is sealed (SEC-35), and
 //! every key removal is recorded in the erasure log and reported completed only once the DEK
 //! cache lifetime and the backup window have passed; large ciphertexts may go to an
-//! S3-compatible store (T-20). The replica
+//! S3-compatible store (T-20). The retention end job destroys a class DEK only when the shared
+//! retention decision answers `Destroy` under every schedule of its class with the cached Access
+//! holds and a fresh Access policy snapshot, so nothing goes without one (OP-14). The replica
 //! is a directory on a single node or an S3 bucket with Object Lock whose objects are written
 //! once (OP-33 item 3), and cold idempotency partitions are copied to such a bucket and verified
 //! before the archive role drops them (OP-35). Random bytes, the log key's signatures and the log
@@ -46,6 +48,7 @@ mod node;
 mod ports;
 mod rebuild;
 mod replica;
+mod retention;
 #[cfg(feature = "s3")]
 mod s3;
 pub mod time;
@@ -92,6 +95,9 @@ pub use replica::WormReplica;
 pub use replica::{
     AnyReplica, DirectoryReplica, MirrorError, Replica, checkpoint_key, cosignature_key, entry_key,
     leaf, put_checkpoint, put_cosignature, put_entry, received_key,
+};
+pub use retention::{
+    PolicySnapshot, RETENTION_PAGE, RetentionJob, RetentionPass, retention_decision, schedules_for,
 };
 #[cfg(feature = "s3")]
 pub use s3::{S3Config, S3Error, tls_trusting};

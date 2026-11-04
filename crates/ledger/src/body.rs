@@ -23,6 +23,7 @@ use suiss_crypto::envelope::{
 };
 use suiss_crypto::pkcs11::{HsmError, HsmKek, KeyStore};
 use suiss_crypto::secret::Secret;
+use suiss_retention::{Hold, TenantId};
 use tokio::task::spawn_blocking;
 use tokio::time::timeout;
 use work_kernel::codec::{Decoded, LARGE_PART, body_commitment, decode_record, record_id};
@@ -31,9 +32,9 @@ use work_kernel::envelope::{Envelope, EnvelopeIngest, decode_envelope};
 use work_kernel::record::PartName;
 use work_proto::parser::{Scan, ScanFailure, Verdict};
 use work_store::{
-    BodyCommitmentRow, BodyPartRow, DekRow, Erased, ErasurePool, ErasureRow, ErasureState,
-    ErasureTarget, LedgerId, LedgerTx, LogBytes, Pool, RetentionClass, SequencerPool, Shred,
-    StoreError, Stored, StoredPart, WRAPPED_LEN,
+    BodyCommitmentRow, BodyPartRow, ClassDek, DekRow, Erased, ErasurePool, ErasureRow,
+    ErasureState, ErasureTarget, LedgerId, LedgerTx, LogBytes, Pool, RetentionClass, SequencerPool,
+    Shred, StoreError, Stored, StoredPart, WRAPPED_LEN,
 };
 
 use crate::ports::{Rng, RngError, bytes32};
@@ -935,6 +936,46 @@ impl BodyEraser {
                 self.keys.forget(&wrapped);
             }
         }))
+    }
+
+    /// Destroys the class DEK `dek` at the end of its retention (OP-12 item 4, OP-14, OP-45
+    /// item 5) only while it is still active with the newest record weighed and nothing holds it;
+    /// otherwise nothing is removed or recorded.
+    ///
+    /// # Errors
+    /// [`BodyError::Store`].
+    pub async fn expire(&self, ledger: &LedgerId, dek: &ClassDek) -> Result<Erased<()>, BodyError> {
+        let erased = bounded(self.limit, self.pool.expire_dek(ledger, dek, self.settle)).await?;
+        Ok(erased.map_key(|row| {
+            if let Some(wrapped) = row.wrapped {
+                self.keys.forget(&wrapped);
+            }
+        }))
+    }
+
+    /// One page of the active class DEKs of `ledger` after `after`, at most `limit` (OP-14).
+    ///
+    /// # Errors
+    /// [`BodyError::Store`].
+    pub async fn class_deks(
+        &self,
+        ledger: &LedgerId,
+        after: Option<&str>,
+        limit: u32,
+    ) -> Result<Vec<ClassDek>, BodyError> {
+        bounded(self.limit, self.pool.class_deks(ledger, after, limit)).await
+    }
+
+    /// The Access holds cached for `ledger`, as holds of `tenant` (OP-14, Access OP-147).
+    ///
+    /// # Errors
+    /// [`BodyError::Store`].
+    pub async fn holds(
+        &self,
+        ledger: &LedgerId,
+        tenant: &TenantId,
+    ) -> Result<Vec<Hold>, BodyError> {
+        bounded(self.limit, self.pool.holds(ledger, tenant)).await
     }
 
     /// Shreds the key of the part `part` of the record at `pos`, the redaction of that part

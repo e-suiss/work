@@ -10,12 +10,16 @@ use std::time::Duration;
 use suiss_crypto::dcbor::{self, Limits, Value};
 use suiss_crypto::digest::{Digest, sha256};
 use suiss_crypto::secret::Secret;
+use suiss_retention::{
+    Basis, Class, Event, Hold, HoldId, HoldKind, HoldScope, Length, Period, PolicyVersion,
+    Schedule, SubjectId, TenantId, Timestamp,
+};
 use work_kernel::codec::body_commitment;
 use work_kernel::record::PartName;
 use work_kernel::verify::{ChainPoint, StoredEntry, verify_entry};
 use work_ledger::{
-    BodyEraser, BodyError, BodyKeys, BodyOpening, BodyReader, BodyWriter, PartRead, SubmitError,
-    rebuild_diff,
+    BodyEraser, BodyError, BodyKeys, BodyOpening, BodyReader, BodyWriter, PartRead, PolicySnapshot,
+    RetentionJob, RetentionPass, SubmitError, rebuild_diff,
 };
 use work_parse::secret::SecretScanner;
 use work_proto::parser::Scan;
@@ -384,6 +388,135 @@ async fn op_45_a_shredded_body_is_unreadable_while_its_skeleton_verifies() {
         .unwrap();
     assert!(outcome.is_clean(), "{outcome:?}");
     assert_eq!(outcome.through(), next.pos);
+}
+
+// OP-14 OP-12 OP-30 OP-45 Access OP-74 Access OP-147
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs Docker and SoftHSM"]
+#[allow(
+    clippy::too_many_lines,
+    reason = "one class DEK from the write through the deferred passes to its expiry"
+)]
+async fn op_14_the_retention_job_destroys_nothing_without_an_access_snapshot() {
+    let env = Env::start().await;
+    let keys = keys("retention");
+    let (pool, ledger, group, gate) = writer(&env, [0x14; 32]).await;
+    gate.permits.add_permits(100);
+    let bodies = BodyWriter::in_database(Arc::clone(&keys), pool.clone(), scanner());
+    let note = opening("note", b"the delivery moves to Friday", 1);
+    let record = with_body(&comment(&ledger, 1), &[&note]);
+    let actors = human();
+    let committed = group
+        .admit_with_body(
+            &Directory::golden(),
+            submission(unsigned(&record), &actors),
+            std::slice::from_ref(&note),
+            &bodies,
+            AT,
+        )
+        .await
+        .unwrap();
+    let reader =
+        BodyReader::in_database(Arc::clone(&keys), env.pool(Cluster::Canonical, "work_app"));
+    let holds = ErasurePool::new(env.pool(Cluster::Canonical, "work_erasure"))
+        .await
+        .unwrap();
+    let eraser = Arc::new(BodyEraser::new(
+        Arc::clone(&keys),
+        holds.clone(),
+        BACKUP_WINDOW,
+    ));
+    let job = RetentionJob::new(Arc::clone(&eraser));
+    let tenant = TenantId::new("tnt_acme");
+    let now = Timestamp::from_unix_millis(AT.saturating_add(172_800_000));
+    let deferred = RetentionPass {
+        deferred: 1,
+        ..RetentionPass::default()
+    };
+    for at in [now, Timestamp::from_unix_millis(u64::MAX / 2)] {
+        assert_eq!(
+            job.pass(&ledger, &tenant, None, at).await.unwrap(),
+            deferred
+        );
+    }
+    let snapshot = |schedules: Vec<Schedule>| PolicySnapshot {
+        tenant: tenant.clone(),
+        taken_at: Timestamp::from_unix_millis(now.unix_millis().saturating_sub(3_600_000)),
+        schedules,
+    };
+    assert_eq!(
+        job.pass(&ledger, &tenant, Some(&snapshot(vec![])), now)
+            .await
+            .unwrap(),
+        deferred
+    );
+    assert_eq!(
+        read(&reader, &ledger, committed.pos).await,
+        vec![("note".to_owned(), PartRead::Readable(note.clone()))]
+    );
+    assert_eq!(eraser.erasures(&ledger).await.unwrap(), Vec::new());
+    let access = snapshot(vec![Schedule {
+        tenant: tenant.clone(),
+        class: Class::WorkRecord,
+        basis: Basis::new("test"),
+        length: Length::For(Period::Days(1)),
+        start: Event::Recorded,
+        max: None,
+        version: PolicyVersion::new(1),
+    }]);
+    let hold = Hold {
+        id: HoldId::new("hld_1"),
+        tenant: tenant.clone(),
+        scope: HoldScope::Subject(SubjectId::new("party:acme:alice")),
+        placed_at: Timestamp::from_unix_millis(AT),
+        until: None,
+        kind: HoldKind::Litigation,
+        suspicious_activity: false,
+    };
+    holds.cache_hold(&ledger, &hold).await.unwrap();
+    assert_eq!(
+        job.pass(&ledger, &tenant, Some(&access), now)
+            .await
+            .unwrap(),
+        RetentionPass {
+            retained: 1,
+            ..RetentionPass::default()
+        }
+    );
+    holds
+        .cache_hold(
+            &ledger,
+            &Hold {
+                until: Some(Timestamp::from_unix_millis(AT)),
+                ..hold
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        job.pass(&ledger, &tenant, Some(&access), now)
+            .await
+            .unwrap(),
+        RetentionPass {
+            destroyed: 1,
+            ..RetentionPass::default()
+        }
+    );
+    assert_eq!(
+        read(&reader, &ledger, committed.pos).await,
+        vec![("note".to_owned(), PartRead::Unreadable)]
+    );
+    let rows = eraser.erasures(&ledger).await.unwrap();
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].cause, ErasureCause::RetentionExpired);
+    assert_eq!(rows[0].target, ErasureTarget::Class);
+    assert!(matches!(rows[0].state, ErasureState::Shredded { .. }));
+    assert_eq!(
+        job.pass(&ledger, &tenant, Some(&access), now)
+            .await
+            .unwrap(),
+        RetentionPass::default()
+    );
 }
 
 // SEC-35 P-95 SEC-13 OP-45
