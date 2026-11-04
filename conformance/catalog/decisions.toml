@@ -3189,6 +3189,7 @@ tests = [
   "crates/ledger/src/admit/tests.rs::p_21_a_signed_agent_record_sent_unsigned_is_refused",
   "crates/ledger/src/admit/tests.rs::p_21_an_unsigned_record_of_an_unknown_protocol_is_refused",
   "crates/ledger/src/auth_context/tests.rs::p_116_assurance_and_step_up_come_from_the_payload",
+  "crates/ledger/src/auth_context/tests.rs::p_116_the_access_vectors_are_refused_as_other_content",
   "crates/ledger/src/auth_context/tests.rs::p_116_the_reference_is_the_access_digest",
   "sdks/bindings/core/tests/bytes.rs::t_10_stored_entries_verify_from_their_bytes_through_bindings_core",
   "sdks/bindings/uniffi/tests/swift/main.swift::t_10_swift_stored_entries_verify_from_their_bytes",
@@ -4286,12 +4287,14 @@ tests = [
   "crates/ledger/src/admit/tests.rs::p_116_an_unsigned_record_is_refused_with_the_artifact_of_another_record",
   "crates/ledger/src/admit/tests.rs::p_116_the_envelope_names_the_artifact_by_its_digest_with_the_payload_assurance",
   "crates/ledger/src/auth_context/tests.rs::p_116_a_context_of_an_unpaired_realm_is_refused",
+  "crates/ledger/src/auth_context/tests.rs::p_116_a_digest_shaped_session_ref_follows_the_access_cddl",
+  "crates/ledger/src/auth_context/tests.rs::p_116_a_payload_outside_the_access_cddl_is_refused",
   "crates/ledger/src/auth_context/tests.rs::p_116_an_auth_context_bound_to_another_record_is_refused",
   "crates/ledger/src/auth_context/tests.rs::p_116_an_unbound_auth_context_is_refused",
   "crates/ledger/src/auth_context/tests.rs::p_116_assurance_and_step_up_come_from_the_payload",
   "crates/ledger/src/auth_context/tests.rs::p_116_every_refusal_is_auth_context_invalid",
   "crates/ledger/src/auth_context/tests.rs::p_116_only_the_realm_token_key_signs_the_artifact",
-  "crates/ledger/src/auth_context/tests.rs::p_116_the_payload_follows_the_access_cddl_and_its_vectors",
+  "crates/ledger/src/auth_context/tests.rs::p_116_the_access_vectors_are_refused_as_other_content",
   "crates/ledger/src/auth_context/tests.rs::p_116_the_reference_is_the_access_digest",
 ]
 

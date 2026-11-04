@@ -14,8 +14,8 @@
 )]
 
 use std::collections::{BTreeMap, BTreeSet};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, LazyLock, Mutex};
 use std::time::Duration;
 
 use serde_json::Value as Json;
@@ -257,23 +257,25 @@ fn submission<'a>(arrival: Arrival<'a>, actors: &'a ActorTypes) -> Submission<'a
     }
 }
 
-thread_local! {
-    static REALM: &'static Realm = Box::leak(Box::new(Realm::open("ledger").unwrap()));
-    static PAIRED: &'static BTreeSet<String> = Box::leak(Box::new(realm::paired()));
-}
+/// The test realm's token, made before any token of the test is opened (P-116).
+pub(crate) static REALM_TOKEN: LazyLock<String> = LazyLock::new(|| realm::token("ledger").unwrap());
+static REALM: LazyLock<Mutex<Realm>> =
+    LazyLock::new(|| Mutex::new(Realm::in_token(&REALM_TOKEN).unwrap()));
+static REALM_KEYS: LazyLock<KeySet> = LazyLock::new(|| REALM.lock().unwrap().keys().clone());
+static PAIRED: LazyLock<BTreeSet<String>> = LazyLock::new(realm::paired);
 
 /// `record` with the golden artifact bound to it, signed by the test realm (P-116).
 fn unsigned(record: &[u8]) -> Arrival<'_> {
-    let r = REALM.with(|r| *r);
-    let artifact: &'static Artifact = Box::leak(Box::new(r.for_record(sha256(record)).unwrap()));
+    let made = REALM.lock().unwrap().for_record(sha256(record)).unwrap();
+    let artifact: &'static Artifact = Box::leak(Box::new(made));
     Arrival::Unsigned {
         record,
         auth_context: AuthContext {
             bytes: &artifact.cose,
             digest: &artifact.digest,
-            realm_keys: r.keys(),
+            realm_keys: &REALM_KEYS,
             issuer: ISSUER,
-            paired: PAIRED.with(|p| *p),
+            paired: &PAIRED,
             now_ms: ADMITTED_AT,
         },
     }

@@ -26,11 +26,11 @@ mod worm;
 
 use std::collections::BTreeSet;
 use std::num::NonZeroU8;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock, Mutex};
 use std::time::Duration;
 
 use serde_json::Value as Json;
-use suiss_crypto::cose::PublicKey;
+use suiss_crypto::cose::{KeySet, PublicKey};
 use suiss_crypto::dcbor::{self, Limits, Value};
 use suiss_crypto::digest::{Digest, leaf_hash, sha256};
 use suiss_crypto::note::Verifier;
@@ -194,15 +194,23 @@ async fn opened_ledger(env: &Env, tag: u8) -> (Genesis, Leader) {
     (opened, leader)
 }
 
-thread_local! {
-    static REALM: &'static Realm = Box::leak(Box::new(Realm::open("signer").unwrap()));
-    static PAIRED: &'static BTreeSet<String> = Box::leak(Box::new(realm::paired()));
+static REALM_TOKEN: LazyLock<String> = LazyLock::new(|| realm::token("signer").unwrap());
+static REALM: LazyLock<Mutex<Realm>> =
+    LazyLock::new(|| Mutex::new(Realm::in_token(&REALM_TOKEN).unwrap()));
+static REALM_KEYS: LazyLock<KeySet> = LazyLock::new(|| REALM.lock().unwrap().keys().clone());
+static PAIRED: LazyLock<BTreeSet<String>> = LazyLock::new(realm::paired);
+
+/// A token of its own for `test`, made after the test realm's token and before either is
+/// opened (P-116).
+fn token(test: &str) -> Token {
+    LazyLock::force(&REALM_TOKEN);
+    Token::new(test)
 }
 
-/// The golden artifact of `record`, signed by this thread's test realm (P-116).
+/// The golden artifact of `record`, signed by the test realm (P-116).
 fn artifact_of(record: &[u8]) -> &'static Artifact {
-    let r = REALM.with(|r| *r);
-    Box::leak(Box::new(r.for_record(sha256(record)).unwrap()))
+    let made = REALM.lock().unwrap().for_record(sha256(record)).unwrap();
+    Box::leak(Box::new(made))
 }
 
 /// The `auth_context` of `record` (P-116).
@@ -211,9 +219,9 @@ fn context(record: &[u8]) -> AuthContext<'static> {
     AuthContext {
         bytes: &artifact.cose,
         digest: &artifact.digest,
-        realm_keys: REALM.with(|r| *r).keys(),
+        realm_keys: &REALM_KEYS,
         issuer: ISSUER,
-        paired: PAIRED.with(|p| *p),
+        paired: &PAIRED,
         now_ms: ADMITTED_AT,
     }
 }
@@ -330,10 +338,10 @@ fn one() -> WitnessProfile {
 #[ignore = "needs Docker, SoftHSM and sudo"]
 async fn p_20_the_signer_acknowledges_the_head_and_the_replica_takes_the_log() {
     let env = Env::start().await;
+    let token = token("containers");
     let (opened, leader) = ledger_with_comment(&env, 0x5c).await;
     let ledger = opened.ledger;
 
-    let token = Token::new("containers");
     let signer = Signer::start(&token);
     let local = checkpointer(&env, &signer, WitnessProfile::LocalDependent).await;
     assert_eq!(local.log_key(), &token.verifier());
@@ -478,6 +486,7 @@ impl Clock for Fixed {
 #[ignore = "needs Docker, SoftHSM and sudo"]
 async fn op_33_a_led_ledger_is_checkpointed_on_its_cadence_and_mirrored() {
     let env = Env::start().await;
+    let token = token("cadence");
     let sequencer = SequencerPool::new(env.pool("work_sequencer"))
         .await
         .unwrap();
@@ -531,7 +540,6 @@ async fn op_33_a_led_ledger_is_checkpointed_on_its_cadence_and_mirrored() {
     assert_eq!(ledgers.submit(&ledger, pending).await.unwrap().pos, 1);
     assert_eq!(ledgers.led().await, [ledger]);
 
-    let token = Token::new("cadence");
     let signer = Signer::start(&token);
     let root = token.dir.join("replica");
     let setup = CheckpointSetup {
@@ -602,7 +610,7 @@ async fn pending_observations(derived: &Pool, ledger: &LedgerId) -> Vec<WitnessO
 #[ignore = "needs Docker, SoftHSM and sudo"]
 async fn op_46_a_real_witness_cosigns_each_mirrored_checkpoint_from_the_size_it_holds() {
     let env = Env::start().await;
-    let token = Token::new("witness");
+    let token = token("witness");
     let signer = Signer::start(&token);
     let (opened, mut leader) = opened_ledger(&env, 0x6a).await;
     let ledger = opened.ledger;

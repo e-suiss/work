@@ -4,7 +4,7 @@
 
 use std::path::PathBuf;
 use std::process::Command;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 use std::time::Duration;
 
 use suiss_crypto::dcbor::{self, Limits, Value};
@@ -25,8 +25,8 @@ use work_store::{
 };
 
 use crate::{
-    AT, Directory, Env, RECORDS, comment, human, json, node, statement, submission, unhex,
-    unsigned, writer,
+    AT, Directory, Env, REALM_TOKEN, RECORDS, comment, human, json, node, statement, submission,
+    unhex, unsigned, writer,
 };
 
 const PIN: &str = "4711";
@@ -45,6 +45,7 @@ fn module() -> PathBuf {
 }
 
 fn keys(test: &str) -> Arc<BodyKeys> {
+    LazyLock::force(&REALM_TOKEN);
     let label = format!("ledger-{test}-{}", std::process::id());
     let init = Command::new("softhsm2-util")
         .args([

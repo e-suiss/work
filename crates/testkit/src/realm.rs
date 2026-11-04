@@ -137,38 +137,58 @@ impl std::fmt::Debug for Realm {
     }
 }
 
+/// Makes a new `SoftHSM` token named after `test` and gives its label; `SoftHSM` finds only the
+/// tokens made before a process first opens one, so a test that opens several tokens makes them
+/// all first.
+///
+/// # Errors
+/// [`TestkitError::Hsm`] when the token cannot be made.
+pub fn token(test: &str) -> Result<String, TestkitError> {
+    let label = format!(
+        "realm-{test}-{}-{}",
+        std::process::id(),
+        NEXT.fetch_add(1, Ordering::Relaxed)
+    );
+    let _one = INIT.lock().map_err(hsm)?;
+    let init = Command::new("softhsm2-util")
+        .args([
+            "--init-token",
+            "--free",
+            "--label",
+            &label,
+            "--so-pin",
+            "12345678",
+            "--pin",
+            PIN,
+        ])
+        .output()
+        .map_err(hsm)?;
+    if init.status.success() {
+        Ok(label)
+    } else {
+        Err(TestkitError::Hsm(
+            String::from_utf8_lossy(&init.stderr).into_owned(),
+        ))
+    }
+}
+
 impl Realm {
     /// A realm with an Ed25519 token key in a new token named after `test`.
     ///
     /// # Errors
     /// [`TestkitError::Hsm`] when the token or the key cannot be made.
     pub fn open(test: &str) -> Result<Self, TestkitError> {
-        let token = format!(
-            "realm-{test}-{}-{}",
-            std::process::id(),
-            NEXT.fetch_add(1, Ordering::Relaxed)
-        );
+        Self::in_token(&token(test)?)
+    }
+
+    /// A realm with an Ed25519 token key in the token labelled `label`, made by [`token`].
+    ///
+    /// # Errors
+    /// [`TestkitError::Hsm`] when the token cannot be opened or the key cannot be made.
+    pub fn in_token(label: &str) -> Result<Self, TestkitError> {
         let store = {
             let _one = INIT.lock().map_err(hsm)?;
-            let init = Command::new("softhsm2-util")
-                .args([
-                    "--init-token",
-                    "--free",
-                    "--label",
-                    &token,
-                    "--so-pin",
-                    "12345678",
-                    "--pin",
-                    PIN,
-                ])
-                .output()
-                .map_err(hsm)?;
-            if !init.status.success() {
-                return Err(TestkitError::Hsm(
-                    String::from_utf8_lossy(&init.stderr).into_owned(),
-                ));
-            }
-            KeyStore::open(&module(), &token, &Secret::new(PIN.to_owned())).map_err(hsm)?
+            KeyStore::open(&module(), label, &Secret::new(PIN.to_owned())).map_err(hsm)?
         };
         Self::with_key(Arc::new(store), "realm-token")
     }

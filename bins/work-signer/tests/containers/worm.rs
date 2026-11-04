@@ -51,9 +51,9 @@ async fn op_33_the_worm_replica_takes_the_log_once_and_moves_only_after_reading_
     let env = Env::start().await;
     let s3 = S3::start().await.unwrap();
     let now = wall_clock(&env).await;
+    let token = token("worm");
     let (opened, _leader) = ledger_with_comment(&env, 0x61).await;
     let ledger = opened.ledger;
-    let token = Token::new("worm");
     let signer = Signer::start(&token);
     let local = checkpointer(&env, &signer, WitnessProfile::LocalDependent).await;
     let stored = local.checkpoint(&ledger, AT + 9).await.unwrap().unwrap();
