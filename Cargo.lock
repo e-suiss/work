@@ -1351,6 +1351,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "esuiss-retention"
+version = "0.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e22fd628aa8c45fb7847e9b95473c520b6d724a4d7a6e3617dd6c6e5eeea4a32"
+dependencies = [
+ "thiserror 2.0.21",
+]
+
+[[package]]
 name = "esuiss-sandbox"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5333,6 +5342,7 @@ dependencies = [
  "ed25519-dalek",
  "esuiss-crypto",
  "esuiss-ledger",
+ "esuiss-retention",
  "esuiss-work-kernel",
  "hmac",
  "http",
@@ -5456,6 +5466,7 @@ dependencies = [
 name = "work-store"
 version = "0.1.0"
 dependencies = [
+ "esuiss-retention",
  "sqlx",
  "thiserror 2.0.21",
  "tokio",
