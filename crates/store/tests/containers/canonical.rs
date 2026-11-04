@@ -1,9 +1,10 @@
 use std::time::Duration;
 
 use sqlx::AssertSqlSafe;
+use suiss_retention::{Class, Hold, HoldId, HoldKind, HoldScope, SubjectId, TenantId, Timestamp};
 use work_store::{
-    Cluster, Erased, ErasureCause, ErasurePool, ErasureState, ErasureTarget, LedgerId, LedgerTx,
-    RetentionClass, Shred,
+    ClassDek, Cluster, Erased, ErasureCause, ErasurePool, ErasureState, ErasureTarget, LedgerId,
+    LedgerTx, RetentionClass, Shred, StoreError,
 };
 
 use crate::env::{Env, L, M, fails, hex, run, scalar, with_ledgers};
@@ -84,7 +85,7 @@ pub(crate) async fn seeded() -> (Env, String) {
 #[ignore = "needs Docker"]
 async fn t_36_migrations_rerun_as_a_no_op() {
     let env = Env::start().await;
-    for (cluster, applied) in [(Cluster::Canonical, 23), (Cluster::Derived, 7)] {
+    for (cluster, applied) in [(Cluster::Canonical, 24), (Cluster::Derived, 7)] {
         work_store::migrate(&env.pool(cluster, "work_owner"), cluster)
             .await
             .unwrap();
@@ -573,10 +574,10 @@ async fn op_12_a_retention_hold_blocks_crypto_shredding() {
     run(
         &erasure,
         &l,
-        &[&sql(
-            "INSERT INTO work.retention_hold (ledger_id, hold_kind, subject_ref, state) \
-                VALUES (decode('{L}', 'hex'), 'litigation', 'party:alice', 'active')",
-        )],
+        &[&sql("INSERT INTO work.retention_hold \
+                (ledger_id, hold_id, hold_kind, scope, subject_ref, placed_at, state) \
+                VALUES (decode('{L}', 'hex'), 'hld_1', 'litigation', 'subject', 'party:alice', \
+                now(), 'active')")],
     )
     .await;
     let destroy =
@@ -630,10 +631,10 @@ async fn op_45_a_part_key_is_shredded_once_and_never_under_a_hold() {
     let seq = env.canonical("work_sequencer");
     let shred = "UPDATE work.body_part_key SET wrapped_key = NULL, shredded_at = now() \
                  WHERE part = 'note'";
-    let hold = sql(
-        "INSERT INTO work.retention_hold (ledger_id, hold_kind, retention_class, state) \
-         VALUES (decode('{L}', 'hex'), 'regulator', 'work_record', 'active')",
-    );
+    let hold = sql("INSERT INTO work.retention_hold \
+         (ledger_id, hold_id, hold_kind, scope, retention_classes, placed_at, state) \
+         VALUES (decode('{L}', 'hex'), 'hld_2', 'regulator', 'classes', \
+         ARRAY['work_record']::work.snake_name[], now(), 'active')");
     run(&erasure, &l, &[&hold]).await;
     fails(&erasure, &l, &[shred], Some("23514")).await;
     run(
@@ -712,10 +713,10 @@ async fn op_45_an_erasure_waits_on_a_hold_and_completes_only_after_it_settles() 
     run(
         &erasure,
         &l,
-        &[&sql(
-            "INSERT INTO work.retention_hold (ledger_id, hold_kind, subject_ref, state) \
-             VALUES (decode('{L}', 'hex'), 'litigation', 'party:alice', 'active')",
-        )],
+        &[&sql("INSERT INTO work.retention_hold \
+             (ledger_id, hold_id, hold_kind, scope, subject_ref, placed_at, state) \
+             VALUES (decode('{L}', 'hex'), 'hld_3', 'litigation', 'subject', 'party:alice', \
+             now(), 'active')")],
     )
     .await;
     let part_id = match pool.shred_part(&ledger, 0, 0, "note", hour).await.unwrap() {
@@ -1139,4 +1140,155 @@ async fn op_38_a_partition_is_cold_only_30_days_and_u_after_its_range_ends() {
                   AND p.prosrc NOT LIKE '%30 days%'";
     let owner = env.canonical("work_owner");
     assert_eq!(scalar(&owner, &l, judged, false).await, 2);
+}
+
+fn access_hold(id: &str, scope: HoldScope, placed_at: u64, until: Option<u64>) -> Hold {
+    Hold {
+        id: HoldId::new(id),
+        tenant: TenantId::new("tnt_acme"),
+        scope,
+        placed_at: Timestamp::from_unix_millis(placed_at),
+        until: until.map(Timestamp::from_unix_millis),
+        kind: HoldKind::Regulator,
+        suspicious_activity: true,
+    }
+}
+
+// OP-14 OP-12 OP-45 Access OP-74 Access OP-147
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs Docker"]
+#[allow(
+    clippy::too_many_lines,
+    reason = "one hold cache from the first write through the lift to the expiry it allows"
+)]
+async fn op_14_the_hold_cache_keeps_what_access_sent_and_expiry_waits_on_it() {
+    let (env, l) = seeded().await;
+    let erasure = env.canonical("work_erasure");
+    let pool = ErasurePool::new(erasure.clone()).await.unwrap();
+    let ledger = LedgerId::from_bytes(L);
+    let tenant = TenantId::new("tnt_acme");
+    let hour = Duration::from_hours(1);
+    let bob = access_hold(
+        "hld_bob",
+        HoldScope::Subject(SubjectId::new("party:bob")),
+        1,
+        None,
+    );
+    let classes = access_hold(
+        "hld_classes",
+        HoldScope::Classes(vec![Class::WorkRecord, Class::Ledger]),
+        2,
+        None,
+    );
+    for h in [&bob, &classes, &bob, &classes] {
+        pool.cache_hold(&ledger, h).await.unwrap();
+    }
+    assert_eq!(
+        pool.holds(&ledger, &tenant).await.unwrap(),
+        vec![bob.clone(), classes.clone()]
+    );
+    let deks = pool.class_deks(&ledger, None, 10).await.unwrap();
+    assert_eq!(deks.len(), 1);
+    let dek = deks[0].clone();
+    assert_eq!(dek.subject, "party:alice");
+    assert_eq!(dek.class, RetentionClass::WorkRecord);
+    assert_eq!(dek.newest_ms, Some(1_792_749_600_123));
+    assert_eq!(
+        pool.class_deks(&ledger, Some(&dek.dek_id), 10)
+            .await
+            .unwrap(),
+        Vec::new()
+    );
+    assert_eq!(
+        pool.expire_dek(&ledger, &dek, hour).await.unwrap(),
+        Erased::Nothing
+    );
+    assert_eq!(pool.erasures(&ledger).await.unwrap(), Vec::new());
+    let lifted = Hold {
+        until: Some(Timestamp::from_unix_millis(3)),
+        ..classes.clone()
+    };
+    pool.cache_hold(&ledger, &lifted).await.unwrap();
+    pool.cache_hold(&ledger, &lifted).await.unwrap();
+    assert_eq!(
+        pool.holds(&ledger, &tenant).await.unwrap(),
+        vec![bob.clone(), lifted.clone()]
+    );
+    for refused in [
+        Hold {
+            scope: HoldScope::Tenant,
+            ..lifted.clone()
+        },
+        Hold {
+            kind: HoldKind::Litigation,
+            ..lifted.clone()
+        },
+        Hold {
+            until: Some(Timestamp::from_unix_millis(4)),
+            ..lifted.clone()
+        },
+        classes.clone(),
+    ] {
+        assert!(
+            matches!(
+                pool.cache_hold(&ledger, &refused).await,
+                Err(StoreError::Constraint(_))
+            ),
+            "{refused:?}"
+        );
+    }
+    let stale = ClassDek {
+        newest_ms: Some(0),
+        ..dek.clone()
+    };
+    assert_eq!(
+        pool.expire_dek(&ledger, &stale, hour).await.unwrap(),
+        Erased::Nothing
+    );
+    let everything = access_hold("hld_tenant", HoldScope::Tenant, 5, None);
+    pool.cache_hold(&ledger, &everything).await.unwrap();
+    assert_eq!(
+        pool.expire_dek(&ledger, &dek, hour).await.unwrap(),
+        Erased::Nothing
+    );
+    let gone = "SELECT count(*) FROM work.body_dek WHERE state = 'destroyed'";
+    assert_eq!(scalar(&erasure, &l, gone, false).await, 0);
+    pool.cache_hold(
+        &ledger,
+        &Hold {
+            until: Some(Timestamp::from_unix_millis(6)),
+            ..everything
+        },
+    )
+    .await
+    .unwrap();
+    let Erased::Shredded { erasure_id, .. } = pool.expire_dek(&ledger, &dek, hour).await.unwrap()
+    else {
+        panic!("not shredded")
+    };
+    assert_eq!(scalar(&erasure, &l, gone, false).await, 1);
+    let rows = pool.erasures(&ledger).await.unwrap();
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].erasure_id, erasure_id);
+    assert_eq!(rows[0].cause, ErasureCause::RetentionExpired);
+    assert_eq!(rows[0].target, ErasureTarget::Class);
+    assert!(matches!(rows[0].state, ErasureState::Shredded { .. }));
+    let tombstones =
+        "SELECT count(*) FROM work.body_part_tombstone WHERE cause = 'retention_expired'";
+    assert_eq!(scalar(&erasure, &l, tombstones, false).await, 2);
+    assert_eq!(
+        pool.class_deks(&ledger, None, 10).await.unwrap(),
+        Vec::new()
+    );
+    assert_eq!(
+        pool.expire_dek(&ledger, &dek, hour).await.unwrap(),
+        Erased::Nothing
+    );
+    let held = sql(
+        "SELECT count(*) WHERE work.retention_held(decode('{L}', 'hex'), 'party:carol', 'agent_trace')",
+    );
+    assert_eq!(scalar(&erasure, &l, &held, false).await, 0);
+    let malformed = access_hold("hld_empty", HoldScope::Classes(vec![]), 7, Some(8));
+    pool.cache_hold(&ledger, &malformed).await.unwrap();
+    assert_eq!(scalar(&erasure, &l, &held, false).await, 1);
 }

@@ -17,6 +17,7 @@ mod migrate;
 mod outbox;
 mod publisher;
 mod rebuild;
+mod retention;
 mod scope;
 mod sequencer;
 mod server;
@@ -49,6 +50,7 @@ pub use rebuild::{
     CANONICAL_INPUTS, CANONICAL_READS, CanonicalEntry, CanonicalLog, REBUILD_ROLE, RebuildDiff,
     Snapshot, TableDiff, covered_tables, diff,
 };
+pub use retention::{ClassDek, WORK_CLASSES, work_class};
 pub use scope::{Head, LedgerTx};
 pub use sequencer::{
     AppendBatch, CellId, Durability, Expect, Genesis, ItemHeadRow, KeyRow, LogRow, NewHead,

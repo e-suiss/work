@@ -458,11 +458,8 @@ async fn part_held(tx: &mut LedgerTx<'_>, pos: i64, part: &str) -> Result<bool, 
         r#"SELECT EXISTS (
                    SELECT 1 FROM work.body_part p
                    JOIN work.body_dek d ON d.ledger_id = p.ledger_id AND d.dek_id = p.dek_id
-                   JOIN work.retention_hold h ON h.ledger_id = p.ledger_id
                    WHERE p.ledger_id = $1 AND p.pos = $2 AND p.part = $3
-                     AND h.state = 'active'
-                     AND (h.subject_ref IS NULL OR h.subject_ref = d.subject_ref)
-                     AND (h.retention_class IS NULL OR h.retention_class = p.retention_class)
+                     AND work.retention_held(p.ledger_id, d.subject_ref, p.retention_class)
                ) AS "held!""#,
         ledger.as_slice(),
         pos,
@@ -620,7 +617,7 @@ struct PartTuple {
     dek: Option<Vec<u8>>,
 }
 
-fn signed(v: u64) -> Result<i64, StoreError> {
+pub(crate) fn signed(v: u64) -> Result<i64, StoreError> {
     i64::try_from(v).map_err(|_| StoreError::Corrupt)
 }
 
@@ -842,7 +839,7 @@ impl crate::SequencerPool {
 /// ```
 #[derive(Debug, Clone)]
 pub struct ErasurePool {
-    pool: PgPool,
+    pub(crate) pool: PgPool,
 }
 
 impl ErasurePool {
@@ -871,6 +868,21 @@ impl ErasurePool {
         class: RetentionClass,
         why: Shred,
         settle: std::time::Duration,
+    ) -> Result<Erased<DekRow>, StoreError> {
+        self.destroy(ledger, subject, class, why, settle, None)
+            .await
+    }
+
+    /// [`Self::destroy_dek`], or with `expect`, the DEK id and the newest record time weighed,
+    /// only while both still stand and no hold applies, recording nothing otherwise (OP-14).
+    pub(crate) async fn destroy(
+        &self,
+        ledger: &LedgerId,
+        subject: &str,
+        class: RetentionClass,
+        why: Shred,
+        settle: std::time::Duration,
+        expect: Option<(&str, Option<i64>)>,
     ) -> Result<Erased<DekRow>, StoreError> {
         let id = ledger.as_bytes().as_slice();
         let window = window_ms(settle);
@@ -908,19 +920,34 @@ impl ErasurePool {
             tx.commit().await?;
             return Ok(Erased::Nothing);
         };
+        if let Some((dek_id, newest)) = expect {
+            let now_newest = sqlx::query_scalar!(
+                r#"SELECT (extract(epoch FROM max(l.recorded_at)) * 1000)::bigint AS "newest?"
+                   FROM work.body_part p
+                   JOIN ledger.log l ON l.ledger_id = p.ledger_id AND l.pos = p.pos
+                   WHERE p.ledger_id = $1 AND p.dek_id = $2::text::uuid"#,
+                id,
+                row.dek_id.as_str()
+            )
+            .fetch_one(tx.conn())
+            .await?;
+            if row.dek_id != dek_id || now_newest != newest {
+                tx.commit().await?;
+                return Ok(Erased::Nothing);
+            }
+        }
         let held = sqlx::query_scalar!(
-            r#"SELECT EXISTS (
-                   SELECT 1 FROM work.retention_hold h
-                   WHERE h.ledger_id = $1 AND h.state = 'active'
-                     AND (h.subject_ref IS NULL OR h.subject_ref = $2)
-                     AND (h.retention_class IS NULL OR h.retention_class = $3)
-               ) AS "held!""#,
+            r#"SELECT work.retention_held($1, $2, $3) AS "held!""#,
             id,
             subject,
             class.as_str()
         )
         .fetch_one(tx.conn())
         .await?;
+        if held && expect.is_some() {
+            tx.commit().await?;
+            return Ok(Erased::Nothing);
+        }
         if held {
             let erasure_id = waiting(&mut tx, &row.dek_id, None, why.request(), None).await?;
             tx.commit().await?;
