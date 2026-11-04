@@ -118,7 +118,7 @@ impl<T: Transport, C: Clock> Client<T, C> {
             .ok_or(AccessError::Unserved(Endpoint::Adp))
     }
 
-    /// Reads the Suiss configuration and the AuthZEN document and checks what start needs; the
+    /// Reads the Suiss configuration and the `AuthZEN` document and checks what start needs; the
     /// document is kept for every later call (T-96 item 2, Access OP-149 m.2).
     ///
     /// # Errors
@@ -164,7 +164,7 @@ impl<T: Transport, C: Clock> Client<T, C> {
         )
     }
 
-    /// The domain's Domain Metadata: read from the domain's AuthZEN document, verified against
+    /// The domain's Domain Metadata: read from the domain's `AuthZEN` document, verified against
     /// the binding keys of the metadata accepted before for the domain, or, the first time,
     /// against its own binding keys; kept for [`METADATA_MAX_AGE_MS`].
     async fn metadata(
@@ -269,27 +269,24 @@ impl<T: Transport, C: Clock> Client<T, C> {
     ) -> Result<(KeyAnswer, CachePolicy), AccessError> {
         let (metadata, signed) = self.metadata(domain).await?;
         let endpoints = self.endpoints()?;
-        let request = match kids {
-            [kid] => {
-                let template = endpoints.agreed(Endpoint::KeyLookup, signed.as_ref())?;
-                let mut url = format!(
-                    "{}?domain={}",
-                    template.expand(&kid.text()),
-                    percent(&domain.text())
-                );
-                if let Some(t) = as_of.text() {
-                    url = format!("{url}&as_of={}", percent(&t));
-                }
-                Request::get(url, ACCEPT_COSE)
+        let request = if let [kid] = kids {
+            let template = endpoints.agreed(Endpoint::KeyLookup, signed.as_ref())?;
+            let mut url = format!(
+                "{}?domain={}",
+                template.expand(&kid.text()),
+                percent(&domain.text())
+            );
+            if let Some(t) = as_of.text() {
+                url = format!("{url}&as_of={}", percent(&t));
             }
-            _ => {
-                let template = endpoints.agreed(Endpoint::KeyBatch, signed.as_ref())?;
-                Request::post(
-                    template.expand(""),
-                    ACCEPT_COSE,
-                    batch_body(&domain, kids, as_of)?,
-                )
-            }
+            Request::get(url, ACCEPT_COSE)
+        } else {
+            let template = endpoints.agreed(Endpoint::KeyBatch, signed.as_ref())?;
+            Request::post(
+                template.expand(""),
+                ACCEPT_COSE,
+                batch_body(&domain, kids, as_of)?,
+            )
         };
         let answer = self.transport.send(request).await?;
         let body = answer.ok()?;

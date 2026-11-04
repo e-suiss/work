@@ -31,8 +31,11 @@ fn bad(what: &'static str) -> AccessError {
     AccessError::Certificate(what)
 }
 
-/// One DER element: tag, content, and the rest after it; definite lengths of at most three bytes.
-fn element(input: &[u8]) -> Option<(u8, &[u8], &[u8], &[u8])> {
+/// A DER element: tag, content, what follows it, and the element's own bytes.
+type Element<'a> = (u8, &'a [u8], &'a [u8], &'a [u8]);
+
+/// One DER element; definite lengths of at most three bytes.
+fn element(input: &[u8]) -> Option<Element<'_>> {
     let (&tag, rest) = input.split_first()?;
     let (&first, rest) = rest.split_first()?;
     let (len, rest) = if first < 0x80 {

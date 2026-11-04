@@ -253,6 +253,6 @@ mod tests {
         );
         let unchanged = [tenant("tnt_a", "v1", "eu-central")];
         let only_a = BTreeMap::from([(TenantId::new("tnt_a").unwrap(), "v1".to_owned())]);
-        assert!(plan(&only_a, &unchanged, "eu-central").is_empty());
+        assert_eq!(plan(&only_a, &unchanged, "eu-central"), Vec::new());
     }
 }

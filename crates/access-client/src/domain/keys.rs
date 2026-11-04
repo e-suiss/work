@@ -152,11 +152,12 @@ pub struct LedgerPoint {
     pub at: u64,
 }
 
-/// The `party_compromise` Claim that covers a key; Work takes the window as given and never
-/// computes it (SEC-36 item 2, WD-103 item 21).
+/// The `party_compromise` Claim that covers a key. Work reads it only to know the key is
+/// compromised; the SEC-36 window starts only at the `party.compromised` event's `window_from`
+/// (WD-104 item 9).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Compromise {
-    /// Start of the window.
+    /// Access's `from`; never the start of the SEC-36 window.
     pub from: u64,
     /// Commit time of the declaration.
     pub declared_at: u64,
@@ -284,11 +285,10 @@ fn check_entry(k: &InstanceKey, pos: u64) -> Result<(), AccessError> {
     };
     let ordered =
         k.since.pos <= pos && k.ended.is_none_or(|e| e.pos <= pos && e.pos >= k.since.pos);
-    let window = k.compromise.is_none_or(|c| c.from <= c.declared_at);
     if !fits {
         return Err(answer("alg"));
     }
-    if !consistent || !ordered || !window {
+    if !consistent || !ordered {
         return Err(answer("key_state"));
     }
     Ok(())
@@ -574,9 +574,18 @@ pub(crate) mod tests {
     }
 
     pub(crate) fn domain(store: &KeyStore) -> Domain {
-        let binding = store.generate_ed25519("binding").unwrap();
-        let operational = store.generate_ed25519("operational").unwrap();
-        let instance = ed(&store.generate_ed25519("instance").unwrap());
+        domain_named(store, "")
+    }
+
+    /// A domain whose keys carry `prefix` in their labels, so one token holds several.
+    pub(crate) fn domain_named(store: &KeyStore, prefix: &str) -> Domain {
+        let binding = store.generate_ed25519(&format!("{prefix}binding")).unwrap();
+        let operational = store
+            .generate_ed25519(&format!("{prefix}operational"))
+            .unwrap();
+        let instance = ed(&store
+            .generate_ed25519(&format!("{prefix}instance"))
+            .unwrap());
         let id = DomainId([1; 32]);
         let b = ed(&binding);
         let payload = map(vec![
@@ -777,8 +786,7 @@ pub(crate) mod tests {
             ),
             Err(AccessError::Metadata("usage"))
         );
-        let (_, other_store) = token("usage-other");
-        let other = domain(&other_store);
+        let other = domain_named(&store, "other-");
         assert_eq!(
             verify_answer(
                 &m,

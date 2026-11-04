@@ -29,3 +29,9 @@ paths = [
     '''^deploy/compose/nts/pki/server-test-only\.key$''',
     '''^deploy/compose/roughtime/seeds/[a-c]-test-only\.seed$''',
 ]
+
+[[allowlists]]
+description = "Access conformance vectors: public test keys and signatures (T-101)"
+paths = [
+    '''^conformance/vectors/access/key-scope\.json$''',
+]

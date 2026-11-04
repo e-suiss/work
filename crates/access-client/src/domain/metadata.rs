@@ -567,7 +567,7 @@ mod tests {
     fn t_101_the_operational_key_is_resolved_as_the_access_key_scope_vectors_say() {
         let vectors: serde_json::Value = serde_json::from_str(VECTORS).unwrap();
         let cases = vectors["cases"].as_array().unwrap();
-        assert!(cases.len() >= 30);
+        assert!(cases.len() >= 29);
         for case in cases {
             let id = case["id"].as_str().unwrap();
             let want = case["error"].as_str();

@@ -1,4 +1,4 @@
-//! The single connection setting and Suiss discovery (T-96, E-3; Access OP-149 m.2, m.3, m.15 (f), (g)): the configured Access issuer, the realm's `/.well-known/suiss-configuration` document, its `endpoints` as RFC 6570 level 1 templates, the AuthZEN capabilities required at start and the deterministic CBOR `discovery` of Domain Metadata.
+//! The single connection setting and Suiss discovery (T-96, E-3; Access OP-149 m.2, m.3, m.15 (f), (g)): the configured Access issuer, the realm's `/.well-known/suiss-configuration` document, its `endpoints` as RFC 6570 level 1 templates, the `AuthZEN` capabilities required at start and the deterministic CBOR `discovery` of Domain Metadata.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as _;
@@ -73,7 +73,7 @@ impl Issuer {
 /// An Access endpoint of the Suiss configuration (Access OP-149 m.3).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Endpoint {
-    /// The AuthZEN discovery document.
+    /// The `AuthZEN` discovery document.
     Adp,
     /// `GET /access/v1/keys/{kid}`.
     KeyLookup,
@@ -328,7 +328,7 @@ impl SuissConfiguration {
         })
     }
 
-    /// What start needs (T-96 item 2, Access OP-149 m.2): the `adp` endpoint, the AuthZEN
+    /// What start needs (T-96 item 2, Access OP-149 m.2): the `adp` endpoint, the `AuthZEN`
     /// capabilities and Work's region (E-4). Every other endpoint is looked up when used.
     ///
     /// # Errors
@@ -362,7 +362,7 @@ struct AuthzenWire {
     signed_metadata: Option<String>,
 }
 
-/// The AuthZEN discovery document of the realm, or of one domain with its signed Domain
+/// The `AuthZEN` discovery document of the realm, or of one domain with its signed Domain
 /// Metadata (Access L1-ADP-11, §9.5.1 #6).
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct AuthzenConfiguration {
