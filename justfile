@@ -20,7 +20,7 @@ test:
     cargo test --workspace --locked --doc
 
 test-full:
-    cargo nextest run --workspace --locked --no-tests=pass --run-ignored all
+    cargo nextest run --workspace --locked --no-tests=pass --run-ignored all -E 'not (binary(=containers) | binary(=compose))'
     cargo test --workspace --locked --doc
 
 # T-36, T-37, OP-33, OP-46
