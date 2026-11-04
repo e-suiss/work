@@ -5950,10 +5950,21 @@ acceptance = "to-fill"
 pd = "set"
 title = ""
 tests = [
+  "crates/ledger/src/retention/tests.rs::op_14_a_cached_access_hold_retains_until_it_ends",
+  "crates/ledger/src/retention/tests.rs::op_14_a_fresh_snapshot_destroys_an_agent_trace_dek_only_after_400_days",
+  "crates/ledger/src/retention/tests.rs::op_14_a_stale_foreign_or_future_snapshot_defers",
+  "crates/ledger/src/retention/tests.rs::op_14_events_work_cannot_see_defer",
+  "crates/ledger/src/retention/tests.rs::op_14_every_schedule_of_the_class_must_destroy",
+  "crates/ledger/src/retention/tests.rs::op_14_the_four_work_classes_take_the_work_default_and_the_others_have_none",
+  "crates/ledger/src/retention/tests.rs::op_14_without_an_access_snapshot_nothing_is_destroyed",
+  "crates/ledger/tests/containers/body.rs::op_14_the_retention_job_destroys_nothing_without_an_access_snapshot",
   "crates/store/src/body.rs::op_45_erasure_causes_round_trip_their_stored_names",
   "crates/store/src/body.rs::op_45_retention_classes_round_trip_their_stored_names",
   "crates/store/src/erasure.rs::op_14_the_erasure_scope_list_matches_the_migration_tags",
   "crates/store/src/idempotency.rs::op_8_a_caller_reference_is_bounded_and_not_printed",
+  "crates/store/src/retention.rs::op_14_hold_kinds_and_scopes_round_trip_their_stored_names",
+  "crates/store/src/retention.rs::op_14_the_eight_classes_are_the_shared_contract_classes",
+  "crates/store/tests/containers/canonical.rs::op_14_the_hold_cache_keeps_what_access_sent_and_expiry_waits_on_it",
 ]
 
 [[rule]]
@@ -6089,7 +6100,11 @@ family = "OP"
 status = "frozen-technical"
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/ledger/src/retention/tests.rs::op_14_the_four_work_classes_take_the_work_default_and_the_others_have_none",
+  "crates/ledger/src/retention/tests.rs::op_14_without_an_access_snapshot_nothing_is_destroyed",
+  "crates/store/src/retention.rs::op_14_the_eight_classes_are_the_shared_contract_classes",
+]
 
 [[rule]]
 id = "OP-31"
