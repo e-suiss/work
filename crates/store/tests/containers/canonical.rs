@@ -1187,9 +1187,9 @@ async fn op_14_the_hold_cache_keeps_what_access_sent_and_expiry_waits_on_it() {
         pool.holds(&ledger, &tenant).await.unwrap(),
         vec![bob.clone(), classes.clone()]
     );
-    let listed = pool.class_deks(&ledger, None, 10).await.unwrap();
-    assert_eq!(listed.len(), 1);
-    let dek = listed[0].clone();
+    let active = pool.class_deks(&ledger, None, 10).await.unwrap();
+    assert_eq!(active.len(), 1);
+    let dek = active[0].clone();
     assert_eq!(dek.subject, "party:alice");
     assert_eq!(dek.class, RetentionClass::WorkRecord);
     assert_eq!(dek.newest_ms, Some(1_792_749_600_123));
