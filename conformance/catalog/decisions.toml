@@ -3184,8 +3184,12 @@ tests = [
   "crates/kernel/tests/cose.rs::p_8_the_shared_verifier_fills_the_signature_port_and_names_the_record_by_its_payload",
   "crates/kernel/tests/ledger_vectors.rs::t_10_the_verifier_recomputes_every_record_id_from_the_stored_bytes",
   "crates/ledger/src/admit/tests.rs::p_100_the_admission_path_seals_the_golden_ledger_byte_for_byte",
+  "crates/ledger/src/admit/tests.rs::p_116_an_unsigned_record_is_refused_with_the_artifact_of_another_record",
+  "crates/ledger/src/admit/tests.rs::p_116_the_envelope_names_the_artifact_by_its_digest_with_the_payload_assurance",
   "crates/ledger/src/admit/tests.rs::p_21_a_signed_agent_record_sent_unsigned_is_refused",
   "crates/ledger/src/admit/tests.rs::p_21_an_unsigned_record_of_an_unknown_protocol_is_refused",
+  "crates/ledger/src/auth_context/tests.rs::p_116_assurance_and_step_up_come_from_the_payload",
+  "crates/ledger/src/auth_context/tests.rs::p_116_the_reference_is_the_access_digest",
   "sdks/bindings/core/tests/bytes.rs::t_10_stored_entries_verify_from_their_bytes_through_bindings_core",
   "sdks/bindings/uniffi/tests/swift/main.swift::t_10_swift_stored_entries_verify_from_their_bytes",
 ]
@@ -3673,6 +3677,7 @@ tests = [
   "crates/kernel/tests/ledger_vectors.rs::t_10_the_verifier_recomputes_every_record_id_from_the_stored_bytes",
   "crates/kernel/tests/signature_vectors.rs::p_75_every_envelope_proof_commit_is_the_digest_of_a_vector_signature",
   "crates/ledger/src/admit/tests.rs::p_100_the_admission_path_seals_the_golden_ledger_byte_for_byte",
+  "crates/ledger/src/admit/tests.rs::p_116_the_envelope_names_the_artifact_by_its_digest_with_the_payload_assurance",
   "crates/ledger/src/admit/tests.rs::t_90_a_signed_record_keeps_its_cose_sign1_and_an_unsigned_one_its_context",
   "crates/ledger/src/envelope.rs::p_100_every_golden_envelope_is_sealed_from_its_slot",
   "sdks/bindings/core/tests/bytes.rs::p_32_cose_sign1_and_key_vectors_through_bindings_core",
@@ -4266,6 +4271,28 @@ tests = [
   "crates/proto/src/id.rs::p_112_uppercase_hex_is_invalid_id",
   "crates/proto/src/position.rs::t_97_the_token_lays_out_version_key_count_pairs_and_a_16_byte_tag",
   "crates/query/src/adapters.rs::t_97_a_sealed_token_opens_only_for_its_tenant",
+]
+
+[[rule]]
+id = "P-116"
+family = "P"
+status = "frozen-protocol"
+acceptance = "filled"
+title = ""
+tests = [
+  "crates/access-client/src/domain/realm.rs::p_116_a_realm_key_named_by_another_kid_or_algorithm_is_refused",
+  "crates/access-client/src/domain/realm.rs::p_116_the_jwks_uri_comes_from_the_realm_openid_configuration",
+  "crates/access-client/src/domain/realm.rs::p_116_the_realm_jwks_gives_the_token_keys_by_thumbprint",
+  "crates/ledger/src/admit/tests.rs::p_116_an_unsigned_record_is_refused_with_the_artifact_of_another_record",
+  "crates/ledger/src/admit/tests.rs::p_116_the_envelope_names_the_artifact_by_its_digest_with_the_payload_assurance",
+  "crates/ledger/src/auth_context/tests.rs::p_116_a_context_of_an_unpaired_realm_is_refused",
+  "crates/ledger/src/auth_context/tests.rs::p_116_an_auth_context_bound_to_another_record_is_refused",
+  "crates/ledger/src/auth_context/tests.rs::p_116_an_unbound_auth_context_is_refused",
+  "crates/ledger/src/auth_context/tests.rs::p_116_assurance_and_step_up_come_from_the_payload",
+  "crates/ledger/src/auth_context/tests.rs::p_116_every_refusal_is_auth_context_invalid",
+  "crates/ledger/src/auth_context/tests.rs::p_116_only_the_realm_token_key_signs_the_artifact",
+  "crates/ledger/src/auth_context/tests.rs::p_116_the_payload_follows_the_access_cddl_and_its_vectors",
+  "crates/ledger/src/auth_context/tests.rs::p_116_the_reference_is_the_access_digest",
 ]
 
 [[rule]]
@@ -5640,6 +5667,7 @@ tests = [
   "crates/ledger/src/admit/tests.rs::ev_35_the_envelope_carries_the_presenter_actor_types_the_caller_resolved",
   "crates/ledger/src/admit/tests.rs::op_9_a_record_declaring_another_ledger_is_refused",
   "crates/ledger/src/admit/tests.rs::p_100_the_admission_path_seals_the_golden_ledger_byte_for_byte",
+  "crates/ledger/src/admit/tests.rs::p_116_an_unsigned_record_is_refused_with_the_artifact_of_another_record",
   "crates/ledger/src/admit/tests.rs::p_21_a_signed_agent_record_sent_unsigned_is_refused",
   "crates/ledger/src/admit/tests.rs::p_21_an_unsigned_record_of_an_unknown_protocol_is_refused",
   "crates/ledger/src/admit/tests.rs::t_89_the_items_and_pointers_come_from_the_concerned_works",
@@ -5803,6 +5831,7 @@ tests = [
   "crates/http/src/problem.rs::t_98_every_problem_has_a_stable_code_and_type",
   "crates/http/tests/openapi.rs::e_45_every_api_operation_names_exactly_one_action",
   "crates/http/tests/openapi.rs::t_98_the_committed_openapi_document_is_the_generated_one",
+  "crates/ledger/src/auth_context/tests.rs::p_116_every_refusal_is_auth_context_invalid",
   "crates/proto/src/events.rs::t_98_event_names_are_the_item_and_a_past_tense_once_each",
   "crates/proto/src/events.rs::t_98_every_kernel_wire_name_has_an_event_type_or_waits_for_approval",
   "xtask/src/contracts_asyncapi.rs::t_98_every_event_type_is_one_message_with_a_versioned_data_schema",

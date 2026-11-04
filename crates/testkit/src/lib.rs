@@ -1,12 +1,13 @@
 //! Shared test helpers: real PostgreSQL 18, NATS JetStream and S3-compatible containers pinned to
 //! the digests of the local environment, the C2SP witness the local environment builds, a
 //! template database with a fresh copy per test, a virtual clock, seeded generators and record
-//! builders (T-36, T-37).
+//! builders (T-36, T-37), and an Access realm whose token key lives in a `SoftHSM` token (P-116, T-56).
 
 mod database;
 mod error;
 mod images;
 mod nats;
+pub mod realm;
 mod s3;
 mod witness;
 

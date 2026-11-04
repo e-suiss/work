@@ -42,4 +42,7 @@ pub enum TestkitError {
     /// Connecting to NATS failed.
     #[error("nats connect: {0}")]
     NatsConnect(#[from] async_nats::ConnectError),
+    /// A `SoftHSM` token, key or signature of a test realm failed (T-56).
+    #[error("hsm: {0}")]
+    Hsm(String),
 }

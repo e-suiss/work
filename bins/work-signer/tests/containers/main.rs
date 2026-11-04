@@ -24,6 +24,7 @@
 mod support;
 mod worm;
 
+use std::collections::BTreeSet;
 use std::num::NonZeroU8;
 use std::sync::Arc;
 use std::time::Duration;
@@ -31,7 +32,7 @@ use std::time::Duration;
 use serde_json::Value as Json;
 use suiss_crypto::cose::PublicKey;
 use suiss_crypto::dcbor::{self, Limits, Value};
-use suiss_crypto::digest::{Digest, leaf_hash};
+use suiss_crypto::digest::{Digest, leaf_hash, sha256};
 use suiss_crypto::note::Verifier;
 use suiss_crypto::pkcs11::{HsmSigner, KeyStore};
 use suiss_crypto::secret::Secret;
@@ -54,6 +55,7 @@ use work_store::{
     CellId, CheckpointerPool, Cluster, Durability, Genesis, LedgerId, LedgerTx, Pool,
     RecordDurability, SequencerPool, WitnessObservation,
 };
+use work_testkit::realm::{self, ADMITTED_AT, Artifact, ISSUER, Realm};
 use work_testkit::{LiteWitness, Postgres};
 
 use support::{PIN, PREFIX, Signer, Token, module};
@@ -81,7 +83,6 @@ const LOGINS: &str = "ALTER ROLE work_owner LOGIN PASSWORD 'test-only-not-a-secr
 const TRACE: &str = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01";
 const AT: u64 = 1_792_749_600_123;
 const RECORDS: &str = include_str!("../../../../conformance/vectors/records/records.json");
-const CONTEXT: &[u8] = b"work-vector:access:auth-context:alice";
 
 struct Env {
     pg: Postgres,
@@ -193,6 +194,30 @@ async fn opened_ledger(env: &Env, tag: u8) -> (Genesis, Leader) {
     (opened, leader)
 }
 
+thread_local! {
+    static REALM: &'static Realm = Box::leak(Box::new(Realm::open("signer").unwrap()));
+    static PAIRED: &'static BTreeSet<String> = Box::leak(Box::new(realm::paired()));
+}
+
+/// The golden artifact of `record`, signed by this thread's test realm (P-116).
+fn artifact_of(record: &[u8]) -> &'static Artifact {
+    let r = REALM.with(|r| *r);
+    Box::leak(Box::new(r.for_record(sha256(record)).unwrap()))
+}
+
+/// The `auth_context` of `record` (P-116).
+fn context(record: &[u8]) -> AuthContext<'static> {
+    let artifact = artifact_of(record);
+    AuthContext {
+        bytes: &artifact.cose,
+        digest: &artifact.digest,
+        realm_keys: REALM.with(|r| *r).keys(),
+        issuer: ISSUER,
+        paired: PAIRED.with(|p| *p),
+        now_ms: ADMITTED_AT,
+    }
+}
+
 /// The golden human comment admitted into `ledger`.
 fn admitted_comment(ledger: &LedgerId) -> PendingRecord {
     let actors = ActorTypes {
@@ -210,11 +235,7 @@ fn admitted_comment(ledger: &LedgerId) -> PendingRecord {
         Submission {
             arrival: Arrival::Unsigned {
                 record: &record,
-                auth_context: AuthContext {
-                    bytes: CONTEXT,
-                    assurance: "aal2",
-                    step_up: false,
-                },
+                auth_context: context(&record),
             },
             actor_types: &actors,
             origin: Origin::Direct,
@@ -364,7 +385,7 @@ async fn p_20_the_signer_acknowledges_the_head_and_the_replica_takes_the_log() {
     );
     assert_eq!(
         std::fs::read(dir.join("received").join(format!("{:020}.auth_context", 1))).unwrap(),
-        CONTEXT
+        artifact_of(&comment(&ledger)).cose
     );
     assert_eq!(
         std::fs::read(dir.join("checkpoint").join(format!("{:020}", 2))).unwrap(),
@@ -494,11 +515,7 @@ async fn op_33_a_led_ledger_is_checkpointed_on_its_cadence_and_mirrored() {
         Submission {
             arrival: Arrival::Unsigned {
                 record: &record,
-                auth_context: AuthContext {
-                    bytes: CONTEXT,
-                    assurance: "aal2",
-                    step_up: false,
-                },
+                auth_context: context(&record),
             },
             actor_types: &actors,
             origin: Origin::Direct,

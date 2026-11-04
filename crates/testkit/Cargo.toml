@@ -11,6 +11,8 @@ publish = false
 # T-36, T-37
 [dependencies]
 async-nats = { workspace = true, features = ["jetstream"] }
+base64 = { workspace = true, features = ["alloc"] }
+suiss-crypto = { workspace = true, features = ["verify", "pkcs11"] }
 testcontainers = { workspace = true }
 thiserror = { workspace = true, features = ["std"] }
 tokio = { workspace = true, features = ["io-util", "net", "sync", "time"] }

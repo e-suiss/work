@@ -31,6 +31,7 @@ use work_store::{
     ReceivedRole, ReceivedRow, RelationRow, Skeleton,
 };
 
+use crate::auth_context::{self, AuthContext, AuthContextInvalid};
 use crate::{
     BodyError, BodyOpening, BodyWriter, Committed, EventPointer, GroupCommit, Inbound, ItemTouch,
     KeyClaim, ObjectStore, PendingRecord, SubmitError,
@@ -39,24 +40,27 @@ use crate::{
 /// Most bytes of one received item (T-90, P-33).
 pub const MAX_RECEIVED: usize = 262_144;
 
-/// The Access authentication context of an unsigned human record (P-21), as received.
-#[derive(Clone, Copy)]
-pub struct AuthContext<'a> {
-    /// The context bytes; the envelope names them by their SHA-256.
-    pub bytes: &'a [u8],
-    /// The assurance level, 1 to 64 bytes.
-    pub assurance: &'a str,
-    /// Whether the context came from a step-up.
-    pub step_up: bool,
+/// Why the admission path refused a record; nothing was written.
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+pub enum AdmitError {
+    /// The kernel's reason: a signature, CBOR, schema, rule or limit reason.
+    #[error("rejected: {0}")]
+    Rejected(Reason),
+    /// The Access `auth_context` of an unsigned record does not verify or is not bound to it
+    /// (P-116 item 4).
+    #[error("auth_context_invalid: {0}")]
+    AuthContext(AuthContextInvalid),
 }
 
-impl std::fmt::Debug for AuthContext<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("AuthContext")
-            .field("bytes", &self.bytes.len())
-            .field("assurance", &self.assurance)
-            .field("step_up", &self.step_up)
-            .finish()
+impl From<Reason> for AdmitError {
+    fn from(reason: Reason) -> Self {
+        Self::Rejected(reason)
+    }
+}
+
+impl From<AuthContextInvalid> for AdmitError {
+    fn from(invalid: AuthContextInvalid) -> Self {
+        Self::AuthContext(invalid)
     }
 }
 
@@ -65,11 +69,12 @@ impl std::fmt::Debug for AuthContext<'_> {
 pub enum Arrival<'a> {
     /// Tagged `COSE_Sign1` bytes with the `SignedRecord` attached.
     Signed(&'a [u8]),
-    /// `SignedRecord` bytes of a human author with an Access authentication context.
+    /// `SignedRecord` bytes of a human author with the Access `auth_context` artifact bound to
+    /// them (P-21 item 3, P-116).
     Unsigned {
         /// The `SignedRecord` bytes.
         record: &'a [u8],
-        /// The authentication context.
+        /// The artifact with what Work looked up to verify it.
         auth_context: AuthContext<'a>,
     },
 }
@@ -394,7 +399,7 @@ pub(crate) fn ingest(quarantine: Option<&str>) -> Value {
     )
 }
 
-/// The envelope `auth_context` of an unsigned human record (P-21).
+/// The envelope `auth_context` of an unsigned human record (P-21, P-116 item 3).
 pub(crate) fn auth_context_value(reference: &[u8; 32], step_up: bool, assurance: &str) -> Value {
     Value::Map(vec![
         (Value::text("ref"), Digest(*reference).to_value()),
@@ -413,11 +418,13 @@ struct Arrived {
 }
 
 /// Verifies a signed arrival through `verifier` and keeps its `COSE_Sign1` (P-6, P-75), or
-/// keeps the authentication context of an unsigned one (P-21).
+/// verifies the `auth_context` artifact of an unsigned one against its record identifier,
+/// names it by Access's `digest` with the assurance and step-up of its payload, and keeps it
+/// as received (P-21, P-116).
 fn arrive<V: SignatureVerifier + ?Sized>(
     verifier: &V,
     arrival: Arrival<'_>,
-) -> Result<Arrived, Reason> {
+) -> Result<Arrived, AdmitError> {
     match arrival {
         Arrival::Signed(cose) => {
             let row = received(ReceivedKind::CoseSign1, ReceivedRole::AuthorSignature, cose)?;
@@ -425,9 +432,9 @@ fn arrive<V: SignatureVerifier + ?Sized>(
                 .payload
                 .ok_or(Reason::Schema(Schema::Container))?;
             match verify_signed(verifier, cose, None) {
-                VerifyOutcome::Rejected(reason) => return Err(reason),
+                VerifyOutcome::Rejected(reason) => return Err(reason.into()),
                 VerifyOutcome::Verified(v) if v.record != record_id(&payload) => {
-                    return Err(Reason::EnvelopeMismatch(EnvelopeField::Record));
+                    return Err(Reason::EnvelopeMismatch(EnvelopeField::Record).into());
                 }
                 VerifyOutcome::Verified(_) => {}
             }
@@ -450,15 +457,15 @@ fn arrive<V: SignatureVerifier + ?Sized>(
                 ReceivedRole::AuthContext,
                 auth_context.bytes,
             )?;
-            let reference = sha256(auth_context.bytes);
-            let value =
-                auth_context_value(&reference, auth_context.step_up, auth_context.assurance);
+            let id = record_id(record);
+            let verified = auth_context::verify(&auth_context, id.0.as_bytes())?;
+            let value = auth_context_value(&verified.digest, verified.step_up, verified.aal);
             Ok(Arrived {
                 record_bytes: record.to_vec(),
                 received: vec![row],
                 binding: Binding {
                     proof_commit: None,
-                    auth_context_ref: Some(reference),
+                    auth_context_ref: Some(verified.digest),
                 },
                 auth_context: Some(value),
             })
@@ -539,21 +546,24 @@ fn check(ledger: &LedgerId, s: &Submission<'_>, a: &Arrived) -> Result<Checked, 
 
 /// Admits `s` into `ledger` with the kernel (T-89, T-90, P-11, P-19, P-21, P-75, P-87): the
 /// `COSE_Sign1` of a signed record is verified through `verifier` and kept as received, its
-/// payload is the record; an unsigned record must be a human's with an authentication context,
-/// which is kept as received; the record must declare `ledger`; a valid record is admitted or
-/// quarantined, a record of a protocol version without a rule set is quarantined when signed
-/// and refused when unsigned, since its author cannot be read (P-108); the items come from
-/// [`items::touched`] and one pointer is emitted per item.
+/// payload is the record; an unsigned record must be a human's with an Access `auth_context`
+/// artifact bound to it, verified before the kernel and kept as received (P-116); the record
+/// must declare `ledger`; a valid record is admitted or quarantined, a record of a protocol
+/// version without a rule set is quarantined when signed and refused when unsigned, since its
+/// author cannot be read (P-108); the items come from [`items::touched`] and one pointer is
+/// emitted per item.
 ///
 /// # Errors
-/// The kernel's [`Reason`]: a signature, CBOR, schema or rule reason,
-/// `envelope_mismatch:ledger` for another declared ledger, `envelope_mismatch:record` when the
-/// signature covers other bytes, or `limit_exceeded:request` for received bytes above 262 144 bytes.
+/// [`AdmitError::Rejected`] with the kernel's [`Reason`]: a signature, CBOR, schema or rule
+/// reason, `envelope_mismatch:ledger` for another declared ledger, `envelope_mismatch:record`
+/// when the signature covers other bytes, or `limit_exceeded:request` for received bytes above
+/// 262 144 bytes; [`AdmitError::AuthContext`] when the artifact does not verify or is not bound
+/// to the record.
 pub fn admit<V: SignatureVerifier + ?Sized>(
     verifier: &V,
     ledger: &LedgerId,
     s: Submission<'_>,
-) -> Result<PendingRecord, Reason> {
+) -> Result<PendingRecord, AdmitError> {
     let a = arrive(verifier, s.arrival)?;
     let c = check(ledger, &s, &a)?;
     let record_hex = hex(&sha256(&a.record_bytes));
@@ -589,14 +599,15 @@ impl GroupCommit {
     /// then queues the record and waits until its batch is durable (OP-3, OP-5 item 4).
     ///
     /// # Errors
-    /// [`SubmitError::Rejected`] with the kernel's reason when the record is not admitted;
-    /// otherwise as [`GroupCommit::submit`].
+    /// [`SubmitError::Rejected`] with the kernel's reason when the record is not admitted,
+    /// [`SubmitError::AuthContext`] when its `auth_context` does not verify (P-116); otherwise
+    /// as [`GroupCommit::submit`].
     pub async fn admit<V: SignatureVerifier + ?Sized>(
         &self,
         verifier: &V,
         s: Submission<'_>,
     ) -> Result<Committed, SubmitError> {
-        let record = admit(verifier, self.ledger(), s).map_err(SubmitError::Rejected)?;
+        let record = admit(verifier, self.ledger(), s).map_err(SubmitError::from)?;
         self.submit(record).await
     }
 
@@ -620,7 +631,7 @@ impl GroupCommit {
         writer: &BodyWriter<O>,
         now_ms: u64,
     ) -> Result<Committed, SubmitError> {
-        let mut record = admit(verifier, self.ledger(), s).map_err(SubmitError::Rejected)?;
+        let mut record = admit(verifier, self.ledger(), s).map_err(SubmitError::from)?;
         if !body.is_empty() {
             let skeleton = record
                 .skeleton

@@ -1,7 +1,9 @@
-//! The Access client's use cases: discovery at start and on refresh (T-96 item 2), Relay's discovery document (T-99 item 1), Domain Metadata kept per domain, verified and cached key lookups (T-101 item 4), the eligibility check (T-101 item 5), tenant snapshots and the reconciliation job (T-96 item 4). Every consequential call is refused fail-closed while the PEP certificate has expired or the endpoint it needs is not served (T-28).
+//! The Access client's use cases: discovery at start and on refresh (T-96 item 2), Relay's discovery document (T-99 item 1), Domain Metadata kept per domain, verified and cached key lookups (T-101 item 4), the eligibility check (T-101 item 5), the realm token keys an `auth_context` artifact verifies under (P-116), tenant snapshots and the reconciliation job (T-96 item 4). Every consequential call is refused fail-closed while the PEP certificate has expired or the endpoint it needs is not served (T-28).
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{Mutex, MutexGuard};
+
+use suiss_crypto::cose::KeySet;
 
 use work_proto::id::TenantId;
 
@@ -16,6 +18,7 @@ use crate::domain::keys::{
     etag_position, verify_answer,
 };
 use crate::domain::metadata::{DomainMetadata, unverified_payload, verify_metadata};
+use crate::domain::realm::{OPENID_CONFIGURATION, jwks_uri, realm_keys};
 use crate::domain::relay::RelayConfiguration;
 use crate::domain::tenants::{MAX_PAGES, TenantChange, TenantPage, TenantSnapshot, list_url, plan};
 use crate::domain::{AccessError, from_b64url};
@@ -26,6 +29,10 @@ pub const DISCOVERY_INTERVAL_MS: u64 = 5 * 60 * 1000;
 
 /// How long verified Domain Metadata is kept before it is read again, Access's `max-age`.
 pub const METADATA_MAX_AGE_MS: u64 = 5 * 60 * 1000;
+
+/// How long a realm's token keys are kept before they are read again, unless an artifact names a
+/// key they do not hold (P-116 item 4).
+pub const REALM_KEYS_MAX_AGE_MS: u64 = 5 * 60 * 1000;
 
 const JSON: &str = "application/json";
 
@@ -40,6 +47,7 @@ struct State {
     configuration: Option<SuissConfiguration>,
     domains: BTreeMap<DomainId, Trusted>,
     cache: KeyCache,
+    realms: BTreeMap<Issuer, (KeySet, u64)>,
 }
 
 /// A key the client looked up: verified, from the cache or a fresh answer, or unknown to Access.
@@ -329,6 +337,31 @@ impl<T: Transport, C: Clock> Client<T, C> {
             .send(Request::post(url, JSON, request.body()))
             .await?;
         Eligibility::from_json(answer.ok()?)
+    }
+
+    /// The token keys of `realm` that verify an `auth_context` artifact signed under `kid`
+    /// (P-116 item 4): the realm JWKS its OIDC discovery document names, kept for
+    /// [`REALM_KEYS_MAX_AGE_MS`] and read again sooner when it does not hold `kid`.
+    ///
+    /// # Errors
+    /// [`AccessError`]; the record is refused.
+    pub async fn realm_keys(&self, realm: &Issuer, kid: &[u8; 32]) -> Result<KeySet, AccessError> {
+        let now = self.clock.now_ms();
+        if let Some((keys, read_at)) = self.state()?.realms.get(realm)
+            && now.saturating_sub(*read_at) < REALM_KEYS_MAX_AGE_MS
+            && keys.keys.contains_key(kid)
+        {
+            return Ok(keys.clone());
+        }
+        let configuration = self
+            .get(realm.well_known(OPENID_CONFIGURATION), JSON)
+            .await?;
+        let uri = jwks_uri(configuration.ok()?, realm)?;
+        let keys = realm_keys(self.get(uri, JSON).await?.ok()?)?;
+        self.state()?
+            .realms
+            .insert(realm.clone(), (keys.clone(), now));
+        Ok(keys)
     }
 
     /// One tenant's snapshot.

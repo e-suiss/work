@@ -24,7 +24,7 @@ use async_nats::jetstream::consumer::{AckPolicy, DeliverPolicy, PullConsumer, pu
 use futures_util::StreamExt as _;
 use serde_json::Value as Json;
 use suiss_crypto::dcbor::{self, Limits, Value};
-use suiss_crypto::digest::Digest;
+use suiss_crypto::digest::{Digest, sha256};
 use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
 use work_kernel::limits::SemanticLimits;
 use work_kernel::reason::{Reason, Schema};
@@ -36,6 +36,7 @@ use work_ledger::{
     admit, genesis,
 };
 use work_store::{CellId, Cluster, Durability, LedgerId, LedgerTx, Pool, SequencerPool};
+use work_testkit::realm::{self, ADMITTED_AT, ISSUER, Realm};
 use work_testkit::{Nats, Postgres};
 
 #[derive(Debug)]
@@ -69,7 +70,6 @@ const DEADLINE: Duration = Duration::from_secs(60);
 const TRACE: &str = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01";
 const AT: u64 = 1_792_749_600_123;
 const RECORDS: &str = include_str!("../../../../conformance/vectors/records/records.json");
-const CONTEXT: &[u8] = b"work-vector:access:auth-context:alice";
 pub(crate) const PREFIX: &str = "work.example/ledger/";
 
 /// Both databases, bootstrapped as the administrator does and migrated when asked.
@@ -468,6 +468,9 @@ fn comment(ledger: &LedgerId) -> Vec<u8> {
 }
 
 fn pending(ledger: &LedgerId, record: &[u8], actors: &ActorTypes) -> PendingRecord {
+    let realm = Realm::open("server").unwrap();
+    let artifact = realm.for_record(sha256(record)).unwrap();
+    let paired = realm::paired();
     admit(
         &Unsigned,
         ledger,
@@ -475,9 +478,12 @@ fn pending(ledger: &LedgerId, record: &[u8], actors: &ActorTypes) -> PendingReco
             arrival: Arrival::Unsigned {
                 record,
                 auth_context: AuthContext {
-                    bytes: CONTEXT,
-                    assurance: "aal2",
-                    step_up: false,
+                    bytes: &artifact.cose,
+                    digest: &artifact.digest,
+                    realm_keys: realm.keys(),
+                    issuer: ISSUER,
+                    paired: &paired,
+                    now_ms: ADMITTED_AT,
                 },
             },
             actor_types: actors,

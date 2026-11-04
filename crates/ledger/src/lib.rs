@@ -8,7 +8,8 @@
 //! leads a ledger as a [`Node`]: only in the cell the ledger is led in, only while it holds the
 //! ledger's sequencer lease, which it renews and releases, and only when it supports every
 //! version the ledger's log has activated (OP-9, OP-28, §17.12). Records enter through the admission path, which builds each pending record from the kernel's
-//! verification, validation and touched items (T-89, T-90). The checkpointer signs each head's
+//! verification, validation and touched items (T-89, T-90), an unsigned human record only with
+//! the Access `auth_context` artifact bound to it, verified before the kernel (P-116). The checkpointer signs each head's
 //! checkpoint through `work-signer` as the ledger acknowledgement (P-20, T-88) and mirrors the
 //! log to the replica before any witness cosignature is taken (OP-4, OP-33, T-90); the ledgers a
 //! process leads are checkpointed on the OP-33 cadence, and each mirrored checkpoint is sent to
@@ -31,6 +32,7 @@ mod adapters;
 mod admit;
 #[cfg(feature = "s3")]
 mod archive;
+pub mod auth_context;
 mod body;
 mod checkpoint;
 mod envelope;
@@ -52,9 +54,10 @@ mod witness;
 mod worm;
 
 pub use adapters::SystemRng;
-pub use admit::{Arrival, AuthContext, MAX_RECEIVED, Submission, admit};
+pub use admit::{AdmitError, Arrival, MAX_RECEIVED, Submission, admit};
 #[cfg(feature = "s3")]
 pub use archive::{ArchiveError, archive_cold, archive_key, archive_manifest, archive_partition};
+pub use auth_context::{AuthContext, AuthContextInvalid};
 #[cfg(feature = "s3")]
 pub use body::S3Store;
 pub use body::{

@@ -49,6 +49,11 @@ pub enum ProblemCode {
     SecretDetected,
     /// A restriction rule set does not compile (PR-23 item 3).
     RestrictionCompileRefused,
+    /// An escalation policy outside Relay's limits (T-99 item 8).
+    EscalationPolicyUnsupported,
+    /// The Access `auth_context` artifact does not verify or is not bound to the record (P-116
+    /// item 4).
+    AuthContextInvalid,
     /// Too many requests (P-54 item 9).
     RateLimited,
     /// The server sheds load (OP-41).
@@ -61,7 +66,7 @@ pub enum ProblemCode {
 
 impl ProblemCode {
     /// Every code, in the order of the T-98 list.
-    pub const ALL: [Self; 21] = [
+    pub const ALL: [Self; 23] = [
         Self::InvalidRequest,
         Self::InvalidId,
         Self::IdempotencyKeyMissing,
@@ -79,6 +84,8 @@ impl ProblemCode {
         Self::RecordRejected,
         Self::SecretDetected,
         Self::RestrictionCompileRefused,
+        Self::EscalationPolicyUnsupported,
+        Self::AuthContextInvalid,
         Self::RateLimited,
         Self::Busy,
         Self::NotRecorded,
@@ -106,6 +113,8 @@ impl ProblemCode {
             Self::RecordRejected => "record_rejected",
             Self::SecretDetected => "secret_detected",
             Self::RestrictionCompileRefused => "restriction_compile_refused",
+            Self::EscalationPolicyUnsupported => "escalation_policy_unsupported",
+            Self::AuthContextInvalid => "auth_context_invalid",
             Self::RateLimited => "rate_limited",
             Self::Busy => "busy",
             Self::NotRecorded => "not_recorded",
@@ -138,7 +147,9 @@ impl ProblemCode {
             Self::IdempotencyKeyConflict
             | Self::RecordRejected
             | Self::SecretDetected
-            | Self::RestrictionCompileRefused => StatusCode::UNPROCESSABLE_ENTITY,
+            | Self::RestrictionCompileRefused
+            | Self::EscalationPolicyUnsupported
+            | Self::AuthContextInvalid => StatusCode::UNPROCESSABLE_ENTITY,
             Self::PreconditionRequired => StatusCode::PRECONDITION_REQUIRED,
             Self::RateLimited => StatusCode::TOO_MANY_REQUESTS,
             Self::Busy | Self::NotRecorded | Self::AuthorityUnverifiable => {
@@ -168,6 +179,8 @@ impl ProblemCode {
             Self::RecordRejected => "Record rejected",
             Self::SecretDetected => "Secret detected",
             Self::RestrictionCompileRefused => "Restriction rule refused",
+            Self::EscalationPolicyUnsupported => "Escalation policy not supported",
+            Self::AuthContextInvalid => "Authentication context invalid",
             Self::RateLimited => "Rate limited",
             Self::Busy => "Busy",
             Self::NotRecorded => "Not confirmed, being checked",
@@ -321,6 +334,8 @@ mod tests {
                 ("record_rejected", 422),
                 ("secret_detected", 422),
                 ("restriction_compile_refused", 422),
+                ("escalation_policy_unsupported", 422),
+                ("auth_context_invalid", 422),
                 ("rate_limited", 429),
                 ("busy", 503),
                 ("not_recorded", 503),

@@ -43,6 +43,7 @@ use work_store::{
     Snapshot, StoreError,
 };
 use work_testkit::Postgres;
+use work_testkit::realm::{self, ADMITTED_AT, Artifact, ISSUER, Realm};
 
 #[cfg(feature = "s3")]
 mod archive;
@@ -57,7 +58,6 @@ const GENESIS: &str = include_str!("../../../../conformance/vectors/records/gene
 const RECORDS: &str = include_str!("../../../../conformance/vectors/records/records.json");
 const QUARANTINE: &str =
     include_str!("../../../../conformance/vectors/records/records-quarantine.json");
-const CONTEXT: &[u8] = b"work-vector:access:auth-context:alice";
 const TARGET: &str = "work_rebuild";
 const REBUILD_TARGET: &str = include_str!("../../../store/fixtures/rebuild-target.sql");
 const TAMPER: &str = include_str!("../../../store/fixtures/rebuild-tamper.sql");
@@ -257,13 +257,24 @@ fn submission<'a>(arrival: Arrival<'a>, actors: &'a ActorTypes) -> Submission<'a
     }
 }
 
+thread_local! {
+    static REALM: &'static Realm = Box::leak(Box::new(Realm::open("ledger").unwrap()));
+    static PAIRED: &'static BTreeSet<String> = Box::leak(Box::new(realm::paired()));
+}
+
+/// `record` with the golden artifact bound to it, signed by the test realm (P-116).
 fn unsigned(record: &[u8]) -> Arrival<'_> {
+    let r = REALM.with(|r| *r);
+    let artifact: &'static Artifact = Box::leak(Box::new(r.for_record(sha256(record)).unwrap()));
     Arrival::Unsigned {
         record,
         auth_context: AuthContext {
-            bytes: CONTEXT,
-            assurance: "aal2",
-            step_up: false,
+            bytes: &artifact.cose,
+            digest: &artifact.digest,
+            realm_keys: r.keys(),
+            issuer: ISSUER,
+            paired: PAIRED.with(|p| *p),
+            now_ms: ADMITTED_AT,
         },
     }
 }

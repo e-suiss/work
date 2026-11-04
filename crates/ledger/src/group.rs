@@ -6,7 +6,8 @@ use tokio::sync::{mpsc, oneshot};
 use work_kernel::reason::Reason;
 use work_store::{LedgerId, StoreError};
 
-use crate::{BodyError, Leader, LedgerError, PendingRecord};
+use crate::auth_context::AuthContextInvalid;
+use crate::{AdmitError, BodyError, Leader, LedgerError, PendingRecord};
 
 /// Ledger time (T-32 rule 2, §18 OP-6): no code reads the wall clock directly.
 pub trait Clock: Send {
@@ -108,6 +109,10 @@ pub enum SubmitError {
     /// ledger time its batch gets (P-11, P-80, T-9); nothing was written.
     #[error("rejected: {0}")]
     Rejected(Reason),
+    /// The Access `auth_context` of an unsigned record does not verify or is not bound to it;
+    /// nothing was written (P-116 item 4).
+    #[error("auth_context_invalid: {0}")]
+    AuthContext(AuthContextInvalid),
     /// The queue is full; nothing was written and the caller retries with the same
     /// idempotency key after `retry_after` (OP-41 item 2).
     #[error("ledger busy")]
@@ -140,6 +145,15 @@ pub enum SubmitError {
     /// written (OP-45, P-68).
     #[error("body: {0}")]
     Body(BodyError),
+}
+
+impl From<AdmitError> for SubmitError {
+    fn from(e: AdmitError) -> Self {
+        match e {
+            AdmitError::Rejected(reason) => Self::Rejected(reason),
+            AdmitError::AuthContext(invalid) => Self::AuthContext(invalid),
+        }
+    }
 }
 
 struct Request {

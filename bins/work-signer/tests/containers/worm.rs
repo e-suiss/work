@@ -81,7 +81,7 @@ async fn op_33_the_worm_replica_takes_the_log_once_and_moves_only_after_reading_
     assert_eq!(leaf_hash(&genesis_bytes), opened.leaf);
     assert_eq!(
         objects.get(&context_key, now).await.unwrap().unwrap(),
-        CONTEXT
+        artifact_of(&comment(&ledger)).cose
     );
     assert_eq!(
         objects.get(&note_key, now).await.unwrap().unwrap(),

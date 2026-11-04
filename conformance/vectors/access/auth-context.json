@@ -1,0 +1,50 @@
+{
+  "cases": [
+    {
+      "cbor": "aa6176016361616c6461616c32657265616c6d781a68747470733a2f2f61636d652e73756973732e6578616d706c6569617574685f74696d651b0000019b76d180406a6169735f646967657374822f5820b3601a560d4bbf5eb99c5ffcd936bb4c7e33624d14a9e96a76f3aa4865a289cd6b73657373696f6e5f726566822f5820ad6c5f52d60fc51bf0f3481178dea7a741078202f5d3f92ba3b23ef02bf17bd86c636f6e74656e745f7479706578266170706c69636174696f6e2f766e642e73756973732e776f726b2e7265636f72642b63626f726c737465705f75705f74696d651b0000019b76d26aa06e636f6e74656e745f646967657374822f582009090909090909090909090909090909090909090909090909090909090909096f6173737572616e63655f666c616773846e68756d616e5f70726573656e6365727068697368696e675f726573697374616e746673796e636564627576",
+      "edn": "{\"v\": 1, \"realm\": \"https://acme.suiss.example\", \"session_ref\": [-16, h'ad6c5f52d60fc51bf0f3481178dea7a741078202f5d3f92ba3b23ef02bf17bd8'], \"aal\": \"aal2\", \"assurance_flags\": [\"human_presence\", \"phishing_resistant\", \"synced\", \"uv\"], \"auth_time\": 1767225000000, \"step_up_time\": 1767225060000, \"ais_digest\": [-16, h'b3601a560d4bbf5eb99c5ffcd936bb4c7e33624d14a9e96a76f3aa4865a289cd'], \"content_type\": \"application/vnd.suiss.work.record+cbor\", \"content_digest\": [-16, h'0909090909090909090909090909090909090909090909090909090909090909']}",
+      "id": "session-with-content",
+      "valid": true
+    },
+    {
+      "cbor": "a76176016361616c6461616c32657265616c6d781a68747470733a2f2f61636d652e73756973732e6578616d706c6569617574685f74696d651b0000019b76d180406a6169735f646967657374822f5820b3601a560d4bbf5eb99c5ffcd936bb4c7e33624d14a9e96a76f3aa4865a289cd6b73657373696f6e5f726566822f5820ad6c5f52d60fc51bf0f3481178dea7a741078202f5d3f92ba3b23ef02bf17bd86f6173737572616e63655f666c616773846e68756d616e5f70726573656e6365727068697368696e675f726573697374616e746673796e636564627576",
+      "edn": "{\"v\": 1, \"realm\": \"https://acme.suiss.example\", \"session_ref\": [-16, h'ad6c5f52d60fc51bf0f3481178dea7a741078202f5d3f92ba3b23ef02bf17bd8'], \"aal\": \"aal2\", \"assurance_flags\": [\"human_presence\", \"phishing_resistant\", \"synced\", \"uv\"], \"auth_time\": 1767225000000, \"ais_digest\": [-16, h'b3601a560d4bbf5eb99c5ffcd936bb4c7e33624d14a9e96a76f3aa4865a289cd']}",
+      "id": "session-only",
+      "valid": true
+    },
+    {
+      "edn": "{\"v\": 1, \"realm\": \"https://acme.suiss.example\", \"session_ref\": [-16, h'ad6c5f52d60fc51bf0f3481178dea7a741078202f5d3f92ba3b23ef02bf17bd8'], \"aal\": \"aal2\", \"assurance_flags\": [\"human_presence\", \"phishing_resistant\", \"synced\", \"uv\"], \"auth_time\": 1767225000000}",
+      "id": "missing-ais-digest",
+      "valid": false
+    },
+    {
+      "edn": "{\"v\": 1, \"realm\": \"https://acme.suiss.example\", \"session_ref\": [-16, h'ad6c5f52d60fc51bf0f3481178dea7a741078202f5d3f92ba3b23ef02bf17bd8'], \"aal\": \"aal2\", \"assurance_flags\": [\"telepathy\"], \"auth_time\": 1767225000000, \"ais_digest\": [-16, h'b3601a560d4bbf5eb99c5ffcd936bb4c7e33624d14a9e96a76f3aa4865a289cd']}",
+      "id": "unknown-flag",
+      "valid": false
+    },
+    {
+      "edn": "{\"v\": 1, \"realm\": \"https://acme.suiss.example\", \"session_ref\": [-16, h'ad6c5f52d60fc51bf0f3481178dea7a741078202f5d3f92ba3b23ef02bf17bd8'], \"aal\": 2, \"assurance_flags\": [\"human_presence\", \"phishing_resistant\", \"synced\", \"uv\"], \"auth_time\": 1767225000000, \"ais_digest\": [-16, h'b3601a560d4bbf5eb99c5ffcd936bb4c7e33624d14a9e96a76f3aa4865a289cd']}",
+      "id": "aal-as-number",
+      "valid": false
+    },
+    {
+      "edn": "{\"v\": 1, \"realm\": \"https://acme.suiss.example\", \"session_ref\": h'01010101010101010101010101010101', \"aal\": \"aal2\", \"assurance_flags\": [\"human_presence\", \"phishing_resistant\", \"synced\", \"uv\"], \"auth_time\": 1767225000000, \"ais_digest\": [-16, h'b3601a560d4bbf5eb99c5ffcd936bb4c7e33624d14a9e96a76f3aa4865a289cd']}",
+      "id": "session-id-in-the-clear",
+      "valid": false
+    },
+    {
+      "edn": "{\"v\": 1, \"realm\": \"https://acme.suiss.example\", \"session_ref\": [-16, h'ad6c5f52d60fc51bf0f3481178dea7a741078202f5d3f92ba3b23ef02bf17bd8'], \"aal\": \"aal2\", \"assurance_flags\": [\"human_presence\", \"phishing_resistant\", \"synced\", \"uv\"], \"auth_time\": 1767225000000, \"step_up_time\": 1767225060000, \"ais_digest\": [-16, h'b3601a560d4bbf5eb99c5ffcd936bb4c7e33624d14a9e96a76f3aa4865a289cd'], \"content_type\": \"application/json; charset=utf-8\", \"content_digest\": [-16, h'0909090909090909090909090909090909090909090909090909090909090909']}",
+      "id": "content-type-with-parameters",
+      "valid": false
+    },
+    {
+      "edn": "{\"v\": 1, \"realm\": \"https://acme.suiss.example\", \"session_ref\": [-16, h'ad6c5f52d60fc51bf0f3481178dea7a741078202f5d3f92ba3b23ef02bf17bd8'], \"aal\": \"aal2\", \"assurance_flags\": [\"human_presence\", \"phishing_resistant\", \"synced\", \"uv\"], \"auth_time\": 1767225000000, \"ais_digest\": [-16, h'b3601a560d4bbf5eb99c5ffcd936bb4c7e33624d14a9e96a76f3aa4865a289cd'], \"session_id\": h'01010101010101010101010101010101'}",
+      "id": "unknown-field",
+      "valid": false
+    }
+  ],
+  "cddl": [
+    "auth-context.cddl"
+  ],
+  "contract": "auth-context"
+}

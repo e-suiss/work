@@ -15,6 +15,7 @@ use work_kernel::envelope::{Envelope, decode_envelope};
 use work_kernel::id::PartyRef;
 use work_kernel::validate::{ActorType, ActorTypeSource};
 use work_kernel::verify::SignatureCheck;
+use work_testkit::realm::{self, ADMITTED_AT, Artifact, ISSUER, Realm};
 
 use super::*;
 use crate::envelope::Bound;
@@ -23,7 +24,6 @@ const COSE: &str = include_str!("../../../../conformance/vectors/records/cose-si
 const RECORDS: &str = include_str!("../../../../conformance/vectors/records/records.json");
 const QUARANTINE: &str =
     include_str!("../../../../conformance/vectors/records/records-quarantine.json");
-const CONTEXT: &[u8] = b"work-vector:access:auth-context:alice";
 const TRACE: &str = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01";
 
 fn unhex(s: &str) -> Vec<u8> {
@@ -157,18 +157,57 @@ fn golden() -> Vec<Golden> {
     out
 }
 
-fn pending(g: &Golden, ledger: &LedgerId) -> Result<PendingRecord, Reason> {
-    let arrival = g.cose.as_deref().map_or(
-        Arrival::Unsigned {
-            record: &g.record,
-            auth_context: AuthContext {
-                bytes: CONTEXT,
-                assurance: "aal2",
-                step_up: false,
+thread_local! {
+    static REALM: Realm = Realm::open("admit").unwrap();
+}
+
+/// The golden artifact of `record`, signed by the test realm.
+fn artifact_of(record: &[u8]) -> Artifact {
+    REALM.with(|r| r.for_record(sha256(record)).unwrap())
+}
+
+fn pending(g: &Golden, ledger: &LedgerId) -> Result<PendingRecord, AdmitError> {
+    let artifact = artifact_of(&g.record);
+    pending_with(g, ledger, &artifact)
+}
+
+fn pending_with(
+    g: &Golden,
+    ledger: &LedgerId,
+    artifact: &Artifact,
+) -> Result<PendingRecord, AdmitError> {
+    let paired = realm::paired();
+    REALM.with(|r| {
+        let arrival = g.cose.as_deref().map_or(
+            Arrival::Unsigned {
+                record: &g.record,
+                auth_context: AuthContext {
+                    bytes: &artifact.cose,
+                    digest: &artifact.digest,
+                    realm_keys: r.keys(),
+                    issuer: ISSUER,
+                    paired: &paired,
+                    now_ms: ADMITTED_AT,
+                },
             },
-        },
-        Arrival::Signed,
-    );
+            Arrival::Signed,
+        );
+        submit(g, ledger, arrival)
+    })
+}
+
+fn rejected(e: AdmitError) -> Reason {
+    match e {
+        AdmitError::Rejected(reason) => reason,
+        AdmitError::AuthContext(invalid) => panic!("auth_context_invalid: {invalid}"),
+    }
+}
+
+fn submit(
+    g: &Golden,
+    ledger: &LedgerId,
+    arrival: Arrival<'_>,
+) -> Result<PendingRecord, AdmitError> {
     admit(
         &Directory::golden(),
         ledger,
@@ -237,8 +276,9 @@ fn t_90_a_signed_record_keeps_its_cose_sign1_and_an_unsigned_one_its_context() {
             assert_eq!(kept.kind, ReceivedKind::CoseSign1);
             assert_eq!(record.proof_commit, Some(sha256(cose)));
         } else {
-            assert_eq!(kept.bytes, CONTEXT);
+            assert_eq!(kept.bytes, artifact_of(&g.record).cose);
             assert_eq!(kept.role, ReceivedRole::AuthContext);
+            assert_eq!(kept.kind, ReceivedKind::AccessAuthContext);
             assert_eq!(record.proof_commit, None);
         }
         if let Some(s) = record.skeleton() {
@@ -296,7 +336,9 @@ fn p_19_a_quarantined_record_is_written_with_its_reason() {
 fn op_9_a_record_declaring_another_ledger_is_refused() {
     let g = &golden()[0];
     assert_eq!(
-        pending(g, &LedgerId::from_bytes([0xee; 32])).err(),
+        pending(g, &LedgerId::from_bytes([0xee; 32]))
+            .err()
+            .map(rejected),
         Some(Reason::EnvelopeMismatch(EnvelopeField::Ledger))
     );
 }
@@ -321,7 +363,7 @@ fn p_21_an_unsigned_record_of_an_unknown_protocol_is_refused() {
     };
     let (ledger, _) = slot_of(&g.envelope);
     assert_eq!(
-        pending(&g, &ledger).err(),
+        pending(&g, &ledger).err().map(rejected),
         Some(Reason::ProtocolVersionUnknown)
     );
 }
@@ -341,7 +383,7 @@ fn p_21_a_signed_agent_record_sent_unsigned_is_refused() {
     };
     let (ledger, _) = slot_of(&g.envelope);
     assert_eq!(
-        pending(&unsigned, &ledger).err(),
+        pending(&unsigned, &ledger).err().map(rejected),
         Some(Reason::AuthorSignatureMissing)
     );
 }
@@ -361,7 +403,7 @@ fn t_91_received_bytes_above_262_144_are_limit_exceeded_request() {
         understood: g.understood.clone(),
     };
     assert_eq!(
-        pending(&too_long, &ledger).err(),
+        pending(&too_long, &ledger).err().map(rejected),
         Some(Reason::LimitExceeded(Limit::Request))
     );
 }
@@ -404,7 +446,7 @@ fn ev_35_the_envelope_carries_the_presenter_actor_types_the_caller_resolved() {
     let mut missing = act.actors.clone();
     missing.evidence.clear();
     assert_eq!(
-        pending(&with(missing), &ledger).err(),
+        pending(&with(missing), &ledger).err().map(rejected),
         Some(Reason::EnvelopeMismatch(EnvelopeField::ActorType))
     );
 }
@@ -440,4 +482,74 @@ fn op_1_the_golden_ledger_replays_from_its_stored_bytes_to_the_admitted_records(
             g.id
         );
     }
+}
+
+fn humans() -> Vec<Golden> {
+    golden().into_iter().filter(|g| g.cose.is_none()).collect()
+}
+
+// P-116 P-21 T-91
+#[test]
+fn p_116_an_unsigned_record_is_refused_with_the_artifact_of_another_record() {
+    let entries = humans();
+    let [a, b, ..] = entries.as_slice() else {
+        panic!("two human records");
+    };
+    let (ledger, _) = slot_of(&a.envelope);
+    assert_eq!(
+        pending_with(a, &ledger, &artifact_of(&b.record)).err(),
+        Some(AdmitError::AuthContext(AuthContextInvalid::OtherContent))
+    );
+    let unbound = REALM.with(|r| r.artifact(&realm::payload(None)).unwrap());
+    assert_eq!(
+        pending_with(a, &ledger, &unbound).err(),
+        Some(AdmitError::AuthContext(AuthContextInvalid::Unbound))
+    );
+    let other = REALM.with(|r| r.another("other").unwrap());
+    let foreign = other.for_record(sha256(&a.record)).unwrap();
+    assert!(matches!(
+        pending_with(a, &ledger, &foreign).err(),
+        Some(AdmitError::AuthContext(AuthContextInvalid::Signature(_)))
+    ));
+}
+
+// P-116 P-21 P-75
+#[test]
+fn p_116_the_envelope_names_the_artifact_by_its_digest_with_the_payload_assurance() {
+    let entries = humans();
+    let g = &entries[0];
+    let (ledger, slot) = slot_of(&g.envelope);
+    let Value::Map(mut stepped) = realm::record_payload(sha256(&g.record)) else {
+        panic!("a map");
+    };
+    stepped.retain(|(k, _)| *k != Value::text("aal"));
+    stepped.push((Value::text("aal"), Value::text("aal3")));
+    stepped.push((
+        Value::text("step_up_time"),
+        Value::Unsigned(realm::AUTH_TIME),
+    ));
+    let artifact = REALM.with(|r| r.artifact(&Value::Map(stepped)).unwrap());
+    let record = pending_with(g, &ledger, &artifact).unwrap();
+    assert_eq!(
+        record.auth_context,
+        Some(auth_context_value(&artifact.digest, true, "aal3"))
+    );
+    assert_eq!(
+        record.skeleton().unwrap().header.auth_context_ref,
+        Some(artifact.digest)
+    );
+    assert_eq!(record.received()[0].bytes, artifact.cose);
+    let (_, sealed) = Bound {
+        ledger: &ledger,
+        record: &record,
+    }
+    .seal(&slot)
+    .unwrap();
+    let Ok(Envelope::Ledger(e)) = decode_envelope(&sealed.envelope) else {
+        panic!("{}", g.id);
+    };
+    let context = e.auth_context.unwrap();
+    assert_eq!(context.reference.as_bytes(), &artifact.digest);
+    assert!(context.step_up);
+    assert_eq!(context.assurance, "aal3");
 }

@@ -5485,6 +5485,8 @@ name = "work-testkit"
 version = "0.1.0"
 dependencies = [
  "async-nats",
+ "base64 0.22.1",
+ "esuiss-crypto",
  "futures-util",
  "testcontainers",
  "thiserror 2.0.21",

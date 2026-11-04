@@ -1,10 +1,11 @@
-//! Pure rules of the Access client: what a discovery document, a signed key lookup answer, an eligibility answer and a tenant snapshot must be before Work uses them, and the stable codes of every refusal.
+//! Pure rules of the Access client: what a discovery document, a signed key lookup answer, an eligibility answer and a tenant snapshot must be before Work uses them, the realm token keys an `auth_context` artifact verifies under, and the stable codes of every refusal.
 
 pub mod cache;
 pub mod discovery;
 pub mod eligibility;
 pub mod keys;
 pub mod metadata;
+pub mod realm;
 pub mod relay;
 pub mod tenants;
 pub mod x509;

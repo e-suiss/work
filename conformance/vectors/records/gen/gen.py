@@ -1053,8 +1053,24 @@ def cose_bytes(protected, payload, signature):
     return enc(Tag(18, [protected, {}, payload, signature]))
 
 
+# P-116
+AUTH_CONTEXT_LABEL = b"suiss/auth-context/v1"
+AUTH_REALM = "https://acme.suiss.example"
+AUTH_TIME = 1792109000000
+
+
+def auth_context_payload(rid):
+    return {"v": 1, "realm": AUTH_REALM, "session_ref": label("access:session:alice"), "aal": "aal2",
+            "assurance_flags": ["human_presence", "phishing_resistant", "uv"], "auth_time": AUTH_TIME,
+            "ais_digest": label("access:ais:alice"), "content_type": RECORD_CONTENT_TYPE, "content_digest": rid}
+
+
+def auth_context_digest(rid):
+    return sha(AUTH_CONTEXT_LABEL + b"\x00" + enc(auth_context_payload(rid)))
+
+
 signed_records = []
-envelope_state = {"prev": [-16, GENESIS_LEAF], "pos": 1, "recorded_at": 1792109100000}
+envelope_state ={"prev": [-16, GENESIS_LEAF], "pos": 1, "recorded_at": 1792109100000}
 
 
 def envelope(rec, c, rid, ingest, name):
@@ -1069,7 +1085,7 @@ def envelope(rec, c, rid, ingest, name):
         "ingest": ingest,
     }
     if c["actor_type"]["author"][0] == "human":
-        env["auth_context"] = {"ref": label("access:auth-context:alice"), "assurance": "aal2", "step_up": False}
+        env["auth_context"] = {"ref": [-16, auth_context_digest(rid)], "assurance": "aal2", "step_up": False}
     else:
         payload = enc(rec)
         protected, signature = sign1(SIGNERS[rec["author"]], payload)
@@ -1118,6 +1134,7 @@ write_json("records.json", {
               "leaf_hash = SHA-256(0x00 || det-CBOR(LedgerEnvelope))",
               "proof_commit = SHA-256 of the full tagged WorkRecordCose bytes as received; cose-sign1.json holds those bytes for every envelope that carries proof_commit",
               "Digest values labelled work-vector:* are SHA-256 of ASCII placeholder strings, not real objects",
+              "auth_context.ref of a human author's envelope is Access's digest SHA-256(\"suiss/auth-context/v1\" || 0x00 || det-CBOR(auth-context)) of the Access auth-context payload bound to the record: v 1, realm https://acme.suiss.example, session_ref work-vector:access:session:alice, aal aal2, assurance_flags [human_presence, phishing_resistant, uv], auth_time 1792109000000, ais_digest work-vector:access:ais:alice, content_type application/work-record+cbor, content_digest the record digest (P-116)",
               "context holds verifier inputs that are not record bytes: origin, actor_type exactly as the envelope ActorTypeAnnotation (author, one entry per on_behalf_of party and one per evidence presenter in evidence order), understood_extensions, and recorded_at when the record carries params.effective_at",
               "ledger is the LedgerID of genesis.json genesis/accept; the first envelope is at pos 1 and its prev is the genesis leaf hash (P-100)",
               "PartyRef values are placeholder text until the Access Party reference byte form is fixed"],
