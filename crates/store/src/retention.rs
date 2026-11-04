@@ -214,7 +214,7 @@ impl ErasurePool {
                     kind,
                     scope,
                     subject,
-                    classes,
+                    classes.as_deref(),
                     hold.suspicious_activity,
                     placed_at,
                     until
