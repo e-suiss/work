@@ -597,6 +597,31 @@ async fn shredded(
     Ok((row.erasure_id, row.settles_at))
 }
 
+/// Whether the active DEK `row` is still the one the retention end job weighed: `dek_id`, with
+/// `newest` the ledger time of the newest record under it (OP-14).
+async fn still_weighed(
+    tx: &mut LedgerTx<'_>,
+    row: &DekRow,
+    dek_id: &str,
+    newest: Option<i64>,
+) -> Result<bool, StoreError> {
+    if row.dek_id != dek_id {
+        return Ok(false);
+    }
+    let ledger = *tx.ledger().as_bytes();
+    let now = sqlx::query_scalar!(
+        r#"SELECT (extract(epoch FROM max(l.recorded_at)) * 1000)::bigint AS "newest?"
+                   FROM work.body_part p
+                   JOIN ledger.log l ON l.ledger_id = p.ledger_id AND l.pos = p.pos
+                   WHERE p.ledger_id = $1 AND p.dek_id = $2::text::uuid"#,
+        ledger.as_slice(),
+        row.dek_id.as_str()
+    )
+    .fetch_one(tx.conn())
+    .await?;
+    Ok(now == newest)
+}
+
 struct DekTuple {
     dek_id: String,
     kek_id: String,
@@ -920,21 +945,11 @@ impl ErasurePool {
             tx.commit().await?;
             return Ok(Erased::Nothing);
         };
-        if let Some((dek_id, newest)) = expect {
-            let now_newest = sqlx::query_scalar!(
-                r#"SELECT (extract(epoch FROM max(l.recorded_at)) * 1000)::bigint AS "newest?"
-                   FROM work.body_part p
-                   JOIN ledger.log l ON l.ledger_id = p.ledger_id AND l.pos = p.pos
-                   WHERE p.ledger_id = $1 AND p.dek_id = $2::text::uuid"#,
-                id,
-                row.dek_id.as_str()
-            )
-            .fetch_one(tx.conn())
-            .await?;
-            if row.dek_id != dek_id || now_newest != newest {
-                tx.commit().await?;
-                return Ok(Erased::Nothing);
-            }
+        if let Some((dek_id, newest)) = expect
+            && !still_weighed(&mut tx, &row, dek_id, newest).await?
+        {
+            tx.commit().await?;
+            return Ok(Erased::Nothing);
         }
         let held = sqlx::query_scalar!(
             r#"SELECT work.retention_held($1, $2, $3) AS "held!""#,

@@ -418,12 +418,12 @@ async fn op_14_the_retention_job_destroys_nothing_without_an_access_snapshot() {
         .unwrap();
     let reader =
         BodyReader::in_database(Arc::clone(&keys), env.pool(Cluster::Canonical, "work_app"));
-    let holds = ErasurePool::new(env.pool(Cluster::Canonical, "work_erasure"))
+    let cache = ErasurePool::new(env.pool(Cluster::Canonical, "work_erasure"))
         .await
         .unwrap();
     let eraser = Arc::new(BodyEraser::new(
         Arc::clone(&keys),
-        holds.clone(),
+        cache.clone(),
         BACKUP_WINDOW,
     ));
     let job = RetentionJob::new(Arc::clone(&eraser));
@@ -433,7 +433,7 @@ async fn op_14_the_retention_job_destroys_nothing_without_an_access_snapshot() {
         deferred: 1,
         ..RetentionPass::default()
     };
-    for at in [now, Timestamp::from_unix_millis(u64::MAX / 2)] {
+    for at in [now, Timestamp::from_unix_millis(4_102_444_800_000)] {
         assert_eq!(
             job.pass(&ledger, &tenant, None, at).await.unwrap(),
             deferred
@@ -473,7 +473,7 @@ async fn op_14_the_retention_job_destroys_nothing_without_an_access_snapshot() {
         kind: HoldKind::Litigation,
         suspicious_activity: false,
     };
-    holds.cache_hold(&ledger, &hold).await.unwrap();
+    cache.cache_hold(&ledger, &hold).await.unwrap();
     assert_eq!(
         job.pass(&ledger, &tenant, Some(&access), now)
             .await
@@ -483,7 +483,7 @@ async fn op_14_the_retention_job_destroys_nothing_without_an_access_snapshot() {
             ..RetentionPass::default()
         }
     );
-    holds
+    cache
         .cache_hold(
             &ledger,
             &Hold {

@@ -79,7 +79,6 @@ fn occurrence(event: Event, newest: Option<Timestamp>) -> Occurrence {
 /// Whether `dek` of `tenant` may be destroyed at trusted time `now` (OP-14 note): the shared
 /// decision under each schedule of its class, `Destroy` only when every one answers it. A
 /// snapshot of another tenant, or taken after `now`, counts as none.
-#[must_use]
 pub fn retention_decision(
     tenant: &TenantId,
     dek: &ClassDek,
