@@ -277,42 +277,26 @@ impl ExternalId for LedgerId {
     }
 }
 
-/// The canonical CBOR text string of a `PartyRef` (P-5): the shortest major type 3 head and the
-/// UTF-8 bytes.
+/// The raw bytes of a `PartyRef`, without a CBOR head (P-112 note, WD-104): the UTF-8 bytes of
+/// the kernel's text form, so an Access `party-ref` becomes `pty_` and Access's own spelling.
 #[must_use]
-pub fn party_ref_cbor(party: &PartyRef) -> Vec<u8> {
-    let text = party.as_str().as_bytes();
-    let mut out = Vec::with_capacity(text.len().saturating_add(2));
-    match u8::try_from(text.len()) {
-        Ok(len @ 0..=23) => out.push(0x60 | len),
-        Ok(len) => out.extend_from_slice(&[0x78, len]),
-        Err(_) => {}
-    }
-    out.extend_from_slice(text);
-    out
+pub fn party_ref_bytes(party: &PartyRef) -> Vec<u8> {
+    party.as_str().as_bytes().to_vec()
 }
 
-fn party_ref_of_cbor(bytes: &[u8]) -> Option<PartyRef> {
-    let (len, text) = match bytes {
-        [head @ 0x60..=0x77, rest @ ..] => (usize::from(head & 0x1f), rest),
-        [0x78, len @ 24..=255, rest @ ..] => (usize::from(*len), rest),
-        _ => return None,
-    };
-    if text.len() != len {
-        return None;
-    }
-    PartyRef::new(core::str::from_utf8(text).ok()?)
+fn party_ref_of_bytes(bytes: &[u8]) -> Option<PartyRef> {
+    PartyRef::new(core::str::from_utf8(bytes).ok()?)
 }
 
 impl ExternalId for PartyRef {
     const PREFIX: Prefix = Prefix::Party;
 
     fn body_bytes(&self) -> Vec<u8> {
-        party_ref_cbor(self)
+        party_ref_bytes(self)
     }
 
     fn from_body_bytes(bytes: &[u8]) -> Option<Self> {
-        party_ref_of_cbor(bytes)
+        party_ref_of_bytes(bytes)
     }
 }
 
@@ -595,22 +579,15 @@ mod tests {
     #[test]
     fn p_112_pty_body_is_the_partyref_bytes() {
         let short = PartyRef::new("p:a").unwrap();
-        assert_eq!(party_ref_cbor(&short), [0x63, b'p', b':', b'a']);
-        assert_eq!(short.to_external(), "pty_Y3A6YQ");
+        assert_eq!(party_ref_bytes(&short), b"p:a");
+        assert_eq!(short.to_external(), "pty_cDph");
         let long = PartyRef::new(&"x".repeat(24)).unwrap();
-        let bytes = party_ref_cbor(&long);
-        assert_eq!(bytes.get(..2), Some(&[0x78, 24][..]));
-        assert_eq!(bytes.len(), 26);
+        assert_eq!(party_ref_bytes(&long), "x".repeat(24).as_bytes());
+        assert_eq!(long.to_external(), format!("pty_{}", "eHh4".repeat(8)));
         assert_eq!(PartyRef::parse_external(&long.to_external()), Ok(long));
         let max = PartyRef::new(&"y".repeat(255)).unwrap();
         assert_eq!(PartyRef::parse_external(&max.to_external()), Ok(max));
-        for bytes in [
-            vec![0x78, 3, b'p', b':', b'a'],
-            vec![0x64, b'p', b':', b'a'],
-            vec![0x43, b'p', b':', b'a'],
-            vec![0x62, 0xff, 0xfe],
-            vec![0x60],
-        ] {
+        for bytes in [vec![0xff, 0xfe], vec![0x63, 0xff], vec![b'y'; 256]] {
             let text = format(Prefix::Party, &bytes);
             assert_eq!(
                 PartyRef::parse_external(&text),
