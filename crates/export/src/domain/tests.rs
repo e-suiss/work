@@ -57,7 +57,10 @@ fn golden() -> Bundle {
         cases.push((bytes_of(&r["hex"]), bytes_of(&e["hex"]), name));
     }
     for c in quarantine["cases"].as_array().unwrap().iter().take(3) {
-        let name = format!("records-quarantine.json {} envelope", c["id"].as_str().unwrap());
+        let name = format!(
+            "records-quarantine.json {} envelope",
+            c["id"].as_str().unwrap()
+        );
         cases.push((bytes_of(&c["hex"]), bytes_of(&c["envelope"]["hex"]), name));
     }
     let genesis = bytes_of(&json_of(GENESIS)["cases"][0]["hex"]);
@@ -178,7 +181,10 @@ fn t_10_a_bundle_is_canonical_json_lines_that_round_trip() {
     assert_eq!(lines.len(), 21);
     assert!(lines[0].starts_with(r#"{"format":"work-export/1","kind":"header","ledger":""#));
     assert!(lines[1].starts_with(r#"{"envelope":""#));
-    assert_eq!(lines[20], "{\"checkpoints\":0,\"entries\":19,\"kind\":\"end\"}\n");
+    assert_eq!(
+        lines[20],
+        "{\"checkpoints\":0,\"entries\":19,\"kind\":\"end\"}\n"
+    );
     let without_end: String = lines[..20].concat();
     assert_eq!(parse(&without_end), Err(FormatError::Truncated));
     let continued = format!("{text}{}", lines[1]);
@@ -186,9 +192,15 @@ fn t_10_a_bundle_is_canonical_json_lines_that_round_trip() {
     let miscounted = text.replace("\"entries\":19", "\"entries\":18");
     assert_eq!(parse(&miscounted), Err(FormatError::Truncated));
     let spaced = text.replacen("{\"envelope\":", "{ \"envelope\":", 1);
-    assert!(matches!(parse(&spaced), Err(FormatError::Line { line: 2, .. })));
+    assert!(matches!(
+        parse(&spaced),
+        Err(FormatError::Line { line: 2, .. })
+    ));
     let upper = text.replacen(&hex(&bundle.ledger), &hex(&bundle.ledger).to_uppercase(), 1);
-    assert!(matches!(parse(&upper), Err(FormatError::Line { line: 1, .. })));
+    assert!(matches!(
+        parse(&upper),
+        Err(FormatError::Line { line: 1, .. })
+    ));
     let missing = text.replacen(",\"received\":[]", "", 1);
     assert!(matches!(parse(&missing), Err(FormatError::Line { .. })));
     assert_eq!(parse(""), Err(FormatError::Truncated));
@@ -201,7 +213,10 @@ fn p_2_a_tampered_bundle_does_not_verify() {
     let mut flipped = golden();
     let last = flipped.entries[3].record.len() - 1;
     flipped.entries[3].record[last] ^= 1;
-    assert!(matches!(verify(&flipped, &trust), Err(VerifyError::Entry { pos: 3, .. })));
+    assert!(matches!(
+        verify(&flipped, &trust),
+        Err(VerifyError::Entry { pos: 3, .. })
+    ));
     let mut dropped = golden();
     dropped.entries.remove(5);
     assert_eq!(verify(&dropped, &trust), Err(VerifyError::Order(6)));
@@ -278,5 +293,8 @@ fn p_20_a_checkpoint_must_match_the_bundle_root() {
     .unwrap();
     let mut unsigned = golden();
     unsigned.checkpoints.push(checkpoint);
-    assert!(matches!(verify(&unsigned, &logged), Err(VerifyError::Checkpoint { size: 19, .. })));
+    assert!(matches!(
+        verify(&unsigned, &logged),
+        Err(VerifyError::Checkpoint { size: 19, .. })
+    ));
 }
