@@ -8,8 +8,9 @@ license.workspace = true
 repository.workspace = true
 publish = false
 
-# T-17 T-76
+# T-17 T-76 P-37
 [dependencies]
+work-proto = { workspace = true }
 work-store = { workspace = true }
 async-nats = { workspace = true, features = ["jetstream"] }
 futures-util = { workspace = true }

@@ -149,7 +149,7 @@ async fn stream_messages(js: &jetstream::Context) -> u64 {
     stream.get_info().await.unwrap().state.messages
 }
 
-// T-17 T-76 P-35 P-42
+// T-17 T-76 P-35 P-37 P-42
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "needs Docker"]
 async fn t_17_pointers_are_published_with_msg_id_and_removed_after_the_ack() {
@@ -199,6 +199,10 @@ async fn t_17_pointers_are_published_with_msg_id_and_removed_after_the_ack() {
     assert_eq!(event["recordid"], "01".repeat(32));
     assert_eq!(event["pos"], "0");
     assert_eq!(event["seq"], "1");
+    assert_eq!(event["subject"], format!("wrk_{}", "0b".repeat(16)));
+    assert_eq!(event["datacontenttype"], "application/json");
+    assert_eq!(event["dataschema"], "schemas/work.opened/1.json");
+    assert_eq!(event["data"], serde_json::json!({"parties": []}));
     let declined = stream.get_raw_message(4).await.unwrap();
     let event: serde_json::Value = serde_json::from_slice(&declined.payload).unwrap();
     assert_eq!(event["id"], "evt-3");
