@@ -13,6 +13,7 @@ mod erasure;
 mod error;
 mod id;
 mod idempotency;
+mod inbound;
 mod migrate;
 mod outbox;
 mod publisher;
@@ -40,6 +41,7 @@ pub use idempotency::{
     Admission, CLOCK_UNCERTAINTY_MS, CallerRef, HOT_WINDOW_MS, IdempotencyDecision, IdempotencyKey,
     StoredKey, StoredOutcome,
 };
+pub use inbound::{InboundEvent, InboundSeen};
 pub use migrate::{Cluster, migrate, migrate_from_env};
 pub use outbox::{CommittedRecord, PendingEvent, PointerKey};
 pub use publisher::{
