@@ -267,7 +267,7 @@ mod tests {
             ..ALL
         };
         assert!(down.ready());
-        assert!(down.missing().is_empty());
+        assert_eq!(down.missing(), [] as [&str; 0]);
         let text = exposition(down, NONE);
         assert!(
             text.contains("work_dependency_up{dependency=\"access\"} 0\n"),
