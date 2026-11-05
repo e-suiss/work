@@ -1368,6 +1368,7 @@ tests = [
   "crates/access-client/src/domain/token/tests.rs::e_7_a_token_signed_by_the_realm_key_names_the_pairwise_subject_of_its_client",
   "crates/http/src/reads.rs::t_28_no_caller_is_401_with_the_dpop_challenge_and_an_unverifiable_one_503",
   "crates/query/src/app/caller.rs::e_38_when_access_does_not_answer_no_caller_is_named",
+  "crates/query/src/app/caller.rs::e_5_no_client_or_product_has_a_path_of_its_own_to_a_caller",
   "crates/query/src/app/caller.rs::sec_18_a_request_without_a_dpop_token_and_proof_names_no_caller_and_asks_nothing",
   "crates/query/src/domain/caller.rs::sec_18_a_dpop_proof_is_accepted_once_within_its_window",
   "crates/query/src/domain/caller.rs::sec_18_only_a_dpop_access_token_names_a_caller",

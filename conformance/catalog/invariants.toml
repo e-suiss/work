@@ -532,6 +532,7 @@ stage = 3
 title = ""
 tests = [
   "crates/access-client/src/domain.rs::e_5_access_is_reached_only_through_the_endpoints_its_discovery_publishes",
+  "crates/query/src/app/caller.rs::e_5_no_client_or_product_has_a_path_of_its_own_to_a_caller",
 ]
 
 [[rule]]
@@ -592,6 +593,7 @@ stage = 3
 title = ""
 tests = [
   "crates/access-client/src/domain.rs::e_5_access_is_reached_only_through_the_endpoints_its_discovery_publishes",
+  "crates/query/src/app/caller.rs::e_5_no_client_or_product_has_a_path_of_its_own_to_a_caller",
 ]
 
 [[rule]]
@@ -602,6 +604,7 @@ stage = 3
 title = ""
 tests = [
   "crates/access-client/src/domain.rs::e_5_access_is_reached_only_through_the_endpoints_its_discovery_publishes",
+  "crates/query/src/app/caller.rs::e_5_no_client_or_product_has_a_path_of_its_own_to_a_caller",
 ]
 
 [[rule]]

@@ -229,6 +229,27 @@ mod tests {
         );
     }
 
+    // E-5 E-6 INV-30 E-7
+    #[test]
+    fn e_5_no_client_or_product_has_a_path_of_its_own_to_a_caller() {
+        let sources = [
+            include_str!("caller.rs"),
+            include_str!("../domain/caller.rs"),
+            include_str!("../../../http/src/reads.rs"),
+        ];
+        for source in sources {
+            let code = source.split("#[cfg(test)]").next().unwrap_or_default();
+            for line in code.lines().map(str::trim).filter(|l| !l.starts_with("//")) {
+                for named in ["client_id ==", "client_id !=", "\"cli_", "x5t", "peer_addr"] {
+                    assert!(!line.contains(named), "{line}");
+                }
+                for product in ["\"one\"", "\"relay\"", "\"pay\"", "\"executor\""] {
+                    assert!(!line.to_ascii_lowercase().contains(product), "{line}");
+                }
+            }
+        }
+    }
+
     // SEC-18 E-7 T-10
     #[tokio::test]
     async fn sec_18_a_request_without_a_dpop_token_and_proof_names_no_caller_and_asks_nothing() {
