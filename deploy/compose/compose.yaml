@@ -370,7 +370,7 @@ services:
   # T-51, T-41
   access-volume-owners:
     <<: *access-hardening
-    image: ghcr.io/e-suiss/access@sha256:96f6bd8539ae955e4a9ca1c4580010f6c64b9e4fbcd4efec2ad5a55e1a1949f0
+    image: ghcr.io/e-suiss/access@sha256:a3d15057f5b35447b48804cac02039808ac40ee440c086182d82909ce40f75ab
     platform: linux/amd64
     user: "0:0"
     cap_add: [CHOWN, FOWNER]
@@ -393,14 +393,17 @@ services:
   # T-51, T-41, T-101
   access-init:
     <<: *access-process
-    image: ghcr.io/e-suiss/access@sha256:96f6bd8539ae955e4a9ca1c4580010f6c64b9e4fbcd4efec2ad5a55e1a1949f0
+    image: ghcr.io/e-suiss/access@sha256:a3d15057f5b35447b48804cac02039808ac40ee440c086182d82909ce40f75ab
     command: ["access-local-init"]
     environment:
       ACCESS_LOCAL_PRODUCT_HOSTS: work-server
     depends_on:
       access-volume-owners:
         condition: service_completed_successfully
+      work-access-keys:
+        condition: service_completed_successfully
     volumes:
+      - access-products:/etc/access/products:ro
       - access-certs:/var/lib/access/certs
       - access-secrets:/var/lib/access/secrets
       - access-initdb:/var/lib/access/initdb
@@ -447,7 +450,7 @@ services:
   # T-51, T-36
   access-migrate:
     <<: *access-process
-    image: ghcr.io/e-suiss/access@sha256:96f6bd8539ae955e4a9ca1c4580010f6c64b9e4fbcd4efec2ad5a55e1a1949f0
+    image: ghcr.io/e-suiss/access@sha256:a3d15057f5b35447b48804cac02039808ac40ee440c086182d82909ce40f75ab
     command: ["access-server", "migrate"]
     environment:
       ACCESS_CONFIG: /etc/access/local/access.toml
@@ -462,7 +465,7 @@ services:
   # T-51, T-56
   access-signer:
     <<: *access-process
-    image: ghcr.io/e-suiss/access@sha256:96f6bd8539ae955e4a9ca1c4580010f6c64b9e4fbcd4efec2ad5a55e1a1949f0
+    image: ghcr.io/e-suiss/access@sha256:a3d15057f5b35447b48804cac02039808ac40ee440c086182d82909ce40f75ab
     command: ["access-signer"]
     restart: unless-stopped
     environment:
@@ -485,7 +488,7 @@ services:
   # T-51, T-56
   access-identity-signer:
     <<: *access-process
-    image: ghcr.io/e-suiss/access@sha256:96f6bd8539ae955e4a9ca1c4580010f6c64b9e4fbcd4efec2ad5a55e1a1949f0
+    image: ghcr.io/e-suiss/access@sha256:a3d15057f5b35447b48804cac02039808ac40ee440c086182d82909ce40f75ab
     command: ["access-identity-signer"]
     restart: unless-stopped
     environment:
@@ -527,10 +530,31 @@ services:
       access-volume-owners:
         condition: service_completed_successfully
 
+  # T-56, T-101
+  work-access-pep:
+    <<: *access-hardening
+    build: ./softhsm
+    image: work-dev/softhsm:local
+    read_only: true
+    entrypoint: ["/usr/local/bin/work-access-pep"]
+    group_add: ["65532"]
+    environment:
+      SOFTHSM_TOKEN_LABEL: work-dev
+      SOFTHSM_USER_PIN: "1234"
+      WORK_PEP_CERTIFICATE: /var/lib/access/product-tls/work-pep.crt
+    tmpfs:
+      - /tmp:uid=65532,gid=65532
+    volumes:
+      - softhsm:/var/lib/softhsm/tokens
+      - access-product-tls:/var/lib/access/product-tls:ro
+    depends_on:
+      access-init:
+        condition: service_completed_successfully
+
   # T-96, T-101, T-103, T-51
   access-bootstrap:
     <<: *access-process
-    image: ghcr.io/e-suiss/access@sha256:96f6bd8539ae955e4a9ca1c4580010f6c64b9e4fbcd4efec2ad5a55e1a1949f0
+    image: ghcr.io/e-suiss/access@sha256:a3d15057f5b35447b48804cac02039808ac40ee440c086182d82909ce40f75ab
     entrypoint: ["sh", "-c"]
     command:
       - "access-server bootstrap /etc/work-access/bootstrap-work.toml > /var/lib/access/bootstrap/bootstrap.json && cat /var/lib/access/bootstrap/bootstrap.json"
@@ -552,14 +576,14 @@ services:
         condition: service_healthy
       access-identity-signer:
         condition: service_healthy
-      work-access-keys:
+      work-access-pep:
         condition: service_completed_successfully
     networks: [access]
 
   # T-51, E-2, MD-3, T-96, T-101
   access:
     <<: *access-process
-    image: ghcr.io/e-suiss/access@sha256:96f6bd8539ae955e4a9ca1c4580010f6c64b9e4fbcd4efec2ad5a55e1a1949f0
+    image: ghcr.io/e-suiss/access@sha256:a3d15057f5b35447b48804cac02039808ac40ee440c086182d82909ce40f75ab
     command: ["access-server"]
     restart: unless-stopped
     environment:

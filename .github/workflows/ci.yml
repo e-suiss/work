@@ -530,7 +530,7 @@ jobs:
           lock | grep -q '<ObjectLockEnabled>Enabled</ObjectLockEnabled>'
       - name: Logs on failure
         if: failure()
-        run: docker compose -f deploy/compose/compose.yaml logs --no-color --tail 80 work-access-keys access-init access-migrate access-bootstrap access relay relay-migrate nts-a nts-b roughtime-a roughtime-b roughtime-c s3 witness work-signer work-server
+        run: docker compose -f deploy/compose/compose.yaml logs --no-color --tail 80 work-access-keys work-access-pep access-init access-migrate access-bootstrap access relay relay-migrate nts-a nts-b roughtime-a roughtime-b roughtime-c s3 witness work-signer work-server
       - name: Stop
         if: always()
         run: just dev-down

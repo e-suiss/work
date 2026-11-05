@@ -31,7 +31,14 @@ test-containers:
 # OP-32, OP-42, OP-43, T-41, T-96, T-101
 test-compose:
     dir="$(mktemp -d)"; just dev-access "$dir"; \
-    WORK_ACCESS_LOCAL="$dir" cargo nextest run --workspace --locked --no-tests=fail --run-ignored only -E 'binary(=compose)'
+    WORK_ACCESS_LOCAL="$dir" SOFTHSM2_CONF="$dir/softhsm2.conf" cargo nextest run --workspace --locked --no-tests=fail --run-ignored only -E 'binary(=compose) & not test(/^signed::/)'
+
+# T-101: the signed key lookup, once Access's new domains sign (about 65 minutes after `just dev`);
+# waits at most `wait` seconds for that
+test-compose-signed wait="5400":
+    dir="$(mktemp -d)"; just dev-access "$dir"; \
+    WORK_ACCESS_LOCAL="$dir" SOFTHSM2_CONF="$dir/softhsm2.conf" WORK_ACCESS_SIGNED_WAIT_S="{{wait}}" cargo nextest run --workspace --locked --no-tests=fail --run-ignored only -E 'binary(=compose) & test(=signed::wait_until_access_signs_key_lookups)'; \
+    WORK_ACCESS_LOCAL="$dir" SOFTHSM2_CONF="$dir/softhsm2.conf" cargo nextest run --workspace --locked --no-tests=fail --run-ignored only -E 'binary(=compose) & test(/^signed::/) & not test(=signed::wait_until_access_signs_key_lookups)'
 
 fmt:
     cargo fmt --all
@@ -165,11 +172,15 @@ dev:
     @echo "Witness        http://127.0.0.1:${WORK_DEV_WITNESS_PORT:-7390}  (litewitness, C2SP tlog-witness)"
     @echo "Work server    http://127.0.0.1:${WORK_DEV_SERVER_PORT:-8190}  (health http://127.0.0.1:${WORK_DEV_SERVER_INTERNAL_PORT:-8191}/readyz, signer socket in volume signer-socket)"
 
-# T-96, T-101, T-103
+# T-96, T-101, T-103, T-56: Access's CA, bootstrap.json, Work's PEP certificate and a copy of the
+# work-dev token that holds its key, with a SoftHSM configuration for that copy
 dev-access dir:
-    mkdir -p "{{dir}}"
-    for f in ca.crt pep.crt pep.key; do {{compose}} exec -T access cat "/var/lib/access/certs/$f" > "{{dir}}/$f"; done
+    mkdir -p "{{dir}}/tokens"
+    {{compose}} exec -T access cat /var/lib/access/certs/ca.crt > "{{dir}}/ca.crt"
     {{compose}} exec -T access cat /var/lib/access/bootstrap/bootstrap.json > "{{dir}}/bootstrap.json"
+    {{compose}} run --rm --no-deps -T --entrypoint cat work-access-pep /var/lib/access/product-tls/work-pep.crt > "{{dir}}/work-pep.crt"
+    {{compose}} exec -T softhsm tar -C /var/lib/softhsm/tokens -cf - . | tar -C "{{dir}}/tokens" -xf -
+    printf 'directories.tokendir = %s\nobjectstore.backend = file\nlog.level = ERROR\n' "$(cd "{{dir}}/tokens" && pwd)" > "{{dir}}/softhsm2.conf"
 
 dev-down:
     {{compose}} down

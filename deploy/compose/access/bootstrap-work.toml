@@ -3,6 +3,12 @@ platform = "platform"
 tenants = ["acme"]
 issuer_style = "path"
 
+# T-101
+[sample]
+realm = "acme"
+namespace = "work"
+action = "approve"
+
 [[products]]
 product = "work"
 display_name = "Suiss Work"

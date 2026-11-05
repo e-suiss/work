@@ -36,6 +36,7 @@ spki() {
 key work-access-client EC:prime256v1
 key work-access-dpop EC:prime256v1
 key work-access-service EC:edwards25519
+key work-access-pep EC:prime256v1
 
 spki work-access-client 91
 x="$(tail -c 64 /tmp/work-access-client.der | head -c 32 | b64url)"
@@ -47,3 +48,21 @@ x="$(tail -c 32 /tmp/work-access-service.der | b64url)"
 printf '{"kty":"OKP","crv":"Ed25519","use":"sig","x":"%s"}\n' "$x" > "$WORK_ACCESS_KEYS/work-service.jwk"
 
 echo "work-access-keys: work-client.jwk and work-service.jwk written"
+
+# T-101
+spki work-access-pep 91
+csr="$WORK_ACCESS_KEYS/work-pep.csr"
+if [ -f "$csr" ] \
+    && openssl req -in "$csr" -noout -verify 2>/dev/null \
+    && openssl req -in "$csr" -noout -pubkey | openssl pkey -pubin -outform DER | cmp -s - /tmp/work-access-pep.der; then
+    echo "work-access-keys: work-pep.csr kept"
+    exit 0
+fi
+PKCS11_PROVIDER_MODULE="$module" openssl req -new -provider pkcs11 -provider default \
+    -key "pkcs11:token=$SOFTHSM_TOKEN_LABEL;object=work-access-pep;type=private?pin-value=$SOFTHSM_USER_PIN" \
+    -subj /CN=work-pep -sha256 -out /tmp/work-pep.csr
+openssl req -in /tmp/work-pep.csr -noout -verify
+openssl req -in /tmp/work-pep.csr -noout -pubkey | openssl pkey -pubin -outform DER | cmp - /tmp/work-access-pep.der
+cp /tmp/work-pep.csr "$csr.new"
+mv "$csr.new" "$csr"
+echo "work-access-keys: work-pep.csr written"
