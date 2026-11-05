@@ -146,7 +146,7 @@ fn answered(body: &impl Serialize, position: &PositionToken) -> Response {
 
 /// A Work as its caller reads it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, ToSchema)]
-pub struct WorkBody {
+pub struct WorkAnswer {
     /// The ledger, `led_…`.
     pub ledger: String,
     /// The Work, `wrk_…`.
@@ -171,7 +171,7 @@ pub struct WorkBody {
     pub position: String,
 }
 
-impl WorkBody {
+impl WorkAnswer {
     fn of(view: &WorkView) -> Self {
         Self {
             ledger: view.ledger.to_external(),
@@ -188,7 +188,7 @@ impl WorkBody {
 
 /// One Work that changed.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, ToSchema)]
-pub struct ChangeBody {
+pub struct ChangeEntry {
     /// The Work, `wrk_…`.
     pub work: String,
     /// Its version now.
@@ -203,9 +203,9 @@ pub struct ChangeBody {
 
 /// One page of the Works that changed after a cursor (P-57, T-26).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, ToSchema)]
-pub struct ChangesBody {
+pub struct ChangesAnswer {
     /// The Works, in the order of the position that last changed them.
-    pub changes: Vec<ChangeBody>,
+    pub changes: Vec<ChangeEntry>,
     /// The cursor to ask with next, `cur_…`.
     pub next_cursor: String,
     /// True when more changes follow at once.
@@ -217,13 +217,13 @@ pub struct ChangesBody {
     pub position: String,
 }
 
-impl ChangesBody {
+impl ChangesAnswer {
     fn of(changes: &Changes) -> Self {
         Self {
             changes: changes
                 .changes
                 .iter()
-                .map(|c| ChangeBody {
+                .map(|c| ChangeEntry {
                     work: c.work.to_external(),
                     version: c.version,
                     pos: c.pos,
@@ -239,7 +239,7 @@ impl ChangesBody {
 
 /// The author's own signature.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, ToSchema)]
-pub struct AuthorSignatureBody {
+pub struct AuthorSignature {
     /// The `COSE_Sign1` as received, lower-case hex.
     pub cose_sign1: String,
 }
@@ -247,14 +247,14 @@ pub struct AuthorSignatureBody {
 /// The Access authentication context an unsigned human record names; not an author signature
 /// (P-21 item 3).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, ToSchema)]
-pub struct AuthContextBody {
+pub struct AuthContextAnswer {
     /// Access's digest of the artifact, lower-case hex.
     pub digest: String,
 }
 
 /// The ledger's acceptance of the record.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, ToSchema)]
-pub struct AttestationBody {
+pub struct LedgerAttestation {
     /// The position.
     #[serde(with = "crate::json::decimal")]
     #[schema(value_type = String)]
@@ -271,7 +271,7 @@ pub struct AttestationBody {
 
 /// A checkpoint of the ledger's transparency log.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, ToSchema)]
-pub struct CheckpointBody {
+pub struct CheckpointAnswer {
     /// Its tree size.
     #[serde(with = "crate::json::decimal")]
     #[schema(value_type = String)]
@@ -286,13 +286,13 @@ pub struct CheckpointBody {
 
 /// Whether the record is in the transparency log, and the proof that it is.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, ToSchema)]
-pub struct InclusionBody {
+pub struct InclusionAnswer {
     /// `pending` before a checkpoint covers it, `proven` with an audit path, `covered` when the
     /// tree is too large to prove in a request.
     pub status: String,
     /// The first checkpoint that covers it.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub checkpoint: Option<CheckpointBody>,
+    pub checkpoint: Option<CheckpointAnswer>,
     /// The RFC 9162 audit path, leaf side first, lower-case hex.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub path: Option<Vec<String>>,
@@ -300,7 +300,7 @@ pub struct InclusionBody {
 
 /// A witness cosignature or time stamp of the covering checkpoint.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, ToSchema)]
-pub struct WitnessBody {
+pub struct WitnessAnswer {
     /// The witness.
     pub witness: String,
     /// `witness` or `rfc3161`.
@@ -312,7 +312,7 @@ pub struct WitnessBody {
 /// A record's evidence, each kind apart (P-20): an author signature, the ledger's acceptance,
 /// the inclusion proof and the external time and witnesses are never shown as one another.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, ToSchema)]
-pub struct EvidenceBody {
+pub struct EvidenceAnswer {
     /// The ledger, `led_…`.
     pub ledger: String,
     /// The record, `rec_…`.
@@ -321,22 +321,22 @@ pub struct EvidenceBody {
     pub author: String,
     /// The author's signature; absent for a record its author did not sign.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub author_signature: Option<AuthorSignatureBody>,
+    pub author_signature: Option<AuthorSignature>,
     /// The Access authentication context of an unsigned human record.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub auth_context: Option<AuthContextBody>,
+    pub auth_context: Option<AuthContextAnswer>,
     /// The ledger's acceptance.
-    pub ledger_attestation: AttestationBody,
+    pub ledger_attestation: LedgerAttestation,
     /// The inclusion in the transparency log.
-    pub inclusion: InclusionBody,
+    pub inclusion: InclusionAnswer,
     /// The external time stamps and witness cosignatures of the covering checkpoint.
-    pub witnesses: Vec<WitnessBody>,
+    pub witnesses: Vec<WitnessAnswer>,
     /// The positions the answer reflects, `pos_…` (T-97 item 2).
     pub position: String,
 }
 
-fn checkpoint_body(c: &work_query::domain::reads::CheckpointRef) -> CheckpointBody {
-    CheckpointBody {
+fn checkpoint_body(c: &work_query::domain::reads::CheckpointRef) -> CheckpointAnswer {
+    CheckpointAnswer {
         size: c.size,
         root: digest_hex(&c.root),
         signed_note: c.signed_note.clone(),
@@ -344,22 +344,22 @@ fn checkpoint_body(c: &work_query::domain::reads::CheckpointRef) -> CheckpointBo
     }
 }
 
-impl EvidenceBody {
+impl EvidenceAnswer {
     fn of(e: &Evidence) -> Self {
         let author =
             work_kernel::id::PartyRef::new(&e.author).map_or_else(String::new, |p| p.to_external());
         let inclusion = match &e.inclusion {
-            Inclusion::Pending => InclusionBody {
+            Inclusion::Pending => InclusionAnswer {
                 status: "pending".to_owned(),
                 checkpoint: None,
                 path: None,
             },
-            Inclusion::Proven { checkpoint, path } => InclusionBody {
+            Inclusion::Proven { checkpoint, path } => InclusionAnswer {
                 status: "proven".to_owned(),
                 checkpoint: Some(checkpoint_body(checkpoint)),
                 path: Some(path.iter().map(digest_hex).collect()),
             },
-            Inclusion::Covered { checkpoint } => InclusionBody {
+            Inclusion::Covered { checkpoint } => InclusionAnswer {
                 status: "covered".to_owned(),
                 checkpoint: Some(checkpoint_body(checkpoint)),
                 path: None,
@@ -372,11 +372,11 @@ impl EvidenceBody {
             author_signature: e
                 .author_signature
                 .as_deref()
-                .map(|b| AuthorSignatureBody { cose_sign1: hex(b) }),
-            auth_context: e.auth_context.as_ref().map(|d| AuthContextBody {
+                .map(|b| AuthorSignature { cose_sign1: hex(b) }),
+            auth_context: e.auth_context.as_ref().map(|d| AuthContextAnswer {
                 digest: digest_hex(d),
             }),
-            ledger_attestation: AttestationBody {
+            ledger_attestation: LedgerAttestation {
                 pos: e.attestation.pos,
                 epoch: e.attestation.epoch,
                 recorded_at: time(e.attestation.recorded_at_ms),
@@ -386,7 +386,7 @@ impl EvidenceBody {
             witnesses: e
                 .witnesses
                 .iter()
-                .map(|w| WitnessBody {
+                .map(|w| WitnessAnswer {
                     witness: w.witness.clone(),
                     kind: w.kind.clone(),
                     cosigned_at: time(w.cosigned_at_ms),
@@ -422,7 +422,7 @@ pub struct ChangesQuery {
         ("Work-Min-Position" = Option<String>, Header, description = "A `pos_…` token the answer must reflect at least.")
     ),
     responses(
-        (status = 200, description = "The Work.", body = WorkBody, headers(
+        (status = 200, description = "The Work.", body = WorkAnswer, headers(
             ("ETag" = String, description = "The item version."),
             ("Work-Position" = String, description = "The positions the answer reflects."),
             ("Request-Id" = String, description = "The request, `<trace id>-<span id>`."),
@@ -494,7 +494,7 @@ pub async fn get_work(
         .await
     {
         Ok(view) => {
-            let mut response = answered(&WorkBody::of(&view), &view.position);
+            let mut response = answered(&WorkAnswer::of(&view), &view.position);
             response
                 .headers_mut()
                 .insert(header::ETAG, etag(view.version));
@@ -519,7 +519,7 @@ pub async fn get_work(
         ChangesQuery
     ),
     responses(
-        (status = 200, description = "The changes.", body = ChangesBody, headers(
+        (status = 200, description = "The changes.", body = ChangesAnswer, headers(
             ("Work-Position" = String, description = "The positions the answer reflects."),
             ("Request-Id" = String, description = "The request, `<trace id>-<span id>`."),
             ("RateLimit-Policy" = String, description = "The quota policy."),
@@ -591,7 +591,7 @@ pub async fn list_changes(
         .changes(&caller, &ledger, cursor.as_ref(), limit)
         .await
     {
-        Ok(changes) => answered(&ChangesBody::of(&changes), &changes.position),
+        Ok(changes) => answered(&ChangesAnswer::of(&changes), &changes.position),
         Err(refused) => read_problem(refused).into_response(),
     }
 }
@@ -611,7 +611,7 @@ pub async fn list_changes(
         ("record" = String, Path, description = "The record, `rec_…`.")
     ),
     responses(
-        (status = 200, description = "The evidence.", body = EvidenceBody, headers(
+        (status = 200, description = "The evidence.", body = EvidenceAnswer, headers(
             ("Work-Position" = String, description = "The positions the answer reflects."),
             ("Request-Id" = String, description = "The request, `<trace id>-<span id>`."),
             ("RateLimit-Policy" = String, description = "The quota policy."),
@@ -673,7 +673,7 @@ pub async fn get_record_evidence(
         (Err(e), _) | (_, Err(e)) => return e,
     };
     match services.reads.evidence(&caller, &ledger, &record).await {
-        Ok(evidence) => answered(&EvidenceBody::of(&evidence), &evidence.position),
+        Ok(evidence) => answered(&EvidenceAnswer::of(&evidence), &evidence.position),
         Err(refused) => read_problem(refused).into_response(),
     }
 }
@@ -717,7 +717,7 @@ mod tests {
             }],
             position: PositionToken::new(vec![1, 2, 3]).unwrap(),
         };
-        serde_json::to_value(EvidenceBody::of(&e)).unwrap()
+        serde_json::to_value(EvidenceAnswer::of(&e)).unwrap()
     }
 
     // T-28 E-38 SEC-8 MD-3 E-7

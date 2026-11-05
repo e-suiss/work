@@ -1462,6 +1462,7 @@ status = "canonical-invariant"
 stage = 3
 title = ""
 tests = [
+  "crates/http/src/reads.rs::t_28_no_caller_is_401_with_the_dpop_challenge_and_an_unverifiable_one_503",
   "crates/query/src/app/caller.rs::e_38_when_access_does_not_answer_no_caller_is_named",
 ]
 
@@ -1761,6 +1762,7 @@ tests = [
   "bins/work-signer/tests/signer.rs::t_7_the_signer_signs_checkpoints_of_its_ledgers_only",
   "crates/export/src/domain/tests.rs::p_20_a_checkpoint_must_match_the_bundle_root",
   "crates/export/src/domain/tests.rs::p_2_the_golden_ledger_verifies_offline_from_its_bundle",
+  "crates/http/src/reads.rs::p_20_each_kind_of_evidence_is_shown_apart",
   "crates/kernel/tests/ledger_vectors.rs::t_4_checkpoint_and_cosignature_vectors_through_the_kernel_verifier",
   "crates/kernel/tests/ledger_vectors.rs::t_4_every_entry_is_included_in_the_cosigned_checkpoint",
   "crates/ledger/src/checkpoint.rs::op_46_the_acknowledgement_declares_the_profile_asked_for",
@@ -1926,6 +1928,7 @@ status = "canonical-invariant"
 stage = 3
 title = ""
 tests = [
+  "crates/http/src/reads.rs::p_56_what_a_caller_may_not_see_is_not_found",
   "crates/query/src/adapters.rs::p_57_a_sync_cursor_opens_only_for_its_caller_and_expires_with_its_key",
   "crates/query/src/domain/reads.rs::p_57_a_cursor_lays_out_its_place_and_names_its_caller_in_the_mac",
 ]
@@ -2125,6 +2128,7 @@ status = "canonical-invariant"
 stage = 2
 title = ""
 tests = [
+  "crates/http/src/reads.rs::p_56_what_a_caller_may_not_see_is_not_found",
   "crates/store/src/id.rs::t_13_ledger_scope_is_the_lower_case_hex_of_the_digest",
 ]
 
@@ -2182,6 +2186,7 @@ tests = [
   "crates/access-client/src/domain/token/tests.rs::e_7_a_token_signed_by_the_realm_key_names_the_pairwise_subject_of_its_client",
   "crates/access-client/src/ports.rs::t_101_a_signer_without_its_key_is_a_temporary_outage_not_a_refusal",
   "crates/http/src/problem.rs::inv_34_problem_titles_claim_no_more_than_their_guarantee",
+  "crates/http/src/reads.rs::t_28_no_caller_is_401_with_the_dpop_challenge_and_an_unverifiable_one_503",
   "crates/ledger/src/leader.rs::t_28_a_leader_whose_lease_is_lost_commits_nothing",
   "crates/query/src/app/caller.rs::e_38_when_access_does_not_answer_no_caller_is_named",
 ]

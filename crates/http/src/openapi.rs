@@ -7,8 +7,8 @@ use utoipa::OpenApi as _;
 
 use crate::problem::{FieldError, Problem, ProblemCode, ProblemType};
 use crate::reads::{
-    AttestationBody, AuthContextBody, AuthorSignatureBody, ChangeBody, ChangesBody, CheckpointBody,
-    EvidenceBody, InclusionBody, WitnessBody, WorkBody,
+    AuthContextAnswer, AuthorSignature, ChangeEntry, ChangesAnswer, CheckpointAnswer,
+    EvidenceAnswer, InclusionAnswer, LedgerAttestation, WitnessAnswer, WorkAnswer,
 };
 
 /// The committed document, relative to the workspace root.
@@ -47,16 +47,16 @@ fn security_scheme() -> Value {
         ProblemCode,
         FieldError,
         ProblemType,
-        WorkBody,
-        ChangeBody,
-        ChangesBody,
-        AuthorSignatureBody,
-        AuthContextBody,
-        AttestationBody,
-        CheckpointBody,
-        InclusionBody,
-        WitnessBody,
-        EvidenceBody
+        WorkAnswer,
+        ChangeEntry,
+        ChangesAnswer,
+        AuthorSignature,
+        AuthContextAnswer,
+        LedgerAttestation,
+        CheckpointAnswer,
+        InclusionAnswer,
+        WitnessAnswer,
+        EvidenceAnswer
     ))
 )]
 struct Api;

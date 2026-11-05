@@ -23,6 +23,7 @@ stage = 3
 title = ""
 tests = [
   "bins/work-server/src/config.rs::t_96_refuses_to_start_without_the_access_setting",
+  "crates/http/src/reads.rs::t_28_no_caller_is_401_with_the_dpop_challenge_and_an_unverifiable_one_503",
   "crates/query/src/app/caller.rs::e_38_when_access_does_not_answer_no_caller_is_named",
 ]
 
@@ -1365,6 +1366,7 @@ tests = [
   "crates/access-client/src/domain/token/tests.rs::e_7_a_token_of_another_key_issuer_audience_or_time_is_refused",
   "crates/access-client/src/domain/token/tests.rs::e_7_a_token_outside_the_profile_is_refused_before_its_claims",
   "crates/access-client/src/domain/token/tests.rs::e_7_a_token_signed_by_the_realm_key_names_the_pairwise_subject_of_its_client",
+  "crates/http/src/reads.rs::t_28_no_caller_is_401_with_the_dpop_challenge_and_an_unverifiable_one_503",
   "crates/query/src/app/caller.rs::e_38_when_access_does_not_answer_no_caller_is_named",
   "crates/query/src/app/caller.rs::sec_18_a_request_without_a_dpop_token_and_proof_names_no_caller_and_asks_nothing",
   "crates/query/src/domain/caller.rs::sec_18_a_dpop_proof_is_accepted_once_within_its_window",
@@ -1514,6 +1516,7 @@ stage = 3
 title = ""
 tests = [
   "crates/access-client/src/domain/discovery.rs::t_96_a_stale_discovery_refuses_consequential_actions",
+  "crates/http/src/reads.rs::t_28_no_caller_is_401_with_the_dpop_challenge_and_an_unverifiable_one_503",
   "crates/query/src/app/caller.rs::e_38_when_access_does_not_answer_no_caller_is_named",
 ]
 
@@ -3216,6 +3219,7 @@ stage = 3
 acceptance = "to-fill"
 title = ""
 tests = [
+  "crates/http/src/reads.rs::p_20_each_kind_of_evidence_is_shown_apart",
   "crates/kernel/src/envelope.rs::p_21_auth_context_assurance_is_one_to_64_bytes",
   "crates/kernel/src/verify.rs::p_21_only_humans_with_auth_context_may_be_unsigned",
   "crates/kernel/tests/activation_vectors.rs::p_110_activation_envelopes_decode_by_their_key_above_position_0",
@@ -4355,6 +4359,7 @@ title = ""
 tests = [
   "crates/dispatch/src/domain.rs::p_35_the_envelope_names_subject_content_type_schema_and_correlation",
   "crates/http/src/position.rs::t_97_work_min_position_is_one_pos_token",
+  "crates/http/src/reads.rs::p_56_what_a_caller_may_not_see_is_not_found",
   "crates/proto/src/events.rs::p_35_subject_and_dataschema_come_from_the_item_and_the_type",
   "crates/proto/src/id.rs::p_112_a_wrong_prefix_is_invalid_id",
   "crates/proto/src/id.rs::p_112_every_prefix_round_trips_to_its_typed_id",
@@ -5963,6 +5968,7 @@ tests = [
   "crates/http/src/position.rs::t_14_a_stale_answer_says_so_and_carries_the_position_it_reflects",
   "crates/http/src/position.rs::t_97_prefer_wait_is_applied_up_to_the_maximum",
   "crates/http/src/position.rs::t_97_work_min_position_is_one_pos_token",
+  "crates/http/src/reads.rs::p_56_what_a_caller_may_not_see_is_not_found",
   "crates/proto/src/position.rs::t_97_a_malformed_token_is_read_position_invalid",
   "crates/proto/src/position.rs::t_97_a_view_reaches_a_token_only_at_every_ledger",
   "crates/proto/src/position.rs::t_97_the_token_lays_out_version_key_count_pairs_and_a_16_byte_tag",
