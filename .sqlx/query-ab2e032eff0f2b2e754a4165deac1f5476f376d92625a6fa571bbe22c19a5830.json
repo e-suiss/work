@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE work.access_realm\n             SET state = 'retired',\n                 updated_at = GREATEST(updated_at,\n                     pg_catalog.to_timestamp(0) + interval '1 millisecond' * $3::bigint::double precision)\n             WHERE tenant = $1 AND state <> 'retired' AND NOT (realm::text = ANY ($2::text[]))",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "TextArray",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "ab2e032eff0f2b2e754a4165deac1f5476f376d92625a6fa571bbe22c19a5830"
+}

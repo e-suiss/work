@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT stream_id::text AS \"stream_id?\", state AS \"state!\",\n                      (extract(epoch FROM checked_at) * 1000)::bigint AS \"checked_at_ms!\",\n                      recreated AS \"recreated!\"\n               FROM work.access_event_stream",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "stream_id?",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "state!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "work.access_event_stream",
+            "name": "state"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "checked_at_ms!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "recreated!",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "work.access_event_stream",
+            "name": "recreated"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null,
+      false,
+      null,
+      false
+    ]
+  },
+  "hash": "1623012e44da45ba7047c974080454caeb00d1b7b3f68c20c21ae481b689a265"
+}

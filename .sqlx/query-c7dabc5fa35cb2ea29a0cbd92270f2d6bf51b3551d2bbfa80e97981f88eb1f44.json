@@ -1,0 +1,57 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO work.access_event_stream (singleton, stream_id, state, checked_at, recreated)\n               VALUES (true, $1::text::uuid, $2,\n                       pg_catalog.to_timestamp(0) + interval '1 millisecond' * $3::bigint::double precision,\n                       CASE WHEN $4 THEN 1 ELSE 0 END)\n               ON CONFLICT (singleton) DO UPDATE\n               SET stream_id = EXCLUDED.stream_id,\n                   state = EXCLUDED.state,\n                   checked_at = GREATEST(work.access_event_stream.checked_at, EXCLUDED.checked_at),\n                   recreated = work.access_event_stream.recreated + EXCLUDED.recreated\n               RETURNING stream_id::text AS \"stream_id?\", state AS \"state!\",\n                         (extract(epoch FROM checked_at) * 1000)::bigint AS \"checked_at_ms!\",\n                         recreated AS \"recreated!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "stream_id?",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "state!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "work.access_event_stream",
+            "name": "state"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "checked_at_ms!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "recreated!",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "work.access_event_stream",
+            "name": "recreated"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Int8",
+        "Bool"
+      ]
+    },
+    "nullable": [
+      null,
+      false,
+      null,
+      false
+    ]
+  },
+  "hash": "c7dabc5fa35cb2ea29a0cbd92270f2d6bf51b3551d2bbfa80e97981f88eb1f44"
+}

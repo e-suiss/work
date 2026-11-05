@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE work.access_realm\n             SET state = 'unpaired',\n                 domain = COALESCE(domain, $3),\n                 party = $4,\n                 kid = $5,\n                 instance = NULL,\n                 paired_at = NULL,\n                 refusal_code = NULL,\n                 updated_at = GREATEST(updated_at,\n                     pg_catalog.to_timestamp(0) + interval '1 millisecond' * $6::bigint::double precision)\n             WHERE tenant = $1 AND realm = $2::text::uuid",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Bytea",
+        "Bytea",
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d7e50897562b55786605481abd6800d6635309763b5ed3157197e043dd7e6202"
+}

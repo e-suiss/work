@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE work.access_realm\n             SET failed_runs = failed_runs + 1,\n                 updated_at = GREATEST(updated_at,\n                     pg_catalog.to_timestamp(0) + interval '1 millisecond' * $3::bigint::double precision)\n             WHERE tenant = $1 AND realm = $2::text::uuid\n             RETURNING failed_runs AS \"failed_runs!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "failed_runs!",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "work.access_realm",
+            "name": "failed_runs"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "0ef8ed113aebba4bbcd72daeb2073ce8bc9d1a3750e0dd5da5f5b936c7e209ab"
+}

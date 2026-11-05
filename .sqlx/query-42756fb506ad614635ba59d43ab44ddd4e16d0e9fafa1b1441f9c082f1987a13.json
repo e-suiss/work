@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE work.access_realm\n             SET failed_runs = 0,\n                 updated_at = GREATEST(updated_at,\n                     pg_catalog.to_timestamp(0) + interval '1 millisecond' * $3::bigint::double precision)\n             WHERE tenant = $1 AND realm = $2::text::uuid",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "42756fb506ad614635ba59d43ab44ddd4e16d0e9fafa1b1441f9c082f1987a13"
+}
