@@ -19,7 +19,7 @@ pub(crate) const COMPOSE_FILE: &str = "deploy/compose/compose.yaml";
 
 /// Services every local environment runs (MD-14, T-41, T-56, T-57).
 const REQUIRED_SERVICES: &[&str] = &[
-    "postgres",
+    "work-postgres",
     "nats",
     "softhsm",
     "otel-collector",

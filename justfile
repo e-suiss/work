@@ -189,7 +189,7 @@ dev-migrate:
 
 # T-41
 db-reset:
-    {{compose}} rm --stop --force relay relay-migrate access postgres
+    {{compose}} rm --stop --force relay relay-migrate access work-postgres
     docker volume rm --force work-dev_pgdata
     just dev
     just dev-migrate
@@ -198,12 +198,12 @@ db-reset:
 db-seed:
     for f in deploy/compose/postgres/seed/*.sql; do \
       [ -e "$f" ] || continue; echo "seed: $f"; \
-      {{compose}} exec -T -e PGPASSWORD={{dev_db_password}} postgres \
+      {{compose}} exec -T -e PGPASSWORD={{dev_db_password}} work-postgres \
         psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U work_app -d work < "$f"; \
     done
 
 psql:
-    {{compose}} exec -e PGPASSWORD={{dev_db_password}} postgres psql -h 127.0.0.1 -U work_app -d work
+    {{compose}} exec -e PGPASSWORD={{dev_db_password}} work-postgres psql -h 127.0.0.1 -U work_app -d work
 
 run:
     cargo run --locked -p work-server

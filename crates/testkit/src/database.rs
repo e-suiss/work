@@ -93,7 +93,7 @@ impl Postgres {
             Some(d) => migration_files(d)?,
             None => Vec::new(),
         };
-        let mut request = compose_image("postgres")?
+        let mut request = compose_image("work-postgres")?
             .generic()
             .with_exposed_port(PORT.tcp())
             .with_wait_for(WaitFor::healthcheck())

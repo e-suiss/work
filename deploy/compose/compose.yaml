@@ -22,7 +22,7 @@ x-access-process: &access-process
 
 services:
   # T-20, T-36, T-51
-  postgres:
+  work-postgres:
     <<: *hardening
     image: postgres@sha256:74935e72241653ca55e0414067e6d8763aceb8a810eb51b452253ec3dcfc4336 # 18.6-trixie
     user: "999:999"
@@ -132,7 +132,7 @@ services:
       timeout: 3s
       retries: 60
 
-  # T-39, T-84, T-20, OP-33, T-76
+  # T-39, T-84, T-20, OP-33, T-76, T-96, E-2
   work-server:
     <<: *hardening
     build:
@@ -141,6 +141,7 @@ services:
       target: server
     image: work-dev/work-server:local
     user: "65532:65532"
+    group_add: ["65532"]
     read_only: true
     environment:
       WORK_CONFIG: /etc/work/work-server.toml
@@ -156,11 +157,15 @@ services:
       - ./work-server.toml:/etc/work/work-server.toml:ro
       - ./nts/pki/root.pem:/etc/work/nts-root.pem:ro
       - witness-public:/run/witness:ro
+      - access-product-tls:/var/lib/access/product-tls:ro
     ports:
       - "127.0.0.1:${WORK_DEV_SERVER_PORT:-8190}:8090"
       - "127.0.0.1:${WORK_DEV_SERVER_INTERNAL_PORT:-8191}:8091"
+    networks: [default, access]
     depends_on:
-      postgres:
+      work-postgres:
+        condition: service_healthy
+      access:
         condition: service_healthy
       nats:
         condition: service_healthy
@@ -617,10 +622,10 @@ services:
       RELAY_HOST: localhost
       PORT: "4000"
       SECRET_KEY_BASE: local-only-not-a-secret-local-only-not-a-secret-local-only-not-a-secret
-      DATABASE_URL: ecto://relay_owner@postgres:5432/relay
+      DATABASE_URL: ecto://relay_owner@work-postgres:5432/relay
       RELAY_ROLES: worker
     depends_on:
-      postgres:
+      work-postgres:
         condition: service_healthy
 
   relay:
@@ -643,7 +648,7 @@ services:
       RELAY_HOST: localhost
       PORT: "4000"
       SECRET_KEY_BASE: local-only-not-a-secret-local-only-not-a-secret-local-only-not-a-secret
-      DATABASE_URL: ecto://relay_app@postgres:5432/relay
+      DATABASE_URL: ecto://relay_app@work-postgres:5432/relay
       RELAY_ROLES: api,worker,socket
     ports:
       - "127.0.0.1:${WORK_DEV_RELAY_PORT:-4010}:4000"

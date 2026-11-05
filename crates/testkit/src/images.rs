@@ -65,11 +65,11 @@ mod tests {
 
     #[test]
     fn t_36_postgres_and_nats_images_come_from_the_compose_pins() {
-        for service in ["postgres", "nats"] {
+        for (service, repository) in [("work-postgres", "postgres"), ("nats", "nats")] {
             let image = compose_image(service).unwrap();
             let line = format!("image: {}", image.reference());
             assert!(COMPOSE.contains(&line), "{service}: {line}");
-            assert_eq!(image.repository, service);
+            assert_eq!(image.repository, repository);
         }
     }
 
