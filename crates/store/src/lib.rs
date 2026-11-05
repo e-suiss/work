@@ -11,6 +11,7 @@ mod checkpoint;
 mod cursor;
 mod erasure;
 mod error;
+mod export;
 mod id;
 mod idempotency;
 mod migrate;
@@ -35,6 +36,7 @@ pub use checkpoint::{
 };
 pub use erasure::{ERASURE_SCOPE, ErasureScope};
 pub use error::{AppendError, StoreError};
+pub use export::{CosignedCheckpoint, EXPORT_INPUTS, EXPORT_READS, ExportLog};
 pub use id::{ItemRef, LedgerId};
 pub use idempotency::{
     Admission, CLOCK_UNCERTAINTY_MS, CallerRef, HOT_WINDOW_MS, IdempotencyDecision, IdempotencyKey,

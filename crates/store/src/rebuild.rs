@@ -11,9 +11,9 @@ pub const REBUILD_ROLE: &str = "work_app";
 /// The only tables a rebuild reads (§18 OP-1 item 3, OP-2, T-90).
 pub const CANONICAL_INPUTS: [&str; 3] = ["ledger.log", "work.log_received", "work.received_bytes"];
 
-const LOG_PAGE: &str = include_str!("../queries/rebuild/log_page.sql");
+pub(crate) const LOG_PAGE: &str = include_str!("../queries/rebuild/log_page.sql");
 
-const RECEIVED_PAGE: &str = include_str!("../queries/rebuild/received_page.sql");
+pub(crate) const RECEIVED_PAGE: &str = include_str!("../queries/rebuild/received_page.sql");
 
 /// The statements of [`CanonicalLog`], the whole of what a rebuild reads.
 pub const CANONICAL_READS: [&str; 2] = [LOG_PAGE, RECEIVED_PAGE];
@@ -542,6 +542,30 @@ mod tests {
                 "{table}"
             );
             assert!(read.iter().any(|r| r == table), "{table}");
+        }
+    }
+
+    // T-10 P-2
+    #[test]
+    fn t_10_an_export_reads_only_canonical_tables() {
+        let labels = labels();
+        let read: Vec<String> = crate::EXPORT_READS
+            .iter()
+            .flat_map(|s| tables_in(s))
+            .collect();
+        for table in &read {
+            assert!(crate::EXPORT_INPUTS.contains(&table.as_str()), "{table}");
+        }
+        for table in crate::EXPORT_INPUTS {
+            assert_eq!(
+                labels.get(table).map(String::as_str),
+                Some("CANONICAL"),
+                "{table}"
+            );
+            assert!(read.iter().any(|r| r == table), "{table}");
+        }
+        for table in CANONICAL_INPUTS {
+            assert!(crate::EXPORT_INPUTS.contains(&table), "{table}");
         }
     }
 
