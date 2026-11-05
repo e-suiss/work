@@ -348,8 +348,8 @@ async fn t_101_the_bootstrap_root_key_is_looked_up_and_verified_in_each_realm_do
         assert_eq!(key.key.kid, root);
         assert_eq!(key.key.party, party);
         assert_eq!(key.key.state, KeyState::Active);
-        assert!(!key.evidence.sign1.is_empty());
-        assert!(!key.evidence.excerpt.is_empty());
+        assert_ne!(key.evidence.sign1.len(), 0);
+        assert_ne!(key.evidence.excerpt.len(), 0);
         assert_eq!(*unknown, stranger);
         let single = local.client(&pep, slug);
         single.discover().await.unwrap();
@@ -393,7 +393,7 @@ async fn t_101_the_eligibility_check_answers_with_a_consistency_token() {
     });
     let request = EligibilityRequest::new(party, set.as_object().unwrap().clone(), None).unwrap();
     let answer = client.eligibility(&request).await.unwrap();
-    assert!(!answer.consistency_token.as_str().is_empty());
+    assert_ne!(answer.consistency_token.as_str(), "");
 }
 
 // P-116
@@ -408,6 +408,6 @@ async fn p_116_the_realm_token_keys_come_from_the_realm_jwks() {
             .realm_keys(&local.issuer(slug), &[0; 32])
             .await
             .unwrap();
-        assert!(!keys.keys.is_empty(), "{slug}");
+        assert_ne!(keys.keys.len(), 0, "{slug}");
     }
 }
