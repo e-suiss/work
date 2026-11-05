@@ -42,7 +42,7 @@ fn request(v: &Value) -> Mapped<RequestJson<'_>> {
     })
 }
 
-fn deny(policies: Vec<String>, attention: bool) -> Value {
+fn deny(policies: &[String], attention: bool) -> Value {
     json!({ "outcome": "deny", "policies": policies, "attention": attention })
 }
 
@@ -50,9 +50,9 @@ fn verdict(answer: Result<Outcome, InputRejected>) -> Value {
     match answer {
         Ok(Outcome::NoObjection) => json!({ "outcome": "no_objection" }),
         Ok(Outcome::Require(refs)) => json!({ "outcome": "require", "requirements": refs }),
-        Ok(Outcome::Deny(Denial::Forbid { policies, .. })) => deny(policies, false),
+        Ok(Outcome::Deny(Denial::Forbid { policies, .. })) => deny(&policies, false),
         Ok(Outcome::Deny(Denial::EvaluationError | Denial::Internal)) | Err(InputRejected) => {
-            deny(Vec::new(), true)
+            deny(&[], true)
         }
     }
 }
