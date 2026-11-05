@@ -372,14 +372,7 @@ services:
     read_only: true
     entrypoint: ["sh", "-c"]
     command:
-      - >-
-        chown 65532:65532 /var/lib/access/certs /var/lib/access/secrets /var/lib/access/initdb
-        /var/lib/access/signer /var/lib/access/identity-signer /var/lib/access/bootstrap
-        /var/lib/access/products /var/lib/access/product-tls &&
-        chmod 0750 /var/lib/access/certs /var/lib/access/secrets /var/lib/access/initdb
-        /var/lib/access/signer /var/lib/access/identity-signer /var/lib/access/bootstrap
-        /var/lib/access/products /var/lib/access/product-tls &&
-        chown 65532:softhsm /var/lib/softhsm/tokens && chmod 0770 /var/lib/softhsm/tokens
+      - "chown 65532:65532 /var/lib/access/certs /var/lib/access/secrets /var/lib/access/initdb /var/lib/access/signer /var/lib/access/identity-signer /var/lib/access/bootstrap /var/lib/access/products /var/lib/access/product-tls && chmod 0750 /var/lib/access/certs /var/lib/access/secrets /var/lib/access/initdb /var/lib/access/signer /var/lib/access/identity-signer /var/lib/access/bootstrap /var/lib/access/products /var/lib/access/product-tls && chown 65532:softhsm /var/lib/softhsm/tokens && chmod 0770 /var/lib/softhsm/tokens"
     volumes:
       - access-certs:/var/lib/access/certs
       - access-secrets:/var/lib/access/secrets
@@ -422,12 +415,7 @@ services:
     entrypoint:
       - sh
       - -c
-      - >-
-        install -m 0600 /docker-entrypoint-initdb.d/postgres.key /var/run/postgresql/server.key &&
-        exec docker-entrypoint.sh postgres
-        -c ssl=on -c ssl_min_protocol_version=TLSv1.3
-        -c ssl_cert_file=/var/lib/access/certs/postgres.crt
-        -c ssl_key_file=/var/run/postgresql/server.key
+      - "install -m 0600 /docker-entrypoint-initdb.d/postgres.key /var/run/postgresql/server.key && exec docker-entrypoint.sh postgres -c ssl=on -c ssl_min_protocol_version=TLSv1.3 -c ssl_cert_file=/var/lib/access/certs/postgres.crt -c ssl_key_file=/var/run/postgresql/server.key"
     tmpfs:
       - /var/run/postgresql:uid=999,gid=999
       - /tmp:uid=999,gid=999
@@ -540,10 +528,7 @@ services:
     image: ghcr.io/e-suiss/access@sha256:96f6bd8539ae955e4a9ca1c4580010f6c64b9e4fbcd4efec2ad5a55e1a1949f0
     entrypoint: ["sh", "-c"]
     command:
-      - >-
-        access-server bootstrap /etc/access/local/bootstrap-work.toml
-        > /var/lib/access/bootstrap/bootstrap.json &&
-        cat /var/lib/access/bootstrap/bootstrap.json
+      - "access-server bootstrap /etc/access/local/bootstrap-work.toml > /var/lib/access/bootstrap/bootstrap.json && cat /var/lib/access/bootstrap/bootstrap.json"
     environment:
       ACCESS_CONFIG: /etc/access/local/access.toml
       ACCESS_DELIVERY_TARGETS: '[{url="https://work-server:8443/v1/inbound/events", ca_file="/var/lib/access/certs/ca.crt"}]'
