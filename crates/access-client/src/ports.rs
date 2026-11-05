@@ -13,6 +13,9 @@ use crate::domain::streams::StreamStatus;
 use crate::domain::tenants::TenantChange;
 use crate::domain::{AccessError, ProblemError};
 
+/// The W3C trace context header every call carries (P-42).
+pub const TRACEPARENT: &str = "traceparent";
+
 /// An HTTP method the client uses.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Method {
@@ -66,6 +69,18 @@ impl Request {
     pub fn with(mut self, name: &str, value: &str) -> Self {
         self.headers.push((name.to_owned(), value.to_owned()));
         self
+    }
+
+    /// The request carrying `traceparent`, the W3C trace context it is sent in (P-42, T-39),
+    /// unless it already names one.
+    #[must_use]
+    pub fn traced(self, traceparent: Option<&str>) -> Self {
+        match traceparent {
+            Some(value) if !self.headers.iter().any(|(n, _)| n == TRACEPARENT) => {
+                self.with(TRACEPARENT, value)
+            }
+            _ => self,
+        }
     }
 }
 

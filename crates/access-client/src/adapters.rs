@@ -563,8 +563,15 @@ impl HttpsTransport {
     }
 }
 
+/// The `traceparent` of the span a call runs in, which every call to Access and Relay carries
+/// (P-42, T-39); `None` when the span has no trace context.
+fn current_trace() -> Option<String> {
+    work_telemetry::traceparent(&tracing::Span::current()).map(|t| t.to_string())
+}
+
 impl Transport for HttpsTransport {
     async fn send(&self, request: Request) -> Result<Response, AccessError> {
+        let request = request.traced(current_trace().as_deref());
         timeout(self.bound, self.exchange(request))
             .await
             .map_err(|_| AccessError::Timeout)?
@@ -595,8 +602,7 @@ mod tests {
         Answer, Target, Unsignable, bootstrap_basis, plan_challenges, register_nonce, statements,
     };
     use crate::domain::x509::tests::{certificate, name};
-    use crate::ports::Clock;
-    use crate::ports::Random;
+    use crate::ports::{Clock, Random, TRACEPARENT};
 
     const NOW: u64 = 1_793_793_600_000;
 
@@ -911,5 +917,48 @@ mod tests {
             statements(&c, &service, NOW),
             Err(Unsignable::InstanceIntent)
         );
+    }
+
+    // P-42 T-39
+    #[tokio::test]
+    async fn p_42_a_call_to_access_carries_the_trace_context_it_runs_in() {
+        use work_telemetry::{
+            DEFAULT_MAX_QUEUE_SIZE, Discard, SampleRatio, TraceConfig, provider, traced_subscriber,
+        };
+
+        const INCOMING: &str = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01";
+        let config = TraceConfig {
+            service: "work-server".to_owned(),
+            version: "0.0.0-test".to_owned(),
+            endpoint: None,
+            sample_ratio: SampleRatio::ALWAYS,
+            max_queue_size: DEFAULT_MAX_QUEUE_SIZE,
+        };
+        let traces = provider(&config).unwrap();
+        let subscriber = traced_subscriber("info", || Discard, &traces);
+        let _traced = tracing::subscriber::set_default(subscriber);
+        let span = tracing::info_span!("access.call");
+        let _entered = span.enter();
+        let expected = work_telemetry::traceparent(&span).unwrap().to_string();
+        let get = || Request::get("https://access.example/x".to_owned(), "application/json");
+        let traced = get().traced(current_trace().as_deref());
+        let sent: Vec<&str> = traced
+            .headers
+            .iter()
+            .filter(|(n, _)| n == TRACEPARENT)
+            .map(|(_, v)| v.as_str())
+            .collect();
+        assert_eq!(sent, [expected.as_str()]);
+        let kept = get()
+            .with(TRACEPARENT, INCOMING)
+            .traced(Some(expected.as_str()));
+        let sent: Vec<&str> = kept
+            .headers
+            .iter()
+            .filter(|(n, _)| n == TRACEPARENT)
+            .map(|(_, v)| v.as_str())
+            .collect();
+        assert_eq!(sent, [INCOMING]);
+        assert_eq!(get().traced(None), get());
     }
 }
