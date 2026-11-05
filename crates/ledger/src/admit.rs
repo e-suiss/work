@@ -26,6 +26,7 @@ use work_kernel::validate::{
 use work_kernel::verify::{
     SignatureVerifier, UnsignedRecord, VerifyOutcome, verify_signed, verify_unsigned,
 };
+use work_proto::events::{EventType, Item, RecordFacts};
 use work_store::{
     BodyCommitmentRow, EndpointRow, Expect, HeaderRow, ItemRef, LedgerId, ReceivedKind,
     ReceivedRole, ReceivedRow, RelationRow, Skeleton,
@@ -110,7 +111,8 @@ pub struct Submission<'a> {
     pub understood_extensions: &'a [ExtKey],
     /// The effective semantic limits (T-65).
     pub limits: SemanticLimits,
-    /// The event type of the pointers the record emits (P-38).
+    /// The event type of every item the record touches when its wire name gives no catalogued
+    /// type (P-38); otherwise the types come from the record (T-98 item 4).
     pub event_type: &'a str,
     /// The W3C `traceparent` of the request (P-42).
     pub traceparent: &'a str,
@@ -479,6 +481,7 @@ struct Checked {
     skeleton: Option<Skeleton>,
     touches: Vec<ItemTouch>,
     effective_at: Option<u64>,
+    primary: Option<&'static EventType>,
 }
 
 /// Decodes and validates the record of `a` against `ledger` (P-11, P-19, P-21, P-87, C-34).
@@ -496,6 +499,7 @@ fn check(ledger: &LedgerId, s: &Submission<'_>, a: &Arrived) -> Result<Checked, 
                 skeleton: None,
                 touches: Vec::new(),
                 effective_at: None,
+                primary: None,
             });
         }
         Decoded::Record(record) => record,
@@ -541,7 +545,41 @@ fn check(ledger: &LedgerId, s: &Submission<'_>, a: &Arrived) -> Result<Checked, 
         quarantine,
         touches,
         effective_at: record.effective_at().map(|t| t.0),
+        primary: RecordFacts::of(&record).primary(),
     })
+}
+
+/// The event type of each touched item, in touch order (T-98 item 4): the item the record is
+/// about, the first touched item of its primary type's kind, takes the primary type, and every
+/// other item takes `<item>.changed`, whose `data.cause` is the primary type. A record whose
+/// wire name gives no catalogued type has no cause for a `changed` event, so every item takes
+/// `fallback`.
+pub(crate) fn pointer_types(
+    primary: Option<&EventType>,
+    fallback: &str,
+    touches: &[ItemTouch],
+) -> Vec<String> {
+    let Some(primary) = primary else {
+        return touches.iter().map(|_| fallback.to_owned()).collect();
+    };
+    let kind = match primary.item {
+        Item::Work => Some("work"),
+        Item::Commitment => Some("commitment"),
+        Item::Condition | Item::Gate => Some("condition"),
+        Item::Record | Item::Ledger => None,
+    };
+    let subject = touches.iter().position(|t| Some(t.item.kind()) == kind);
+    touches
+        .iter()
+        .enumerate()
+        .map(|(i, t)| {
+            if Some(i) == subject {
+                primary.name.to_owned()
+            } else {
+                format!("{}.changed", t.item.kind())
+            }
+        })
+        .collect()
 }
 
 /// Admits `s` into `ledger` with the kernel (T-89, T-90, P-11, P-19, P-21, P-75, P-87): the
@@ -567,12 +605,14 @@ pub fn admit<V: SignatureVerifier + ?Sized>(
     let a = arrive(verifier, s.arrival)?;
     let c = check(ledger, &s, &a)?;
     let record_hex = hex(&sha256(&a.record_bytes));
+    let types = pointer_types(c.primary, s.event_type, &c.touches);
     let outbox = c
         .touches
         .iter()
-        .map(|t| EventPointer {
+        .zip(types)
+        .map(|(t, event_type)| EventPointer {
             event_id: format!("{record_hex}.{}.{}", t.item.kind(), hex(t.item.id())),
-            event_type: s.event_type.to_owned(),
+            event_type,
             traceparent: s.traceparent.to_owned(),
             item: t.item,
         })

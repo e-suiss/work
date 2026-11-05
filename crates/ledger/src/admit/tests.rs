@@ -308,6 +308,60 @@ fn t_89_the_items_and_pointers_come_from_the_concerned_works() {
     }
 }
 
+// T-98 P-38 T-89
+#[test]
+fn t_98_the_item_a_record_is_about_takes_its_type_and_every_other_item_changed() {
+    let touch = |item| ItemTouch {
+        item,
+        expect: Expect::Next,
+        heads: None,
+    };
+    let touches = [
+        touch(ItemRef::Work([1; 16])),
+        touch(ItemRef::Work([2; 16])),
+        touch(ItemRef::Commitment([3; 32])),
+    ];
+    let updated = work_proto::events::find("work.updated");
+    assert_eq!(
+        pointer_types(updated, "work.opened", &touches),
+        ["work.updated", "work.changed", "commitment.changed"]
+    );
+    let promised = work_proto::events::find("commitment.promised");
+    assert_eq!(
+        pointer_types(promised, "work.opened", &touches),
+        ["work.changed", "work.changed", "commitment.promised"]
+    );
+    assert_eq!(
+        pointer_types(promised, "work.opened", &touches[..2]),
+        ["work.changed", "work.changed"]
+    );
+    assert_eq!(
+        pointer_types(None, "work.opened", &touches[..2]),
+        ["work.opened", "work.opened"]
+    );
+    for g in &golden() {
+        let (ledger, _) = slot_of(&g.envelope);
+        let record = pending(g, &ledger).unwrap();
+        let typed = work_proto::events::RecordFacts::decode(&record.record_bytes)
+            .and_then(|f| f.primary())
+            .is_some();
+        let primary = record
+            .outbox()
+            .iter()
+            .filter(|p| !p.event_type.ends_with(".changed"))
+            .count();
+        assert!(!typed || primary <= 1, "{}", g.id);
+        assert!(
+            record
+                .outbox()
+                .iter()
+                .all(|p| work_proto::events::find(&p.event_type).is_some()),
+            "{}",
+            g.id
+        );
+    }
+}
+
 // P-19 P-87 P-11
 #[test]
 fn p_19_a_quarantined_record_is_written_with_its_reason() {
