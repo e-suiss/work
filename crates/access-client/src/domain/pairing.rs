@@ -511,7 +511,7 @@ fn statement(
 }
 
 /// Every check of T-103 item 2 on `c` for Work's `service` key at `now_ms`, and the statements
-/// to sign once they hold: Access's digests are compared with Work's own and never signed as
+/// to sign once they hold: Access's digests must equal Work's own and are never signed as
 /// given.
 ///
 /// # Errors
