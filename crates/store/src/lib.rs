@@ -19,6 +19,7 @@ mod inbound;
 mod migrate;
 mod outbox;
 mod publisher;
+mod reads;
 mod rebuild;
 mod retention;
 mod scope;
@@ -52,6 +53,7 @@ pub use publisher::{
     DERIVER_ROLE, DeriverPool, DeriverRole, DiscoveryPool, DiscoveryRole, PUBLISHER_ROLE,
     PublisherPool, PublisherRole,
 };
+pub use reads::{ChangeRow, CosignatureView, CoveringCheckpoint, EvidenceRow, WorkRow};
 pub use rebuild::{
     CANONICAL_INPUTS, CANONICAL_READS, CanonicalEntry, CanonicalLog, REBUILD_ROLE, RebuildDiff,
     Snapshot, TableDiff, covered_tables, diff,
