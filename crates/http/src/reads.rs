@@ -93,7 +93,7 @@ pub async fn caller_of(
     method: &Method,
     uri: &Uri,
     headers: &HeaderMap,
-) -> Result<Caller, Response> {
+) -> Result<Caller, Box<Response>> {
     let url = format!("{}{}", services.origin, uri.path());
     let presented = Presented {
         authorization: single(headers, &header::AUTHORIZATION),
@@ -105,7 +105,7 @@ pub async fn caller_of(
         .auth
         .authenticate(presented)
         .await
-        .map_err(caller_problem)
+        .map_err(|r| Box::new(caller_problem(r)))
 }
 
 fn hex(bytes: &[u8]) -> String {
@@ -127,8 +127,9 @@ fn time(ms: i64) -> String {
     rfc3339_millis(ms).unwrap_or_default()
 }
 
-fn parsed<T: work_proto::id::ExternalId>(text: &str) -> Result<T, Response> {
-    T::parse_external(text).map_err(|_| Problem::new(ProblemCode::InvalidId).into_response())
+fn parsed<T: work_proto::id::ExternalId>(text: &str) -> Result<T, Box<Response>> {
+    T::parse_external(text)
+        .map_err(|_| Box::new(Problem::new(ProblemCode::InvalidId).into_response()))
 }
 
 fn answered(body: &impl Serialize, position: &PositionToken) -> Response {
@@ -501,11 +502,11 @@ pub async fn get_work(
 ) -> Response {
     let caller = match caller_of(&services, &method, &uri, &headers).await {
         Ok(caller) => caller,
-        Err(refused) => return refused,
+        Err(refused) => return *refused,
     };
     let (ledger, work) = match (parsed::<LedgerId>(&ledger), parsed::<WorkId>(&work)) {
         (Ok(l), Ok(w)) => (l, w),
-        (Err(e), _) | (_, Err(e)) => return e,
+        (Err(e), _) | (_, Err(e)) => return *e,
     };
     let min = match min_position(&headers) {
         Ok(min) => min,
@@ -597,11 +598,11 @@ pub async fn list_changes(
 ) -> Response {
     let caller = match caller_of(&services, &method, &uri, &headers).await {
         Ok(caller) => caller,
-        Err(refused) => return refused,
+        Err(refused) => return *refused,
     };
     let ledger = match parsed::<LedgerId>(&ledger) {
         Ok(ledger) => ledger,
-        Err(e) => return e,
+        Err(e) => return *e,
     };
     let query = match ChangesQuery::of(&uri) {
         Ok(query) => query,
@@ -609,7 +610,7 @@ pub async fn list_changes(
     };
     let cursor: Option<Cursor> = match query.cursor.as_deref().map(parsed::<Cursor>).transpose() {
         Ok(cursor) => cursor,
-        Err(e) => return e,
+        Err(e) => return *e,
     };
     let limit = query.limit.unwrap_or(DEFAULT_CHANGES);
     match services
@@ -692,11 +693,11 @@ pub async fn get_record_evidence(
 ) -> Response {
     let caller = match caller_of(&services, &method, &uri, &headers).await {
         Ok(caller) => caller,
-        Err(refused) => return refused,
+        Err(refused) => return *refused,
     };
     let (ledger, record) = match (parsed::<LedgerId>(&ledger), parsed::<RecordId>(&record)) {
         (Ok(l), Ok(r)) => (l, r),
-        (Err(e), _) | (_, Err(e)) => return e,
+        (Err(e), _) | (_, Err(e)) => return *e,
     };
     match services.reads.evidence(&caller, &ledger, &record).await {
         Ok(evidence) => answered(&EvidenceAnswer::of(&evidence), &evidence.position),
