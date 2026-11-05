@@ -23,6 +23,7 @@ stage = 3
 title = ""
 tests = [
   "bins/work-server/src/config.rs::t_96_refuses_to_start_without_the_access_setting",
+  "crates/query/src/app/caller.rs::e_38_when_access_does_not_answer_no_caller_is_named",
 ]
 
 [[rule]]
@@ -1356,6 +1357,18 @@ status = "frozen-product"
 stage = 3
 title = ""
 tests = [
+  "crates/access-client/src/domain/directory.rs::t_96_only_live_realms_of_active_tenants_of_the_region_name_callers",
+  "crates/access-client/src/domain/subjects.rs::t_101_every_value_asked_is_answered_once_as_a_pair_or_unknown",
+  "crates/access-client/src/domain/subjects.rs::t_101_one_call_resolves_one_direction_of_at_most_a_hundred_values",
+  "crates/access-client/src/domain/subjects.rs::t_101_the_cache_keeps_both_directions_and_drops_the_least_recently_used",
+  "crates/access-client/src/domain/token/tests.rs::e_7_a_dpop_proof_binds_the_token_to_its_key_and_this_request",
+  "crates/access-client/src/domain/token/tests.rs::e_7_a_token_of_another_key_issuer_audience_or_time_is_refused",
+  "crates/access-client/src/domain/token/tests.rs::e_7_a_token_outside_the_profile_is_refused_before_its_claims",
+  "crates/access-client/src/domain/token/tests.rs::e_7_a_token_signed_by_the_realm_key_names_the_pairwise_subject_of_its_client",
+  "crates/query/src/app/caller.rs::e_38_when_access_does_not_answer_no_caller_is_named",
+  "crates/query/src/app/caller.rs::sec_18_a_request_without_a_dpop_token_and_proof_names_no_caller_and_asks_nothing",
+  "crates/query/src/domain/caller.rs::sec_18_a_dpop_proof_is_accepted_once_within_its_window",
+  "crates/query/src/domain/caller.rs::sec_18_only_a_dpop_access_token_names_a_caller",
   "xtask/src/rules_deps.rs::e_7_no_crate_of_a_sign_in_or_second_factor_ceremony_enters_the_graph",
 ]
 
@@ -1501,6 +1514,7 @@ stage = 3
 title = ""
 tests = [
   "crates/access-client/src/domain/discovery.rs::t_96_a_stale_discovery_refuses_consequential_actions",
+  "crates/query/src/app/caller.rs::e_38_when_access_does_not_answer_no_caller_is_named",
 ]
 
 [[rule]]
@@ -3381,6 +3395,7 @@ status = "frozen-technical"
 acceptance = "to-fill"
 title = ""
 tests = [
+  "crates/access-client/src/adapters.rs::p_42_a_call_to_access_carries_the_trace_context_it_runs_in",
   "crates/dispatch/src/domain.rs::p_42_event_carries_the_pointer_traceparent",
   "crates/http/src/api.rs::p_42_an_incoming_trace_is_continued_by_the_request_span",
   "crates/http/src/api.rs::p_42_the_request_id_is_bound_to_the_trace_context",
@@ -3517,7 +3532,10 @@ status = "frozen-technical"
 stage = 3
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/query/src/adapters.rs::p_57_a_sync_cursor_opens_only_for_its_caller_and_expires_with_its_key",
+  "crates/query/src/domain/reads.rs::p_57_a_cursor_lays_out_its_place_and_names_its_caller_in_the_mac",
+]
 
 [[rule]]
 id = "P-58"
@@ -4157,6 +4175,7 @@ tests = [
   "crates/kernel/tests/ledger_vectors.rs::t_4_inclusion_and_consistency_vectors_through_the_kernel_verifier",
   "crates/ledger/src/envelope.rs::p_100_every_golden_envelope_is_sealed_from_its_slot",
   "crates/ledger/src/genesis.rs::p_100_genesis_matches_the_golden_vector",
+  "crates/query/src/domain/reads.rs::p_20_the_audit_path_proves_every_leaf_under_the_tree_root",
   "sdks/bindings/core/tests/bytes.rs::p_100_genesis_envelope_and_record_bytes_decode_through_bindings_core",
   "sdks/bindings/core/tests/bytes.rs::p_79_digest_vectors_through_bindings_core",
   "sdks/bindings/core/tests/bytes.rs::t_4_merkle_vectors_through_bindings_core",
@@ -4342,6 +4361,7 @@ tests = [
   "crates/proto/src/id.rs::p_112_pty_body_is_the_partyref_bytes",
   "crates/proto/src/id.rs::p_112_uppercase_hex_is_invalid_id",
   "crates/proto/src/position.rs::t_97_the_token_lays_out_version_key_count_pairs_and_a_16_byte_tag",
+  "crates/query/src/adapters.rs::p_57_a_sync_cursor_opens_only_for_its_caller_and_expires_with_its_key",
   "crates/query/src/adapters.rs::t_97_a_sealed_token_opens_only_for_its_tenant",
 ]
 
@@ -4352,6 +4372,7 @@ status = "frozen-protocol"
 acceptance = "filled"
 title = ""
 tests = [
+  "crates/access-client/src/domain/directory.rs::t_96_only_live_realms_of_active_tenants_of_the_region_name_callers",
   "crates/access-client/src/domain/realm.rs::p_116_a_realm_key_named_by_another_kid_or_algorithm_is_refused",
   "crates/access-client/src/domain/realm.rs::p_116_the_jwks_uri_comes_from_the_realm_openid_configuration",
   "crates/access-client/src/domain/realm.rs::p_116_the_realm_jwks_gives_the_token_keys_by_thumbprint",
@@ -4580,6 +4601,8 @@ tests = [
   "crates/kernel/tests/ledger_vectors.rs::t_10_an_entry_that_does_not_match_its_bytes_is_an_envelope_mismatch",
   "crates/kernel/tests/ledger_vectors.rs::t_10_the_verifier_recomputes_every_record_id_from_the_stored_bytes",
   "crates/ledger/src/envelope.rs::t_10_the_pending_record_id_is_recomputed_from_its_bytes",
+  "crates/query/src/app/caller.rs::sec_18_a_request_without_a_dpop_token_and_proof_names_no_caller_and_asks_nothing",
+  "crates/query/src/domain/caller.rs::sec_18_only_a_dpop_access_token_names_a_caller",
   "crates/store/src/rebuild.rs::op_1_a_rebuild_reads_only_canonical_tables",
   "crates/store/src/rebuild.rs::op_45_body_tables_are_neither_rebuilt_nor_compared",
   "crates/store/src/rebuild.rs::t_10_an_export_reads_only_canonical_tables",
@@ -4718,7 +4741,10 @@ status = "frozen-technical"
 stage = 3
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/query/src/adapters.rs::p_57_a_sync_cursor_opens_only_for_its_caller_and_expires_with_its_key",
+  "crates/query/src/domain/reads.rs::p_57_a_cursor_lays_out_its_place_and_names_its_caller_in_the_mac",
+]
 
 [[rule]]
 id = "T-27"
@@ -5015,6 +5041,7 @@ tests = [
   "bins/work-server/src/config.rs::t_39_health_endpoints_listen_on_an_internal_address_of_their_own",
   "bins/work-server/src/health.rs::t_39_metrics_raise_the_nats_alarm_with_a_bounded_label_set",
   "bins/work-server/src/health.rs::t_39_readiness_looks_only_at_postgres_and_the_signer",
+  "crates/access-client/src/adapters.rs::p_42_a_call_to_access_carries_the_trace_context_it_runs_in",
   "crates/http/src/api.rs::p_42_an_incoming_trace_is_continued_by_the_request_span",
   "crates/http/src/api.rs::p_42_the_request_id_is_bound_to_the_trace_context",
   "crates/telemetry/src/guard.rs::p_43_content_secret_and_genai_names_are_forbidden",
@@ -5908,6 +5935,7 @@ tests = [
   "bins/work-server/src/health.rs::t_96_an_access_outage_raises_its_alarm_and_keeps_readiness",
   "crates/access-client/src/adapters.rs::t_96_the_server_certificates_verify_against_the_roots_of_one_pem_file",
   "crates/access-client/src/domain.rs::t_96_start_refusals_and_fail_closed_refusals_have_their_codes",
+  "crates/access-client/src/domain/directory.rs::t_96_only_live_realms_of_active_tenants_of_the_region_name_callers",
   "crates/access-client/src/domain/discovery.rs::t_96_a_missing_endpoint_fails_closed_when_used",
   "crates/access-client/src/domain/discovery.rs::t_96_a_served_endpoint_must_agree_with_the_signed_discovery",
   "crates/access-client/src/domain/discovery.rs::t_96_a_stale_discovery_refuses_consequential_actions",
@@ -6017,6 +6045,9 @@ tests = [
   "crates/access-client/src/domain/keys.rs::t_101_key_lookup_verifies_the_cose_answer_against_domain_metadata",
   "crates/access-client/src/domain/metadata.rs::t_101_a_key_without_the_key_lookup_usage_does_not_sign_an_answer",
   "crates/access-client/src/domain/metadata.rs::t_101_the_operational_key_is_resolved_as_the_access_key_scope_vectors_say",
+  "crates/access-client/src/domain/subjects.rs::t_101_every_value_asked_is_answered_once_as_a_pair_or_unknown",
+  "crates/access-client/src/domain/subjects.rs::t_101_one_call_resolves_one_direction_of_at_most_a_hundred_values",
+  "crates/access-client/src/domain/subjects.rs::t_101_the_cache_keeps_both_directions_and_drops_the_least_recently_used",
   "crates/access-client/src/domain/x509.rs::t_101_an_ecdsa_signature_is_sent_to_tls_in_der",
   "crates/access-client/src/domain/x509.rs::t_101_the_certificate_expiry_and_key_are_read_from_its_der",
   "crates/access-client/src/ports.rs::t_101_a_refusal_carries_its_problem_code_reason_and_pointers",
@@ -6118,6 +6149,7 @@ tests = [
   "crates/ledger/src/replica.rs::op_4_a_mirrored_entry_and_its_received_bytes_are_written_once",
   "crates/ledger/src/witness.rs::op_33_only_a_configured_witness_cosigning_the_stored_tree_is_taken",
   "crates/ledger/src/witness.rs::op_4_a_checkpoint_the_replica_does_not_hold_is_not_sent_to_witnesses",
+  "crates/query/src/domain/reads.rs::p_20_the_audit_path_proves_every_leaf_under_the_tree_root",
 ]
 
 [[rule]]

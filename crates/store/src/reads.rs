@@ -135,24 +135,30 @@ impl LedgerTx<'_> {
         .transpose()
     }
 
-    /// Up to `limit` Works visible to `party` whose last change is after position `after`
-    /// (every Work for `None`), in the order of that position (P-57, T-26).
+    /// Up to `limit` Works visible to `party` whose last change comes after `after`, a position
+    /// and the Work last read at it (every Work for `None`), in the order of the position that
+    /// last changed each Work and then of the Work (P-57, T-26), so a page boundary never
+    /// splits the Works one record changed.
     ///
     /// # Errors
     /// [`StoreError::Db`], or [`StoreError::Corrupt`] for an out-of-range row.
     pub async fn visible_changes(
         &mut self,
-        after: Option<u64>,
+        after: Option<(u64, [u8; 16])>,
         limit: u32,
         party: &str,
     ) -> Result<Vec<ChangeRow>, StoreError> {
         let ledger = *self.ledger().as_bytes();
-        let after = after.map(signed).transpose()?.unwrap_or(-1);
+        let (after_pos, after_work) = match after {
+            Some((pos, work)) => (signed(pos)?, work.to_vec()),
+            None => (-1, Vec::new()),
+        };
         let rows = sqlx::query!(
             r#"SELECT i.item_id AS "item_id!", i.version AS "version!",
                       i.last_pos::bigint AS "last_pos!"
                FROM work.item_head i
-               WHERE i.ledger_id = $1 AND i.item_kind = 'work' AND i.last_pos > $2
+               WHERE i.ledger_id = $1 AND i.item_kind = 'work'
+                 AND (i.last_pos::bigint, i.item_id) > ($2::bigint, $5::bytea)
                  AND EXISTS (
                    SELECT 1 FROM work.log_concerns c
                    JOIN work.record_header h ON h.ledger_id = c.ledger_id AND h.pos = c.pos
@@ -163,12 +169,13 @@ impl LedgerTx<'_> {
                        WHERE r.ledger_id = c.ledger_id AND r.pos = c.pos
                          AND ((r.source_kind = 'party' AND r.source_text = $3)
                            OR (r.target_kind = 'party' AND r.target_text = $3)))))
-               ORDER BY i.last_pos
+               ORDER BY i.last_pos, i.item_id
                LIMIT $4"#,
             ledger.as_slice(),
-            after,
+            after_pos,
             party,
-            i64::from(limit)
+            i64::from(limit),
+            after_work.as_slice()
         )
         .fetch_all(self.conn())
         .await?;

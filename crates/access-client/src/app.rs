@@ -123,6 +123,12 @@ impl<T: Transport, C: Clock> Client<T, C> {
         }
     }
 
+    /// Now on the client's clock, Unix milliseconds.
+    #[must_use]
+    pub fn now_ms(&self) -> u64 {
+        self.clock.now_ms()
+    }
+
     fn state(&self) -> Result<MutexGuard<'_, State>, AccessError> {
         self.state.lock().map_err(|_| poisoned())
     }
@@ -494,11 +500,16 @@ impl<T: Transport, C: Clock> Client<T, C> {
     /// [`AccessError`]; the record is refused.
     pub async fn realm_keys(&self, realm: &Issuer, kid: &[u8; 32]) -> Result<KeySet, AccessError> {
         let now = self.clock.now_ms();
-        if let Some((keys, read_at)) = self.state()?.realms.get(realm)
-            && now.saturating_sub(*read_at) < REALM_KEYS_MAX_AGE_MS
-            && keys.keys.contains_key(kid)
-        {
-            return Ok(keys.clone());
+        let cached = self
+            .state()?
+            .realms
+            .get(realm)
+            .filter(|(keys, read_at)| {
+                now.saturating_sub(*read_at) < REALM_KEYS_MAX_AGE_MS && keys.keys.contains_key(kid)
+            })
+            .map(|(keys, _)| keys.clone());
+        if let Some(keys) = cached {
+            return Ok(keys);
         }
         let configuration = self
             .get(realm.well_known(OPENID_CONFIGURATION), JSON)
@@ -519,10 +530,14 @@ impl<T: Transport, C: Clock> Client<T, C> {
     /// [`AccessError`]; the caller is not authenticated.
     pub async fn realm_of(&self, issuer: &str) -> Result<Option<KnownRealm>, AccessError> {
         let now = self.clock.now_ms();
-        if let Some((realms, read_at)) = &self.state()?.directory
-            && now.saturating_sub(*read_at) < DIRECTORY_MAX_AGE_MS
-        {
-            return Ok(realms.get(issuer).cloned());
+        let cached = self
+            .state()?
+            .directory
+            .as_ref()
+            .filter(|(_, read_at)| now.saturating_sub(*read_at) < DIRECTORY_MAX_AGE_MS)
+            .map(|(realms, _)| realms.get(issuer).cloned());
+        if let Some(found) = cached {
+            return Ok(found);
         }
         let endpoints = self.endpoints()?;
         let template = endpoints.get(Endpoint::TenantSnapshot)?;

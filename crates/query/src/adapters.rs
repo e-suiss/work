@@ -1,10 +1,14 @@
 //! Port implementations (T-32).
 
 use suiss_crypto::pkcs11::{HsmError, HsmMac, KeyStore};
-use work_proto::id::{PositionToken, TenantId};
+use work_proto::id::{Cursor, PositionToken, TenantId};
 use work_proto::position::{self, PositionError, Positions};
 
 use crate::domain::PositionRefusal;
+use crate::domain::reads::{
+    CURSOR_TAG, CursorAt, Opened, ReadRefusal, cursor_body, cursor_layout, cursor_mac_input,
+    tag_matches,
+};
 
 /// The PKCS#11 label of the read position MAC key with id `key_id` (T-97 item 1, T-56).
 #[must_use]
@@ -104,6 +108,61 @@ impl PositionKeys {
             Ok(unsealed.positions)
         } else {
             Err(refused())
+        }
+    }
+}
+
+impl PositionKeys {
+    /// The sync cursor of `at` for the caller `party` of `tenant`, under the current key (P-57,
+    /// P-112): it opens only for that caller.
+    ///
+    /// # Errors
+    /// [`PositionKeyError`] when the token refuses the MAC.
+    pub fn seal_cursor(
+        &self,
+        tenant: &TenantId,
+        party: &str,
+        at: &CursorAt,
+    ) -> Result<Cursor, PositionKeyError> {
+        let (key_id, key) = &self.current;
+        let mut bytes = cursor_body(*key_id, at);
+        let mac = key.mac(&cursor_mac_input(
+            tenant.as_bytes(),
+            party.as_bytes(),
+            &bytes,
+        ))?;
+        bytes.extend(mac.get(..CURSOR_TAG).unwrap_or_default());
+        Cursor::new(bytes).ok_or(PositionKeyError::Layout(PositionError::Malformed))
+    }
+
+    /// Where `cursor` of the caller `party` of `tenant` stands: [`Opened::Expired`] for a cursor
+    /// of a key no longer held, whose difference is not known any more.
+    ///
+    /// # Errors
+    /// [`ReadRefusal::CursorInvalid`] for a malformed cursor or one whose MAC does not match,
+    /// which is also the answer to another caller's cursor; [`ReadRefusal::Unavailable`] when the
+    /// key store fails.
+    pub fn open_cursor(
+        &self,
+        tenant: &TenantId,
+        party: &str,
+        cursor: &Cursor,
+    ) -> Result<Opened, ReadRefusal> {
+        let bytes = cursor.as_bytes();
+        let (key_id, at, tag) = cursor_layout(bytes)?;
+        let Some(key) = self.key(key_id) else {
+            return Ok(Opened::Expired);
+        };
+        let body = bytes
+            .get(..bytes.len().saturating_sub(CURSOR_TAG))
+            .ok_or(ReadRefusal::CursorInvalid)?;
+        let mac = key
+            .mac(&cursor_mac_input(tenant.as_bytes(), party.as_bytes(), body))
+            .map_err(|_| ReadRefusal::Unavailable)?;
+        if tag_matches(&mac, &tag) {
+            Ok(Opened::At(at))
+        } else {
+            Err(ReadRefusal::CursorInvalid)
         }
     }
 }
@@ -214,6 +273,53 @@ mod tests {
         assert!(invalid(&keys.open_token(&tenant("t"), &tag_flip)));
         let short = PositionToken::new(vec![1, 1, 1]).unwrap();
         assert!(invalid(&keys.open_token(&tenant("t"), &short)));
+    }
+
+    // P-57 T-26 P-56 P-112
+    #[test]
+    fn p_57_a_sync_cursor_opens_only_for_its_caller_and_expires_with_its_key() {
+        let store = store("cursor");
+        let keys = PositionKeys::open(&store, 1, None).unwrap();
+        let at = CursorAt {
+            ledger: [5; 32],
+            pos: 42,
+            work: [0xff; 16],
+        };
+        let cursor = keys.seal_cursor(&tenant("t"), "alice", &at).unwrap();
+        assert!(cursor.to_external().starts_with("cur_"));
+        assert_eq!(
+            keys.open_cursor(&tenant("t"), "alice", &cursor),
+            Ok(Opened::At(at))
+        );
+        for (t, party) in [("t", "bob"), ("u", "alice"), ("t", "alic")] {
+            assert_eq!(
+                keys.open_cursor(&tenant(t), party, &cursor),
+                Err(ReadRefusal::CursorInvalid),
+                "{t} {party}"
+            );
+        }
+        let mut forged = cursor.as_bytes().to_vec();
+        forged[40] ^= 0x01;
+        let forged = Cursor::new(forged).unwrap();
+        assert_eq!(
+            keys.open_cursor(&tenant("t"), "alice", &forged),
+            Err(ReadRefusal::CursorInvalid)
+        );
+        let rotated = PositionKeys::open(&store, 2, Some(1)).unwrap();
+        assert_eq!(
+            rotated.open_cursor(&tenant("t"), "alice", &cursor),
+            Ok(Opened::At(at))
+        );
+        let retired = PositionKeys::open(&store, 2, None).unwrap();
+        assert_eq!(
+            retired.open_cursor(&tenant("t"), "alice", &cursor),
+            Ok(Opened::Expired)
+        );
+        let short = Cursor::new(vec![1, 1]).unwrap();
+        assert_eq!(
+            keys.open_cursor(&tenant("t"), "alice", &short),
+            Err(ReadRefusal::CursorInvalid)
+        );
     }
 
     // T-97

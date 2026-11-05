@@ -1,5 +1,8 @@
 //! Use cases; one transaction each (T-32).
 
+pub mod caller;
+pub mod reads;
+
 use std::collections::BTreeMap;
 use std::time::Duration;
 

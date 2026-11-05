@@ -49,6 +49,9 @@ status = "canonical-invariant"
 stage = 3
 title = ""
 tests = [
+  "crates/access-client/src/domain/token/tests.rs::e_7_a_token_of_another_key_issuer_audience_or_time_is_refused",
+  "crates/access-client/src/domain/token/tests.rs::e_7_a_token_outside_the_profile_is_refused_before_its_claims",
+  "crates/access-client/src/domain/token/tests.rs::e_7_a_token_signed_by_the_realm_key_names_the_pairwise_subject_of_its_client",
   "xtask/src/rules_deps.rs::e_7_no_crate_of_a_sign_in_or_second_factor_ceremony_enters_the_graph",
 ]
 
@@ -1458,7 +1461,9 @@ family = "SEC"
 status = "canonical-invariant"
 stage = 3
 title = ""
-tests = []
+tests = [
+  "crates/query/src/app/caller.rs::e_38_when_access_does_not_answer_no_caller_is_named",
+]
 
 [[rule]]
 id = "SEC-9"
@@ -1542,6 +1547,8 @@ status = "canonical-invariant"
 stage = 1
 title = ""
 tests = [
+  "crates/access-client/src/domain/token/tests.rs::e_7_a_dpop_proof_binds_the_token_to_its_key_and_this_request",
+  "crates/access-client/src/domain/token/tests.rs::e_7_a_token_outside_the_profile_is_refused_before_its_claims",
   "crates/http/src/api.rs::p_33_the_gateway_refuses_a_large_body_before_any_route",
   "crates/http/src/gateway.rs::p_33_a_json_body_above_the_complexity_limit_is_refused",
   "crates/http/src/gateway.rs::p_33_a_request_above_256_kib_is_refused_before_any_handler",
@@ -1551,6 +1558,9 @@ tests = [
   "crates/kernel/tests/records.rs::p_7_cddl_string_bounds_are_enforced",
   "crates/parse/src/worker/tests.rs::t_72_malformed_or_oversized_requests_are_refused_with_stable_codes",
   "crates/proto/src/parser.rs::t_72_the_frame_ceiling_holds_the_largest_scan_request_and_no_more",
+  "crates/query/src/app/caller.rs::sec_18_a_request_without_a_dpop_token_and_proof_names_no_caller_and_asks_nothing",
+  "crates/query/src/domain/caller.rs::sec_18_a_dpop_proof_is_accepted_once_within_its_window",
+  "crates/query/src/domain/caller.rs::sec_18_only_a_dpop_access_token_names_a_caller",
 ]
 
 [[rule]]
@@ -1757,6 +1767,7 @@ tests = [
   "crates/ledger/src/checkpoint.rs::p_20_a_ledger_acknowledgement_never_verifies_as_an_author_signature",
   "crates/ledger/src/checkpoint.rs::p_20_the_acknowledgement_is_the_log_signed_checkpoint_asked_for",
   "crates/proto/src/signer.rs::t_7_no_kind_byte_but_the_log_key_and_the_checkpoint_is_answered",
+  "crates/query/src/domain/reads.rs::p_20_the_audit_path_proves_every_leaf_under_the_tree_root",
   "sdks/bindings/core/tests/bytes.rs::t_88_checkpoint_vectors_through_bindings_core",
   "sdks/bindings/uniffi/tests/swift/main.swift::t_4_swift_merkle_and_checkpoint_vectors_match",
 ]
@@ -1914,7 +1925,10 @@ family = "P"
 status = "canonical-invariant"
 stage = 3
 title = ""
-tests = []
+tests = [
+  "crates/query/src/adapters.rs::p_57_a_sync_cursor_opens_only_for_its_caller_and_expires_with_its_key",
+  "crates/query/src/domain/reads.rs::p_57_a_cursor_lays_out_its_place_and_names_its_caller_in_the_mac",
+]
 
 [[rule]]
 id = "PR-1"
@@ -2165,9 +2179,11 @@ tests = [
   "bins/work-server/src/config.rs::op_9_the_node_leads_in_the_configured_cell_under_a_ten_second_lease",
   "bins/work-server/src/health.rs::t_96_an_access_outage_raises_its_alarm_and_keeps_readiness",
   "crates/access-client/src/domain/discovery.rs::t_96_a_stale_discovery_refuses_consequential_actions",
+  "crates/access-client/src/domain/token/tests.rs::e_7_a_token_signed_by_the_realm_key_names_the_pairwise_subject_of_its_client",
   "crates/access-client/src/ports.rs::t_101_a_signer_without_its_key_is_a_temporary_outage_not_a_refusal",
   "crates/http/src/problem.rs::inv_34_problem_titles_claim_no_more_than_their_guarantee",
   "crates/ledger/src/leader.rs::t_28_a_leader_whose_lease_is_lost_commits_nothing",
+  "crates/query/src/app/caller.rs::e_38_when_access_does_not_answer_no_caller_is_named",
 ]
 
 [[rule]]
