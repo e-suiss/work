@@ -4,7 +4,8 @@ use std::time::Duration;
 
 use axum::http::{HeaderMap, HeaderName, HeaderValue};
 use work_proto::id::{ExternalId as _, PositionToken};
-use work_query::domain::{PositionRefusal, ReadWait};
+use work_query::app::Freshness;
+use work_query::domain::{PositionRefusal, ReadWait, STALE};
 
 use crate::problem::{Problem, ProblemCode};
 
@@ -81,6 +82,20 @@ pub fn position_header(token: &PositionToken) -> HeaderValue {
     HeaderValue::from_str(&token.to_external()).unwrap_or_else(|_| HeaderValue::from_static(""))
 }
 
+/// The `freshness` member of a derived answer that waited for a position (T-14, T-97 item 3):
+/// `stale` when the wait ran out before the view reached it, absent otherwise. A stale answer
+/// reports where the view stands and never that an item is still under way.
+#[must_use]
+pub const fn freshness(answer: &Freshness) -> Option<&'static str> {
+    if answer.is_stale() { Some(STALE) } else { None }
+}
+
+/// Writes the `Work-Position` of `token` and the applied wait into the headers of an answer.
+pub fn answer(headers: &mut HeaderMap, token: &PositionToken, applied: HeaderValue) {
+    headers.insert(WORK_POSITION, position_header(token));
+    headers.insert(PREFERENCE_APPLIED, applied);
+}
+
 /// The problem of a refused `Work-Min-Position` (T-97 item 4).
 #[must_use]
 pub fn refusal(refusal: PositionRefusal) -> Problem {
@@ -92,6 +107,9 @@ pub fn refusal(refusal: PositionRefusal) -> Problem {
 
 #[cfg(test)]
 mod tests {
+    use work_proto::id::ExternalId;
+    use work_proto::position::Positions;
+
     use super::*;
 
     fn headers(pairs: &[(&HeaderName, &str)]) -> HeaderMap {
@@ -153,5 +171,20 @@ mod tests {
         let malformed = headers(&[(&PREFER, "wait=soon")]);
         assert_eq!(requested_wait(&malformed), None);
         assert_eq!(applied_wait(&malformed, &wait).0, Duration::from_secs(2));
+    }
+
+    // T-14 T-97
+    #[test]
+    fn t_14_a_stale_answer_says_so_and_carries_the_position_it_reflects() {
+        let ledger = ExternalId::parse_external(&format!("led_{}", "ab".repeat(32))).unwrap();
+        let at = Positions::new([(ledger, 3)]).unwrap();
+        assert_eq!(freshness(&Freshness::Stale(at.clone())), Some("stale"));
+        assert_eq!(freshness(&Freshness::Fresh(at)), None);
+        let token = PositionToken::new(vec![7, 7]).unwrap();
+        let mut headers = HeaderMap::new();
+        answer(&mut headers, &token, HeaderValue::from_static("wait=5"));
+        let text = token.to_external();
+        assert_eq!(headers.get(WORK_POSITION).unwrap(), text.as_str());
+        assert_eq!(headers.get(PREFERENCE_APPLIED).unwrap(), "wait=5");
     }
 }

@@ -286,6 +286,50 @@ impl Problem {
         self.code_detail = Some(code_detail.into());
         self
     }
+
+    /// This problem asking the caller to wait `seconds` before sending the request again.
+    #[must_use]
+    pub fn with_retry_after(mut self, seconds: u32) -> Self {
+        self.retry_after = Some(seconds);
+        self
+    }
+
+    /// The problem of a refusal the caller cannot act on: its code and title only, so no
+    /// internal cause reaches the answer (T-33 item 6).
+    #[must_use]
+    pub fn opaque(code: ProblemCode) -> Self {
+        Self::new(code)
+    }
+}
+
+/// What `GET /v1/problems/{code}` says about one problem type (T-98 item 6).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, ToSchema)]
+pub struct ProblemType {
+    /// `https://suiss.app/ns/work/problems/<code>`.
+    #[serde(rename = "type")]
+    pub type_uri: String,
+    /// The stable code.
+    pub code: ProblemCode,
+    /// The short title of the code.
+    pub title: String,
+    /// The HTTP status every problem of the type answers with.
+    pub status: u16,
+    /// Whether a request answered with the type may be sent again unchanged.
+    pub retryable: bool,
+}
+
+impl ProblemType {
+    /// The description of `code`.
+    #[must_use]
+    pub fn of(code: ProblemCode) -> Self {
+        Self {
+            type_uri: code.type_uri(),
+            code,
+            title: code.title().to_owned(),
+            status: code.status().as_u16(),
+            retryable: code.retryable(),
+        }
+    }
 }
 
 impl IntoResponse for Problem {
@@ -390,5 +434,64 @@ mod tests {
         assert_eq!(json["retryable"], false);
         assert!(json.get("retry_after").is_none());
         assert!(json.get("instance").is_none());
+        let limited = Problem::new(ProblemCode::RateLimited)
+            .with_retry_after(7)
+            .into_response();
+        assert_eq!(limited.status(), StatusCode::TOO_MANY_REQUESTS);
+        assert_eq!(limited.headers().get(header::RETRY_AFTER).unwrap(), "7");
+    }
+
+    const OPAQUE_KEYS: [&str; 6] = [
+        "code",
+        "retry_after",
+        "retryable",
+        "status",
+        "title",
+        "type",
+    ];
+
+    const CLAIMS: [&str; 7] = [
+        "recorded",
+        "saved",
+        "done",
+        "completed",
+        "deleted",
+        "guaranteed",
+        "approved",
+    ];
+
+    // T-33 T-98
+    #[test]
+    fn t_33_a_problem_carries_a_stable_code_and_no_internal_detail() {
+        for code in ProblemCode::ALL {
+            let json = serde_json::to_value(Problem::opaque(code)).unwrap();
+            for key in json.as_object().unwrap().keys() {
+                assert!(OPAQUE_KEYS.contains(&key.as_str()), "{key} in {json}");
+            }
+            let described = serde_json::to_value(ProblemType::of(code)).unwrap();
+            for key in ["type", "code", "status", "retryable"] {
+                assert_eq!(described[key], json[key], "{key}");
+            }
+        }
+    }
+
+    // INV-34 F-24 T-28
+    #[test]
+    fn inv_34_problem_titles_claim_no_more_than_their_guarantee() {
+        assert_eq!(
+            ProblemCode::NotRecorded.title(),
+            "Not confirmed, being checked"
+        );
+        assert_eq!(
+            ProblemCode::AuthorityUnverifiable.title(),
+            "Authority cannot be verified"
+        );
+        for code in ProblemCode::ALL {
+            let title = code.title().to_ascii_lowercase();
+            let name = code.as_str();
+            for word in title.split([' ', ',', '-']) {
+                assert!(!CLAIMS.contains(&word), "{name} claims `{word}`");
+            }
+        }
     }
 }

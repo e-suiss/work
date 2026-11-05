@@ -476,7 +476,7 @@ mod tests {
         text
     }
 
-    // P-112
+    // P-112 T-33
     #[test]
     fn p_112_every_prefix_round_trips_to_its_typed_id() {
         let record = RecordId(digest(0xab));
@@ -512,7 +512,7 @@ mod tests {
         );
     }
 
-    // P-112
+    // P-112 T-33
     #[test]
     fn p_112_a_wrong_prefix_is_invalid_id() {
         let commitment = CommitmentId(RecordId(digest(5))).to_external();

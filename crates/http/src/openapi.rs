@@ -1,11 +1,11 @@
-//! The `OpenAPI` 3.1 document of the REST API (T-98 item 1, P-54 item 2): generated from the `utoipa` derives of this crate with every object's keys in sorted order, written to `sdks/openapi/work-v1.json` by `cargo xtask openapi` and compared byte for byte by `cargo xtask check openapi`, which also checks that every operation names one Access action (E-45 item 3).
+//! The `OpenAPI` 3.1 document of the REST API (T-98 item 1, P-54 item 2): generated from the `utoipa` derives of this crate with every object's keys in sorted order, written to `sdks/openapi/work-v1.json` by `cargo xtask openapi` and compared byte for byte by `cargo xtask check openapi`, which also checks that every operation but a public one names one Access action (E-45 item 3).
 
 use std::collections::BTreeMap;
 
 use serde_json::{Map, Value};
 use utoipa::OpenApi as _;
 
-use crate::problem::{FieldError, Problem, ProblemCode};
+use crate::problem::{FieldError, Problem, ProblemCode, ProblemType};
 
 /// The committed document, relative to the workspace root.
 pub const DOCUMENT: &str = "sdks/openapi/work-v1.json";
@@ -18,9 +18,10 @@ pub const ACTION_EXTENSION: &str = "x-work-action";
     info(
         title = "Work API",
         version = "1",
-        description = "The Work REST API. Errors are RFC 9457 problems; every operation names the Access action it asks for in x-work-action."
+        description = "The Work REST API. Errors are RFC 9457 problems; every operation that acts for a caller names the Access action it asks for in x-work-action, and a public operation names none."
     ),
-    components(schemas(Problem, ProblemCode, FieldError))
+    paths(crate::api::problem_type),
+    components(schemas(Problem, ProblemCode, FieldError, ProblemType))
 )]
 struct Api;
 
@@ -38,6 +39,20 @@ fn sorted(value: Value) -> Value {
         Value::Array(items) => Value::Array(items.into_iter().map(sorted).collect()),
         other => other,
     }
+}
+
+/// True for an operation that asks for no identity: its `security` is exactly one empty
+/// requirement (E-45 item 3, T-98 item 6).
+#[must_use]
+pub fn is_public(operation: &Value) -> bool {
+    let Some(requirements) = operation.get("security").and_then(Value::as_array) else {
+        return false;
+    };
+    requirements.len() == 1 && requirements.iter().all(is_empty_requirement)
+}
+
+fn is_empty_requirement(requirement: &Value) -> bool {
+    requirement.as_object().is_some_and(Map::is_empty)
 }
 
 /// The document as a JSON value.

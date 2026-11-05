@@ -5308,9 +5308,13 @@ dependencies = [
  "axum",
  "serde",
  "serde_json",
+ "tokio",
+ "tower-service",
+ "tracing",
  "utoipa",
  "work-proto",
  "work-query",
+ "work-telemetry",
 ]
 
 [[package]]
@@ -5437,6 +5441,7 @@ dependencies = [
  "tracing",
  "work-access-client",
  "work-dispatch",
+ "work-http",
  "work-ledger",
  "work-parse",
  "work-proto",

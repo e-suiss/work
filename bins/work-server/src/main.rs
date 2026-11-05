@@ -8,6 +8,7 @@ mod parser;
 mod services;
 mod startup;
 
+use std::net::SocketAddr;
 use std::process::ExitCode;
 use std::sync::Arc;
 
@@ -15,6 +16,9 @@ use config::Config;
 use services::Services;
 use startup::{AccessLink, Infrastructure, TimeDriver};
 use tokio::sync::watch;
+use work_http::api::{ApiConfig, router};
+use work_http::common::TraceIds;
+use work_ledger::{Rng as _, SystemRng};
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -142,6 +146,18 @@ async fn run(config: &Config) -> ExitCode {
     }
 }
 
+/// New trace ids from the operating system's CSPRNG, for a request whose span has no trace
+/// context (P-42).
+struct SystemTraceIds;
+
+impl TraceIds for SystemTraceIds {
+    fn fresh(&self) -> Option<[u8; 24]> {
+        let mut out = [0_u8; 24];
+        SystemRng.fill(&mut out).ok()?;
+        Some(out)
+    }
+}
+
 async fn stopped(mut stop: watch::Receiver<bool>) {
     let _stopped = stop.wait_for(|s| *s).await.is_ok();
 }
@@ -151,7 +167,9 @@ async fn serve(config: &Config, internal: axum::Router) -> std::io::Result<()> {
     let health = tokio::net::TcpListener::bind(config.internal_listen).await?;
     tracing::info!(listen = %config.listen, internal_listen = %config.internal_listen, version = env!("CARGO_PKG_VERSION"), "work-server listening");
     let (stop, stopping) = watch::channel(false);
-    let api = axum::serve(api, axum::Router::new())
+    let routes = router(ApiConfig::default(), Arc::new(SystemTraceIds));
+    let routes = routes.into_make_service_with_connect_info::<SocketAddr>();
+    let api = axum::serve(api, routes)
         .with_graceful_shutdown(stopped(stopping.clone()))
         .into_future();
     let health = axum::serve(health, internal)

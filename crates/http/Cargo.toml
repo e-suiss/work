@@ -8,13 +8,21 @@ license.workspace = true
 repository.workspace = true
 publish = false
 
+# T-35 T-98 P-42 P-54
 [dependencies]
 work-proto = { workspace = true }
 work-query = { workspace = true }
-axum = { workspace = true }
+work-telemetry = { workspace = true }
+axum = { workspace = true, features = ["tokio"] }
 serde = { workspace = true, features = ["derive", "std"] }
 serde_json = { workspace = true, features = ["std"] }
+tokio = { workspace = true, features = ["time"] }
+tracing = { workspace = true, features = ["std"] }
 utoipa = { workspace = true, features = ["macros"] }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt", "test-util", "time"] }
+tower-service = { workspace = true }
 
 [lints]
 workspace = true

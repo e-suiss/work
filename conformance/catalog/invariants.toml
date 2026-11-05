@@ -562,6 +562,7 @@ status = "canonical-invariant"
 stage = 0
 title = "Wording never exceeds the guarantee"
 tests = [
+  "crates/http/src/problem.rs::inv_34_problem_titles_claim_no_more_than_their_guarantee",
   "xtask/src/catalog_claims.rs::f_24_inv_34_sec_33_sec_34_every_forbidden_phrase_is_caught",
 ]
 
@@ -1540,6 +1541,9 @@ status = "canonical-invariant"
 stage = 1
 title = ""
 tests = [
+  "crates/http/src/api.rs::p_33_the_gateway_refuses_a_large_body_before_any_route",
+  "crates/http/src/gateway.rs::p_33_a_json_body_above_the_complexity_limit_is_refused",
+  "crates/http/src/gateway.rs::p_33_a_request_above_256_kib_is_refused_before_any_handler",
   "crates/kernel/src/reason.rs::p_11_every_reason_round_trips_through_its_wire_string",
   "crates/kernel/tests/records.rs::p_33_sec_18_semantic_limits_accept_the_bound_and_reject_one_more",
   "crates/kernel/tests/records.rs::p_7_cddl_list_and_map_bounds_reject_one_more_than_256",
@@ -2149,6 +2153,7 @@ tests = [
   "bins/work-server/src/config.rs::op_9_the_node_leads_in_the_configured_cell_under_a_ten_second_lease",
   "bins/work-server/src/health.rs::t_96_an_access_outage_raises_its_alarm_and_keeps_readiness",
   "crates/access-client/src/domain/discovery.rs::t_96_a_stale_discovery_refuses_consequential_actions",
+  "crates/http/src/problem.rs::inv_34_problem_titles_claim_no_more_than_their_guarantee",
   "crates/ledger/src/leader.rs::t_28_a_leader_whose_lease_is_lost_commits_nothing",
 ]
 

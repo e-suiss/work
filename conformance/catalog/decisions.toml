@@ -349,6 +349,7 @@ status = "frozen-product"
 stage = 0
 title = "Guarantee classes and claim language bind product and documentation text"
 tests = [
+  "crates/http/src/problem.rs::inv_34_problem_titles_claim_no_more_than_their_guarantee",
   "xtask/src/catalog_claims.rs::f_24_inv_34_sec_33_sec_34_every_forbidden_phrase_is_caught",
   "xtask/src/catalog_claims.rs::t_48_reasoned_exceptions_pass",
 ]
@@ -3035,6 +3036,7 @@ acceptance = "to-fill"
 pd = "set"
 title = ""
 tests = [
+  "crates/http/src/gateway.rs::p_33_an_installation_narrows_a_limit_and_never_widens_it",
   "crates/kernel/src/codec/mod.rs::p_7_structural_limits_only_narrow",
   "crates/kernel/src/verify.rs::p_6_rejected_signature_carries_its_detail",
   "crates/kernel/tests/codec_vectors.rs::p_104_large_part_vectors_commit_to_the_digest_of_their_content",
@@ -3267,6 +3269,11 @@ acceptance = "to-fill"
 pd = "set"
 title = ""
 tests = [
+  "crates/http/src/api.rs::p_33_the_gateway_refuses_a_large_body_before_any_route",
+  "crates/http/src/api.rs::p_54_a_caller_past_its_quota_is_rate_limited",
+  "crates/http/src/gateway.rs::p_33_a_json_body_above_the_complexity_limit_is_refused",
+  "crates/http/src/gateway.rs::p_33_a_request_above_256_kib_is_refused_before_any_handler",
+  "crates/http/src/gateway.rs::p_33_an_installation_narrows_a_limit_and_never_widens_it",
   "crates/kernel/src/limits.rs::t_65_defaults_match_the_p_33_table",
   "crates/kernel/tests/record_vectors.rs::p_72_rejected_record_vectors",
   "crates/kernel/tests/records.rs::p_33_sec_18_semantic_limits_accept_the_bound_and_reject_one_more",
@@ -3346,6 +3353,8 @@ acceptance = "to-fill"
 title = ""
 tests = [
   "crates/dispatch/src/domain.rs::p_42_event_carries_the_pointer_traceparent",
+  "crates/http/src/api.rs::p_42_an_incoming_trace_is_continued_by_the_request_span",
+  "crates/http/src/api.rs::p_42_the_request_id_is_bound_to_the_trace_context",
   "crates/telemetry/tests/trace_export.rs::p_42_continued_traces_follow_the_caller_sampling_decision",
   "crates/telemetry/tests/trace_export.rs::p_42_traceparent_accepts_what_the_ledger_domain_accepts",
   "crates/telemetry/tests/trace_export.rs::p_42_traceparent_round_trips_through_the_outbox",
@@ -3435,7 +3444,11 @@ family = "P"
 status = "frozen-technical"
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/http/src/api.rs::p_53_every_route_is_versioned_and_an_unknown_one_is_a_problem",
+  "crates/http/src/api.rs::t_98_a_problem_type_is_described_without_an_identity",
+  "crates/http/tests/openapi.rs::t_98_the_committed_openapi_document_is_the_generated_one",
+]
 
 [[rule]]
 id = "P-54"
@@ -3446,8 +3459,18 @@ acceptance = "to-fill"
 pd = "set"
 title = ""
 tests = [
+  "crates/http/src/api.rs::p_42_the_request_id_is_bound_to_the_trace_context",
+  "crates/http/src/api.rs::p_53_every_route_is_versioned_and_an_unknown_one_is_a_problem",
+  "crates/http/src/api.rs::p_54_a_caller_past_its_quota_is_rate_limited",
+  "crates/http/src/api.rs::t_98_a_problem_type_is_described_without_an_identity",
+  "crates/http/src/conditional.rs::p_54_a_changing_request_sends_one_idempotency_key",
+  "crates/http/src/conditional.rs::p_54_if_match_is_the_item_version_and_becomes_the_basis",
+  "crates/http/src/deprecation.rs::p_54_a_deprecated_route_announces_deprecation_and_sunset",
+  "crates/http/src/json.rs::p_54_large_integers_travel_as_canonical_decimal_strings",
+  "crates/http/src/rate.rs::p_54_a_caller_past_its_quota_waits_for_the_next_window",
   "crates/store/src/idempotency.rs::p_97_a_key_that_is_not_a_uuidv7_does_not_parse",
   "crates/store/src/idempotency.rs::p_97_a_uuidv7_key_parses_round_trips_and_carries_its_time",
+  "xtask/src/contracts_openapi.rs::p_54_pages_are_cursors_names_are_snake_case_and_large_integers_are_strings",
 ]
 
 [[rule]]
@@ -4018,6 +4041,7 @@ status = "frozen-protocol"
 acceptance = "to-fill"
 title = ""
 tests = [
+  "crates/http/src/conditional.rs::p_54_a_changing_request_sends_one_idempotency_key",
   "crates/store/src/idempotency.rs::op_38_admission_follows_the_hot_window_and_the_clock_uncertainty",
   "crates/store/src/idempotency.rs::p_97_a_key_that_is_not_a_uuidv7_does_not_parse",
   "crates/store/src/idempotency.rs::p_97_a_uuidv7_key_parses_round_trips_and_carries_its_time",
@@ -4044,7 +4068,9 @@ status = "frozen-protocol"
 stage = 2
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/http/src/conditional.rs::p_54_a_changing_request_sends_one_idempotency_key",
+]
 
 [[rule]]
 id = "P-100"
@@ -4500,6 +4526,8 @@ title = ""
 tests = [
   "bins/work-signer/tests/signer.rs::t_72_the_signer_serves_only_inside_its_lockdown",
   "bins/work-signer/tests/signer.rs::t_7_the_signer_signs_checkpoints_of_its_ledgers_only",
+  "crates/http/src/api.rs::p_33_the_gateway_refuses_a_large_body_before_any_route",
+  "crates/http/src/gateway.rs::p_33_a_request_above_256_kib_is_refused_before_any_handler",
   "crates/kernel/tests/activation_vectors.rs::p_110_a_stored_activation_verifies_after_the_genesis_without_a_record_step",
   "crates/kernel/tests/ledger_vectors.rs::ev_35_a_stored_presenter_annotation_must_match_the_record_evidence",
   "crates/kernel/tests/ledger_vectors.rs::t_10_an_entry_that_does_not_match_its_bytes_is_an_envelope_mismatch",
@@ -4537,7 +4565,9 @@ status = "frozen-technical"
 stage = 3
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/http/src/position.rs::t_14_a_stale_answer_says_so_and_carries_the_position_it_reflects",
+]
 
 [[rule]]
 id = "T-15"
@@ -4743,6 +4773,11 @@ stage = 0
 acceptance = "filled"
 title = "Strict lints, no request-path panics, checked arithmetic and redacting types"
 tests = [
+  "crates/http/src/problem.rs::t_33_a_problem_carries_a_stable_code_and_no_internal_detail",
+  "crates/proto/src/id.rs::p_112_a_wrong_prefix_is_invalid_id",
+  "crates/proto/src/id.rs::p_112_every_prefix_round_trips_to_its_typed_id",
+  "crates/query/src/domain/restriction.rs::pr_23_a_transition_over_16_rule_sets_is_deny",
+  "crates/query/src/domain/restriction.rs::pr_23_input_rejected_is_deny_with_an_attention_signal",
   "xtask/src/rules_profile.rs::t_33_env_profiles_and_rustflags_in_build_files_are_rejected",
   "xtask/src/rules_profile.rs::t_33_panic_abort_in_any_profile_is_rejected",
   "xtask/src/rules_profile.rs::t_33_panic_abort_rustflag_is_rejected",
@@ -4778,7 +4813,10 @@ status = "frozen-technical"
 stage = 3
 acceptance = "to-fill"
 title = "OpenAPI from code, AsyncAPI events, CDDL first and internal ConnectRPC"
-tests = []
+tests = [
+  "crates/http/src/deprecation.rs::p_54_a_deprecated_route_announces_deprecation_and_sunset",
+  "crates/http/tests/openapi.rs::t_98_the_committed_openapi_document_is_the_generated_one",
+]
 
 [[rule]]
 id = "T-36"
@@ -4916,6 +4954,8 @@ tests = [
   "bins/work-server/src/config.rs::t_39_health_endpoints_listen_on_an_internal_address_of_their_own",
   "bins/work-server/src/health.rs::t_39_metrics_raise_the_nats_alarm_with_a_bounded_label_set",
   "bins/work-server/src/health.rs::t_39_readiness_looks_only_at_postgres_and_the_signer",
+  "crates/http/src/api.rs::p_42_an_incoming_trace_is_continued_by_the_request_span",
+  "crates/http/src/api.rs::p_42_the_request_id_is_bound_to_the_trace_context",
   "crates/telemetry/src/guard.rs::p_43_content_secret_and_genai_names_are_forbidden",
   "crates/telemetry/src/guard.rs::p_43_identifier_fields_are_allowed",
   "crates/telemetry/src/metrics.rs::t_39_every_label_key_is_outside_the_identifier_set",
@@ -5830,6 +5870,7 @@ acceptance = "filled"
 pd = "set"
 title = ""
 tests = [
+  "crates/http/src/position.rs::t_14_a_stale_answer_says_so_and_carries_the_position_it_reflects",
   "crates/http/src/position.rs::t_97_prefer_wait_is_applied_up_to_the_maximum",
   "crates/http/src/position.rs::t_97_work_min_position_is_one_pos_token",
   "crates/proto/src/position.rs::t_97_a_malformed_token_is_read_position_invalid",
@@ -5852,6 +5893,8 @@ status = "frozen-technical"
 acceptance = "filled"
 title = ""
 tests = [
+  "crates/http/src/api.rs::t_98_a_problem_type_is_described_without_an_identity",
+  "crates/http/src/problem.rs::t_33_a_problem_carries_a_stable_code_and_no_internal_detail",
   "crates/http/src/problem.rs::t_98_a_problem_is_problem_json_with_its_request_and_retry_after",
   "crates/http/src/problem.rs::t_98_every_problem_has_a_stable_code_and_type",
   "crates/http/tests/openapi.rs::e_45_every_api_operation_names_exactly_one_action",

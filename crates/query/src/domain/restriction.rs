@@ -272,7 +272,7 @@ action write appliesTo { principal: [Actor], resource: [Resource], context: Ctx 
         assert_eq!(COMPILE_REFUSED, "restriction_compile_refused");
     }
 
-    // PR-23
+    // PR-23 T-33
     #[test]
     fn pr_23_a_transition_over_16_rule_sets_is_deny() {
         let limits = RestrictionLimits::default();
@@ -293,7 +293,7 @@ action write appliesTo { principal: [Actor], resource: [Resource], context: Ctx 
         );
     }
 
-    // PR-23
+    // PR-23 T-33
     #[test]
     fn pr_23_input_rejected_is_deny_with_an_attention_signal() {
         let engine = RestrictionLimits::default()

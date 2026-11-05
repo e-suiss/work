@@ -13,6 +13,7 @@ suiss-crypto = { workspace = true, features = ["aws-lc"] }
 suiss-sandbox = { workspace = true }
 work-access-client = { workspace = true }
 work-dispatch = { workspace = true }
+work-http = { workspace = true }
 work-kernel = { workspace = true }
 work-ledger = { workspace = true, features = ["s3"] }
 work-parse = { workspace = true }

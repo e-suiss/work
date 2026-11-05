@@ -4,14 +4,14 @@
 use std::path::Path;
 
 use serde_json::Value;
-use work_http::openapi::{ACTION_EXTENSION, DOCUMENT, document, value};
+use work_http::openapi::{ACTION_EXTENSION, DOCUMENT, document, is_public, value};
 use work_proto::action::Action;
 
 const METHODS: [&str; 8] = [
     "get", "put", "post", "delete", "options", "head", "patch", "trace",
 ];
 
-// T-98
+// T-98 T-35 P-53
 #[test]
 fn t_98_the_committed_openapi_document_is_the_generated_one() {
     let generated = document().unwrap();
@@ -35,6 +35,8 @@ fn t_98_the_committed_openapi_document_is_the_generated_one() {
 // E-45 T-98
 #[test]
 fn e_45_every_api_operation_names_exactly_one_action() {
+    let public = value().unwrap()["paths"]["/v1/problems/{code}"]["get"].clone();
+    assert!(is_public(&public));
     let doc = value().unwrap();
     let paths = doc["paths"].as_object().unwrap();
     for (path, item) in paths {
@@ -43,6 +45,13 @@ fn e_45_every_api_operation_names_exactly_one_action() {
                 continue;
             };
             let action = operation.get(ACTION_EXTENSION).and_then(Value::as_str);
+            if is_public(operation) {
+                assert!(
+                    action.is_none(),
+                    "{method} {path} is public and names {action:?}"
+                );
+                continue;
+            }
             assert!(
                 action.and_then(Action::parse).is_some(),
                 "{method} {path} names no action of the catalog: {action:?}"
