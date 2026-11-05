@@ -462,23 +462,23 @@ version = "0.7.12"
 criteria = "safe-to-deploy"
 
 [[exemptions.esuiss-crypto]]
-version = "0.2.4"
+version = "0.2.6"
 criteria = "safe-to-deploy"
 
 [[exemptions.esuiss-ledger]]
-version = "0.2.4"
+version = "0.2.6"
 criteria = "safe-to-deploy"
 
 [[exemptions.esuiss-restriction]]
-version = "0.2.4"
+version = "0.2.6"
 criteria = "safe-to-deploy"
 
 [[exemptions.esuiss-retention]]
-version = "0.2.5"
+version = "0.2.6"
 criteria = "safe-to-deploy"
 
 [[exemptions.esuiss-sandbox]]
-version = "0.2.4"
+version = "0.2.6"
 criteria = "safe-to-deploy"
 
 [[exemptions.etcetera]]

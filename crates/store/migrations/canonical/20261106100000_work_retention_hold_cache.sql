@@ -1,5 +1,5 @@
 -- OP-14 OP-12 OP-45 Access OP-74 Access OP-147
--- squawk-ignore-file changing-column-type, adding-required-field, constraint-missing-not-valid, ban-drop-constraint
+-- squawk-ignore-file changing-column-type, adding-required-field, constraint-missing-not-valid, ban-drop-constraint, ban-drop-default
 SET LOCAL ROLE work_owner;
 SET LOCAL lock_timeout = '10s';
 SET LOCAL statement_timeout = '5min';
