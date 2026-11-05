@@ -21,7 +21,7 @@ use std::time::Duration;
 use serde_json::Value as Json;
 use suiss_crypto::dcbor::{self, Limits, Value};
 use suiss_crypto::digest::{Digest, leaf_hash, sha256};
-use tokio::sync::Semaphore;
+use tokio::sync::{Notify, Semaphore};
 use work_kernel::cose::{Algorithm, AuthorKeys, KeySet, PublicKey, verify_record_signature};
 use work_kernel::id::PartyRef;
 use work_kernel::limits::SemanticLimits;
@@ -503,6 +503,32 @@ async fn op_31_concurrent_requests_share_batches_and_get_contiguous_positions() 
     assert!(head.head().recorded_at <= AT.checked_add(100).unwrap());
 }
 
+/// A [`Gate`] that signals each time the writer asks it for the time, which it does only
+/// while it holds a batch.
+struct Entered {
+    gate: Gate,
+    entered: Arc<Notify>,
+}
+
+impl Clock for Entered {
+    async fn now(&mut self) -> Result<u64, ClockError> {
+        self.entered.notify_one();
+        self.gate.now().await
+    }
+}
+
+/// Polls `f` once so that a `submit` makes its queue attempt, and returns it still pending.
+async fn queue_once<F: std::future::Future + Unpin>(f: &mut F)
+where
+    F::Output: std::fmt::Debug,
+{
+    tokio::select! {
+        biased;
+        r = &mut *f => panic!("answered before its batch was let through: {r:?}"),
+        () = std::future::ready(()) => {}
+    }
+}
+
 // OP-41 OP-31
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "needs Docker"]
@@ -516,27 +542,35 @@ async fn op_41_a_full_queue_answers_busy_at_once_and_writes_nothing() {
         .await
         .unwrap();
     let permits = Arc::new(Semaphore::new(0));
-    let clock = Gate {
-        permits: permits.clone(),
-        at: AT,
+    let entered = Arc::new(Notify::new());
+    let clock = Entered {
+        gate: Gate {
+            permits: permits.clone(),
+            at: AT,
+        },
+        entered: entered.clone(),
     };
     let config = GroupConfig::new(256, 1 << 20, 2, Duration::from_secs(1)).unwrap();
     let (group, task) = GroupCommit::spawn(leader, clock, config);
-    let first = admit_spawned(&group, comment(&ledger, 1));
-    tokio::time::sleep(Duration::from_millis(100)).await;
-    let queued: Vec<_> = (2..=3_u8)
-        .map(|n| admit_spawned(&group, comment(&ledger, n)))
+    let records: Vec<PendingRecord> = (1..=4_u8)
+        .map(|n| pending(&ledger, &comment(&ledger, n)))
         .collect();
-    tokio::time::sleep(Duration::from_millis(100)).await;
+    let mut first = Box::pin(group.submit(records[0].clone()));
+    queue_once(&mut first).await;
+    entered.notified().await;
+    let mut second = Box::pin(group.submit(records[1].clone()));
+    let mut third = Box::pin(group.submit(records[2].clone()));
+    queue_once(&mut second).await;
+    queue_once(&mut third).await;
     assert!(matches!(
-        group.submit(pending(&ledger, &comment(&ledger, 4))).await,
+        group.submit(records[3].clone()).await,
         Err(SubmitError::Busy { retry_after }) if retry_after == Duration::from_secs(1)
     ));
     permits.add_permits(10);
-    assert_eq!(first.await.unwrap().unwrap().pos, 1);
-    for q in queued {
-        q.await.unwrap().unwrap();
-    }
+    let (first, second, third) = tokio::join!(first, second, third);
+    assert_eq!(first.unwrap().pos, 1);
+    second.unwrap();
+    third.unwrap();
     drop(group);
     task.await.unwrap().unwrap();
     let reacquired = Leader::acquire(pool, ledger, &node()).await.unwrap();
