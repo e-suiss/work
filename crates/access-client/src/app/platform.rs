@@ -656,12 +656,11 @@ where
         (Some(s), _) => Some(s.to_owned()),
         (None, k) => k,
     };
-    let found = match &id {
-        Some(id) => platform.stream(endpoints, id).await?,
-        None => {
-            let list = platform.streams(endpoints).await?;
-            streams::live(&list, receiver).cloned()
-        }
+    let found = if let Some(id) = &id {
+        platform.stream(endpoints, id).await?
+    } else {
+        let list = platform.streams(endpoints).await?;
+        streams::live(&list, receiver).cloned()
     };
     let now = platform.now_ms();
     match streams::check(found.as_ref()) {
@@ -679,23 +678,20 @@ where
             let mut known = platform.streams(endpoints).await?;
             known.extend(found);
             let events = streams::events(&known);
-            match platform.open_stream(endpoints, receiver, &events).await? {
-                Opened::Stream(s) => {
-                    signals.push(Signal::StreamRecreated {
-                        stream: s.id.clone(),
-                    });
-                    record(step.store, Some(&s), true, platform.now_ms()).await
-                }
-                Opened::Exists => {
-                    let list = platform.streams(endpoints).await?;
-                    record(
-                        step.store,
-                        streams::live(&list, receiver),
-                        false,
-                        platform.now_ms(),
-                    )
-                    .await
-                }
+            if let Opened::Stream(s) = platform.open_stream(endpoints, receiver, &events).await? {
+                signals.push(Signal::StreamRecreated {
+                    stream: s.id.clone(),
+                });
+                record(step.store, Some(&s), true, platform.now_ms()).await
+            } else {
+                let list = platform.streams(endpoints).await?;
+                record(
+                    step.store,
+                    streams::live(&list, receiver),
+                    false,
+                    platform.now_ms(),
+                )
+                .await
             }
         }
     }
@@ -731,9 +727,10 @@ where
             return report;
         }
     };
-    let tenants = match scope {
-        Scope::Tenant(t) => client.tenant(t).await.map(|s| vec![s]),
-        Scope::Due | Scope::All => client.all_tenants().await,
+    let tenants = if let Scope::Tenant(t) = scope {
+        client.tenant(t).await.map(|s| vec![s])
+    } else {
+        client.all_tenants().await
     };
     let mut seen: Option<String> = None;
     match tenants {

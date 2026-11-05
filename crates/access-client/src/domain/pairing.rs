@@ -548,16 +548,17 @@ pub fn statements(
     if create != c.instance_create.intent {
         return Err(Unsignable::InstanceIntent);
     }
-    let party_register = match &c.party_register {
-        None => None,
-        Some(r) => {
+    let party_register = c
+        .party_register
+        .as_ref()
+        .map(|r| {
             let register = party_register_digest(c)?;
             if register != r.intent {
                 return Err(Unsignable::RegisterIntent);
             }
-            Some(statement(c, &r.nonce, register, basis, now_ms)?)
-        }
-    };
+            statement(c, &r.nonce, register, basis, now_ms)
+        })
+        .transpose()?;
     Ok(Statements {
         instance_create: statement(c, &c.instance_create.nonce, create, basis, now_ms)?,
         party_register,

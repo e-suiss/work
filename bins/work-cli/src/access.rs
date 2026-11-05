@@ -35,12 +35,10 @@ impl Random for Os {
 /// default as in the server.
 fn settings(var: &dyn Fn(&str) -> Option<String>) -> Result<AccessSettings, String> {
     let need = |name: &str| var(name).ok_or_else(|| format!("{name} is not set"));
-    let timeout_ms = match var("WORK_ACCESS__CALL_TIMEOUT_MS") {
-        Some(ms) => ms
-            .parse::<u64>()
-            .map_err(|_| "WORK_ACCESS__CALL_TIMEOUT_MS is not a number".to_owned())?,
-        None => 5_000,
-    };
+    let timeout_ms = var("WORK_ACCESS__CALL_TIMEOUT_MS").map_or(Ok(5_000), |ms| {
+        ms.parse::<u64>()
+            .map_err(|_| "WORK_ACCESS__CALL_TIMEOUT_MS is not a number".to_owned())
+    })?;
     Ok(AccessSettings {
         issuer: need("WORK_SUISS__ACCESS")?,
         region: need("WORK_ACCESS__REGION")?,
