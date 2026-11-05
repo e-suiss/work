@@ -1,4 +1,4 @@
-//! The Access client against the real Access of the local environment (T-96, T-101, P-116, T-28): discovery of the platform and `acme` realms at their path-form issuers, Work's PEP key born in its token with the certificate Access issued for its CSR, over mutual TLS for the tenant list and snapshot, the bootstrap's sample eligibility check and a refused one, a realm's token keys, and what the client does once Access cannot be reached; the signed key lookup is in `signed`, which `just test-compose-signed` runs once Access's new domains sign. These tests need `just dev`; `just test-compose` runs them with `WORK_ACCESS_LOCAL` naming the directory `just dev-access` fills with Access's local CA, Work's PEP certificate, `bootstrap.json` and a copy of the `work-dev` token, `SOFTHSM2_CONF` naming that copy, and `access-server` resolving to the loopback address.
+//! The Access client against the real Access of the local environment (T-96, T-101, P-116, T-28): discovery of the platform and `acme` realms at their path-form issuers, Work's PEP key born in its token with the certificate Access issued for its CSR, over mutual TLS for the tenant list and snapshot, the bootstrap's sample eligibility check and a refused one, a realm's token keys, the realms a caller's token may come from, a Party and its pairwise `sub` resolved both ways, and what the client does once Access cannot be reached (E-7); the signed key lookup is in `signed`, which `just test-compose-signed` runs once Access's new domains sign. These tests need `just dev`; `just test-compose` runs them with `WORK_ACCESS_LOCAL` naming the directory `just dev-access` fills with Access's local CA, Work's PEP certificate, `bootstrap.json` and a copy of the `work-dev` token, `SOFTHSM2_CONF` naming that copy, and `access-server` resolving to the loopback address.
 
 #![allow(
     clippy::unwrap_used,
@@ -23,12 +23,18 @@ use serde_json::{Map, Value, json};
 use sha2::{Digest as _, Sha256};
 use suiss_crypto::secret::Secret;
 use work_access_client::adapters::{DEFAULT_TIMEOUT, HttpsTransport, PEP_LABEL, PepCredential};
-use work_access_client::app::{Client, DISCOVERY_INTERVAL_MS, Looked, REALM_KEYS_MAX_AGE_MS};
+use work_access_client::app::{
+    Client, DIRECTORY_MAX_AGE_MS, DISCOVERY_INTERVAL_MS, Looked, REALM_KEYS_MAX_AGE_MS,
+};
 use work_access_client::domain::discovery::{
     Endpoint, Issuer, REFRESH_GRACE_MS, SUISS_CONFIGURATION, SuissConfiguration,
 };
 use work_access_client::domain::eligibility::EligibilityRequest;
 use work_access_client::domain::keys::{AsOf, DomainId, KernelId, KeyState, Kid};
+use work_access_client::domain::subjects::Direction;
+use work_access_client::domain::token::{
+    TokenRefusal, TokenRules, unverified, verify_access_token,
+};
 use work_access_client::domain::{AccessError, ProblemError, b64url, fixed_b64url};
 use work_access_client::ports::{Clock, Request, Response, Transport};
 use work_proto::id::TenantId;
@@ -650,4 +656,125 @@ mod upkeep {
             "{after:?}"
         );
     }
+
+// T-96 E-7 C-9 P-116
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs the local environment"]
+async fn t_96_a_caller_token_comes_only_from_a_live_realm_and_verifies_only_under_its_keys() {
+    let local = Local::open();
+    let pep = local.pep();
+    let client = local.client(&pep, "platform");
+    client.discover().await.unwrap();
+    for slug in ["platform", "acme"] {
+        let issuer = local.issuer(slug);
+        let realm = client.realm_of(issuer.as_str()).await.unwrap().unwrap();
+        assert_eq!(realm.tenant, local.tenant(slug), "{slug}");
+        assert_eq!(realm.realm, local.realm(slug)["realm"].as_str().unwrap());
+        assert_eq!(realm.slug, slug);
+    }
+    let nowhere = format!("{ACCESS}/realms/nowhere");
+    assert_eq!(client.realm_of(&nowhere).await.unwrap(), None);
+
+    let header = b64url(
+        format!(
+            r#"{{"alg":"Ed25519","kid":"{}","typ":"at+jwt"}}"#,
+            b64url(&[9; 32])
+        )
+        .as_bytes(),
+    );
+    let issuer = local.issuer("acme");
+    let claims = format!(r#"{{"iss":"{}","aud":"cli_work"}}"#, issuer.as_str());
+    let token = format!(
+        "{header}.{}.{}",
+        b64url(claims.as_bytes()),
+        b64url(&[1; 64])
+    );
+    let (iss, kid) = unverified(&token).unwrap();
+    assert_eq!(iss, issuer.as_str());
+    let keys = client.realm_keys(&issuer, &kid).await.unwrap();
+    assert!(!keys.keys.is_empty());
+    let rules = TokenRules {
+        issuer: issuer.as_str(),
+        audience: "cli_work",
+        now_ms: pep.not_after_ms() - DAY_MS,
+    };
+    assert_eq!(
+        verify_access_token(&token, &keys, &rules),
+        Err(TokenRefusal::UnknownKid)
+    );
+}
+
+// T-101 E-7 C-9
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs the local environment"]
+async fn t_101_a_party_and_its_pairwise_sub_resolve_both_ways() {
+    let local = Local::open();
+    let pep = local.pep();
+    let client = local.client(&pep, "platform");
+    client.discover().await.unwrap();
+    let platform = client
+        .realm_of(local.issuer("platform").as_str())
+        .await
+        .unwrap()
+        .unwrap();
+    let client_id = local.bootstrap["clients"][0]["client_id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let root = local.bootstrap["root"]["party"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let stranger = b64url(&[7; 32]);
+    let resolve = |direction, values: Vec<String>| {
+        let (tenant, realm, client_id) = (&platform.tenant, &platform.realm, &client_id);
+        let client = &client;
+        async move {
+            client
+                .resolve(tenant, realm, client_id, direction, &values)
+                .await
+                .unwrap()
+        }
+    };
+    let unknown = resolve(Direction::Subs, vec![stranger.clone()]).await;
+    assert_eq!(unknown.get(&stranger), Some(&None));
+    let forward = resolve(Direction::Parties, vec![root.clone()]).await;
+    let Some(Some(sub)) = forward.get(&root).cloned() else {
+        assert_eq!(forward.get(&root), Some(&None));
+        return;
+    };
+    assert_eq!(sub.len(), 43);
+    let back = resolve(Direction::Subs, vec![sub.clone(), stranger.clone()]).await;
+    assert_eq!(back.get(&sub), Some(&Some(root.clone())));
+    assert_eq!(back.get(&stranger), Some(&None));
+    let again = resolve(Direction::Parties, vec![root.clone()]).await;
+    assert_eq!(again.get(&root), Some(&Some(sub)));
+}
+
+// E-38 T-28 SEC-8 E-7
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs the local environment"]
+async fn e_38_without_access_the_known_realms_last_only_their_bound() {
+    let local = Local::open();
+    let pep = local.pep();
+    let cut = Arc::new(AtomicBool::new(false));
+    let now = Arc::new(AtomicU64::new(pep.not_after_ms() - DAY_MS));
+    let client = Client::new(
+        Severable {
+            inner: local.transport(&pep),
+            cut: Arc::clone(&cut),
+        },
+        Moving(Arc::clone(&now)),
+        local.issuer("platform"),
+        REGION,
+        pep.not_after_ms(),
+    );
+    client.discover().await.unwrap();
+    let acme = local.issuer("acme");
+    assert!(client.realm_of(acme.as_str()).await.unwrap().is_some());
+    cut.store(true, Ordering::SeqCst);
+    assert!(client.realm_of(acme.as_str()).await.unwrap().is_some());
+    now.fetch_add(DIRECTORY_MAX_AGE_MS, Ordering::SeqCst);
+    let error = client.realm_of(acme.as_str()).await.unwrap_err();
+    assert_eq!(error.code(), "authority_unverifiable");
 }
