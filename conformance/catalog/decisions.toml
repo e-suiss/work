@@ -5996,10 +5996,13 @@ acceptance = "filled"
 title = ""
 tests = [
   "crates/access-client/src/adapters.rs::t_101_a_certificate_of_another_key_is_refused",
+  "crates/access-client/src/adapters.rs::t_101_a_platform_call_carries_a_fresh_es256_assertion",
   "crates/access-client/src/adapters.rs::t_101_an_expired_pep_certificate_refuses_consequential_actions",
   "crates/access-client/src/adapters.rs::t_101_calls_go_to_https_urls_only",
+  "crates/access-client/src/adapters.rs::t_101_the_client_key_is_p256_and_the_service_key_ed25519",
   "crates/access-client/src/adapters.rs::t_101_the_pep_certificate_and_its_key_come_from_the_token",
   "crates/access-client/src/domain.rs::t_101_kernel_identifiers_are_canonical_unpadded_base64url",
+  "crates/access-client/src/domain/assertion.rs::t_101_the_assertion_names_the_client_the_platform_issuer_and_lives_sixty_seconds",
   "crates/access-client/src/domain/cache.rs::t_101_a_compromised_key_is_never_cached_as_immutable",
   "crates/access-client/src/domain/cache.rs::t_101_cached_keys_follow_max_age_and_never_go_back_in_etag",
   "crates/access-client/src/domain/eligibility.rs::t_101_the_answer_carries_a_consistency_token",
@@ -6015,6 +6018,43 @@ tests = [
   "crates/access-client/src/ports.rs::t_101_a_refusal_carries_its_problem_code_reason_and_pointers",
   "crates/access-client/src/ports.rs::t_101_a_signer_without_its_key_is_a_temporary_outage_not_a_refusal",
   "xtask/src/rules_deps.rs::t_101_clients_verify_and_keep_keys_through_the_shared_crypto_crate",
+]
+
+[[rule]]
+id = "T-103"
+family = "T"
+status = "frozen-technical"
+acceptance = "filled"
+pd = "set"
+title = ""
+tests = [
+  "bins/work-cli/src/access.rs::t_103_the_command_reads_the_server_settings_and_names_what_is_missing",
+  "bins/work-server/src/config.rs::t_103_the_pairing_step_reads_the_access_settings_and_pushes_to_the_installation",
+  "bins/work-server/src/health.rs::t_39_metrics_raise_the_nats_alarm_with_a_bounded_label_set",
+  "bins/work-server/src/pairing.rs::t_103_the_gauges_keep_the_last_values_the_store_gave",
+  "crates/access-client/src/adapters.rs::t_103_a_tampered_access_digest_is_never_signed",
+  "crates/access-client/src/adapters.rs::t_103_the_service_key_signs_statements_access_verifies",
+  "crates/access-client/src/domain/pairing/tests.rs::t_103_a_challenge_whose_checks_hold_becomes_two_statements",
+  "crates/access-client/src/domain/pairing/tests.rs::t_103_a_digest_that_does_not_match_is_not_signed",
+  "crates/access-client/src/domain/pairing/tests.rs::t_103_a_new_active_tenant_is_paired_on_reconciliation",
+  "crates/access-client/src/domain/pairing/tests.rs::t_103_a_paired_realm_is_stored_without_signing",
+  "crates/access-client/src/domain/pairing/tests.rs::t_103_a_realm_that_leaves_the_snapshot_is_retired",
+  "crates/access-client/src/domain/pairing/tests.rs::t_103_a_refused_realm_writes_no_automation_record",
+  "crates/access-client/src/domain/pairing/tests.rs::t_103_an_expired_challenge_is_retried_once_with_a_new_one",
+  "crates/access-client/src/domain/pairing/tests.rs::t_103_another_kid_basis_or_pep_is_not_signed",
+  "crates/access-client/src/domain/pairing/tests.rs::t_103_less_than_sixty_seconds_left_is_not_signed",
+  "crates/access-client/src/domain/pairing/tests.rs::t_103_nonces_must_be_the_challenge_and_the_challenge_with_0x01",
+  "crates/access-client/src/domain/pairing/tests.rs::t_103_rfc3339_times_are_read_to_the_millisecond",
+  "crates/access-client/src/domain/pairing/tests.rs::t_103_the_access_challenge_example_is_read_with_its_two_exercises",
+  "crates/access-client/src/domain/pairing/tests.rs::t_103_the_intent_digest_is_the_one_of_the_access_core_vectors",
+  "crates/access-client/src/domain/pairing/tests.rs::t_103_the_pairing_body_carries_every_signed_target",
+  "crates/access-client/src/domain/pairing/tests.rs::t_103_the_pairing_endpoints_are_read_from_discovery",
+  "crates/access-client/src/domain/pairing/tests.rs::t_103_the_result_stores_paired_realms_and_counts_the_rest_as_failed",
+  "crates/access-client/src/domain/pairing/tests.rs::t_103_the_self_signed_intent_names_the_action_the_party_and_the_payload",
+  "crates/access-client/src/domain/streams.rs::t_103_a_disabled_stream_is_recreated",
+  "crates/access-client/src/domain/streams.rs::t_103_stream_exists_adopts_the_live_stream",
+  "crates/access-client/src/domain/tenants.rs::t_103_the_snapshot_names_its_live_realms_and_only_active_tenants_of_the_region_pair",
+  "crates/reconciler/src/adapters.rs::t_103_stream_states_map_both_ways_and_missing_has_no_status",
 ]
 
 [[rule]]
