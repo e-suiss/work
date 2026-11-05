@@ -48,7 +48,9 @@ family = "C"
 status = "canonical-invariant"
 stage = 3
 title = ""
-tests = []
+tests = [
+  "xtask/src/rules_deps.rs::e_7_no_crate_of_a_sign_in_or_second_factor_ceremony_enters_the_graph",
+]
 
 [[rule]]
 id = "C-10"
@@ -525,7 +527,9 @@ family = "INV"
 status = "canonical-invariant"
 stage = 3
 title = ""
-tests = []
+tests = [
+  "crates/access-client/src/domain.rs::e_5_access_is_reached_only_through_the_endpoints_its_discovery_publishes",
+]
 
 [[rule]]
 id = "INV-31"
@@ -582,7 +586,9 @@ family = "E"
 status = "canonical-invariant"
 stage = 3
 title = ""
-tests = []
+tests = [
+  "crates/access-client/src/domain.rs::e_5_access_is_reached_only_through_the_endpoints_its_discovery_publishes",
+]
 
 [[rule]]
 id = "E-6"
@@ -590,7 +596,9 @@ family = "E"
 status = "canonical-invariant"
 stage = 3
 title = ""
-tests = []
+tests = [
+  "crates/access-client/src/domain.rs::e_5_access_is_reached_only_through_the_endpoints_its_discovery_publishes",
+]
 
 [[rule]]
 id = "E-8"
@@ -614,7 +622,9 @@ family = "E"
 status = "canonical-invariant"
 stage = 3
 title = ""
-tests = []
+tests = [
+  "crates/access-client/src/domain/eligibility.rs::e_15_access_receives_only_opaque_references_and_the_typed_set",
+]
 
 [[rule]]
 id = "E-17"
@@ -710,7 +720,9 @@ family = "E"
 status = "canonical-invariant"
 stage = 3
 title = ""
-tests = []
+tests = [
+  "crates/access-client/src/domain/eligibility.rs::e_15_access_receives_only_opaque_references_and_the_typed_set",
+]
 
 [[rule]]
 id = "E-41"
@@ -2135,6 +2147,8 @@ stage = 3
 title = ""
 tests = [
   "bins/work-server/src/config.rs::op_9_the_node_leads_in_the_configured_cell_under_a_ten_second_lease",
+  "bins/work-server/src/health.rs::t_96_an_access_outage_raises_its_alarm_and_keeps_readiness",
+  "crates/access-client/src/domain/discovery.rs::t_96_a_stale_discovery_refuses_consequential_actions",
   "crates/ledger/src/leader.rs::t_28_a_leader_whose_lease_is_lost_commits_nothing",
 ]
 
