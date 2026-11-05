@@ -76,6 +76,18 @@ pub enum AccessError {
         status: u16,
         /// The problem `code`, when the answer carried one.
         code: String,
+        /// The problem's stable `reason`, narrowing `code`.
+        reason: Option<String>,
+        /// The parts of the request the problem names (RFC 9457 §3).
+        errors: Vec<ProblemError>,
+    },
+    /// Access or Relay answered `503`: unavailable for now, such as `signer-no-key` while a new
+    /// domain's first operational key is in its publish lead. The action is refused and asked
+    /// again later; it is not a refusal (T-28).
+    #[error("the peer is unavailable ({})", .reason.as_deref().unwrap_or("no reason"))]
+    Unavailable {
+        /// The problem's stable `reason`.
+        reason: Option<String>,
     },
     /// The connection or the exchange failed.
     #[error("transport: {0}")]
@@ -103,6 +115,26 @@ impl AccessError {
             _ => "authority_unverifiable",
         }
     }
+
+    /// Whether the same call may answer later: an outage, a timeout or a stale discovery, never
+    /// a refusal (T-28).
+    #[must_use]
+    pub const fn is_temporary(&self) -> bool {
+        matches!(
+            self,
+            Self::Unavailable { .. } | Self::Transport(_) | Self::Timeout | Self::Stale
+        )
+    }
+}
+
+/// One part of a request a problem is about: where in the request body, when the body names
+/// it, and the stable code of what is wrong there.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ProblemError {
+    /// A JSON Pointer (RFC 6901) as a URI fragment, such as `#/set/basis`.
+    pub pointer: Option<String>,
+    /// The stable code.
+    pub code: String,
 }
 
 /// Unpadded base64url, as Access writes kernel identifiers on the wire (Access OP-149 m.16).

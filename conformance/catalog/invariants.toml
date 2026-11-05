@@ -2165,6 +2165,7 @@ tests = [
   "bins/work-server/src/config.rs::op_9_the_node_leads_in_the_configured_cell_under_a_ten_second_lease",
   "bins/work-server/src/health.rs::t_96_an_access_outage_raises_its_alarm_and_keeps_readiness",
   "crates/access-client/src/domain/discovery.rs::t_96_a_stale_discovery_refuses_consequential_actions",
+  "crates/access-client/src/ports.rs::t_101_a_signer_without_its_key_is_a_temporary_outage_not_a_refusal",
   "crates/http/src/problem.rs::inv_34_problem_titles_claim_no_more_than_their_guarantee",
   "crates/ledger/src/leader.rs::t_28_a_leader_whose_lease_is_lost_commits_nothing",
 ]

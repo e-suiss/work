@@ -6012,6 +6012,8 @@ tests = [
   "crates/access-client/src/domain/metadata.rs::t_101_the_operational_key_is_resolved_as_the_access_key_scope_vectors_say",
   "crates/access-client/src/domain/x509.rs::t_101_an_ecdsa_signature_is_sent_to_tls_in_der",
   "crates/access-client/src/domain/x509.rs::t_101_the_certificate_expiry_and_key_are_read_from_its_der",
+  "crates/access-client/src/ports.rs::t_101_a_refusal_carries_its_problem_code_reason_and_pointers",
+  "crates/access-client/src/ports.rs::t_101_a_signer_without_its_key_is_a_temporary_outage_not_a_refusal",
   "xtask/src/rules_deps.rs::t_101_clients_verify_and_keep_keys_through_the_shared_crypto_crate",
 ]
 
