@@ -1,4 +1,4 @@
-//! Reads the contract sources from the Rust text, since xtask depends on no workspace crate (T-31 rule 4): the event type table of `crates/proto/src/events.rs`, the action names of `crates/proto/src/action.rs` and the wire names of the kernel catalog; `event-catalog` (T-98 item 5) refuses a kernel wire name with neither an event type nor an `UNCATALOGUED` entry.
+//! Reads the contract sources from the Rust text, since xtask depends on no workspace crate (T-31 rule 4): the event type table of `crates/proto/src/events.rs` with its deprecated types (P-39 item 2), the action names of `crates/proto/src/action.rs` and the wire names of the kernel catalog; `event-catalog` (T-98 item 5) refuses a kernel wire name with neither an event type nor an `UNCATALOGUED` entry.
 
 use std::collections::BTreeSet;
 use std::path::Path;
@@ -22,6 +22,7 @@ pub(crate) struct Event {
     pub(crate) item: String,
     pub(crate) data: String,
     pub(crate) sources: Vec<String>,
+    pub(crate) deprecated: bool,
 }
 
 /// The string literals of `text`, in order; escapes are not expected in the tables.
@@ -61,8 +62,9 @@ fn constant<'a>(src: &'a str, name: &str) -> Result<&'a str, String> {
     Ok(body.get(..end).unwrap_or_default())
 }
 
-/// The event type table.
+/// The event type table, each type marked when `DEPRECATED` lists it (P-39 item 2).
 pub(crate) fn events(src: &str) -> Result<Vec<Event>, String> {
+    let deprecated = literals(constant(src, "DEPRECATED")?);
     let table = constant(src, "CATALOG")?;
     let mut out = Vec::new();
     for row in table.split("event(").skip(1) {
@@ -73,6 +75,7 @@ pub(crate) fn events(src: &str) -> Result<Vec<Event>, String> {
         let item = path_word(row, "Item::").ok_or_else(|| format!("{name}: no Item"))?;
         let data = path_word(row, "Data::").ok_or_else(|| format!("{name}: no Data"))?;
         out.push(Event {
+            deprecated: deprecated.contains(&name),
             name,
             item,
             data,
@@ -81,6 +84,12 @@ pub(crate) fn events(src: &str) -> Result<Vec<Event>, String> {
     }
     if out.is_empty() {
         return Err("CATALOG has no event rows".to_owned());
+    }
+    let listed = |d: &&String| out.iter().any(|e| &e.name == *d);
+    if let Some(name) = deprecated.iter().find(|d| !listed(d)) {
+        return Err(format!(
+            "DEPRECATED `{name}` is not in CATALOG; a type is removed only after it is deprecated (P-39 item 2)"
+        ));
     }
     Ok(out)
 }
@@ -205,6 +214,8 @@ pub const CATALOG: &[EventType] = &[
     event("gate.decided", Item::Gate, Data::Thin, &["gate_decision"]),
 ];
 
+pub const DEPRECATED: &[&str] = &["gate.decided"];
+
 pub const UNCATALOGUED: &[&str] = &["allow"];
 "#;
 
@@ -242,6 +253,10 @@ wire_enum! {
         assert_eq!(events[1].item, "Commitment");
         assert_eq!(events[1].data, "Revoked");
         assert_eq!(events[1].sources, ["revoke_request", "revoke_promise"]);
+        assert_eq!(
+            events.iter().map(|e| e.deprecated).collect::<Vec<_>>(),
+            [false, false, true]
+        );
         assert_eq!(uncatalogued(EVENTS).unwrap(), ["allow"]);
         let wires = kernel_wires(KERNEL).unwrap();
         assert_eq!(wires.len(), 6);
@@ -278,5 +293,18 @@ wire_enum! {
         let actions = actions(&std::fs::read_to_string(root.join(ACTIONS_RS)).unwrap());
         assert_eq!(actions.len(), 23);
         assert!(actions.contains("work:version_activate"));
+    }
+
+    // P-39
+    #[test]
+    fn p_39_a_deprecated_type_must_still_be_in_the_catalog() {
+        let gone = EVENTS.replace(
+            "&[\"gate.decided\"];",
+            "&[\"gate.decided\", \"work.closed\"];",
+        );
+        let refused = events(&gone).unwrap_err();
+        assert!(refused.contains("`work.closed`"), "{refused}");
+        let missing = EVENTS.replace("pub const DEPRECATED", "pub const RETIRED");
+        assert!(events(&missing).is_err());
     }
 }

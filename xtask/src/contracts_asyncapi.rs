@@ -1,4 +1,4 @@
-//! The `AsyncAPI` 3.0 documents (T-98 item 3, P-35, P-37, P-38): `sdks/asyncapi/work-events.yaml` has one message per event type of the `work_proto::events` table in a CloudEvents 1.0 envelope, each `data` schema is JSON Schema 2020-12 at `sdks/asyncapi/schemas/<type>/<version>.json` and named by `dataschema`, and `sdks/asyncapi/work-live.yaml` is the live layer document (T-19). The YAML is written from JSON values with sorted keys and quoted strings, so it is also plain JSON-compatible YAML.
+//! The `AsyncAPI` 3.0 documents (T-98 item 3, P-35, P-37, P-38, P-39): `sdks/asyncapi/work-events.yaml` has one message per event type of the `work_proto::events` table in a CloudEvents 1.0 envelope, a deprecated type's payload and `data` schemas carry `deprecated: true`, each `data` schema is JSON Schema 2020-12 at `sdks/asyncapi/schemas/<type>/<version>.json` and named by `dataschema`, and `sdks/asyncapi/work-live.yaml` is the live layer document (T-19). The YAML is written from JSON values with sorted keys and quoted strings, so it is also plain JSON-compatible YAML.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as _;
@@ -159,19 +159,28 @@ pub(crate) fn data_schema(event: &Event, all: &[Event]) -> Value {
         }
         _ => {}
     }
-    json!({
+    let mut schema = json!({
         "$schema": DRAFT,
         "title": format!("{} data, version {VERSION}", event.name),
         "type": "object",
         "additionalProperties": false,
         "required": required,
         "properties": properties
-    })
+    });
+    deprecate(event, &mut schema);
+    schema
+}
+
+fn deprecate(event: &Event, schema: &mut Value) {
+    let members = schema.as_object_mut().filter(|_| event.deprecated);
+    if let Some(members) = members {
+        members.insert("deprecated".to_owned(), Value::Bool(true));
+    }
 }
 
 fn message(event: &Event) -> Value {
     let schema = schema_path(event);
-    json!({
+    let mut message = json!({
         "name": event.name,
         "title": event.name,
         "contentType": "application/cloudevents+json",
@@ -191,7 +200,11 @@ fn message(event: &Event) -> Value {
                 ]
             }
         }
-    })
+    });
+    if let Some(payload) = message.pointer_mut("/payload/schema") {
+        deprecate(event, payload);
+    }
+    message
 }
 
 /// The events document.
@@ -354,6 +367,7 @@ mod tests {
             item: item.to_owned(),
             data: data.to_owned(),
             sources: sources.iter().map(|s| (*s).to_owned()).collect(),
+            deprecated: false,
         }
     }
 
@@ -426,5 +440,21 @@ mod tests {
             ]
         );
         assert!(files["work-live.yaml"].starts_with("asyncapi: \"3.0.0\"\nchannels: {}\n"));
+    }
+
+    // P-39
+    #[test]
+    fn p_39_a_deprecated_type_is_marked_and_still_documented() {
+        let mut all = sample();
+        all[0].deprecated = true;
+        let doc = events_document(&all);
+        let messages = doc["components"]["messages"].as_object().unwrap();
+        assert_eq!(messages.len(), 3);
+        let requested = &messages["commitment.requested"]["payload"]["schema"];
+        assert_eq!(requested["deprecated"], true);
+        let revoked = &messages["commitment.revoked"]["payload"]["schema"];
+        assert!(revoked.get("deprecated").is_none());
+        assert_eq!(data_schema(&all[0], &all)["deprecated"], true);
+        assert!(data_schema(&all[1], &all).get("deprecated").is_none());
     }
 }
