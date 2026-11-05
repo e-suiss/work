@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use suiss_crypto::secret::Secret;
 use work_access_client::adapters::{
-    AccessKeys, HttpsTransport, PEP_LABEL, PepCredential, platform_config, roots,
+    AccessKeys, HttpsTransport, PEP_LABEL, PepCredential, public_config, roots,
 };
 use work_access_client::app::Client;
 use work_access_client::app::platform::{Platform, Report, Scope, Signal, Step, run};
@@ -69,7 +69,7 @@ where
         pep.not_after_ms(),
     );
     let platform = Platform::new(
-        HttpsTransport::new(platform_config(trusted)?, settings.timeout),
+        HttpsTransport::new(public_config(trusted)?, settings.timeout),
         clock,
         random,
         keys.client,

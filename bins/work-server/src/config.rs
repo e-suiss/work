@@ -1176,10 +1176,8 @@ mod tests {
     // T-103
     #[test]
     fn t_103_the_pairing_step_reads_the_access_settings_and_pushes_to_the_installation() {
-        let config = with(
-            "access_client_id = \"cli_work\"\n[access]\ntoken = \"work-access\"",
-        )
-        .unwrap();
+        let config =
+            with("access_client_id = \"cli_work\"\n[access]\ntoken = \"work-access\"").unwrap();
         let settings = config.access_settings();
         assert_eq!(settings.issuer, "https://access.example");
         assert_eq!(settings.region, "local");

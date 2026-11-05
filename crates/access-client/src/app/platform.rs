@@ -167,7 +167,9 @@ impl<T: Transport, C: Clock, R: Random, K: Signer + Send + Sync> Platform<T, C, 
             .await?;
         match answer.ok() {
             Ok(body) => Stream::from_json(body).map(Some),
-            Err(AccessError::Refused { status: 404, code }) if code == "no-such-stream" => Ok(None),
+            Err(AccessError::Refused {
+                status: 404, code, ..
+            }) if code == "no-such-stream" => Ok(None),
             Err(e) => Err(e),
         }
     }
@@ -188,9 +190,9 @@ impl<T: Transport, C: Clock, R: Random, K: Signer + Send + Sync> Platform<T, C, 
         let answer = self.send(Request::post(url, JSON, body)).await?;
         match answer.created() {
             Ok(body) => Stream::from_json(body).map(Opened::Stream),
-            Err(AccessError::Refused { status: 409, code }) if code == "stream-exists" => {
-                Ok(Opened::Exists)
-            }
+            Err(AccessError::Refused {
+                status: 409, code, ..
+            }) if code == "stream-exists" => Ok(Opened::Exists),
             Err(e) => Err(e),
         }
     }

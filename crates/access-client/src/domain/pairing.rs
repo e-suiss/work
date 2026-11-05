@@ -714,14 +714,15 @@ pub fn needs_pairing(live: &[RealmId], stored: &[StoredRealm], kid: &[u8; 32]) -
 }
 
 /// Whether one more attempt with a new challenge may follow a failed pairing call (T-103
-/// item 4): `400 invalid-challenge`, `503` or a network failure.
+/// item 4): `400 invalid-challenge` or a temporary outage, a `503` or a network failure among
+/// them.
 #[must_use]
 pub fn retryable(error: &AccessError) -> bool {
     match error {
-        AccessError::Refused { status: 400, code } => code == "invalid-challenge",
-        AccessError::Refused { status, .. } => *status == 503,
-        AccessError::Transport(_) | AccessError::Timeout => true,
-        _ => false,
+        AccessError::Refused {
+            status: 400, code, ..
+        } => code == "invalid-challenge",
+        other => other.is_temporary(),
     }
 }
 

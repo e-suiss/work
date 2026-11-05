@@ -18,7 +18,7 @@ use work_telemetry::{DEFAULT_METRIC_INTERVAL, Meters, MetricConfig, meter_provid
 
 const USAGE: &str = "usage: work-cli --version | work-cli migrate <canonical|derived> | \
                      work-cli rebuild <ledger hex> <single-node|quorum> | work-cli archive | \
-                     work-cli export <ledger hex> <bundle> | work-cli verify <bundle> <trust> | \\
+                     work-cli export <ledger hex> <bundle> | work-cli verify <bundle> <trust> | \
                      work-cli access pair [--tenant <tnt_…>]";
 
 /// The cell a rebuild's scratch database leads the rebuilt ledger in (OP-9, OP-1 item 3).

@@ -353,9 +353,13 @@ fn t_103_an_expired_challenge_is_retried_once_with_a_new_one() {
     let refused = |status: u16, code: &str| AccessError::Refused {
         status,
         code: code.to_owned(),
+        reason: None,
+        errors: Vec::new(),
     };
     assert!(retryable(&refused(400, "invalid-challenge")));
-    assert!(retryable(&refused(503, "temporarily-unavailable")));
+    assert!(retryable(&AccessError::Unavailable {
+        reason: Some("temporarily-unavailable".to_owned()),
+    }));
     assert!(retryable(&AccessError::Transport("reset".to_owned())));
     assert!(retryable(&AccessError::Timeout));
     assert!(!retryable(&refused(400, "invalid-party")));
