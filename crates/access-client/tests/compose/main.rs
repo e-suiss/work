@@ -239,6 +239,18 @@ impl Local {
     }
 }
 
+/// The status of `request` and, when it is not a `200`, its body, so a refusal names its
+/// problem.
+async fn status(transport: &HttpsTransport, request: Request) -> (u16, String) {
+    let answer = transport.send(request).await.unwrap();
+    let body = if answer.status == 200 {
+        String::new()
+    } else {
+        String::from_utf8_lossy(&answer.body).into_owned()
+    };
+    (answer.status, body)
+}
+
 // T-96
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "needs the local environment"]
@@ -337,7 +349,18 @@ async fn t_101_the_bootstrap_root_key_is_looked_up_and_verified_in_each_realm_do
     for slug in ["platform", "acme"] {
         let domain = local.domain(slug);
         let batch = local.client(&pep, slug);
-        batch.discover().await.unwrap();
+        let doc = batch.discover().await.unwrap();
+        let transport = local.transport(&pep);
+        let adp = doc.endpoints.get(Endpoint::Adp).unwrap().as_str();
+        let metadata = Request::get(format!("{adp}/{}", domain.text()), JSON);
+        assert_eq!(status(&transport, metadata).await, (200, String::new()));
+        let body = json!({ "domain": domain.text(), "kids": [root.text(), stranger.text()] });
+        let lookup = Request::post(
+            doc.endpoints.get(Endpoint::KeyBatch).unwrap().expand(""),
+            "application/cose",
+            body.to_string().into_bytes(),
+        );
+        assert_eq!(status(&transport, lookup).await, (200, String::new()));
         let both = batch
             .keys(domain, &[root, stranger], &AsOf::Head)
             .await
@@ -368,7 +391,7 @@ async fn t_101_the_eligibility_check_answers_with_a_consistency_token() {
     let local = Local::open();
     let pep = local.pep();
     let client = local.client(&pep, "acme");
-    client.discover().await.unwrap();
+    let doc = client.discover().await.unwrap();
     let (party, _) = local.root();
     let set = json!({
         "domain": URL_SAFE_NO_PAD.encode(local.domain("acme").0),
@@ -392,6 +415,15 @@ async fn t_101_the_eligibility_check_answers_with_a_consistency_token() {
         "capacity": "own",
     });
     let request = EligibilityRequest::new(party, set.as_object().unwrap().clone(), None).unwrap();
+    let check = Request::post(
+        doc.endpoints.get(Endpoint::Eligibility).unwrap().expand(""),
+        JSON,
+        request.body(),
+    );
+    assert_eq!(
+        status(&local.transport(&pep), check).await,
+        (200, String::new())
+    );
     let answer = client.eligibility(&request).await.unwrap();
     assert_ne!(answer.consistency_token.as_str(), "");
 }
