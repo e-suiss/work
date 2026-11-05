@@ -20,7 +20,12 @@ key() {
 }
 
 spki() {
-    token --read-object --type pubkey --label "$1" --output-file "/tmp/$1.der" >/dev/null
+    token --read-object --type pubkey --label "$1" --output-file "/tmp/$1.out" >/dev/null
+    if [ "$(head -c 10 "/tmp/$1.out")" = "-----BEGIN" ]; then
+        grep -v -e '-----' "/tmp/$1.out" | base64 -d > "/tmp/$1.der"
+    else
+        cp "/tmp/$1.out" "/tmp/$1.der"
+    fi
     size="$(wc -c < "/tmp/$1.der")"
     if [ "$size" -ne "$2" ]; then
         echo "work-access-keys: $1 public key is $size bytes of DER, not $2" >&2
