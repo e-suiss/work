@@ -1,0 +1,54 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "-- P-2 P-20 T-10 OP-33\nSELECT size AS \"size!\", witness_id::text AS \"witness_id!\",\n       (extract(epoch FROM cosigned_at) * 1000)::bigint AS \"at!\",\n       signature AS \"signature!\"\nFROM ledger.checkpoint_cosignature\nWHERE ledger_id = $1 AND cosign_kind = 'witness'\nORDER BY size, witness_id\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "size!",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "ledger.checkpoint_cosignature",
+            "name": "size"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "witness_id!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "at!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "signature!",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "ledger.checkpoint_cosignature",
+            "name": "signature"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea"
+      ]
+    },
+    "nullable": [
+      false,
+      null,
+      null,
+      false
+    ]
+  },
+  "hash": "1cbe8a2650110af80659cdd9c21c63a793101a7c2288a0f2ca3e632f5eb001b3"
+}
