@@ -1,0 +1,77 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT l.pos::bigint AS \"pos!\", l.epoch AS \"epoch!\",\n                      (extract(epoch FROM l.recorded_at) * 1000)::bigint AS \"recorded_at_ms!\",\n                      l.leaf_hash::bytea AS \"leaf_hash!\", h.author::text AS \"author!\",\n                      h.auth_context_ref::bytea AS \"auth_context_ref?\",\n                      b.bytes AS \"author_signature?\"\n               FROM ledger.log l\n               JOIN work.record_header h ON h.ledger_id = l.ledger_id AND h.pos = l.pos\n               LEFT JOIN work.log_received s\n                 ON s.ledger_id = l.ledger_id AND s.pos = l.pos AND s.role = 'author_signature'\n               LEFT JOIN work.received_bytes b ON b.ledger_id = s.ledger_id AND b.digest = s.digest\n               WHERE l.ledger_id = $1 AND l.record_id = $2\n                 AND (h.author::text = $3\n                   OR EXISTS (\n                     SELECT 1 FROM work.log_relation r\n                     WHERE r.ledger_id = l.ledger_id AND r.pos = l.pos\n                       AND ((r.source_kind = 'party' AND r.source_text = $3)\n                         OR (r.target_kind = 'party' AND r.target_text = $3)))\n                   OR EXISTS (\n                     SELECT 1 FROM work.log_concerns k\n                     JOIN work.log_concerns c ON c.ledger_id = k.ledger_id AND c.work_id = k.work_id\n                     JOIN work.record_header a ON a.ledger_id = c.ledger_id AND a.pos = c.pos\n                     WHERE k.ledger_id = l.ledger_id AND k.pos = l.pos\n                       AND (a.author::text = $3 OR EXISTS (\n                         SELECT 1 FROM work.log_relation q\n                         WHERE q.ledger_id = c.ledger_id AND q.pos = c.pos\n                           AND ((q.source_kind = 'party' AND q.source_text = $3)\n                             OR (q.target_kind = 'party' AND q.target_text = $3))))))",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "pos!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "epoch!",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "ledger.log",
+            "name": "epoch"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "recorded_at_ms!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "leaf_hash!",
+        "type_info": "Bytea",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "author!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "auth_context_ref?",
+        "type_info": "Bytea",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "author_signature?",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "work.received_bytes",
+            "name": "bytes"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Bytea",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null,
+      false,
+      null,
+      null,
+      null,
+      null,
+      false
+    ]
+  },
+  "hash": "92675ecc9b2c099f678598961c55a6bb80020caa9b8fc3a69a644c0833c1ef12"
+}

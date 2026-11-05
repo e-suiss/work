@@ -1,0 +1,58 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT i.version AS \"version!\", w.first_pos::bigint AS \"first_pos!\",\n                      i.last_pos::bigint AS \"last_pos!\",\n                      (extract(epoch FROM f.recorded_at) * 1000)::bigint AS \"opened_at_ms!\",\n                      (extract(epoch FROM l.recorded_at) * 1000)::bigint AS \"updated_at_ms!\"\n               FROM work.work_root w\n               JOIN work.item_head i\n                 ON i.ledger_id = w.ledger_id AND i.item_kind = 'work' AND i.item_id = $2\n               JOIN ledger.log f ON f.ledger_id = w.ledger_id AND f.pos = w.first_pos\n               JOIN ledger.log l ON l.ledger_id = i.ledger_id AND l.pos = i.last_pos\n               WHERE w.ledger_id = $1 AND w.work_id = pg_catalog.encode($2::bytea, 'hex')::uuid\n                 AND EXISTS (\n                   SELECT 1 FROM work.log_concerns c\n                   JOIN work.record_header h ON h.ledger_id = c.ledger_id AND h.pos = c.pos\n                   WHERE c.ledger_id = w.ledger_id AND c.work_id = w.work_id\n                     AND (h.author::text = $3 OR EXISTS (\n                       SELECT 1 FROM work.log_relation r\n                       WHERE r.ledger_id = c.ledger_id AND r.pos = c.pos\n                         AND ((r.source_kind = 'party' AND r.source_text = $3)\n                           OR (r.target_kind = 'party' AND r.target_text = $3)))))",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "version!",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "work.item_head",
+            "name": "version"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "first_pos!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "last_pos!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "opened_at_ms!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "updated_at_ms!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Bytea",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "dd768d397f6515d71824c49a246b09ac5c1f7f9500b13dc4cdd478dfa1a9e18f"
+}

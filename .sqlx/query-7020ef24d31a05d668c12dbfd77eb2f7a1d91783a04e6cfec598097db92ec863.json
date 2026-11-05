@@ -1,0 +1,51 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT i.item_id AS \"item_id!\", i.version AS \"version!\",\n                      i.last_pos::bigint AS \"last_pos!\"\n               FROM work.item_head i\n               WHERE i.ledger_id = $1 AND i.item_kind = 'work'\n                 AND (i.last_pos::bigint, i.item_id) > ($2::bigint, $5::bytea)\n                 AND EXISTS (\n                   SELECT 1 FROM work.log_concerns c\n                   JOIN work.record_header h ON h.ledger_id = c.ledger_id AND h.pos = c.pos\n                   WHERE c.ledger_id = i.ledger_id\n                     AND c.work_id = pg_catalog.encode(i.item_id, 'hex')::uuid\n                     AND (h.author::text = $3 OR EXISTS (\n                       SELECT 1 FROM work.log_relation r\n                       WHERE r.ledger_id = c.ledger_id AND r.pos = c.pos\n                         AND ((r.source_kind = 'party' AND r.source_text = $3)\n                           OR (r.target_kind = 'party' AND r.target_text = $3)))))\n               ORDER BY i.last_pos, i.item_id\n               LIMIT $4",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "item_id!",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "work.item_head",
+            "name": "item_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "version!",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "work.item_head",
+            "name": "version"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "last_pos!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Int8",
+        "Text",
+        "Int8",
+        "Bytea"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "7020ef24d31a05d668c12dbfd77eb2f7a1d91783a04e6cfec598097db92ec863"
+}

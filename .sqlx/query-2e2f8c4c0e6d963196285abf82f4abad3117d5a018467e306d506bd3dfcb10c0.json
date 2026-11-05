@@ -1,0 +1,55 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT size AS \"size!\", root::bytea AS \"root!\", signed_note AS \"signed_note!\",\n                      (extract(epoch FROM issued_at) * 1000)::bigint AS \"issued_at_ms!\"\n               FROM ledger.checkpoint\n               WHERE ledger_id = $1 AND size > $2\n               ORDER BY size LIMIT 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "size!",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "ledger.checkpoint",
+            "name": "size"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "root!",
+        "type_info": "Bytea",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "signed_note!",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "ledger.checkpoint",
+            "name": "signed_note"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "issued_at_ms!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      null,
+      false,
+      null
+    ]
+  },
+  "hash": "2e2f8c4c0e6d963196285abf82f4abad3117d5a018467e306d506bd3dfcb10c0"
+}
