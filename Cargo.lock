@@ -1311,6 +1311,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "esuiss-access-kernel"
+version = "0.2.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2bea23a782a64d3ea1799c1a0d977f7f38d682af560661cb2b42ecc63e1571ff"
+dependencies = [
+ "curve25519-dalek",
+ "ed25519-dalek",
+ "esuiss-crypto",
+ "p256",
+ "sha2 0.11.1",
+ "thiserror 2.0.21",
+]
+
+[[package]]
 name = "esuiss-crypto"
 version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5240,6 +5254,7 @@ dependencies = [
  "base64 0.22.1",
  "bytes",
  "cryptoki",
+ "esuiss-access-kernel",
  "esuiss-crypto",
  "http",
  "http-body-util",
@@ -5276,8 +5291,11 @@ dependencies = [
  "esuiss-crypto",
  "esuiss-work-kernel",
  "tokio",
+ "work-access-client",
  "work-export",
  "work-ledger",
+ "work-proto",
+ "work-reconciler",
  "work-store",
  "work-telemetry",
  "work-testkit",
@@ -5424,6 +5442,12 @@ dependencies = [
 [[package]]
 name = "work-reconciler"
 version = "0.1.0"
+dependencies = [
+ "esuiss-crypto",
+ "work-access-client",
+ "work-proto",
+ "work-store",
+]
 
 [[package]]
 name = "work-relay-client"
@@ -5456,6 +5480,7 @@ dependencies = [
  "work-ledger",
  "work-parse",
  "work-proto",
+ "work-reconciler",
  "work-store",
  "work-telemetry",
  "work-testkit",

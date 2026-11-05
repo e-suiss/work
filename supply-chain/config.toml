@@ -461,6 +461,10 @@ criteria = "safe-to-deploy"
 version = "0.7.12"
 criteria = "safe-to-deploy"
 
+[[exemptions.esuiss-access-kernel]]
+version = "0.2.6"
+criteria = "safe-to-deploy"
+
 [[exemptions.esuiss-crypto]]
 version = "0.2.6"
 criteria = "safe-to-deploy"

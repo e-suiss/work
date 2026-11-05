@@ -20,6 +20,7 @@ work-dispatch = { path = "crates/dispatch" }
 work-ledger = { path = "crates/ledger" }
 work-rpc = { path = "crates/rpc" }
 work-access-client = { path = "crates/access-client" }
+work-reconciler = { path = "crates/reconciler" }
 work-relay-client = { path = "crates/relay-client" }
 work-telemetry = { path = "crates/telemetry" }
 work-http = { path = "crates/http" }
@@ -35,6 +36,8 @@ suiss-restriction = { package = "esuiss-restriction", version = "=0.2.6", defaul
 suiss-sandbox = { package = "esuiss-sandbox", version = "=0.2.6", default-features = false }
 # OP-14 OP-30 Access OP-147
 suiss-retention = { package = "esuiss-retention", version = "=0.2.6", default-features = false }
+# T-101 T-103
+access-kernel = { package = "esuiss-access-kernel", version = "=0.2.6", default-features = false }
 
 # T-60
 thiserror = { version = "2.0.21", default-features = false }
