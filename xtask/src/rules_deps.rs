@@ -200,6 +200,30 @@ pub(crate) const ACCELERATORS: &[&str] = &[
     "rabbitmq-stream-client",
 ];
 
+/// Crates of sign-in, session and second-factor ceremonies; identity, step-up and accounts are
+/// Access's (E-7, C-9).
+pub(crate) const IDENTITY_CEREMONIES: &[&str] = &[
+    "webauthn-rs",
+    "webauthn-rs-core",
+    "webauthn-rs-proto",
+    "webauthn-authenticator-rs",
+    "passkey",
+    "passkey-authenticator",
+    "passkey-client",
+    "totp-rs",
+    "totp-lite",
+    "google-authenticator",
+    "argon2",
+    "bcrypt",
+    "scrypt",
+    "password-hash",
+    "pbkdf2",
+    "oxide-auth",
+    "tower-sessions",
+    "axum-login",
+    "actix-identity",
+];
+
 fn manifest(root: &Path, pkg: &crate::supply_chain::metadata::Package) -> std::path::PathBuf {
     pkg.manifest_path
         .strip_prefix(root)
@@ -275,7 +299,24 @@ pub(crate) fn check_metadata(root: &Path, md: &Metadata) -> Vec<Violation> {
         }
     }
     out.extend(accelerators(md));
+    out.extend(identity_ceremonies(md));
     out
+}
+
+/// Identity ceremony crates anywhere in the resolved graph, test code included (E-7, C-9).
+pub(crate) fn identity_ceremonies(md: &Metadata) -> Vec<Violation> {
+    md.packages
+        .iter()
+        .filter(|p| IDENTITY_CEREMONIES.contains(&p.name.as_str()))
+        .map(|p| Violation {
+            rule: RULE,
+            path: std::path::PathBuf::from("Cargo.lock"),
+            message: format!(
+                "`{}` {} implements a sign-in, password or second-factor ceremony; identity and step-up come from Access only (E-7)",
+                p.name, p.version
+            ),
+        })
+        .collect()
 }
 
 /// Accelerator clients in the default shipped tree (T-22).
@@ -553,5 +594,29 @@ mod tests {
         ))
         .unwrap();
         assert!(accelerators(&dev_only).is_empty());
+    }
+
+    // E-7 C-9
+    #[test]
+    fn e_7_no_crate_of_a_sign_in_or_second_factor_ceremony_enters_the_graph() {
+        let server = member("bins/work-server", &[]);
+        let server_id = "path+file:///ws/bins/work-server#work-server@0.0.0";
+        for name in IDENTITY_CEREMONIES {
+            let package = external(name, "1.0.0", false);
+            let id = format!("registry+https://github.com/rust-lang/crates.io-index#{name}@1.0.0");
+            for kind in [None, Some("dev")] {
+                let md = parse(&metadata_with_edges(
+                    &[server.clone(), package.clone()],
+                    &[],
+                    &[(server_id, id.as_str(), kind)],
+                ))
+                .unwrap();
+                let found = identity_ceremonies(&md);
+                assert_eq!(found.len(), 1, "{name}");
+                assert!(found[0].message.contains("E-7"), "{name}");
+            }
+        }
+        let clean = parse(&metadata_with_edges(&[server], &[], &[])).unwrap();
+        assert!(identity_ceremonies(&clean).is_empty());
     }
 }
