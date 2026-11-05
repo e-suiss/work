@@ -11,6 +11,7 @@ use suiss_crypto::cose::KeySet;
 use work_proto::id::TenantId;
 
 use crate::domain::cache::{CachePolicy, CachedKey, KeyCache};
+use crate::domain::directory::{KnownRealm, by_issuer, page_realms};
 use crate::domain::discovery::{
     AuthzenConfiguration, Endpoint, Endpoints, Issuer, SUISS_CONFIGURATION, SuissConfiguration,
     fresh, percent,
@@ -23,8 +24,11 @@ use crate::domain::keys::{
 use crate::domain::metadata::{DomainMetadata, unverified_payload, verify_metadata};
 use crate::domain::realm::{OPENID_CONFIGURATION, jwks_uri, realm_keys};
 use crate::domain::relay::RelayConfiguration;
+use crate::domain::subjects::{
+    self, CACHE_ENTRIES, Direction, MAX_SUBJECTS, Resolution, SubjectCache,
+};
 use crate::domain::tenants::{MAX_PAGES, TenantChange, TenantPage, TenantSnapshot, list_url, plan};
-use crate::domain::{AccessError, from_b64url};
+use crate::domain::{AccessError, b64url, from_b64url};
 use crate::ports::{Clock, Request, Response, TenantMap, Transport};
 
 /// How often discovery is read again (T-96 item 2).
@@ -36,6 +40,11 @@ pub const METADATA_MAX_AGE_MS: u64 = 5 * 60 * 1000;
 /// How long a realm's token keys are kept before they are read again, unless an artifact names a
 /// key they do not hold (P-116 item 4).
 pub const REALM_KEYS_MAX_AGE_MS: u64 = 5 * 60 * 1000;
+
+/// How long the realms read from the tenant list name callers before the list is read again
+/// (PD): a new tenant's callers wait at most this long, and a realm that left the list is
+/// refused at most this late.
+pub const DIRECTORY_MAX_AGE_MS: u64 = 5 * 60 * 1000;
 
 const JSON: &str = "application/json";
 
@@ -54,6 +63,8 @@ struct State {
     realms: BTreeMap<Issuer, (KeySet, u64)>,
     event_reread_ms: Option<u64>,
     disabled: bool,
+    directory: Option<(BTreeMap<String, KnownRealm>, u64)>,
+    subjects: SubjectCache,
 }
 
 /// A key the client looked up: verified, from the cache or a fresh answer, or unknown to Access.
@@ -105,7 +116,10 @@ impl<T: Transport, C: Clock> Client<T, C> {
             issuer,
             region: region.to_owned(),
             pep_not_after_ms,
-            state: Mutex::new(State::default()),
+            state: Mutex::new(State {
+                subjects: SubjectCache::new(CACHE_ENTRIES),
+                ..State::default()
+            }),
         }
     }
 
@@ -495,6 +509,110 @@ impl<T: Transport, C: Clock> Client<T, C> {
             .realms
             .insert(realm.clone(), (keys.clone(), now));
         Ok(keys)
+    }
+
+    /// The realm whose issuer is `issuer` among the live realms of the active tenants of Work's
+    /// region (T-96 item 4, P-116 item 4): read from the tenant list over the PEP certificate and
+    /// kept for [`DIRECTORY_MAX_AGE_MS`]; `None` when no such realm names callers.
+    ///
+    /// # Errors
+    /// [`AccessError`]; the caller is not authenticated.
+    pub async fn realm_of(&self, issuer: &str) -> Result<Option<KnownRealm>, AccessError> {
+        let now = self.clock.now_ms();
+        if let Some((realms, read_at)) = &self.state()?.directory
+            && now.saturating_sub(*read_at) < DIRECTORY_MAX_AGE_MS
+        {
+            return Ok(realms.get(issuer).cloned());
+        }
+        let endpoints = self.endpoints()?;
+        let template = endpoints.get(Endpoint::TenantSnapshot)?;
+        let mut realms = Vec::new();
+        let mut cursors = BTreeSet::new();
+        let mut cursor: Option<String> = None;
+        for _ in 0..MAX_PAGES {
+            let url = list_url(template, cursor.as_deref())?;
+            let (page, next) = page_realms(self.get(url, JSON).await?.ok()?, &self.region)?;
+            realms.extend(page);
+            match next {
+                None => {
+                    let directory = by_issuer(realms);
+                    let found = directory.get(issuer).cloned();
+                    self.state()?.directory = Some((directory, now));
+                    return Ok(found);
+                }
+                Some(next) if !cursors.insert(next.clone()) => {
+                    return Err(AccessError::Answer("cursor"));
+                }
+                Some(next) => cursor = Some(next),
+            }
+        }
+        Err(AccessError::Answer("pages"))
+    }
+
+    /// Resolves `values` of `direction` for the pairwise sector `client_id` in `realm` of
+    /// `tenant` (T-101 item 2; Access OP-149 m.19 (g)): cached values first, the rest asked of
+    /// Access over the PEP certificate in calls of at most [`MAX_SUBJECTS`]. Every value maps to
+    /// its counterpart, `None` when Access does not know it; only resolved pairs are cached.
+    ///
+    /// # Errors
+    /// [`AccessError`]; nothing is resolved.
+    pub async fn resolve(
+        &self,
+        tenant: &TenantId,
+        realm: &str,
+        client_id: &str,
+        direction: Direction,
+        values: &[String],
+    ) -> Result<BTreeMap<String, Option<String>>, AccessError> {
+        let mut out = BTreeMap::new();
+        let mut missing: Vec<String> = Vec::new();
+        {
+            let mut state = self.state()?;
+            for value in values {
+                if out.contains_key(value) || missing.contains(value) {
+                    continue;
+                }
+                match state
+                    .subjects
+                    .get(tenant, realm, client_id, direction, value)
+                {
+                    Some(found) => {
+                        out.insert(value.clone(), Some(found));
+                    }
+                    None => missing.push(value.clone()),
+                }
+            }
+        }
+        if missing.is_empty() {
+            return Ok(out);
+        }
+        let url = self
+            .endpoints()?
+            .get(Endpoint::SubjectResolution)?
+            .expand(tenant.as_str());
+        for chunk in missing.chunks(MAX_SUBJECTS) {
+            let body = subjects::body(realm, client_id, direction, chunk)?;
+            let answer = self
+                .transport
+                .send(Request::post(url.clone(), JSON, body))
+                .await?;
+            let resolution =
+                Resolution::from_json(answer.ok()?, realm, client_id, direction, chunk)?;
+            self.state()?
+                .subjects
+                .keep(tenant, realm, client_id, &resolution);
+            for (party, sub) in &resolution.pairs {
+                let (asked, counterpart) = match direction {
+                    Direction::Parties => (b64url(party), sub.clone()),
+                    Direction::Subs => (sub.clone(), b64url(party)),
+                };
+                out.insert(asked, Some(counterpart));
+            }
+            for unknown in resolution.unknown {
+                out.insert(unknown, None);
+            }
+        }
+        Ok(out)
     }
 
     /// One tenant's snapshot.

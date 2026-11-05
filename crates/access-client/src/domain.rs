@@ -1,7 +1,8 @@
-//! Pure rules of the Access client: what a discovery document, a signed key lookup answer, an eligibility answer, a tenant snapshot and a pushed Access event must be before Work uses them, the realm token keys an `auth_context` artifact verifies under, the platform client assertion, what Work checks and signs when it pairs with a realm and how it keeps its event stream, and the stable codes of every refusal.
+//! Pure rules of the Access client: what a discovery document, a signed key lookup answer, an eligibility answer, a tenant snapshot and a pushed Access event must be before Work uses them, the realm token keys an `auth_context` artifact verifies under, the platform client assertion, what Work checks and signs when it pairs with a realm and how it keeps its event stream, the Access access token and `DPoP` proof a caller presents with the realm and Party it names, and the stable codes of every refusal.
 
 pub mod assertion;
 pub mod cache;
+pub mod directory;
 pub mod discovery;
 pub mod eligibility;
 pub mod events;
@@ -11,7 +12,9 @@ pub mod pairing;
 pub mod realm;
 pub mod relay;
 pub mod streams;
+pub mod subjects;
 pub mod tenants;
+pub mod token;
 pub mod x509;
 
 use base64::Engine as _;
@@ -210,6 +213,7 @@ pub(crate) mod tests {
             ("ports.rs", include_str!("ports.rs")),
             ("domain.rs", include_str!("domain.rs")),
             ("domain/cache.rs", include_str!("domain/cache.rs")),
+            ("domain/directory.rs", include_str!("domain/directory.rs")),
             ("domain/discovery.rs", include_str!("domain/discovery.rs")),
             (
                 "domain/eligibility.rs",
@@ -219,7 +223,9 @@ pub(crate) mod tests {
             ("domain/metadata.rs", include_str!("domain/metadata.rs")),
             ("domain/realm.rs", include_str!("domain/realm.rs")),
             ("domain/relay.rs", include_str!("domain/relay.rs")),
+            ("domain/subjects.rs", include_str!("domain/subjects.rs")),
             ("domain/tenants.rs", include_str!("domain/tenants.rs")),
+            ("domain/token.rs", include_str!("domain/token.rs")),
             ("domain/x509.rs", include_str!("domain/x509.rs")),
         ] {
             let code = source.split("#[cfg(test)]").next().unwrap_or_default();
