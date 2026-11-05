@@ -150,11 +150,12 @@ impl Local {
     /// Work's PEP key, born in the `work-dev` token, with the certificate Access's local CA
     /// issued for its CSR, which `work-access-pep` put beside it (T-101 item 2, T-56).
     fn pep(&self) -> PepCredential {
-        PepCredential::load(&module(), TOKEN, &Secret::new(PIN.to_owned()), PEP_LABEL).unwrap()
-    }
-
-    fn issued(&self) -> Vec<u8> {
-        der(&std::fs::read_to_string(self.dir.join("work-pep.crt")).unwrap())
+        let pep =
+            PepCredential::load(&module(), TOKEN, &Secret::new(PIN.to_owned()), PEP_LABEL).unwrap();
+        let issued = der(&std::fs::read_to_string(self.dir.join("work-pep.crt")).unwrap());
+        let x5t: [u8; 32] = Sha256::digest(&issued).into();
+        assert_eq!(pep.x5t_s256(), b64url(&x5t));
+        pep
     }
 
     fn domain(&self, slug: &str) -> DomainId {
@@ -251,9 +252,6 @@ async fn t_96_discovery_reads_the_platform_and_acme_realms_at_their_path_issuers
 async fn t_101_the_pep_key_born_in_the_token_carries_the_certificate_access_issued_for_its_csr() {
     let local = Local::open();
     let pep = local.pep();
-    let issued = local.issued();
-    let x5t: [u8; 32] = Sha256::digest(&issued).into();
-    assert_eq!(pep.x5t_s256(), b64url(&x5t));
     let left = pep.expiry_seconds(wall_ms());
     assert!(left > 300 * 86_400 && left <= 366 * 86_400, "{left}");
     let client = local.client(&pep, "platform");
