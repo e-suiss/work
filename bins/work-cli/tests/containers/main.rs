@@ -140,7 +140,10 @@ async fn md_12_a_ledger_exported_by_work_cli_verifies_without_the_database() {
     let text = String::from_utf8(bundle).unwrap();
     let report = app::verify(&text, &Trust::default()).unwrap();
     assert_eq!(report.ledger, *ledger.as_bytes());
-    assert_eq!((report.entries, report.records, report.activations), (2, 0, 1));
+    assert_eq!(
+        (report.entries, report.records, report.activations),
+        (2, 0, 1)
+    );
     assert!(
         ExportLog::new(env.pool(Cluster::Canonical, "work_sequencer"))
             .await
@@ -161,7 +164,11 @@ async fn md_12_a_ledger_exported_by_work_cli_verifies_without_the_database() {
             .unwrap()
     };
     let exported = export(&path);
-    assert!(exported.status.success(), "{}", String::from_utf8_lossy(&exported.stderr));
+    assert!(
+        exported.status.success(),
+        "{}",
+        String::from_utf8_lossy(&exported.stderr)
+    );
     assert_eq!(std::fs::read_to_string(&path).unwrap(), text);
     assert!(!export(&path).status.success());
     let verified = Command::new(cli)
@@ -169,8 +176,15 @@ async fn md_12_a_ledger_exported_by_work_cli_verifies_without_the_database() {
         .args(["verify", path.to_str().unwrap(), trust.to_str().unwrap()])
         .output()
         .unwrap();
-    assert!(verified.status.success(), "{}", String::from_utf8_lossy(&verified.stderr));
+    assert!(
+        verified.status.success(),
+        "{}",
+        String::from_utf8_lossy(&verified.stderr)
+    );
     let line = String::from_utf8(verified.stdout).unwrap();
-    assert!(line.starts_with(&format!("verified {}: 2 entries", ledger.to_hex())), "{line}");
+    assert!(
+        line.starts_with(&format!("verified {}: 2 entries", ledger.to_hex())),
+        "{line}"
+    );
     std::fs::remove_dir_all(&dir).unwrap();
 }

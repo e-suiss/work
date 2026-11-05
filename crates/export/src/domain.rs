@@ -13,8 +13,8 @@ use work_kernel::derive::{
 use work_kernel::envelope::{Envelope, decode_envelope};
 use work_kernel::id::{PartyRef, Time};
 use work_kernel::proof::{self, Verifier};
-use work_kernel::record::ProtocolVersion;
 use work_kernel::reason::{Reason, Signature};
+use work_kernel::record::ProtocolVersion;
 use work_kernel::verify::{
     ChainPoint, SignatureCheck, SignatureVerifier, StoredEntry, Verified, verify_entry,
 };
@@ -234,7 +234,10 @@ pub fn encode(bundle: &Bundle) -> String {
     for c in &bundle.checkpoints {
         text.push_str(&checkpoint_line(c));
     }
-    text.push_str(&end_line(count(bundle.entries.len()), count(bundle.checkpoints.len())));
+    text.push_str(&end_line(
+        count(bundle.entries.len()),
+        count(bundle.checkpoints.len()),
+    ));
     text
 }
 
@@ -286,7 +289,17 @@ fn received_of(value: &Value) -> Option<Received> {
 }
 
 fn entry_of(value: &Value) -> Option<BundleEntry> {
-    let m = members(value, &["envelope", "kind", "pos", "received", "record", "recorded_at_ms"])?;
+    let m = members(
+        value,
+        &[
+            "envelope",
+            "kind",
+            "pos",
+            "received",
+            "record",
+            "recorded_at_ms",
+        ],
+    )?;
     Some(BundleEntry {
         pos: uint(m, "pos")?,
         recorded_at_ms: uint(m, "recorded_at_ms")?,
@@ -313,7 +326,15 @@ fn cosignature_of(value: &Value) -> Option<Cosignature> {
 fn checkpoint_of(value: &Value) -> Option<BundleCheckpoint> {
     let m = members(
         value,
-        &["cosignatures", "head_leaf", "issued_at_ms", "kind", "note", "root", "size"],
+        &[
+            "cosignatures",
+            "head_leaf",
+            "issued_at_ms",
+            "kind",
+            "note",
+            "root",
+            "size",
+        ],
     )?;
     Some(BundleCheckpoint {
         size: uint(m, "size")?,
@@ -442,7 +463,9 @@ impl Trust {
     pub fn parse(text_in: &str) -> Result<Self, TrustError> {
         let value: Value =
             serde_json::from_str(text_in).map_err(|_| TrustError::Shape("not JSON"))?;
-        let map = value.as_object().ok_or(TrustError::Shape("not an object"))?;
+        let map = value
+            .as_object()
+            .ok_or(TrustError::Shape("not an object"))?;
         if map
             .keys()
             .any(|k| !["authors", "log", "witnesses"].contains(&k.as_str()))
