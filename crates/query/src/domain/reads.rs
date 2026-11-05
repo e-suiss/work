@@ -3,7 +3,7 @@
 use work_kernel::id::{Digest, LedgerId, RecordId, WorkId};
 use work_kernel::proof::node_hash;
 use work_proto::id::{Cursor, PositionToken};
-use work_store::CosignatureView;
+pub use work_store::CosignatureView;
 
 /// The most Works one page of changes carries (PD).
 pub const MAX_CHANGES: u32 = 500;

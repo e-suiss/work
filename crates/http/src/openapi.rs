@@ -6,12 +6,28 @@ use serde_json::{Map, Value};
 use utoipa::OpenApi as _;
 
 use crate::problem::{FieldError, Problem, ProblemCode, ProblemType};
+use crate::reads::{
+    AttestationBody, AuthContextBody, AuthorSignatureBody, ChangeBody, ChangesBody, CheckpointBody,
+    EvidenceBody, InclusionBody, WitnessBody, WorkBody,
+};
 
 /// The committed document, relative to the workspace root.
 pub const DOCUMENT: &str = "sdks/openapi/work-v1.json";
 
 /// The operation extension naming the Access action (E-45 item 3).
 pub const ACTION_EXTENSION: &str = "x-work-action";
+
+/// The security scheme of every operation that acts for a caller: an Access access token bound
+/// to a `DPoP` proof (RFC 9449; C-9, E-7).
+pub const SECURITY_SCHEME: &str = "access_token";
+
+fn security_scheme() -> Value {
+    serde_json::json!({
+        "type": "http",
+        "scheme": "DPoP",
+        "description": "An Access access token of a live realm of the tenant, whose aud names Work, in Authorization: DPoP <token>, with its DPoP proof over this request in the DPoP header (RFC 9449). The caller is the Access Party its client's pairwise sub resolves to; there is no bearer token."
+    })
+}
 
 #[derive(utoipa::OpenApi)]
 #[openapi(
@@ -20,8 +36,28 @@ pub const ACTION_EXTENSION: &str = "x-work-action";
         version = "1",
         description = "The Work REST API. Errors are RFC 9457 problems; every operation that acts for a caller names the Access action it asks for in x-work-action, and a public operation names none."
     ),
-    paths(crate::api::problem_type),
-    components(schemas(Problem, ProblemCode, FieldError, ProblemType))
+    paths(
+        crate::api::problem_type,
+        crate::reads::get_work,
+        crate::reads::list_changes,
+        crate::reads::get_record_evidence
+    ),
+    components(schemas(
+        Problem,
+        ProblemCode,
+        FieldError,
+        ProblemType,
+        WorkBody,
+        ChangeBody,
+        ChangesBody,
+        AuthorSignatureBody,
+        AuthContextBody,
+        AttestationBody,
+        CheckpointBody,
+        InclusionBody,
+        WitnessBody,
+        EvidenceBody
+    ))
 )]
 struct Api;
 
@@ -60,7 +96,16 @@ fn is_empty_requirement(requirement: &Value) -> bool {
 /// # Errors
 /// The serialisation error.
 pub fn value() -> Result<Value, serde_json::Error> {
-    Ok(sorted(serde_json::to_value(Api::openapi())?))
+    let mut doc = serde_json::to_value(Api::openapi())?;
+    if let Some(components) = doc.get_mut("components").and_then(Value::as_object_mut) {
+        let schemes = components
+            .entry("securitySchemes")
+            .or_insert_with(|| Value::Object(Map::new()));
+        if let Some(schemes) = schemes.as_object_mut() {
+            schemes.insert(SECURITY_SCHEME.to_owned(), security_scheme());
+        }
+    }
+    Ok(sorted(doc))
 }
 
 /// The document as pretty JSON with a trailing newline.

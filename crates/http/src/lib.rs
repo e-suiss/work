@@ -11,3 +11,4 @@ pub mod openapi;
 pub mod position;
 pub mod problem;
 pub mod rate;
+pub mod reads;

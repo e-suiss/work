@@ -57,7 +57,7 @@ impl Deprecated {
     }
 }
 
-fn civil_from_days(days: i64) -> Option<(i64, i64, i64)> {
+pub(crate) fn civil_from_days(days: i64) -> Option<(i64, i64, i64)> {
     let z = days.checked_add(719_468)?;
     let era = z.checked_div_euclid(146_097)?;
     let doe = z.checked_sub(era.checked_mul(146_097)?)?;

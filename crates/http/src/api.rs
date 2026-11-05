@@ -1,4 +1,4 @@
-//! The REST `/v1` family (P-53, P-54 item 1, T-35): every route sits under its major version and goes through the [`common`](crate::common) layer, an unknown route is `404 not_found`, and the generated `OpenAPI` document describes every route; `GET /v1/problems/{code}` describes a problem type and asks for no identity (T-98 item 6).
+//! The REST `/v1` family (P-53, P-54 item 1, T-35): every route sits under its major version and goes through the [`common`](crate::common) layer, an unknown route is `404 not_found`, and the generated `OpenAPI` document describes every route; `GET /v1/problems/{code}` describes a problem type and asks for no identity (T-98 item 6), and every other route names its caller from an Access token first (C-9, E-7, [`reads`](crate::reads)).
 
 use std::future::{Ready, ready};
 use std::sync::Arc;
@@ -14,6 +14,7 @@ use crate::common::{self, Common, TraceIds};
 use crate::gateway::Limits;
 use crate::problem::{Problem, ProblemCode, ProblemType};
 use crate::rate::RatePolicy;
+use crate::reads::{self, ApiServices};
 
 /// The major version every route starts with (P-54 item 1).
 pub const MAJOR: &str = "/v1";
@@ -76,11 +77,34 @@ fn not_found() -> Ready<Problem> {
     ready(Problem::new(ProblemCode::NotFound))
 }
 
-/// Every REST route behind the common layer, drawing new trace ids from `ids`.
+/// The public REST routes behind the common layer, drawing new trace ids from `ids`.
 pub fn router(config: ApiConfig, ids: Arc<dyn TraceIds>) -> Router {
     let state = Arc::new(Common::new(config.limits, config.rate, ids));
     Router::new()
         .route("/v1/problems/{code}", get(problem_type))
+        .fallback(not_found)
+        .layer(from_fn_with_state(state, common::layer))
+}
+
+/// Every REST route behind the common layer: the public ones and those that act for a caller
+/// named by `services` (C-9, E-7, P-56).
+pub fn router_with(
+    config: ApiConfig,
+    ids: Arc<dyn TraceIds>,
+    services: Arc<ApiServices>,
+) -> Router {
+    let state = Arc::new(Common::new(config.limits, config.rate, ids));
+    let acting = Router::new()
+        .route("/v1/ledgers/{ledger}/works/{work}", get(reads::get_work))
+        .route("/v1/ledgers/{ledger}/changes", get(reads::list_changes))
+        .route(
+            "/v1/ledgers/{ledger}/records/{record}/evidence",
+            get(reads::get_record_evidence),
+        )
+        .with_state(services);
+    Router::new()
+        .route("/v1/problems/{code}", get(problem_type))
+        .merge(acting)
         .fallback(not_found)
         .layer(from_fn_with_state(state, common::layer))
 }

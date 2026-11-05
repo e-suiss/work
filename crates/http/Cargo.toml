@@ -10,6 +10,7 @@ publish = false
 
 # T-35 T-98 P-42 P-54
 [dependencies]
+work-kernel = { workspace = true }
 work-proto = { workspace = true }
 work-query = { workspace = true }
 work-telemetry = { workspace = true }
