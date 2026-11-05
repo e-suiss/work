@@ -848,7 +848,7 @@ mod tests {
             event_stream: None,
         };
         let plan = plan_challenges(&answer, &service, NOW);
-        assert!(plan.sign.is_empty());
+        assert_eq!(plan.sign.len(), 0);
         assert_eq!(
             plan.unsignable,
             vec![(c.realm.clone(), Unsignable::InstanceIntent)]

@@ -1,4 +1,3 @@
-use access_kernel::codec::Canonical as _;
 use access_kernel::intent::IntentEnvelope;
 
 use super::*;
@@ -222,7 +221,7 @@ fn t_103_a_digest_that_does_not_match_is_not_signed() {
         &service(),
         NOW,
     );
-    assert!(plan.sign.is_empty());
+    assert_eq!(plan.sign.len(), 0);
     assert_eq!(
         plan.unsignable,
         vec![(realm(A1), Unsignable::InstanceIntent)]
@@ -284,8 +283,8 @@ fn t_103_a_paired_realm_is_stored_without_signing() {
     let a = Answer::from_json(CHALLENGES.as_bytes(), TENANT).unwrap();
     let paired = answer(vec![a.targets[1].clone()]);
     let plan = plan_challenges(&paired, &service(), NOW);
-    assert!(plan.sign.is_empty());
-    assert!(plan.unsignable.is_empty());
+    assert_eq!(plan.sign.len(), 0);
+    assert_eq!(plan.unsignable.len(), 0);
     assert!(matches!(
         plan.changes.as_slice(),
         [RealmChange::Paired { realm: r, domain: None, .. }] if r.as_str() == A2
@@ -310,7 +309,7 @@ fn t_103_a_refused_realm_writes_no_automation_record() {
         code: "party-held".to_owned(),
     }]);
     let plan = plan_challenges(&refused, &service(), NOW);
-    assert!(plan.sign.is_empty());
+    assert_eq!(plan.sign.len(), 0);
     assert_eq!(plan.refused, vec![(realm(A1), "party-held".to_owned())]);
     assert_eq!(
         plan.changes,
