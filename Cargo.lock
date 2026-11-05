@@ -5263,6 +5263,7 @@ version = "0.1.0"
 name = "work-bindings-core"
 version = "0.1.0"
 dependencies = [
+ "esuiss-restriction",
  "esuiss-work-kernel",
  "serde_json",
  "work-proto",

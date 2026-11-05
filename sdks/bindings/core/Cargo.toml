@@ -1,6 +1,6 @@
 [package]
 name = "work-bindings-core"
-description = "JSON projection front end shared by the Work kernel and proto bindings (T-5)."
+description = "JSON projection front end shared by the Work kernel, proto and restriction bindings (T-5, T-23)."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -12,6 +12,8 @@ publish = false
 # T-31
 work-kernel = { workspace = true }
 work-proto = { workspace = true }
+# T-23
+suiss-restriction = { workspace = true }
 serde_json = { workspace = true, features = ["std"] }
 
 [lints]

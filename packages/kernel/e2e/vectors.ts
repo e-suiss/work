@@ -14,6 +14,7 @@ import type {
   VersionOrder,
 } from "../src/index.js";
 import type { ByteVectors } from "./byte-vectors.js";
+import type { RestrictionVectors } from "./restriction.js";
 
 export interface ApiVectors {
   readonly api_version: string;
@@ -53,6 +54,7 @@ export interface RecordCase {
 
 const kernelDir = new URL("../../../conformance/vectors/kernel/", import.meta.url);
 const recordsDir = new URL("../../../conformance/vectors/records/", import.meta.url);
+const restrictionDir = new URL("../../../conformance/vectors/restriction/", import.meta.url);
 
 /** Record vector files the browser runs through `validateRecord` on their `decoded` projection. */
 export const recordFiles = [
@@ -91,9 +93,20 @@ async function jsonFiles(dir: URL): Promise<string[]> {
   return (await readdir(dir)).filter((name) => name.endsWith(".json")).sort();
 }
 
-/** Every `*.json` file in the kernel and record vector directories. */
-export async function vectorFiles(): Promise<{ kernel: string[]; records: string[] }> {
-  return { kernel: await jsonFiles(kernelDir), records: await jsonFiles(recordsDir) };
+/** Restriction vector files the browser runs through `evaluateRestriction`. */
+export const restrictionFiles = ["restriction.json"] as const;
+
+/** Every `*.json` file in the kernel, record and restriction vector directories. */
+export async function vectorFiles(): Promise<{
+  kernel: string[];
+  records: string[];
+  restriction: string[];
+}> {
+  return {
+    kernel: await jsonFiles(kernelDir),
+    records: await jsonFiles(recordsDir),
+    restriction: await jsonFiles(restrictionDir),
+  };
 }
 
 export const api = await json<ApiVectors>(kernelDir, "api-version.json");
@@ -135,3 +148,6 @@ export const byteVectors: ByteVectors = {
   items: await json<ByteVectors["items"]>(kernelDir, "items-touched.json"),
   mapping: await json<ByteVectors["mapping"]>(recordsDir, "mapping.json"),
 };
+
+/** The restriction rule sets and requests every path answers the same way (T-23, PR-17, PR-23). */
+export const restriction = await json<RestrictionVectors>(restrictionDir, "restriction.json");

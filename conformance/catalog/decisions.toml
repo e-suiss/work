@@ -4446,7 +4446,13 @@ stage = 3
 acceptance = "to-fill"
 pd = "set"
 title = ""
-tests = []
+tests = [
+  "crates/query/tests/restriction_vectors.rs::t_23_pr_17_the_server_engine_answers_the_shared_restriction_vectors",
+  "packages/kernel/e2e/kernel.spec.ts::t_23_pr_17 browser WebAssembly restriction engine matches the shared vectors",
+  "packages/kernel/src/restriction.test.ts::t_23_pr_17 WebAssembly restriction engine matches the shared vectors",
+  "sdks/bindings/core/tests/restriction.rs::t_23_pr_17_restriction_vectors_through_bindings_core",
+  "sdks/bindings/uniffi/tests/swift/main.swift::t_23_pr_17_swift_restriction_vectors_match",
+]
 
 [[rule]]
 id = "PR-18"
@@ -4498,6 +4504,12 @@ tests = [
   "crates/query/src/domain/restriction.rs::pr_23_a_transition_over_16_rule_sets_is_deny",
   "crates/query/src/domain/restriction.rs::pr_23_input_rejected_is_deny_with_an_attention_signal",
   "crates/query/src/domain/restriction.rs::pr_23_limits_are_the_access_defaults",
+  "crates/query/tests/restriction_vectors.rs::t_23_pr_17_the_server_engine_answers_the_shared_restriction_vectors",
+  "packages/kernel/e2e/kernel.spec.ts::t_23_pr_17 browser WebAssembly restriction engine matches the shared vectors",
+  "packages/kernel/src/restriction.test.ts::t_23_pr_17 WebAssembly restriction engine matches the shared vectors",
+  "packages/kernel/src/restriction.test.ts::t_23_pr_23 a rule set that does not compile is an input error, not a verdict",
+  "sdks/bindings/core/tests/restriction.rs::t_23_pr_17_restriction_vectors_through_bindings_core",
+  "sdks/bindings/uniffi/tests/swift/main.swift::t_23_pr_17_swift_restriction_vectors_match",
 ]
 
 [[rule]]
@@ -4682,6 +4694,13 @@ tests = [
   "crates/kernel/tests/derivation.rs::p_86_a_declaration_without_effect_consumes_no_version",
   "crates/kernel/tests/derivation.rs::p_86_a_root_without_effect_starts_no_chain",
   "crates/kernel/tests/derivation.rs::t_23_restriction_results_gate_normative_effect",
+  "crates/query/tests/restriction_vectors.rs::t_23_pr_17_the_server_engine_answers_the_shared_restriction_vectors",
+  "packages/kernel/e2e/kernel.spec.ts::t_23_pr_17 browser WebAssembly restriction engine matches the shared vectors",
+  "packages/kernel/src/restriction.test.ts::t_23_pr_17 WebAssembly restriction engine matches the shared vectors",
+  "packages/kernel/src/restriction.test.ts::t_23_pr_23 a rule set that does not compile is an input error, not a verdict",
+  "sdks/bindings/core/tests/restriction.rs::t_23_input_that_does_not_fit_is_an_input_error",
+  "sdks/bindings/core/tests/restriction.rs::t_23_pr_17_restriction_vectors_through_bindings_core",
+  "sdks/bindings/uniffi/tests/swift/main.swift::t_23_pr_17_swift_restriction_vectors_match",
 ]
 
 [[rule]]
@@ -4898,6 +4917,8 @@ tests = [
   "crates/kernel/tests/properties.rs::t_4_position_overflow_is_typed",
   "crates/kernel/tests/vectors.rs::t_5_t_37_native_api_version_matches_shared_vectors",
   "crates/kernel/tests/vectors.rs::t_5_t_37_native_policy_defaults_match_shared_vectors",
+  "crates/query/tests/restriction_vectors.rs::t_23_pr_17_the_server_engine_answers_the_shared_restriction_vectors",
+  "packages/kernel/e2e/kernel.spec.ts::t_23_pr_17 browser WebAssembly restriction engine matches the shared vectors",
   "packages/kernel/e2e/kernel.spec.ts::t_5_t_37 browser WebAssembly kernel matches the shared kernel vectors",
   "packages/kernel/e2e/kernel.spec.ts::t_5_t_37_inv_7 browser WebAssembly byte entry points match their vectors",
   "packages/kernel/e2e/kernel.spec.ts::t_5_t_37_inv_7 browser WebAssembly derivation matches the native bytes",
@@ -4905,6 +4926,7 @@ tests = [
   "packages/kernel/src/bytes.test.ts::t_5_t_37_inv_7 WebAssembly byte entry points match their vectors",
   "packages/kernel/src/records.test.ts::t_5_t_37_inv_7 WebAssembly derivation matches the native bytes",
   "packages/kernel/src/records.test.ts::t_5_t_37_inv_7 WebAssembly kernel matches every record vector",
+  "packages/kernel/src/restriction.test.ts::t_23_pr_17 WebAssembly restriction engine matches the shared vectors",
   "packages/kernel/src/vectors.test.ts::t_5_t_37 WebAssembly kernel matches the shared vectors",
   "sdks/bindings/core/tests/bytes.rs::ev_3_evidence_vectors_through_bindings_core",
   "sdks/bindings/core/tests/bytes.rs::p_100_genesis_envelope_and_record_bytes_decode_through_bindings_core",
@@ -4918,6 +4940,7 @@ tests = [
   "sdks/bindings/core/tests/bytes.rs::t_88_checkpoint_vectors_through_bindings_core",
   "sdks/bindings/core/tests/bytes.rs::t_89_touched_item_vectors_through_bindings_core",
   "sdks/bindings/core/tests/mapping.rs::p_49_p_51_mapping_vectors_through_bindings_core",
+  "sdks/bindings/core/tests/restriction.rs::t_23_pr_17_restriction_vectors_through_bindings_core",
   "sdks/bindings/core/tests/vectors.rs::p_11_every_vector_reason_is_a_kernel_code_and_every_id_is_unique",
   "sdks/bindings/core/tests/vectors.rs::t_10_derivation_takes_record_ids_from_the_stored_bytes_through_bindings_core",
   "sdks/bindings/core/tests/vectors.rs::t_5_t_10_entries_that_do_not_verify_cross_the_binding_as_input_errors",
@@ -4932,6 +4955,7 @@ tests = [
   "sdks/bindings/uniffi/tests/swift/main.swift::p_5_swift_cbor_canonical_vectors_match",
   "sdks/bindings/uniffi/tests/swift/main.swift::p_79_swift_digest_vectors_match",
   "sdks/bindings/uniffi/tests/swift/main.swift::t_10_swift_stored_entries_verify_from_their_bytes",
+  "sdks/bindings/uniffi/tests/swift/main.swift::t_23_pr_17_swift_restriction_vectors_match",
   "sdks/bindings/uniffi/tests/swift/main.swift::t_4_swift_merkle_and_checkpoint_vectors_match",
   "sdks/bindings/uniffi/tests/swift/main.swift::t_5_t_37_inv_7_swift_derivation_matches_native_bytes",
   "sdks/bindings/uniffi/tests/swift/main.swift::t_5_t_37_inv_7_swift_record_vectors_match",

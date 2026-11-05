@@ -1,4 +1,4 @@
-//! uniffi binding of the Work kernel and proto for Swift and Kotlin (T-5): a thin mapping of the kernel API and of the `work-bindings-core` JSON front end, with no logic of its own.
+//! uniffi binding of the Work kernel, proto and restriction engine for Swift and Kotlin (T-5, T-23): a thin mapping of the kernel API and of the `work-bindings-core` JSON front end, with no logic of its own.
 
 #![forbid(unsafe_code)]
 #![allow(
@@ -337,4 +337,13 @@ pub fn touched(record: Vec<u8>) -> String {
 #[must_use]
 pub fn map_record(record: Vec<u8>, context: &str) -> String {
     work_bindings_core::map_record(&record, context)
+}
+
+/// One restriction rule set evaluated against one request by the shared engine; returns
+/// `{"outcome", "requirements"?, "policies"?, "attention"?}` or `{"error": …}` as JSON text
+/// (T-23, PR-17, PR-23).
+#[uniffi::export]
+#[must_use]
+pub fn evaluate_restriction(rule_set: &str, request: &str) -> String {
+    work_bindings_core::evaluate_restriction(rule_set, request)
 }

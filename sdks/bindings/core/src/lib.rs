@@ -1,4 +1,4 @@
-//! JSON front end shared by the Work kernel bindings (T-5, T-69, T-70): it maps the `decoded` JSON projection of records and their verifier inputs, and record, envelope, signature and proof bytes as received, onto kernel types, calls the kernel's validation, decoding, signature, ledger entry, proof, checkpoint, touched item and derivation functions and the proto's external standard mappings, and writes the kernel's answer as compact JSON with sorted keys, so every binding returns the same bytes for the same input (T-37, INV-7, INV-8); digests, record IDs and signatures come only from bytes, never from a projection.
+//! JSON front end shared by the Work kernel bindings (T-5, T-69, T-70): it maps the `decoded` JSON projection of records and their verifier inputs, and record, envelope, signature and proof bytes as received, onto kernel types, calls the kernel's validation, decoding, signature, ledger entry, proof, checkpoint, touched item and derivation functions the proto's external standard mappings and the shared restriction engine, and writes the kernel's answer as compact JSON with sorted keys, so every binding returns the same bytes for the same input (T-37, INV-7, INV-8); digests, record IDs and signatures come only from bytes, never from a projection.
 
 #![forbid(unsafe_code)]
 
@@ -9,6 +9,7 @@ mod items;
 mod ledger;
 mod mapping;
 mod project;
+mod restriction;
 mod signature;
 
 use serde_json::{Map, Value, json};
@@ -156,6 +157,7 @@ pub use ledger::{
     verify_inclusion,
 };
 pub use mapping::map_record;
+pub use restriction::evaluate_restriction;
 pub use signature::{
     check_public_key, evidence_statement, verify_evidence_signature, verify_record_signature,
 };

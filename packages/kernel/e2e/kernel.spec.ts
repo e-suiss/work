@@ -7,6 +7,7 @@ import type {
 
 import { expect, test } from "./fixtures.js";
 import type { ByteVectors } from "./byte-vectors.js";
+import type { RestrictionVectors } from "./restriction.js";
 import {
   api,
   byteRecordFiles,
@@ -18,6 +19,8 @@ import {
   policy,
   recordCases,
   recordFiles,
+  restriction,
+  restrictionFiles,
   vectorFiles,
 } from "./vectors.js";
 
@@ -27,6 +30,7 @@ test.describe("t_5_t_37 browser WebAssembly kernel matches the shared kernel vec
     const files = await vectorFiles();
     expect(files.kernel).toEqual([...kernelFiles].sort());
     expect(files.records).toEqual([...recordFiles, ...byteRecordFiles].sort());
+    expect(files.restriction).toEqual([...restrictionFiles]);
   });
 
   test("api-version.json", async ({ page }) => {
@@ -173,6 +177,20 @@ test.describe("t_5_t_37_inv_7 browser WebAssembly byte entry points match their 
     );
     const files = new Set(checks.map((c) => c.file));
     expect(files.size).toBe(11);
+    for (const c of checks) {
+      expect.soft(c.got, `${c.file} ${c.id}`).toBe(c.want);
+    }
+  });
+});
+
+// T-23 PR-17 PR-23 T-5 T-37
+test.describe("t_23_pr_17 browser WebAssembly restriction engine matches the shared vectors", () => {
+  test("every rule set and request answers as its vector states", async ({ page }) => {
+    const checks = await page.evaluate(
+      (text) => window.workKernel.restrictionChecks(JSON.parse(text) as RestrictionVectors),
+      JSON.stringify(restriction),
+    );
+    expect(checks).toHaveLength(2 * restriction.cases.length);
     for (const c of checks) {
       expect.soft(c.got, `${c.file} ${c.id}`).toBe(c.want);
     }

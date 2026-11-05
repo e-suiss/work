@@ -713,11 +713,26 @@ func p_49_p_51_swift_mapping_vectors_match(_ records: URL, _ tally: inout Tally)
     }
 }
 
+// T-23 PR-17 PR-23 T-5 T-37
+func t_23_pr_17_swift_restriction_vectors_match(_ restriction: URL, _ tally: inout Tally) throws {
+    let name = #function
+    let file = try vectorFile(restriction, "restriction.json")
+    let ruleSets = try objectOf(file["rule_sets"], name)
+    for c in try cases(file, "cases", name) {
+        let id = try text(c["id"], name)
+        let ruleSet = try objectOf(ruleSets[try text(c["rule_set"], id)], id)
+        let got = evaluateRestriction(
+            ruleSet: try json(ruleSet, id), request: try json(c["request"] ?? NSNull(), id))
+        try same(&tally, name, id, got, c["expect"] ?? NSNull())
+    }
+}
+
 do {
-    guard CommandLine.arguments.count == 4 else { throw HarnessError.usage }
+    guard CommandLine.arguments.count == 5 else { throw HarnessError.usage }
     let dir = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
     let records = URL(fileURLWithPath: CommandLine.arguments[2], isDirectory: true)
     let fixtures = URL(fileURLWithPath: CommandLine.arguments[3], isDirectory: true)
+    let restriction = URL(fileURLWithPath: CommandLine.arguments[4], isDirectory: true)
     var tally = Tally()
     try t_5_t_37_swift_api_version_matches_shared_vectors(dir, &tally)
     try t_5_t_37_swift_policy_defaults_match_shared_vectors(dir, &tally)
@@ -732,6 +747,7 @@ do {
     try t_4_swift_merkle_and_checkpoint_vectors_match(records, &tally)
     try t_89_swift_touched_item_vectors_match(records, dir, &tally)
     try p_49_p_51_swift_mapping_vectors_match(records, &tally)
+    try t_23_pr_17_swift_restriction_vectors_match(restriction, &tally)
     if tally.failures > 0 {
         print("\(tally.failures) of \(tally.cases) kernel vectors differ through Swift")
         exit(1)

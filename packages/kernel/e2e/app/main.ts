@@ -5,6 +5,8 @@ import * as raw from "../../wasm/work_kernel_wasm.js";
 import { deriveRecords, validateRecord } from "../../wasm/work_kernel_wasm.js";
 import type { ByteVectors, Check } from "../byte-vectors.js";
 import { byteChecks } from "../suite.js";
+import type { RestrictionVectors } from "../restriction.js";
+import { restrictionChecks } from "../restriction.js";
 
 /** Milliseconds from page code to a usable kernel, and to the first answer after it (T-44). */
 export interface Startup {
@@ -22,6 +24,7 @@ export interface KernelPage {
     readonly deriveRecords: typeof deriveRecords;
   };
   readonly byteChecks: (vectors: ByteVectors) => Promise<Check[]>;
+  readonly restrictionChecks: (vectors: RestrictionVectors) => Promise<Check[]>;
 }
 
 declare global {
@@ -44,4 +47,5 @@ window.workKernel = {
   startup,
   raw: { validateRecord, deriveRecords },
   byteChecks: async (vectors) => byteChecks(await loadKernel(), raw, vectors),
+  restrictionChecks: async (vectors) => restrictionChecks(await loadKernel(), raw, vectors),
 };

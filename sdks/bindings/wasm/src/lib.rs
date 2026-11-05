@@ -1,4 +1,4 @@
-//! WebAssembly binding of the Work kernel and proto (T-5): a thin mapping of the kernel API and of the `work-bindings-core` JSON front end to JavaScript, with no logic of its own.
+//! WebAssembly binding of the Work kernel, proto and restriction engine (T-5, T-23): a thin mapping of the kernel API and of the `work-bindings-core` JSON front end to JavaScript, with no logic of its own.
 
 #![forbid(unsafe_code)]
 
@@ -409,4 +409,13 @@ pub fn touched(record: &[u8]) -> String {
 #[must_use]
 pub fn map_record(record: &[u8], context: &str) -> String {
     work_bindings_core::map_record(record, context)
+}
+
+/// One restriction rule set evaluated against one request by the shared engine; returns
+/// `{"outcome", "requirements"?, "policies"?, "attention"?}` or `{"error": …}` as JSON text
+/// (T-23, PR-17, PR-23).
+#[wasm_bindgen(js_name = evaluateRestriction)]
+#[must_use]
+pub fn evaluate_restriction(rule_set: &str, request: &str) -> String {
+    work_bindings_core::evaluate_restriction(rule_set, request)
 }

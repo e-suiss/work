@@ -1,0 +1,449 @@
+{
+  "file": "restriction.json",
+  "notes": [
+    "T-23 PR-17 PR-23: one restriction rule set evaluated against one request by the shared esuiss-restriction engine; the expect of a case is the answer every path gives: the server's limits and verdict, work-bindings-core natively, WebAssembly in Node and browsers, and uniffi in Swift",
+    "a rule set is {schema, policies} as Cedar text; a request carries Cedar entity UIDs and the context object and entity array as JSON text handed to the engine unchanged",
+    "rule sets compile under the esuiss-restriction default limits narrowed to 64 policies (PR-23 item 2 (a)); a rule set that does not compile is restriction_compile_refused with the crate code as code_detail (PR-23 item 3)",
+    "deny names the matching forbid policies; an input over a limit or outside the schema and an evaluation error deny with no policy and attention true (PR-17 item 3, PR-23 item 4); no_objection is not a permission (PR-17 item 2)"
+  ],
+  "rule_sets": {
+    "main": {
+      "schema": "entity Actor { tenant: String, assurance: Long };\nentity Resource { tenant: String, kind: String, owner?: Actor };\ntype Ctx = { amount: Long, lineage_depth: Long, cited_claims: Set<String>, risk: Long, new_device: Bool, now: Long };\naction transfer, read appliesTo { principal: [Actor], resource: [Resource], context: Ctx };\n",
+      "policies": "@id(\"cross-tenant\") forbid(principal, action, resource) when { principal.tenant != resource.tenant };\n@id(\"big-transfer\") @require(\"rs-step-up\")\nforbid(principal, action == Action::\"transfer\", resource) when { context.amount > 10000 };\n@id(\"risky\") @require(\"rs-fresh-auth\") forbid(principal, action, resource) when { context.risk >= 70 };\n@id(\"no-kyc\") @require(\"rs-claim-kyc\")\nforbid(principal, action == Action::\"transfer\", resource) unless { context.cited_claims.contains(\"kyc\") };\n"
+    },
+    "errors": {
+      "schema": "entity Actor { tenant: String, assurance: Long };\nentity Resource { tenant: String, kind: String, owner?: Actor };\ntype Ctx = { amount: Long, lineage_depth: Long, cited_claims: Set<String>, risk: Long, new_device: Bool, now: Long };\naction transfer, read appliesTo { principal: [Actor], resource: [Resource], context: Ctx };\n",
+      "policies": "@id(\"overflow\") forbid(principal, action, resource) when { context.amount * 1000000000000 < 0 };\n@id(\"owner-assurance\") forbid(principal, action, resource) when { resource has owner && resource.owner.assurance < 1 };\n"
+    },
+    "policies-64": {
+      "schema": "entity Actor { tenant: String, assurance: Long };\nentity Resource { tenant: String, kind: String, owner?: Actor };\ntype Ctx = { amount: Long, lineage_depth: Long, cited_claims: Set<String>, risk: Long, new_device: Bool, now: Long };\naction transfer, read appliesTo { principal: [Actor], resource: [Resource], context: Ctx };\n",
+      "policies": "@id(\"p0\") forbid(principal, action, resource) when { context.risk > 1000 };\n@id(\"p1\") forbid(principal, action, resource) when { context.risk > 1001 };\n@id(\"p2\") forbid(principal, action, resource) when { context.risk > 1002 };\n@id(\"p3\") forbid(principal, action, resource) when { context.risk > 1003 };\n@id(\"p4\") forbid(principal, action, resource) when { context.risk > 1004 };\n@id(\"p5\") forbid(principal, action, resource) when { context.risk > 1005 };\n@id(\"p6\") forbid(principal, action, resource) when { context.risk > 1006 };\n@id(\"p7\") forbid(principal, action, resource) when { context.risk > 1007 };\n@id(\"p8\") forbid(principal, action, resource) when { context.risk > 1008 };\n@id(\"p9\") forbid(principal, action, resource) when { context.risk > 1009 };\n@id(\"p10\") forbid(principal, action, resource) when { context.risk > 1010 };\n@id(\"p11\") forbid(principal, action, resource) when { context.risk > 1011 };\n@id(\"p12\") forbid(principal, action, resource) when { context.risk > 1012 };\n@id(\"p13\") forbid(principal, action, resource) when { context.risk > 1013 };\n@id(\"p14\") forbid(principal, action, resource) when { context.risk > 1014 };\n@id(\"p15\") forbid(principal, action, resource) when { context.risk > 1015 };\n@id(\"p16\") forbid(principal, action, resource) when { context.risk > 1016 };\n@id(\"p17\") forbid(principal, action, resource) when { context.risk > 1017 };\n@id(\"p18\") forbid(principal, action, resource) when { context.risk > 1018 };\n@id(\"p19\") forbid(principal, action, resource) when { context.risk > 1019 };\n@id(\"p20\") forbid(principal, action, resource) when { context.risk > 1020 };\n@id(\"p21\") forbid(principal, action, resource) when { context.risk > 1021 };\n@id(\"p22\") forbid(principal, action, resource) when { context.risk > 1022 };\n@id(\"p23\") forbid(principal, action, resource) when { context.risk > 1023 };\n@id(\"p24\") forbid(principal, action, resource) when { context.risk > 1024 };\n@id(\"p25\") forbid(principal, action, resource) when { context.risk > 1025 };\n@id(\"p26\") forbid(principal, action, resource) when { context.risk > 1026 };\n@id(\"p27\") forbid(principal, action, resource) when { context.risk > 1027 };\n@id(\"p28\") forbid(principal, action, resource) when { context.risk > 1028 };\n@id(\"p29\") forbid(principal, action, resource) when { context.risk > 1029 };\n@id(\"p30\") forbid(principal, action, resource) when { context.risk > 1030 };\n@id(\"p31\") forbid(principal, action, resource) when { context.risk > 1031 };\n@id(\"p32\") forbid(principal, action, resource) when { context.risk > 1032 };\n@id(\"p33\") forbid(principal, action, resource) when { context.risk > 1033 };\n@id(\"p34\") forbid(principal, action, resource) when { context.risk > 1034 };\n@id(\"p35\") forbid(principal, action, resource) when { context.risk > 1035 };\n@id(\"p36\") forbid(principal, action, resource) when { context.risk > 1036 };\n@id(\"p37\") forbid(principal, action, resource) when { context.risk > 1037 };\n@id(\"p38\") forbid(principal, action, resource) when { context.risk > 1038 };\n@id(\"p39\") forbid(principal, action, resource) when { context.risk > 1039 };\n@id(\"p40\") forbid(principal, action, resource) when { context.risk > 1040 };\n@id(\"p41\") forbid(principal, action, resource) when { context.risk > 1041 };\n@id(\"p42\") forbid(principal, action, resource) when { context.risk > 1042 };\n@id(\"p43\") forbid(principal, action, resource) when { context.risk > 1043 };\n@id(\"p44\") forbid(principal, action, resource) when { context.risk > 1044 };\n@id(\"p45\") forbid(principal, action, resource) when { context.risk > 1045 };\n@id(\"p46\") forbid(principal, action, resource) when { context.risk > 1046 };\n@id(\"p47\") forbid(principal, action, resource) when { context.risk > 1047 };\n@id(\"p48\") forbid(principal, action, resource) when { context.risk > 1048 };\n@id(\"p49\") forbid(principal, action, resource) when { context.risk > 1049 };\n@id(\"p50\") forbid(principal, action, resource) when { context.risk > 1050 };\n@id(\"p51\") forbid(principal, action, resource) when { context.risk > 1051 };\n@id(\"p52\") forbid(principal, action, resource) when { context.risk > 1052 };\n@id(\"p53\") forbid(principal, action, resource) when { context.risk > 1053 };\n@id(\"p54\") forbid(principal, action, resource) when { context.risk > 1054 };\n@id(\"p55\") forbid(principal, action, resource) when { context.risk > 1055 };\n@id(\"p56\") forbid(principal, action, resource) when { context.risk > 1056 };\n@id(\"p57\") forbid(principal, action, resource) when { context.risk > 1057 };\n@id(\"p58\") forbid(principal, action, resource) when { context.risk > 1058 };\n@id(\"p59\") forbid(principal, action, resource) when { context.risk > 1059 };\n@id(\"p60\") forbid(principal, action, resource) when { context.risk > 1060 };\n@id(\"p61\") forbid(principal, action, resource) when { context.risk > 1061 };\n@id(\"p62\") forbid(principal, action, resource) when { context.risk > 1062 };\n@id(\"p63\") forbid(principal, action, resource) when { context.risk > 1063 };\n"
+    },
+    "policies-65": {
+      "schema": "entity Actor { tenant: String, assurance: Long };\nentity Resource { tenant: String, kind: String, owner?: Actor };\ntype Ctx = { amount: Long, lineage_depth: Long, cited_claims: Set<String>, risk: Long, new_device: Bool, now: Long };\naction transfer, read appliesTo { principal: [Actor], resource: [Resource], context: Ctx };\n",
+      "policies": "@id(\"p0\") forbid(principal, action, resource) when { context.risk > 1000 };\n@id(\"p1\") forbid(principal, action, resource) when { context.risk > 1001 };\n@id(\"p2\") forbid(principal, action, resource) when { context.risk > 1002 };\n@id(\"p3\") forbid(principal, action, resource) when { context.risk > 1003 };\n@id(\"p4\") forbid(principal, action, resource) when { context.risk > 1004 };\n@id(\"p5\") forbid(principal, action, resource) when { context.risk > 1005 };\n@id(\"p6\") forbid(principal, action, resource) when { context.risk > 1006 };\n@id(\"p7\") forbid(principal, action, resource) when { context.risk > 1007 };\n@id(\"p8\") forbid(principal, action, resource) when { context.risk > 1008 };\n@id(\"p9\") forbid(principal, action, resource) when { context.risk > 1009 };\n@id(\"p10\") forbid(principal, action, resource) when { context.risk > 1010 };\n@id(\"p11\") forbid(principal, action, resource) when { context.risk > 1011 };\n@id(\"p12\") forbid(principal, action, resource) when { context.risk > 1012 };\n@id(\"p13\") forbid(principal, action, resource) when { context.risk > 1013 };\n@id(\"p14\") forbid(principal, action, resource) when { context.risk > 1014 };\n@id(\"p15\") forbid(principal, action, resource) when { context.risk > 1015 };\n@id(\"p16\") forbid(principal, action, resource) when { context.risk > 1016 };\n@id(\"p17\") forbid(principal, action, resource) when { context.risk > 1017 };\n@id(\"p18\") forbid(principal, action, resource) when { context.risk > 1018 };\n@id(\"p19\") forbid(principal, action, resource) when { context.risk > 1019 };\n@id(\"p20\") forbid(principal, action, resource) when { context.risk > 1020 };\n@id(\"p21\") forbid(principal, action, resource) when { context.risk > 1021 };\n@id(\"p22\") forbid(principal, action, resource) when { context.risk > 1022 };\n@id(\"p23\") forbid(principal, action, resource) when { context.risk > 1023 };\n@id(\"p24\") forbid(principal, action, resource) when { context.risk > 1024 };\n@id(\"p25\") forbid(principal, action, resource) when { context.risk > 1025 };\n@id(\"p26\") forbid(principal, action, resource) when { context.risk > 1026 };\n@id(\"p27\") forbid(principal, action, resource) when { context.risk > 1027 };\n@id(\"p28\") forbid(principal, action, resource) when { context.risk > 1028 };\n@id(\"p29\") forbid(principal, action, resource) when { context.risk > 1029 };\n@id(\"p30\") forbid(principal, action, resource) when { context.risk > 1030 };\n@id(\"p31\") forbid(principal, action, resource) when { context.risk > 1031 };\n@id(\"p32\") forbid(principal, action, resource) when { context.risk > 1032 };\n@id(\"p33\") forbid(principal, action, resource) when { context.risk > 1033 };\n@id(\"p34\") forbid(principal, action, resource) when { context.risk > 1034 };\n@id(\"p35\") forbid(principal, action, resource) when { context.risk > 1035 };\n@id(\"p36\") forbid(principal, action, resource) when { context.risk > 1036 };\n@id(\"p37\") forbid(principal, action, resource) when { context.risk > 1037 };\n@id(\"p38\") forbid(principal, action, resource) when { context.risk > 1038 };\n@id(\"p39\") forbid(principal, action, resource) when { context.risk > 1039 };\n@id(\"p40\") forbid(principal, action, resource) when { context.risk > 1040 };\n@id(\"p41\") forbid(principal, action, resource) when { context.risk > 1041 };\n@id(\"p42\") forbid(principal, action, resource) when { context.risk > 1042 };\n@id(\"p43\") forbid(principal, action, resource) when { context.risk > 1043 };\n@id(\"p44\") forbid(principal, action, resource) when { context.risk > 1044 };\n@id(\"p45\") forbid(principal, action, resource) when { context.risk > 1045 };\n@id(\"p46\") forbid(principal, action, resource) when { context.risk > 1046 };\n@id(\"p47\") forbid(principal, action, resource) when { context.risk > 1047 };\n@id(\"p48\") forbid(principal, action, resource) when { context.risk > 1048 };\n@id(\"p49\") forbid(principal, action, resource) when { context.risk > 1049 };\n@id(\"p50\") forbid(principal, action, resource) when { context.risk > 1050 };\n@id(\"p51\") forbid(principal, action, resource) when { context.risk > 1051 };\n@id(\"p52\") forbid(principal, action, resource) when { context.risk > 1052 };\n@id(\"p53\") forbid(principal, action, resource) when { context.risk > 1053 };\n@id(\"p54\") forbid(principal, action, resource) when { context.risk > 1054 };\n@id(\"p55\") forbid(principal, action, resource) when { context.risk > 1055 };\n@id(\"p56\") forbid(principal, action, resource) when { context.risk > 1056 };\n@id(\"p57\") forbid(principal, action, resource) when { context.risk > 1057 };\n@id(\"p58\") forbid(principal, action, resource) when { context.risk > 1058 };\n@id(\"p59\") forbid(principal, action, resource) when { context.risk > 1059 };\n@id(\"p60\") forbid(principal, action, resource) when { context.risk > 1060 };\n@id(\"p61\") forbid(principal, action, resource) when { context.risk > 1061 };\n@id(\"p62\") forbid(principal, action, resource) when { context.risk > 1062 };\n@id(\"p63\") forbid(principal, action, resource) when { context.risk > 1063 };\n@id(\"p64\") forbid(principal, action, resource) when { context.risk > 1064 };\n"
+    },
+    "permit": {
+      "schema": "entity Actor { tenant: String, assurance: Long };\nentity Resource { tenant: String, kind: String, owner?: Actor };\ntype Ctx = { amount: Long, lineage_depth: Long, cited_claims: Set<String>, risk: Long, new_device: Bool, now: Long };\naction transfer, read appliesTo { principal: [Actor], resource: [Resource], context: Ctx };\n",
+      "policies": "@id(\"grant\") permit(principal, action, resource);\n"
+    },
+    "template": {
+      "schema": "entity Actor { tenant: String, assurance: Long };\nentity Resource { tenant: String, kind: String, owner?: Actor };\ntype Ctx = { amount: Long, lineage_depth: Long, cited_claims: Set<String>, risk: Long, new_device: Bool, now: Long };\naction transfer, read appliesTo { principal: [Actor], resource: [Resource], context: Ctx };\n",
+      "policies": "@id(\"t\") forbid(principal == ?principal, action, resource);\n"
+    },
+    "no-id": {
+      "schema": "entity Actor { tenant: String, assurance: Long };\nentity Resource { tenant: String, kind: String, owner?: Actor };\ntype Ctx = { amount: Long, lineage_depth: Long, cited_claims: Set<String>, risk: Long, new_device: Bool, now: Long };\naction transfer, read appliesTo { principal: [Actor], resource: [Resource], context: Ctx };\n",
+      "policies": "forbid(principal, action, resource);\n"
+    },
+    "bad-annotation": {
+      "schema": "entity Actor { tenant: String, assurance: Long };\nentity Resource { tenant: String, kind: String, owner?: Actor };\ntype Ctx = { amount: Long, lineage_depth: Long, cited_claims: Set<String>, risk: Long, new_device: Bool, now: Long };\naction transfer, read appliesTo { principal: [Actor], resource: [Resource], context: Ctx };\n",
+      "policies": "@id(\"a\") @allow(\"x\") forbid(principal, action, resource);\n"
+    },
+    "unknown-attribute": {
+      "schema": "entity Actor { tenant: String, assurance: Long };\nentity Resource { tenant: String, kind: String, owner?: Actor };\ntype Ctx = { amount: Long, lineage_depth: Long, cited_claims: Set<String>, risk: Long, new_device: Bool, now: Long };\naction transfer, read appliesTo { principal: [Actor], resource: [Resource], context: Ctx };\n",
+      "policies": "@id(\"a\") forbid(principal, action, resource) when { context.nope > 1 };\n"
+    },
+    "parse": {
+      "schema": "entity Actor { tenant: String, assurance: Long };\nentity Resource { tenant: String, kind: String, owner?: Actor };\ntype Ctx = { amount: Long, lineage_depth: Long, cited_claims: Set<String>, risk: Long, new_device: Bool, now: Long };\naction transfer, read appliesTo { principal: [Actor], resource: [Resource], context: Ctx };\n",
+      "policies": "@id(\"a\") forbid(principal, action, resource\n"
+    },
+    "expensive": {
+      "schema": "entity Actor { tenant: String, assurance: Long };\nentity Resource { tenant: String, kind: String, owner?: Actor };\ntype Ctx = { amount: Long, lineage_depth: Long, cited_claims: Set<String>, risk: Long, new_device: Bool, now: Long };\naction transfer, read appliesTo { principal: [Actor], resource: [Resource], context: Ctx };\n",
+      "policies": "@id(\"e\") forbid(principal, action, resource) when { context.cited_claims.containsAll([\"a\"]) };\n"
+    }
+  },
+  "cases": [
+    {
+      "id": "no-objection",
+      "rule_set": "main",
+      "request": {
+        "principal": "Actor::\"a1\"",
+        "action": "Action::\"transfer\"",
+        "resource": "Resource::\"r1\"",
+        "context": "{\"amount\":100,\"lineage_depth\":1,\"cited_claims\":[\"kyc\"],\"risk\":0,\"new_device\":false,\"now\":1790000000}",
+        "entities": "[{\"uid\":{\"type\":\"Actor\",\"id\":\"a1\"},\"attrs\":{\"tenant\":\"t1\",\"assurance\":2},\"parents\":[]},{\"uid\":{\"type\":\"Actor\",\"id\":\"o1\"},\"attrs\":{\"tenant\":\"t1\",\"assurance\":0},\"parents\":[]},{\"uid\":{\"type\":\"Resource\",\"id\":\"r1\"},\"attrs\":{\"tenant\":\"t1\",\"kind\":\"order\"},\"parents\":[]}]"
+      },
+      "expect": {
+        "outcome": "no_objection"
+      }
+    },
+    {
+      "id": "require-step-up",
+      "rule_set": "main",
+      "request": {
+        "principal": "Actor::\"a1\"",
+        "action": "Action::\"transfer\"",
+        "resource": "Resource::\"r1\"",
+        "context": "{\"amount\":20000,\"lineage_depth\":1,\"cited_claims\":[\"kyc\"],\"risk\":0,\"new_device\":false,\"now\":1790000000}",
+        "entities": "[{\"uid\":{\"type\":\"Actor\",\"id\":\"a1\"},\"attrs\":{\"tenant\":\"t1\",\"assurance\":2},\"parents\":[]},{\"uid\":{\"type\":\"Actor\",\"id\":\"o1\"},\"attrs\":{\"tenant\":\"t1\",\"assurance\":0},\"parents\":[]},{\"uid\":{\"type\":\"Resource\",\"id\":\"r1\"},\"attrs\":{\"tenant\":\"t1\",\"kind\":\"order\"},\"parents\":[]}]"
+      },
+      "expect": {
+        "outcome": "require",
+        "requirements": [
+          "rs-step-up"
+        ]
+      }
+    },
+    {
+      "id": "require-two",
+      "rule_set": "main",
+      "request": {
+        "principal": "Actor::\"a1\"",
+        "action": "Action::\"transfer\"",
+        "resource": "Resource::\"r1\"",
+        "context": "{\"amount\":20000,\"lineage_depth\":1,\"cited_claims\":[\"kyc\"],\"risk\":80,\"new_device\":false,\"now\":1790000000}",
+        "entities": "[{\"uid\":{\"type\":\"Actor\",\"id\":\"a1\"},\"attrs\":{\"tenant\":\"t1\",\"assurance\":2},\"parents\":[]},{\"uid\":{\"type\":\"Actor\",\"id\":\"o1\"},\"attrs\":{\"tenant\":\"t1\",\"assurance\":0},\"parents\":[]},{\"uid\":{\"type\":\"Resource\",\"id\":\"r1\"},\"attrs\":{\"tenant\":\"t1\",\"kind\":\"order\"},\"parents\":[]}]"
+      },
+      "expect": {
+        "outcome": "require",
+        "requirements": [
+          "rs-fresh-auth",
+          "rs-step-up"
+        ]
+      }
+    },
+    {
+      "id": "require-kyc",
+      "rule_set": "main",
+      "request": {
+        "principal": "Actor::\"a1\"",
+        "action": "Action::\"transfer\"",
+        "resource": "Resource::\"r1\"",
+        "context": "{\"amount\":100,\"lineage_depth\":1,\"cited_claims\":[],\"risk\":0,\"new_device\":false,\"now\":1790000000}",
+        "entities": "[{\"uid\":{\"type\":\"Actor\",\"id\":\"a1\"},\"attrs\":{\"tenant\":\"t1\",\"assurance\":2},\"parents\":[]},{\"uid\":{\"type\":\"Actor\",\"id\":\"o1\"},\"attrs\":{\"tenant\":\"t1\",\"assurance\":0},\"parents\":[]},{\"uid\":{\"type\":\"Resource\",\"id\":\"r1\"},\"attrs\":{\"tenant\":\"t1\",\"kind\":\"order\"},\"parents\":[]}]"
+      },
+      "expect": {
+        "outcome": "require",
+        "requirements": [
+          "rs-claim-kyc"
+        ]
+      }
+    },
+    {
+      "id": "read-without-kyc",
+      "rule_set": "main",
+      "request": {
+        "principal": "Actor::\"a1\"",
+        "action": "Action::\"read\"",
+        "resource": "Resource::\"r1\"",
+        "context": "{\"amount\":100,\"lineage_depth\":1,\"cited_claims\":[],\"risk\":0,\"new_device\":false,\"now\":1790000000}",
+        "entities": "[{\"uid\":{\"type\":\"Actor\",\"id\":\"a1\"},\"attrs\":{\"tenant\":\"t1\",\"assurance\":2},\"parents\":[]},{\"uid\":{\"type\":\"Actor\",\"id\":\"o1\"},\"attrs\":{\"tenant\":\"t1\",\"assurance\":0},\"parents\":[]},{\"uid\":{\"type\":\"Resource\",\"id\":\"r1\"},\"attrs\":{\"tenant\":\"t1\",\"kind\":\"order\"},\"parents\":[]}]"
+      },
+      "expect": {
+        "outcome": "no_objection"
+      }
+    },
+    {
+      "id": "forbid-overrides-require",
+      "rule_set": "main",
+      "request": {
+        "principal": "Actor::\"a1\"",
+        "action": "Action::\"transfer\"",
+        "resource": "Resource::\"r1\"",
+        "context": "{\"amount\":20000,\"lineage_depth\":1,\"cited_claims\":[\"kyc\"],\"risk\":0,\"new_device\":false,\"now\":1790000000}",
+        "entities": "[{\"uid\":{\"type\":\"Actor\",\"id\":\"a1\"},\"attrs\":{\"tenant\":\"t1\",\"assurance\":2},\"parents\":[]},{\"uid\":{\"type\":\"Actor\",\"id\":\"o1\"},\"attrs\":{\"tenant\":\"t1\",\"assurance\":0},\"parents\":[]},{\"uid\":{\"type\":\"Resource\",\"id\":\"r1\"},\"attrs\":{\"tenant\":\"t2\",\"kind\":\"order\"},\"parents\":[]}]"
+      },
+      "expect": {
+        "outcome": "deny",
+        "policies": [
+          "cross-tenant"
+        ],
+        "attention": false
+      }
+    },
+    {
+      "id": "evaluation-error",
+      "rule_set": "errors",
+      "request": {
+        "principal": "Actor::\"a1\"",
+        "action": "Action::\"transfer\"",
+        "resource": "Resource::\"r1\"",
+        "context": "{\"amount\":10000000,\"lineage_depth\":1,\"cited_claims\":[\"kyc\"],\"risk\":0,\"new_device\":false,\"now\":1790000000}",
+        "entities": "[{\"uid\":{\"type\":\"Actor\",\"id\":\"a1\"},\"attrs\":{\"tenant\":\"t1\",\"assurance\":2},\"parents\":[]},{\"uid\":{\"type\":\"Actor\",\"id\":\"o1\"},\"attrs\":{\"tenant\":\"t1\",\"assurance\":0},\"parents\":[]},{\"uid\":{\"type\":\"Resource\",\"id\":\"r1\"},\"attrs\":{\"tenant\":\"t1\",\"kind\":\"order\"},\"parents\":[]}]"
+      },
+      "expect": {
+        "outcome": "deny",
+        "policies": [],
+        "attention": true
+      }
+    },
+    {
+      "id": "forbid-through-entity",
+      "rule_set": "errors",
+      "request": {
+        "principal": "Actor::\"a1\"",
+        "action": "Action::\"transfer\"",
+        "resource": "Resource::\"r1\"",
+        "context": "{\"amount\":1,\"lineage_depth\":1,\"cited_claims\":[\"kyc\"],\"risk\":0,\"new_device\":false,\"now\":1790000000}",
+        "entities": "[{\"uid\":{\"type\":\"Actor\",\"id\":\"a1\"},\"attrs\":{\"tenant\":\"t1\",\"assurance\":2},\"parents\":[]},{\"uid\":{\"type\":\"Actor\",\"id\":\"o1\"},\"attrs\":{\"tenant\":\"t1\",\"assurance\":0},\"parents\":[]},{\"uid\":{\"type\":\"Resource\",\"id\":\"r1\"},\"attrs\":{\"tenant\":\"t1\",\"kind\":\"order\",\"owner\":{\"__entity\":{\"type\":\"Actor\",\"id\":\"o1\"}}},\"parents\":[]}]"
+      },
+      "expect": {
+        "outcome": "deny",
+        "policies": [
+          "owner-assurance"
+        ],
+        "attention": false
+      }
+    },
+    {
+      "id": "errors-no-objection",
+      "rule_set": "errors",
+      "request": {
+        "principal": "Actor::\"a1\"",
+        "action": "Action::\"transfer\"",
+        "resource": "Resource::\"r1\"",
+        "context": "{\"amount\":0,\"lineage_depth\":1,\"cited_claims\":[\"kyc\"],\"risk\":0,\"new_device\":false,\"now\":1790000000}",
+        "entities": "[{\"uid\":{\"type\":\"Actor\",\"id\":\"a1\"},\"attrs\":{\"tenant\":\"t1\",\"assurance\":2},\"parents\":[]},{\"uid\":{\"type\":\"Actor\",\"id\":\"o1\"},\"attrs\":{\"tenant\":\"t1\",\"assurance\":0},\"parents\":[]},{\"uid\":{\"type\":\"Resource\",\"id\":\"r1\"},\"attrs\":{\"tenant\":\"t1\",\"kind\":\"order\"},\"parents\":[]}]"
+      },
+      "expect": {
+        "outcome": "no_objection"
+      }
+    },
+    {
+      "id": "input-string-over-limit",
+      "rule_set": "main",
+      "request": {
+        "principal": "Actor::\"a1\"",
+        "action": "Action::\"transfer\"",
+        "resource": "Resource::\"r1\"",
+        "context": "{\"amount\":100,\"lineage_depth\":1,\"cited_claims\":[\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"],\"risk\":0,\"new_device\":false,\"now\":1790000000}",
+        "entities": "[{\"uid\":{\"type\":\"Actor\",\"id\":\"a1\"},\"attrs\":{\"tenant\":\"t1\",\"assurance\":2},\"parents\":[]},{\"uid\":{\"type\":\"Actor\",\"id\":\"o1\"},\"attrs\":{\"tenant\":\"t1\",\"assurance\":0},\"parents\":[]},{\"uid\":{\"type\":\"Resource\",\"id\":\"r1\"},\"attrs\":{\"tenant\":\"t1\",\"kind\":\"order\"},\"parents\":[]}]"
+      },
+      "expect": {
+        "outcome": "deny",
+        "policies": [],
+        "attention": true
+      }
+    },
+    {
+      "id": "input-collection-over-limit",
+      "rule_set": "main",
+      "request": {
+        "principal": "Actor::\"a1\"",
+        "action": "Action::\"transfer\"",
+        "resource": "Resource::\"r1\"",
+        "context": "{\"amount\":100,\"lineage_depth\":1,\"cited_claims\":[\"a\",\"a\",\"a\",\"a\",\"a\",\"a\",\"a\",\"a\",\"a\",\"a\",\"a\",\"a\",\"a\",\"a\",\"a\",\"a\",\"a\",\"a\",\"a\",\"a\",\"a\",\"a\",\"a\",\"a\",\"a\",\"a\",\"a\",\"a\",\"a\",\"a\",\"a\",\"a\",\"a\",\"a\",\"a\",\"a\",\"a\",\"a\",\"a\",\"a\",\"a\",\"a\",\"a\",\"a\",\"a\",\"a\",\"a\",\"a\",\"a\",\"a\",\"a\",\"a\",\"a\",\"a\",\"a\",\"a\",\"a\",\"a\",\"a\",\"a\",\"a\",\"a\",\"a\",\"a\",\"a\"],\"risk\":0,\"new_device\":false,\"now\":1790000000}",
+        "entities": "[{\"uid\":{\"type\":\"Actor\",\"id\":\"a1\"},\"attrs\":{\"tenant\":\"t1\",\"assurance\":2},\"parents\":[]},{\"uid\":{\"type\":\"Actor\",\"id\":\"o1\"},\"attrs\":{\"tenant\":\"t1\",\"assurance\":0},\"parents\":[]},{\"uid\":{\"type\":\"Resource\",\"id\":\"r1\"},\"attrs\":{\"tenant\":\"t1\",\"kind\":\"order\"},\"parents\":[]}]"
+      },
+      "expect": {
+        "outcome": "deny",
+        "policies": [],
+        "attention": true
+      }
+    },
+    {
+      "id": "input-float",
+      "rule_set": "main",
+      "request": {
+        "principal": "Actor::\"a1\"",
+        "action": "Action::\"transfer\"",
+        "resource": "Resource::\"r1\"",
+        "context": "{\"amount\":1.5,\"lineage_depth\":1,\"cited_claims\":[\"kyc\"],\"risk\":0,\"new_device\":false,\"now\":1790000000}",
+        "entities": "[{\"uid\":{\"type\":\"Actor\",\"id\":\"a1\"},\"attrs\":{\"tenant\":\"t1\",\"assurance\":2},\"parents\":[]},{\"uid\":{\"type\":\"Actor\",\"id\":\"o1\"},\"attrs\":{\"tenant\":\"t1\",\"assurance\":0},\"parents\":[]},{\"uid\":{\"type\":\"Resource\",\"id\":\"r1\"},\"attrs\":{\"tenant\":\"t1\",\"kind\":\"order\"},\"parents\":[]}]"
+      },
+      "expect": {
+        "outcome": "deny",
+        "policies": [],
+        "attention": true
+      }
+    },
+    {
+      "id": "input-outside-schema",
+      "rule_set": "main",
+      "request": {
+        "principal": "Actor::\"a1\"",
+        "action": "Action::\"transfer\"",
+        "resource": "Resource::\"r1\"",
+        "context": "{\"amount\":1}",
+        "entities": "[{\"uid\":{\"type\":\"Actor\",\"id\":\"a1\"},\"attrs\":{\"tenant\":\"t1\",\"assurance\":2},\"parents\":[]},{\"uid\":{\"type\":\"Actor\",\"id\":\"o1\"},\"attrs\":{\"tenant\":\"t1\",\"assurance\":0},\"parents\":[]},{\"uid\":{\"type\":\"Resource\",\"id\":\"r1\"},\"attrs\":{\"tenant\":\"t1\",\"kind\":\"order\"},\"parents\":[]}]"
+      },
+      "expect": {
+        "outcome": "deny",
+        "policies": [],
+        "attention": true
+      }
+    },
+    {
+      "id": "input-not-json",
+      "rule_set": "main",
+      "request": {
+        "principal": "Actor::\"a1\"",
+        "action": "Action::\"transfer\"",
+        "resource": "Resource::\"r1\"",
+        "context": "not json",
+        "entities": "[{\"uid\":{\"type\":\"Actor\",\"id\":\"a1\"},\"attrs\":{\"tenant\":\"t1\",\"assurance\":2},\"parents\":[]},{\"uid\":{\"type\":\"Actor\",\"id\":\"o1\"},\"attrs\":{\"tenant\":\"t1\",\"assurance\":0},\"parents\":[]},{\"uid\":{\"type\":\"Resource\",\"id\":\"r1\"},\"attrs\":{\"tenant\":\"t1\",\"kind\":\"order\"},\"parents\":[]}]"
+      },
+      "expect": {
+        "outcome": "deny",
+        "policies": [],
+        "attention": true
+      }
+    },
+    {
+      "id": "unknown-action",
+      "rule_set": "main",
+      "request": {
+        "principal": "Actor::\"a1\"",
+        "action": "Action::\"delete\"",
+        "resource": "Resource::\"r1\"",
+        "context": "{}",
+        "entities": "[]"
+      },
+      "expect": {
+        "outcome": "deny",
+        "policies": [],
+        "attention": true
+      }
+    },
+    {
+      "id": "policies-64-compile",
+      "rule_set": "policies-64",
+      "request": {
+        "principal": "Actor::\"a1\"",
+        "action": "Action::\"transfer\"",
+        "resource": "Resource::\"r1\"",
+        "context": "{\"amount\":100,\"lineage_depth\":1,\"cited_claims\":[\"kyc\"],\"risk\":0,\"new_device\":false,\"now\":1790000000}",
+        "entities": "[{\"uid\":{\"type\":\"Actor\",\"id\":\"a1\"},\"attrs\":{\"tenant\":\"t1\",\"assurance\":2},\"parents\":[]},{\"uid\":{\"type\":\"Actor\",\"id\":\"o1\"},\"attrs\":{\"tenant\":\"t1\",\"assurance\":0},\"parents\":[]},{\"uid\":{\"type\":\"Resource\",\"id\":\"r1\"},\"attrs\":{\"tenant\":\"t1\",\"kind\":\"order\"},\"parents\":[]}]"
+      },
+      "expect": {
+        "outcome": "no_objection"
+      }
+    },
+    {
+      "id": "policies-65-refused",
+      "rule_set": "policies-65",
+      "request": {
+        "principal": "Actor::\"a1\"",
+        "action": "Action::\"transfer\"",
+        "resource": "Resource::\"r1\"",
+        "context": "{\"amount\":100,\"lineage_depth\":1,\"cited_claims\":[\"kyc\"],\"risk\":0,\"new_device\":false,\"now\":1790000000}",
+        "entities": "[{\"uid\":{\"type\":\"Actor\",\"id\":\"a1\"},\"attrs\":{\"tenant\":\"t1\",\"assurance\":2},\"parents\":[]},{\"uid\":{\"type\":\"Actor\",\"id\":\"o1\"},\"attrs\":{\"tenant\":\"t1\",\"assurance\":0},\"parents\":[]},{\"uid\":{\"type\":\"Resource\",\"id\":\"r1\"},\"attrs\":{\"tenant\":\"t1\",\"kind\":\"order\"},\"parents\":[]}]"
+      },
+      "expect": {
+        "error": {
+          "code": "restriction_compile_refused",
+          "code_detail": "policy-too-many-policies"
+        }
+      }
+    },
+    {
+      "id": "permit-refused",
+      "rule_set": "permit",
+      "request": {
+        "principal": "Actor::\"a1\"",
+        "action": "Action::\"transfer\"",
+        "resource": "Resource::\"r1\"",
+        "context": "{\"amount\":100,\"lineage_depth\":1,\"cited_claims\":[\"kyc\"],\"risk\":0,\"new_device\":false,\"now\":1790000000}",
+        "entities": "[{\"uid\":{\"type\":\"Actor\",\"id\":\"a1\"},\"attrs\":{\"tenant\":\"t1\",\"assurance\":2},\"parents\":[]},{\"uid\":{\"type\":\"Actor\",\"id\":\"o1\"},\"attrs\":{\"tenant\":\"t1\",\"assurance\":0},\"parents\":[]},{\"uid\":{\"type\":\"Resource\",\"id\":\"r1\"},\"attrs\":{\"tenant\":\"t1\",\"kind\":\"order\"},\"parents\":[]}]"
+      },
+      "expect": {
+        "error": {
+          "code": "restriction_compile_refused",
+          "code_detail": "policy-permit"
+        }
+      }
+    },
+    {
+      "id": "template-refused",
+      "rule_set": "template",
+      "request": {
+        "principal": "Actor::\"a1\"",
+        "action": "Action::\"transfer\"",
+        "resource": "Resource::\"r1\"",
+        "context": "{\"amount\":100,\"lineage_depth\":1,\"cited_claims\":[\"kyc\"],\"risk\":0,\"new_device\":false,\"now\":1790000000}",
+        "entities": "[{\"uid\":{\"type\":\"Actor\",\"id\":\"a1\"},\"attrs\":{\"tenant\":\"t1\",\"assurance\":2},\"parents\":[]},{\"uid\":{\"type\":\"Actor\",\"id\":\"o1\"},\"attrs\":{\"tenant\":\"t1\",\"assurance\":0},\"parents\":[]},{\"uid\":{\"type\":\"Resource\",\"id\":\"r1\"},\"attrs\":{\"tenant\":\"t1\",\"kind\":\"order\"},\"parents\":[]}]"
+      },
+      "expect": {
+        "error": {
+          "code": "restriction_compile_refused",
+          "code_detail": "policy-template"
+        }
+      }
+    },
+    {
+      "id": "missing-id-refused",
+      "rule_set": "no-id",
+      "request": {
+        "principal": "Actor::\"a1\"",
+        "action": "Action::\"transfer\"",
+        "resource": "Resource::\"r1\"",
+        "context": "{\"amount\":100,\"lineage_depth\":1,\"cited_claims\":[\"kyc\"],\"risk\":0,\"new_device\":false,\"now\":1790000000}",
+        "entities": "[{\"uid\":{\"type\":\"Actor\",\"id\":\"a1\"},\"attrs\":{\"tenant\":\"t1\",\"assurance\":2},\"parents\":[]},{\"uid\":{\"type\":\"Actor\",\"id\":\"o1\"},\"attrs\":{\"tenant\":\"t1\",\"assurance\":0},\"parents\":[]},{\"uid\":{\"type\":\"Resource\",\"id\":\"r1\"},\"attrs\":{\"tenant\":\"t1\",\"kind\":\"order\"},\"parents\":[]}]"
+      },
+      "expect": {
+        "error": {
+          "code": "restriction_compile_refused",
+          "code_detail": "policy-bad-id"
+        }
+      }
+    },
+    {
+      "id": "bad-annotation-refused",
+      "rule_set": "bad-annotation",
+      "request": {
+        "principal": "Actor::\"a1\"",
+        "action": "Action::\"transfer\"",
+        "resource": "Resource::\"r1\"",
+        "context": "{\"amount\":100,\"lineage_depth\":1,\"cited_claims\":[\"kyc\"],\"risk\":0,\"new_device\":false,\"now\":1790000000}",
+        "entities": "[{\"uid\":{\"type\":\"Actor\",\"id\":\"a1\"},\"attrs\":{\"tenant\":\"t1\",\"assurance\":2},\"parents\":[]},{\"uid\":{\"type\":\"Actor\",\"id\":\"o1\"},\"attrs\":{\"tenant\":\"t1\",\"assurance\":0},\"parents\":[]},{\"uid\":{\"type\":\"Resource\",\"id\":\"r1\"},\"attrs\":{\"tenant\":\"t1\",\"kind\":\"order\"},\"parents\":[]}]"
+      },
+      "expect": {
+        "error": {
+          "code": "restriction_compile_refused",
+          "code_detail": "policy-bad-annotation"
+        }
+      }
+    },
+    {
+      "id": "unknown-attribute-refused",
+      "rule_set": "unknown-attribute",
+      "request": {
+        "principal": "Actor::\"a1\"",
+        "action": "Action::\"transfer\"",
+        "resource": "Resource::\"r1\"",
+        "context": "{\"amount\":100,\"lineage_depth\":1,\"cited_claims\":[\"kyc\"],\"risk\":0,\"new_device\":false,\"now\":1790000000}",
+        "entities": "[{\"uid\":{\"type\":\"Actor\",\"id\":\"a1\"},\"attrs\":{\"tenant\":\"t1\",\"assurance\":2},\"parents\":[]},{\"uid\":{\"type\":\"Actor\",\"id\":\"o1\"},\"attrs\":{\"tenant\":\"t1\",\"assurance\":0},\"parents\":[]},{\"uid\":{\"type\":\"Resource\",\"id\":\"r1\"},\"attrs\":{\"tenant\":\"t1\",\"kind\":\"order\"},\"parents\":[]}]"
+      },
+      "expect": {
+        "error": {
+          "code": "restriction_compile_refused",
+          "code_detail": "policy-validation"
+        }
+      }
+    },
+    {
+      "id": "parse-refused",
+      "rule_set": "parse",
+      "request": {
+        "principal": "Actor::\"a1\"",
+        "action": "Action::\"transfer\"",
+        "resource": "Resource::\"r1\"",
+        "context": "{\"amount\":100,\"lineage_depth\":1,\"cited_claims\":[\"kyc\"],\"risk\":0,\"new_device\":false,\"now\":1790000000}",
+        "entities": "[{\"uid\":{\"type\":\"Actor\",\"id\":\"a1\"},\"attrs\":{\"tenant\":\"t1\",\"assurance\":2},\"parents\":[]},{\"uid\":{\"type\":\"Actor\",\"id\":\"o1\"},\"attrs\":{\"tenant\":\"t1\",\"assurance\":0},\"parents\":[]},{\"uid\":{\"type\":\"Resource\",\"id\":\"r1\"},\"attrs\":{\"tenant\":\"t1\",\"kind\":\"order\"},\"parents\":[]}]"
+      },
+      "expect": {
+        "error": {
+          "code": "restriction_compile_refused",
+          "code_detail": "policy-parse"
+        }
+      }
+    },
+    {
+      "id": "cost-refused",
+      "rule_set": "expensive",
+      "request": {
+        "principal": "Actor::\"a1\"",
+        "action": "Action::\"transfer\"",
+        "resource": "Resource::\"r1\"",
+        "context": "{\"amount\":100,\"lineage_depth\":1,\"cited_claims\":[\"kyc\"],\"risk\":0,\"new_device\":false,\"now\":1790000000}",
+        "entities": "[{\"uid\":{\"type\":\"Actor\",\"id\":\"a1\"},\"attrs\":{\"tenant\":\"t1\",\"assurance\":2},\"parents\":[]},{\"uid\":{\"type\":\"Actor\",\"id\":\"o1\"},\"attrs\":{\"tenant\":\"t1\",\"assurance\":0},\"parents\":[]},{\"uid\":{\"type\":\"Resource\",\"id\":\"r1\"},\"attrs\":{\"tenant\":\"t1\",\"kind\":\"order\"},\"parents\":[]}]"
+      },
+      "expect": {
+        "error": {
+          "code": "restriction_compile_refused",
+          "code_detail": "policy-cost-too-high"
+        }
+      }
+    }
+  ]
+}

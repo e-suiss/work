@@ -397,6 +397,31 @@ export interface RecordMapping {
 /** The external standard mappings of a record's bytes (P-48). */
 export type MappingAnswer = Accepted<RecordMapping> | Rejected | UnknownProtocol;
 
+/** One restriction rule set: the Cedar schema and the Access Restriction Profile policy source (T-23, PR-17). */
+export interface RestrictionRuleSet {
+  readonly schema: string;
+  readonly policies: string;
+}
+
+/** One request to a restriction rule set: Cedar entity UIDs, and the context object and entity array as JSON text the engine reads unchanged (T-23). */
+export interface RestrictionRequest {
+  readonly principal: string;
+  readonly action: string;
+  readonly resource: string;
+  readonly context: string;
+  readonly entities: string;
+}
+
+/** What one rule set says about a request; `no_objection` is not a permission, and `attention` marks a denial from an input over a limit or an evaluation error (PR-17, PR-23). */
+export type RestrictionVerdict =
+  | { readonly outcome: "no_objection" }
+  | { readonly outcome: "require"; readonly requirements: readonly string[] }
+  | {
+      readonly outcome: "deny";
+      readonly policies: readonly string[];
+      readonly attention: boolean;
+    };
+
 /** Input the kernel bindings could not map, or a ledger order the kernel refuses; never a decision about a record. */
 export class KernelInputError extends Error {
   readonly code: string;
@@ -411,7 +436,7 @@ export class KernelInputError extends Error {
   }
 }
 
-/** The kernel's record decoding, digest, signature, ledger entry, proof, checkpoint and touched item functions and the proto's external standard mappings over bytes as received (T-5, T-10, T-88, T-89, P-48, X-24). */
+/** The kernel's record decoding, digest, signature, ledger entry, proof, checkpoint and touched item functions and the proto's external standard mappings over bytes as received, and the shared restriction engine (T-5, T-10, T-88, T-89, P-48, X-24, T-23). */
 export interface Verifier {
   readonly validateRecordCbor: (record: Uint8Array, context: RecordContext) => Validation;
   readonly decodeRecord: (record: Uint8Array) => DecodedRecordAnswer;
@@ -471,6 +496,10 @@ export interface Verifier {
   ) => Accepted | Rejected<string>;
   readonly touched: (record: Uint8Array) => TouchedAnswer;
   readonly mapRecord: (record: Uint8Array, context: MappingContext) => MappingAnswer;
+  readonly evaluateRestriction: (
+    ruleSet: RestrictionRuleSet,
+    request: RestrictionRequest,
+  ) => RestrictionVerdict;
 }
 
 export interface Kernel extends Verifier {
@@ -645,6 +674,8 @@ const verifier: Verifier = {
     answer("checkpointExtendsTo", wasm.checkpointExtendsTo(j(older), j(newer), j(path))),
   touched: (record) => answer("touched", wasm.touched(record)),
   mapRecord: (record, context) => answer("mapRecord", wasm.mapRecord(record, j(context))),
+  evaluateRestriction: (ruleSet, request) =>
+    answer("evaluateRestriction", wasm.evaluateRestriction(j(ruleSet), j(request))),
 };
 
 let loading: Promise<Kernel> | undefined;
