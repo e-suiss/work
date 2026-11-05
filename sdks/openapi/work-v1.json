@@ -1,6 +1,187 @@
 {
   "components": {
     "schemas": {
+      "AuthContextAnswer": {
+        "description": "The Access authentication context an unsigned human record names; not an author signature\n(P-21 item 3).",
+        "properties": {
+          "digest": {
+            "description": "Access's digest of the artifact, lower-case hex.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "digest"
+        ],
+        "type": "object"
+      },
+      "AuthorSignature": {
+        "description": "The author's own signature.",
+        "properties": {
+          "cose_sign1": {
+            "description": "The `COSE_Sign1` as received, lower-case hex.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "cose_sign1"
+        ],
+        "type": "object"
+      },
+      "ChangeEntry": {
+        "description": "One Work that changed.",
+        "properties": {
+          "pos": {
+            "description": "The position that last changed it.",
+            "type": "string"
+          },
+          "version": {
+            "description": "Its version now.",
+            "type": "string"
+          },
+          "work": {
+            "description": "The Work, `wrk_…`.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work",
+          "version",
+          "pos"
+        ],
+        "type": "object"
+      },
+      "ChangesAnswer": {
+        "description": "One page of the Works that changed after a cursor (P-57, T-26).",
+        "properties": {
+          "changes": {
+            "description": "The Works, in the order of the position that last changed them.",
+            "items": {
+              "$ref": "#/components/schemas/ChangeEntry"
+            },
+            "type": "array"
+          },
+          "more": {
+            "description": "True when more changes follow at once.",
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "description": "The cursor to ask with next, `cur_…`.",
+            "type": "string"
+          },
+          "position": {
+            "description": "The positions the answer reflects, `pos_…` (T-97 item 2).",
+            "type": "string"
+          },
+          "resync": {
+            "description": "True when the cursor no longer opens a difference: read every Work again; nothing is\nmissing silently.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "changes",
+          "next_cursor",
+          "more",
+          "resync",
+          "position"
+        ],
+        "type": "object"
+      },
+      "CheckpointAnswer": {
+        "description": "A checkpoint of the ledger's transparency log.",
+        "properties": {
+          "issued_at": {
+            "description": "When it was issued, RFC 3339 UTC.",
+            "type": "string"
+          },
+          "root": {
+            "description": "Its root hash, lower-case hex.",
+            "type": "string"
+          },
+          "signed_note": {
+            "description": "The C2SP signed note.",
+            "type": "string"
+          },
+          "size": {
+            "description": "Its tree size.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "size",
+          "root",
+          "signed_note",
+          "issued_at"
+        ],
+        "type": "object"
+      },
+      "EvidenceAnswer": {
+        "description": "A record's evidence, each kind apart (P-20): an author signature, the ledger's acceptance,\nthe inclusion proof and the external time and witnesses are never shown as one another.",
+        "properties": {
+          "auth_context": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/AuthContextAnswer",
+                "description": "The Access authentication context of an unsigned human record."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "author": {
+            "description": "The Party that wrote it, `pty_…`.",
+            "type": "string"
+          },
+          "author_signature": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/AuthorSignature",
+                "description": "The author's signature; absent for a record its author did not sign."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "inclusion": {
+            "$ref": "#/components/schemas/InclusionAnswer",
+            "description": "The inclusion in the transparency log."
+          },
+          "ledger": {
+            "description": "The ledger, `led_…`.",
+            "type": "string"
+          },
+          "ledger_attestation": {
+            "$ref": "#/components/schemas/LedgerAttestation",
+            "description": "The ledger's acceptance."
+          },
+          "position": {
+            "description": "The positions the answer reflects, `pos_…` (T-97 item 2).",
+            "type": "string"
+          },
+          "record": {
+            "description": "The record, `rec_…`.",
+            "type": "string"
+          },
+          "witnesses": {
+            "description": "The external time stamps and witness cosignatures of the covering checkpoint.",
+            "items": {
+              "$ref": "#/components/schemas/WitnessAnswer"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ledger",
+          "record",
+          "author",
+          "ledger_attestation",
+          "inclusion",
+          "witnesses",
+          "position"
+        ],
+        "type": "object"
+      },
       "FieldError": {
         "description": "A field error with the JSON Pointer of the field (RFC 9457 section 3).",
         "properties": {
@@ -16,6 +197,68 @@
         "required": [
           "pointer",
           "detail"
+        ],
+        "type": "object"
+      },
+      "InclusionAnswer": {
+        "description": "Whether the record is in the transparency log, and the proof that it is.",
+        "properties": {
+          "checkpoint": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CheckpointAnswer",
+                "description": "The first checkpoint that covers it."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "path": {
+            "description": "The RFC 9162 audit path, leaf side first, lower-case hex.",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "status": {
+            "description": "`pending` before a checkpoint covers it, `proven` with an audit path, `covered` when the\ntree is too large to prove in a request.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "type": "object"
+      },
+      "LedgerAttestation": {
+        "description": "The ledger's acceptance of the record.",
+        "properties": {
+          "epoch": {
+            "description": "The fencing epoch it was sequenced in.",
+            "type": "string"
+          },
+          "leaf_hash": {
+            "description": "The RFC 9162 leaf hash of its envelope, lower-case hex.",
+            "type": "string"
+          },
+          "pos": {
+            "description": "The position.",
+            "type": "string"
+          },
+          "recorded_at": {
+            "description": "Ledger time, RFC 3339 UTC.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "pos",
+          "epoch",
+          "recorded_at",
+          "leaf_hash"
         ],
         "type": "object"
       },
@@ -167,6 +410,84 @@
           "retryable"
         ],
         "type": "object"
+      },
+      "WitnessAnswer": {
+        "description": "A witness cosignature or time stamp of the covering checkpoint.",
+        "properties": {
+          "cosigned_at": {
+            "description": "The time it signs, RFC 3339 UTC.",
+            "type": "string"
+          },
+          "kind": {
+            "description": "`witness` or `rfc3161`.",
+            "type": "string"
+          },
+          "witness": {
+            "description": "The witness.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "witness",
+          "kind",
+          "cosigned_at"
+        ],
+        "type": "object"
+      },
+      "WorkAnswer": {
+        "description": "A Work as its caller reads it.",
+        "properties": {
+          "first_pos": {
+            "description": "The position of its first record.",
+            "type": "string"
+          },
+          "last_pos": {
+            "description": "The position of its last record.",
+            "type": "string"
+          },
+          "ledger": {
+            "description": "The ledger, `led_…`.",
+            "type": "string"
+          },
+          "opened_at": {
+            "description": "Ledger time of its first record, RFC 3339 UTC.",
+            "type": "string"
+          },
+          "position": {
+            "description": "The positions the answer reflects, `pos_…` (T-97 item 2).",
+            "type": "string"
+          },
+          "updated_at": {
+            "description": "Ledger time of its last record, RFC 3339 UTC.",
+            "type": "string"
+          },
+          "version": {
+            "description": "The item version, also the `ETag`.",
+            "type": "string"
+          },
+          "work": {
+            "description": "The Work, `wrk_…`.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ledger",
+          "work",
+          "version",
+          "first_pos",
+          "last_pos",
+          "opened_at",
+          "updated_at",
+          "position"
+        ],
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "access_token": {
+        "description": "An Access access token of a live realm of the tenant, whose aud names Work, in Authorization: DPoP <token>, with its DPoP proof over this request in the DPoP header (RFC 9449). The caller is the Access Party its client's pairwise sub resolves to; there is no bearer token.",
+        "scheme": "DPoP",
+        "type": "http"
       }
     }
   },
@@ -181,6 +502,743 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/v1/ledgers/{ledger}/changes": {
+      "get": {
+        "description": "The difference comes in the order of the position that last changed each Work, scoped to\nwhat the caller may read; a cursor that no longer opens a difference answers `resync` and no\nchange, so the client reads every Work again rather than miss one.",
+        "operationId": "list_changes",
+        "parameters": [
+          {
+            "description": "The ledger, `led_…`.",
+            "in": "path",
+            "name": "ledger",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "The cursor of the previous answer, `cur_…`; without one, every Work the caller may read.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "The most Works to answer, 1 to 500; 100 without one.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChangesAnswer"
+                }
+              }
+            },
+            "description": "The changes.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Work-Position": {
+                "description": "The positions the answer reflects.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "An identifier or a cursor that does not open.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No valid Access access token and DPoP proof.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "WWW-Authenticate": {
+                "description": "The DPoP challenge.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No such ledger.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "The caller has spent its quota.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Retry-After": {
+                "description": "Seconds until the next window.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Access cannot be reached, so the caller's authority cannot be verified, or the server sheds load.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Reads the Works that changed after a cursor.",
+        "tags": [
+          "works"
+        ],
+        "x-work-action": "work:read"
+      }
+    },
+    "/v1/ledgers/{ledger}/records/{record}/evidence": {
+      "get": {
+        "description": "The author signature, the ledger's acceptance, the inclusion proof and the witness\ncosignatures are separate fields; the Access authentication context of an unsigned human\nrecord is never shown as an author signature.",
+        "operationId": "get_record_evidence",
+        "parameters": [
+          {
+            "description": "The ledger, `led_…`.",
+            "in": "path",
+            "name": "ledger",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "The record, `rec_…`.",
+            "in": "path",
+            "name": "record",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvidenceAnswer"
+                }
+              }
+            },
+            "description": "The evidence.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Work-Position": {
+                "description": "The positions the answer reflects.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "An identifier that does not open.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No valid Access access token and DPoP proof.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "WWW-Authenticate": {
+                "description": "The DPoP challenge.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No such record, or not one the caller may read.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "The caller has spent its quota.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Retry-After": {
+                "description": "Seconds until the next window.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Access cannot be reached, so the caller's authority cannot be verified, or the server sheds load.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Reads a record's evidence, each kind apart.",
+        "tags": [
+          "records"
+        ],
+        "x-work-action": "work:read"
+      }
+    },
+    "/v1/ledgers/{ledger}/works/{work}": {
+      "get": {
+        "description": "The state comes from the Work's sync-derived item head; nothing of it is kept in a session.\nA Work the caller took no part in is `404 not_found`, as one that does not exist.",
+        "operationId": "get_work",
+        "parameters": [
+          {
+            "description": "The ledger, `led_…`.",
+            "in": "path",
+            "name": "ledger",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "The Work, `wrk_…`.",
+            "in": "path",
+            "name": "work",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "A `pos_…` token the answer must reflect at least.",
+            "in": "header",
+            "name": "Work-Min-Position",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkAnswer"
+                }
+              }
+            },
+            "description": "The Work.",
+            "headers": {
+              "ETag": {
+                "description": "The item version.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Work-Position": {
+                "description": "The positions the answer reflects.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "An identifier or a read position that does not open.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No valid Access access token and DPoP proof.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "WWW-Authenticate": {
+                "description": "The DPoP challenge.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No such Work, or not one the caller may read.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "The caller has spent its quota.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Retry-After": {
+                "description": "Seconds until the next window.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Access cannot be reached, so the caller's authority cannot be verified, or the server sheds load.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Reads one Work.",
+        "tags": [
+          "works"
+        ],
+        "x-work-action": "work:read"
+      }
+    },
     "/v1/problems/{code}": {
       "get": {
         "description": "Every problem `type` is `https://suiss.app/ns/work/problems/<code>`; this route describes the\ncode without asking for an identity.",
