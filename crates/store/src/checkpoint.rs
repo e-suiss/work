@@ -112,12 +112,12 @@ pub struct CheckpointerPool {
     pool: PgPool,
 }
 
-struct StoredCheckpoint {
-    size: i64,
-    root: Vec<u8>,
-    head_leaf: Vec<u8>,
-    issued_at: i64,
-    signed_note: Vec<u8>,
+pub(crate) struct StoredCheckpoint {
+    pub(crate) size: i64,
+    pub(crate) root: Vec<u8>,
+    pub(crate) head_leaf: Vec<u8>,
+    pub(crate) issued_at: i64,
+    pub(crate) signed_note: Vec<u8>,
 }
 
 fn signed(v: u64) -> Result<i64, StoreError> {
@@ -132,7 +132,7 @@ fn digest(raw: &[u8]) -> Result<[u8; 32], StoreError> {
     <[u8; 32]>::try_from(raw).map_err(|_| StoreError::Corrupt)
 }
 
-fn checkpoint_row(row: StoredCheckpoint) -> Result<CheckpointRow, StoreError> {
+pub(crate) fn checkpoint_row(row: StoredCheckpoint) -> Result<CheckpointRow, StoreError> {
     Ok(CheckpointRow {
         size: unsigned(row.size)?,
         root: digest(&row.root)?,
