@@ -93,17 +93,24 @@ fn der(pem: &str) -> Vec<u8> {
     STANDARD.decode(body).unwrap()
 }
 
-/// Wall time, Unix milliseconds: the eligibility intent's validity is checked against Access's
-/// clock, which is the host's.
-#[allow(clippy::disallowed_methods, reason = "test code")]
-fn wall_ms() -> u64 {
-    u64::try_from(
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_millis(),
-    )
-    .unwrap()
+/// Unix milliseconds of an RFC 9110 IMF-fixdate such as `Thu, 05 Nov 2026 04:42:06 GMT`.
+fn imf_fixdate_ms(date: &str) -> u64 {
+    const MONTHS: [&str; 12] = [
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+    ];
+    let parts: Vec<&str> = date.split([' ', ':']).collect();
+    let [_, day, month, year, hour, minute, second, "GMT"] = parts.as_slice() else {
+        panic!("{date}");
+    };
+    let n = |t: &str| t.parse::<i64>().unwrap();
+    let month = i64::try_from(MONTHS.iter().position(|m| m == month).unwrap()).unwrap() + 1;
+    let y = if month <= 2 { n(year) - 1 } else { n(year) };
+    let era = y.div_euclid(400);
+    let yoe = y - era * 400;
+    let doy = (153 * ((month + 9) % 12) + 2) / 5 + n(day) - 1;
+    let days = era * 146_097 + yoe * 365 + yoe / 4 - yoe / 100 + doy - 719_468;
+    let seconds = days * 86_400 + n(hour) * 3600 + n(minute) * 60 + n(second);
+    u64::try_from(seconds).unwrap() * 1000
 }
 
 /// What `just dev-access` copied out of the local Access.
@@ -170,11 +177,25 @@ impl Local {
         )
     }
 
-    /// The bootstrap's sample eligibility check, with an intent valid for a minute around now.
-    fn sample(&self) -> (KernelId, Map<String, Value>) {
+    /// Access's time, from the `Date` of its answer: what it checks validity windows against.
+    async fn access_now_ms(&self, pep: &PepCredential) -> u64 {
+        let answer = self
+            .transport(pep)
+            .send(Request::get(
+                self.issuer("acme").well_known(SUISS_CONFIGURATION),
+                JSON,
+            ))
+            .await
+            .unwrap();
+        imf_fixdate_ms(answer.header("date").unwrap())
+    }
+
+    /// The bootstrap's sample eligibility check, with an intent valid for a minute around
+    /// Access's now.
+    async fn sample(&self, pep: &PepCredential) -> (KernelId, Map<String, Value>) {
         let sample = &self.bootstrap["sample"];
         assert_eq!(sample["realm"], "acme");
-        let now = wall_ms();
+        let now = self.access_now_ms(pep).await;
         let set = json!({
             "domain": sample["domain"],
             "intent": {
@@ -252,7 +273,7 @@ async fn t_96_discovery_reads_the_platform_and_acme_realms_at_their_path_issuers
 async fn t_101_the_pep_key_born_in_the_token_carries_the_certificate_access_issued_for_its_csr() {
     let local = Local::open();
     let pep = local.pep();
-    let left = pep.expiry_seconds(wall_ms());
+    let left = pep.expiry_seconds(local.access_now_ms(&pep).await);
     assert!(left > 300 * 86_400 && left <= 366 * 86_400, "{left}");
     let client = local.client(&pep, "platform");
     client.discover().await.unwrap();
@@ -393,7 +414,7 @@ async fn t_101_the_bootstrap_sample_is_eligible() {
     let pep = local.pep();
     let client = local.client(&pep, "acme");
     client.discover().await.unwrap();
-    let (subject, set) = local.sample();
+    let (subject, set) = local.sample(&pep).await;
     let request = EligibilityRequest::new(subject, set.clone(), None).unwrap();
     let answer = client.eligibility(&request).await.unwrap();
     assert!(answer.eligible);
@@ -410,7 +431,7 @@ async fn t_101_a_broken_set_is_refused_with_the_pointer_of_what_it_names() {
     let pep = local.pep();
     let client = local.client(&pep, "acme");
     client.discover().await.unwrap();
-    let (subject, mut set) = local.sample();
+    let (subject, mut set) = local.sample(&pep).await;
     set.insert("basis".to_owned(), json!("none"));
     let request = EligibilityRequest::new(subject, set, None).unwrap();
     let refused = client.eligibility(&request).await.unwrap_err();
