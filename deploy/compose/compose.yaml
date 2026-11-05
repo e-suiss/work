@@ -365,7 +365,7 @@ services:
   # T-51, T-41
   access-volume-owners:
     <<: *access-hardening
-    image: ghcr.io/e-suiss/access@sha256:91c3fd3ac87d8f3de50da58dc967ee346fbf035241ebd5a4633eb479e52cf796
+    image: ghcr.io/e-suiss/access@sha256:96f6bd8539ae955e4a9ca1c4580010f6c64b9e4fbcd4efec2ad5a55e1a1949f0
     platform: linux/amd64
     user: "0:0"
     cap_add: [CHOWN, FOWNER]
@@ -375,10 +375,10 @@ services:
       - >-
         chown 65532:65532 /var/lib/access/certs /var/lib/access/secrets /var/lib/access/initdb
         /var/lib/access/signer /var/lib/access/identity-signer /var/lib/access/bootstrap
-        /var/lib/access/products &&
+        /var/lib/access/products /var/lib/access/product-tls &&
         chmod 0750 /var/lib/access/certs /var/lib/access/secrets /var/lib/access/initdb
         /var/lib/access/signer /var/lib/access/identity-signer /var/lib/access/bootstrap
-        /var/lib/access/products &&
+        /var/lib/access/products /var/lib/access/product-tls &&
         chown 65532:softhsm /var/lib/softhsm/tokens && chmod 0770 /var/lib/softhsm/tokens
     volumes:
       - access-certs:/var/lib/access/certs
@@ -389,13 +389,16 @@ services:
       - access-identity-signer:/var/lib/access/identity-signer
       - access-bootstrap:/var/lib/access/bootstrap
       - access-products:/var/lib/access/products
+      - access-product-tls:/var/lib/access/product-tls
     networks: [access]
 
   # T-51, T-41, T-101
   access-init:
     <<: *access-process
-    image: ghcr.io/e-suiss/access@sha256:91c3fd3ac87d8f3de50da58dc967ee346fbf035241ebd5a4633eb479e52cf796
+    image: ghcr.io/e-suiss/access@sha256:96f6bd8539ae955e4a9ca1c4580010f6c64b9e4fbcd4efec2ad5a55e1a1949f0
     command: ["access-local-init"]
+    environment:
+      ACCESS_LOCAL_PRODUCT_HOSTS: work-server
     depends_on:
       access-volume-owners:
         condition: service_completed_successfully
@@ -406,6 +409,7 @@ services:
       - access-softhsm:/var/lib/softhsm/tokens
       - access-signer:/var/lib/access/signer
       - access-identity-signer:/var/lib/access/identity-signer
+      - access-product-tls:/var/lib/access/product-tls
     networks: [access]
 
   # T-51, T-20
@@ -450,7 +454,7 @@ services:
   # T-51, T-36
   access-migrate:
     <<: *access-process
-    image: ghcr.io/e-suiss/access@sha256:91c3fd3ac87d8f3de50da58dc967ee346fbf035241ebd5a4633eb479e52cf796
+    image: ghcr.io/e-suiss/access@sha256:96f6bd8539ae955e4a9ca1c4580010f6c64b9e4fbcd4efec2ad5a55e1a1949f0
     command: ["access-server", "migrate"]
     environment:
       ACCESS_CONFIG: /etc/access/local/access.toml
@@ -465,7 +469,7 @@ services:
   # T-51, T-56
   access-signer:
     <<: *access-process
-    image: ghcr.io/e-suiss/access@sha256:91c3fd3ac87d8f3de50da58dc967ee346fbf035241ebd5a4633eb479e52cf796
+    image: ghcr.io/e-suiss/access@sha256:96f6bd8539ae955e4a9ca1c4580010f6c64b9e4fbcd4efec2ad5a55e1a1949f0
     command: ["access-signer"]
     restart: unless-stopped
     environment:
@@ -488,7 +492,7 @@ services:
   # T-51, T-56
   access-identity-signer:
     <<: *access-process
-    image: ghcr.io/e-suiss/access@sha256:91c3fd3ac87d8f3de50da58dc967ee346fbf035241ebd5a4633eb479e52cf796
+    image: ghcr.io/e-suiss/access@sha256:96f6bd8539ae955e4a9ca1c4580010f6c64b9e4fbcd4efec2ad5a55e1a1949f0
     command: ["access-identity-signer"]
     restart: unless-stopped
     environment:
@@ -533,7 +537,7 @@ services:
   # T-96, T-101, T-103, T-51
   access-bootstrap:
     <<: *access-process
-    image: ghcr.io/e-suiss/access@sha256:91c3fd3ac87d8f3de50da58dc967ee346fbf035241ebd5a4633eb479e52cf796
+    image: ghcr.io/e-suiss/access@sha256:96f6bd8539ae955e4a9ca1c4580010f6c64b9e4fbcd4efec2ad5a55e1a1949f0
     entrypoint: ["sh", "-c"]
     command:
       - >-
@@ -542,6 +546,7 @@ services:
         cat /var/lib/access/bootstrap/bootstrap.json
     environment:
       ACCESS_CONFIG: /etc/access/local/access.toml
+      ACCESS_DELIVERY_TARGETS: '[{url="https://work-server:8443/v1/inbound/events", ca_file="/var/lib/access/certs/ca.crt"}]'
     volumes:
       - access-certs:/var/lib/access/certs:ro
       - access-secrets:/var/lib/access/secrets:ro
@@ -563,11 +568,12 @@ services:
   # T-51, E-2, MD-3, T-96, T-101
   access:
     <<: *access-process
-    image: ghcr.io/e-suiss/access@sha256:91c3fd3ac87d8f3de50da58dc967ee346fbf035241ebd5a4633eb479e52cf796
+    image: ghcr.io/e-suiss/access@sha256:96f6bd8539ae955e4a9ca1c4580010f6c64b9e4fbcd4efec2ad5a55e1a1949f0
     command: ["access-server"]
     restart: unless-stopped
     environment:
       ACCESS_CONFIG: /etc/access/local/access.toml
+      ACCESS_DELIVERY_TARGETS: '[{url="https://work-server:8443/v1/inbound/events", ca_file="/var/lib/access/certs/ca.crt"}]'
     volumes:
       - access-certs:/var/lib/access/certs:ro
       - access-secrets:/var/lib/access/secrets:ro
@@ -693,6 +699,7 @@ volumes:
   access-sockets:
   access-bootstrap:
   access-products:
+  access-product-tls:
 
 networks:
   default:
