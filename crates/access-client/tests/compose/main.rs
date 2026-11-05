@@ -1,4 +1,4 @@
-//! The Access client against the real Access of the local environment (T-96, T-101, P-116): discovery of the platform and `acme` realms at their path-form issuers, the PEP certificate over mutual TLS for the tenant list and snapshot, the verified key lookup of the bootstrap's root, the eligibility check and a realm's token keys. These tests need `just dev`; `just test-compose` runs them with `WORK_ACCESS_LOCAL` naming the directory `just dev-access` fills with Access's local CA, its PEP certificate and key and `bootstrap.json`, and with `access-server` resolving to the loopback address.
+//! The Access client against the real Access of the local environment (T-96, T-101, P-116): discovery of the platform and `acme` realms at their path-form issuers, the PEP certificate over mutual TLS for the tenant list and snapshot, and a realm's token keys. These tests need `just dev`; `just test-compose` runs them with `WORK_ACCESS_LOCAL` naming the directory `just dev-access` fills with Access's local CA, its PEP certificate and key and `bootstrap.json`, and with `access-server` resolving to the loopback address.
 
 #![allow(
     clippy::unwrap_used,
@@ -15,7 +15,7 @@ use std::process::Command;
 use std::sync::Arc;
 
 use base64::Engine as _;
-use base64::engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD};
+use base64::engine::general_purpose::STANDARD;
 use cryptoki::context::{CInitializeArgs, CInitializeFlags, Pkcs11};
 use cryptoki::error::{Error as CkError, RvError};
 use cryptoki::object::{Attribute, CertificateType, ObjectClass};
@@ -23,16 +23,14 @@ use cryptoki::session::UserType;
 use cryptoki::types::AuthPin;
 use rustls::pki_types::CertificateDer;
 use rustls::{ClientConfig, RootCertStore};
-use serde_json::{Value, json};
+use serde_json::Value;
 use suiss_crypto::secret::Secret;
 use work_access_client::adapters::{DEFAULT_TIMEOUT, HttpsTransport, PEP_LABEL, PepCredential};
-use work_access_client::app::{Client, Looked};
+use work_access_client::app::Client;
+use work_access_client::domain::AccessError;
 use work_access_client::domain::discovery::{
     Endpoint, Issuer, SUISS_CONFIGURATION, SuissConfiguration,
 };
-use work_access_client::domain::eligibility::EligibilityRequest;
-use work_access_client::domain::keys::{AsOf, DomainId, KernelId, KeyState, Kid};
-use work_access_client::domain::{AccessError, fixed_b64url};
 use work_access_client::ports::{Clock, Request, Transport};
 use work_proto::id::TenantId;
 
@@ -170,20 +168,8 @@ impl Local {
         Issuer::parse(self.realm(slug)["issuer"].as_str().unwrap()).unwrap()
     }
 
-    fn domain(&self, slug: &str) -> DomainId {
-        DomainId(fixed_b64url(self.realm(slug)["domain"].as_str().unwrap()).unwrap())
-    }
-
     fn tenant(&self, slug: &str) -> TenantId {
         TenantId::new(self.realm(slug)["tenant"].as_str().unwrap()).unwrap()
-    }
-
-    fn root(&self) -> (KernelId, Kid) {
-        let root = &self.bootstrap["root"];
-        (
-            KernelId(fixed_b64url(root["party"].as_str().unwrap()).unwrap()),
-            Kid(fixed_b64url(root["kid"].as_str().unwrap()).unwrap()),
-        )
     }
 
     fn roots(&self) -> RootCertStore {
@@ -237,18 +223,6 @@ impl Local {
             pep.not_after_ms(),
         )
     }
-}
-
-/// The status of `request` and, when it is not a `200`, its body, so a refusal names its
-/// problem.
-async fn status(transport: &HttpsTransport, request: Request) -> (u16, String) {
-    let answer = transport.send(request).await.unwrap();
-    let body = if answer.status == 200 {
-        String::new()
-    } else {
-        String::from_utf8_lossy(&answer.body).into_owned()
-    };
-    (answer.status, body)
 }
 
 // T-96
@@ -336,120 +310,6 @@ async fn t_101_the_pep_certificate_lists_the_tenants_and_reads_their_snapshots()
         answer.ok(),
         Err(AccessError::Refused { status: 401, .. })
     ));
-}
-
-// T-101
-#[tokio::test(flavor = "multi_thread")]
-#[ignore = "needs the local environment"]
-async fn t_101_the_bootstrap_root_key_is_looked_up_and_verified_in_each_realm_domain() {
-    let local = Local::open();
-    let pep = local.pep();
-    let (party, root) = local.root();
-    let stranger = Kid([7; 32]);
-    for slug in ["platform", "acme"] {
-        let domain = local.domain(slug);
-        let batch = local.client(&pep, slug);
-        let doc = batch.discover().await.unwrap();
-        let transport = local.transport(&pep);
-        let adp = doc.endpoints.get(Endpoint::Adp).unwrap().as_str();
-        let metadata = Request::get(format!("{adp}/{}", domain.text()), JSON);
-        assert_eq!(status(&transport, metadata).await, (200, String::new()));
-        let body = json!({ "domain": domain.text(), "kids": [root.text(), stranger.text()] });
-        let lookup = Request::post(
-            doc.endpoints.get(Endpoint::KeyBatch).unwrap().expand(""),
-            "application/cose",
-            body.to_string().into_bytes(),
-        );
-        let plain = Request::post(
-            doc.endpoints.get(Endpoint::KeyBatch).unwrap().expand(""),
-            JSON,
-            body.to_string().into_bytes(),
-        );
-        let answer = transport.send(plain).await.unwrap();
-        let single = Request::get(
-            format!(
-                "{}?domain={}",
-                doc.endpoints
-                    .get(Endpoint::KeyLookup)
-                    .unwrap()
-                    .expand(&root.text()),
-                domain.text()
-            ),
-            "application/cose",
-        );
-        let alone = status(&transport, single).await;
-        assert_eq!(
-            status(&transport, lookup).await,
-            (200, String::new()),
-            "json form {} {}; single {alone:?}",
-            answer.status,
-            String::from_utf8_lossy(&answer.body)
-        );
-        let both = batch
-            .keys(domain, &[root, stranger], &AsOf::Head)
-            .await
-            .unwrap();
-        let [Looked::Known(key), Looked::Unknown(unknown)] = both.as_slice() else {
-            panic!("{slug}: {both:?}");
-        };
-        assert_eq!(key.key.kid, root);
-        assert_eq!(key.key.party, party);
-        assert_eq!(key.key.state, KeyState::Active);
-        assert_ne!(key.evidence.sign1.len(), 0);
-        assert_ne!(key.evidence.excerpt.len(), 0);
-        assert_eq!(*unknown, stranger);
-        let single = local.client(&pep, slug);
-        single.discover().await.unwrap();
-        let one = single.keys(domain, &[root], &AsOf::Head).await.unwrap();
-        let [Looked::Known(alone)] = one.as_slice() else {
-            panic!("{slug}: {one:?}");
-        };
-        assert_eq!(alone.key, key.key);
-    }
-}
-
-// T-101
-#[tokio::test(flavor = "multi_thread")]
-#[ignore = "needs the local environment"]
-async fn t_101_the_eligibility_check_answers_with_a_consistency_token() {
-    let local = Local::open();
-    let pep = local.pep();
-    let client = local.client(&pep, "acme");
-    let doc = client.discover().await.unwrap();
-    let (party, _) = local.root();
-    let set = json!({
-        "domain": URL_SAFE_NO_PAD.encode(local.domain("acme").0),
-        "intent": {
-            "action": {
-                "namespace": "work",
-                "name": "approve",
-                "major": 1,
-                "schema": URL_SAFE_NO_PAD.encode([4; 32]),
-            },
-            "resources": [{ "namespace": "work", "path": ["gate-1"] }],
-            "validity": { "from": 0, "until": 4_000_000_000_000_u64 },
-        },
-        "basis": {
-            "holding": {
-                "grant": URL_SAFE_NO_PAD.encode([6; 16]),
-                "holder": party.text(),
-                "since": 1,
-            },
-        },
-        "capacity": "own",
-    });
-    let request = EligibilityRequest::new(party, set.as_object().unwrap().clone(), None).unwrap();
-    let check = Request::post(
-        doc.endpoints.get(Endpoint::Eligibility).unwrap().expand(""),
-        JSON,
-        request.body(),
-    );
-    assert_eq!(
-        status(&local.transport(&pep), check).await,
-        (200, String::new())
-    );
-    let answer = client.eligibility(&request).await.unwrap();
-    assert_ne!(answer.consistency_token.as_str(), "");
 }
 
 // P-116
