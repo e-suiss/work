@@ -15,7 +15,7 @@ b64url() {
 
 key() {
     if ! token --list-objects --type pubkey | grep -q "label:[[:space:]]*$1[[:space:]]*$"; then
-        token --keypairgen --key-type "$2" --label "$1" --usage-sign >/dev/null
+        token --keypairgen --key-type "$2" --label "$1" --usage-sign ${3:+--id "$3"} >/dev/null
     fi
 }
 
@@ -36,7 +36,7 @@ spki() {
 key work-access-client EC:prime256v1
 key work-access-dpop EC:prime256v1
 key work-access-service EC:edwards25519
-key work-access-pep EC:prime256v1
+key work-access-pep EC:prime256v1 706570
 
 spki work-access-client 91
 x="$(tail -c 64 /tmp/work-access-client.der | head -c 32 | b64url)"

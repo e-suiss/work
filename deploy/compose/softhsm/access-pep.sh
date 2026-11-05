@@ -30,5 +30,5 @@ fi
 while token --list-objects --type cert | grep -q "label:[[:space:]]*$label[[:space:]]*$"; do
     token --delete-object --type cert --label "$label" >/dev/null
 done
-token --write-object /tmp/work-pep.der --type cert --label "$label" >/dev/null
+token --write-object /tmp/work-pep.der --type cert --label "$label" --id 706570 >/dev/null
 echo "work-access-pep: certificate written"
