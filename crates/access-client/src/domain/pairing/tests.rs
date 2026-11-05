@@ -237,7 +237,7 @@ fn t_103_a_digest_that_does_not_match_is_not_signed() {
 fn t_103_nonces_must_be_the_challenge_and_the_challenge_with_0x01() {
     let c = challenge_for(&service(), NOW);
     let mut create = c.clone();
-    create.instance_create.nonce = vec![0x0c; 31];
+    create.instance_create.nonce = register_nonce(&c.challenge);
     assert_eq!(statements(&create, &service(), NOW), Err(Unsignable::Nonce));
     let mut register = c.clone();
     if let Some(r) = register.party_register.as_mut() {
