@@ -58,9 +58,16 @@ if [ -f "$csr" ] \
     echo "work-access-keys: work-pep.csr kept"
     exit 0
 fi
-PKCS11_PROVIDER_MODULE="$module" openssl req -new -provider pkcs11 -provider default \
-    -key "pkcs11:token=$SOFTHSM_TOKEN_LABEL;object=work-access-pep;type=private?pin-value=$SOFTHSM_USER_PIN" \
-    -subj /CN=work-pep -sha256 -out /tmp/work-pep.csr
+hex() {
+    od -An -v -tx1 | tr -d ' \n'
+}
+printf '%s' "307502010030133111300f06035504030c08776f726b2d706570$(hex < /tmp/work-access-pep.der)a000" | xxd -r -p > /tmp/tbs.der
+openssl dgst -sha256 -binary -out /tmp/tbs.sha256 /tmp/tbs.der
+token --sign --id 706570 --mechanism ECDSA --signature-format openssl --input-file /tmp/tbs.sha256 --output-file /tmp/sig.der >/dev/null
+bits="$(( $(wc -c < /tmp/sig.der) + 1 ))"
+printf '%s' "3081$(printf '%02x' $(( 119 + 12 + 2 + bits )))$(hex < /tmp/tbs.der)300a06082a8648ce3d04030203$(printf '%02x' "$bits")00$(hex < /tmp/sig.der)" \
+    | xxd -r -p > /tmp/work-pep.csr.der
+openssl req -inform DER -in /tmp/work-pep.csr.der -out /tmp/work-pep.csr
 openssl req -in /tmp/work-pep.csr -noout -verify
 openssl req -in /tmp/work-pep.csr -noout -pubkey | openssl pkey -pubin -outform DER | cmp - /tmp/work-access-pep.der
 cp /tmp/work-pep.csr "$csr.new"
