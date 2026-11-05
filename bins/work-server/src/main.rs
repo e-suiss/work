@@ -4,6 +4,7 @@
 
 mod config;
 mod health;
+mod pairing;
 mod parser;
 mod services;
 mod startup;

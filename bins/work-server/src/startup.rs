@@ -1,6 +1,6 @@
 //! Start-up checks of the mandatory infrastructure (T-20, T-84, MD-14): both PostgreSQL
-//! databases answer and run major version 18 or later, the sequencer, checkpointer, publisher and
-//! deriver pools log in as their own roles (T-79, OP-12), and NATS answers with JetStream enabled
+//! databases answer and run major version 18 or later, the sequencer, checkpointer, publisher,
+//! deriver and Access pairing pools log in as their own roles (T-79, OP-12, T-103), and NATS answers with JetStream enabled
 //! within the start-up timeout; otherwise the process does not start. Migrations are not run
 //! here (OP-28). Once running, losing NATS is only a delay (T-21, T-28, T-84): the client
 //! reconnects in the background and the loss is logged. The ledger time driver starts here
@@ -27,7 +27,9 @@ use work_ledger::SystemRng;
 use work_ledger::time::{
     LedgerTime, NTS_EVENT_QUEUE, ProcessMonotonic, RoughtimeUdp, read_roots, spawn_nts,
 };
-use work_store::{CheckpointerPool, DeriverPool, Pool, PublisherPool, SequencerPool, StoreError};
+use work_store::{
+    AccessPool, CheckpointerPool, DeriverPool, Pool, PublisherPool, SequencerPool, StoreError,
+};
 
 use crate::config::Config;
 
@@ -230,6 +232,7 @@ pub(crate) struct Infrastructure {
     pub(crate) checkpointer: CheckpointerPool,
     pub(crate) publisher: PublisherPool,
     pub(crate) deriver: Pool,
+    pub(crate) access: AccessPool,
     roles: Vec<(&'static str, Pool)>,
 }
 
@@ -264,6 +267,8 @@ impl Infrastructure {
         .await?;
         let deriver_pool = postgres("deriver", &pg.deriver, limit).await?;
         role("deriver", limit, DeriverPool::new(deriver_pool.clone())).await?;
+        let access_pool = postgres("access", &pg.access, limit).await?;
+        let access = role("access", limit, AccessPool::new(access_pool.clone())).await?;
         let nats = nats(&config.nats.url, limit).await?;
         Ok(Self {
             canonical,
@@ -273,11 +278,13 @@ impl Infrastructure {
             checkpointer,
             publisher,
             deriver: deriver_pool.clone(),
+            access,
             roles: vec![
                 ("sequencer", sequencer_pool),
                 ("checkpointer", checkpointer_pool),
                 ("publisher", publisher_pool),
                 ("deriver", deriver_pool),
+                ("access", access_pool),
             ],
         })
     }

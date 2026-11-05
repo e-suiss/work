@@ -5,7 +5,8 @@
 //! configured replica, a directory or an S3 bucket with Object Lock, before any witness (P-20,
 //! OP-4 item 3, OP-33 item 3), and, with witnesses configured, the witnessing task that sends
 //! each mirrored checkpoint to them, puts the counted witnesses' cosignature times into ledger
-//! time and runs the gossip comparison (OP-32, OP-33, SEC-32).
+//! time and runs the gossip comparison (OP-32, OP-33, SEC-32), and Work's Access pairing and
+//! event stream upkeep, at start and every hour (T-103).
 
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
@@ -19,9 +20,11 @@ use work_ledger::{
     SignerClient, SystemRng, WitnessSetup, WormReplica, WormStore, run_checkpoints, run_witnessing,
     tls_trusting,
 };
+use work_reconciler::adapters::PgPairing;
 
 use crate::config::{Config, ReplicaTarget};
 use crate::health::Health;
+use crate::pairing::{self, PairingStats};
 use crate::startup::{Infrastructure, StartupError};
 
 /// The access key of the replica's bucket, from the environment like the database passwords.
@@ -81,6 +84,7 @@ pub(crate) struct Services {
     ledgers: Arc<ServerLedgers>,
     checkpoints: Arc<CheckpointStats>,
     signer: SignerClient,
+    pairing: Arc<PairingStats>,
 }
 
 impl Services {
@@ -131,6 +135,13 @@ impl Services {
                 Arc::clone(&checkpoints),
             )),
         ];
+        let pairing = Arc::new(PairingStats::default());
+        handles.push(pairing::spawn(
+            config.access_settings(),
+            PgPairing::new(infrastructure.access.clone()),
+            clock.clone(),
+            Arc::clone(&pairing),
+        ));
         let witness_count = witnesses.len();
         if !witnesses.is_empty() {
             let witnessing = WitnessSetup {
@@ -158,6 +169,7 @@ impl Services {
             ledgers,
             checkpoints,
             signer,
+            pairing,
         })
     }
 
@@ -175,6 +187,7 @@ impl Services {
             ledgers: Arc::clone(&self.ledgers),
             checkpoints: Arc::clone(&self.checkpoints),
             access,
+            pairing: Arc::clone(&self.pairing),
         }
     }
 

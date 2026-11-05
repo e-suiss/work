@@ -24,6 +24,7 @@ use work_ledger::{
     MAX_LEASE, Node, Retention, Rng, Witness, WitnessClient, WitnessEndpoint, WitnessRole,
     witness_tls,
 };
+use work_reconciler::app::AccessSettings;
 use work_store::CellId;
 use work_telemetry::{DEFAULT_MAX_QUEUE_SIZE, InvalidSampleRatio, SampleRatio, TraceConfig};
 
@@ -69,6 +70,10 @@ pub(crate) struct Config {
     pub(crate) parser: Parser,
     /// The Suiss connection (T-96 item 1).
     pub(crate) suiss: Suiss,
+    /// Work's Access keys in the token for the pairing step (T-101, T-103).
+    pub(crate) access: Access,
+    /// `WORK_ACCESS_CLIENT_ID`, Work's Access client (T-96 item 3).
+    pub(crate) access_client_id: String,
 }
 
 /// The single Suiss connection setting with Work's region and the roots that verify Access and
@@ -82,6 +87,21 @@ pub(crate) struct Suiss {
     pub(crate) region: String,
     /// A PEM file of the roots the server certificates of Access and Relay verify against.
     pub(crate) tls_roots: PathBuf,
+}
+
+/// `[access]`: where the pairing step finds Work's Access keys (T-101 note, T-103).
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Access {
+    /// The PKCS#11 module holding `work-access-pep`, `work-access-client` and
+    /// `work-access-service` (T-56).
+    pub(crate) module: PathBuf,
+    /// The token label.
+    pub(crate) token: String,
+    /// A file holding the user PIN.
+    pub(crate) pin_file: PathBuf,
+    /// Upper bound on one call to Access, in milliseconds.
+    pub(crate) call_timeout_ms: u64,
 }
 
 /// The most parser workers one server starts (T-94 item 8).
@@ -357,6 +377,8 @@ pub(crate) struct Postgres {
     pub(crate) publisher: String,
     /// The derived database as `work_deriver`, for the gossip comparison (SEC-32).
     pub(crate) deriver: String,
+    /// The canonical database as `work_access`, Work's Access pairing state (T-103).
+    pub(crate) access: String,
 }
 
 /// NATS connection settings.
@@ -390,6 +412,7 @@ impl Default for Config {
                 checkpointer: "postgres://work_checkpointer@localhost/work".to_owned(),
                 publisher: "postgres://work_publisher@localhost/work".to_owned(),
                 deriver: "postgres://work_deriver@localhost/work_derived".to_owned(),
+                access: "postgres://work_access@localhost/work".to_owned(),
             },
             nats: Nats {
                 url: "nats://127.0.0.1:4222".to_owned(),
@@ -457,6 +480,14 @@ impl Default for Config {
                 region: String::new(),
                 tls_roots: PathBuf::new(),
             },
+            // T-103
+            access: Access {
+                module: PathBuf::from("/usr/lib/softhsm/libsofthsm2.so"),
+                token: "work".to_owned(),
+                pin_file: PathBuf::from("/run/secrets/access-pin"),
+                call_timeout_ms: 5_000,
+            },
+            access_client_id: String::new(),
         }
     }
 }
@@ -554,6 +585,7 @@ impl Config {
             ("postgres.checkpointer", self.postgres.checkpointer.as_str()),
             ("postgres.publisher", self.postgres.publisher.as_str()),
             ("postgres.deriver", self.postgres.deriver.as_str()),
+            ("postgres.access", self.postgres.access.as_str()),
             ("nats.url", self.nats.url.as_str()),
             ("trace.endpoint", endpoint),
         ] {
@@ -821,6 +853,22 @@ impl Config {
 
     pub(crate) const fn startup_timeout(&self) -> Duration {
         Duration::from_millis(self.startup_timeout_ms)
+    }
+
+    /// What the pairing step reads at each run; the files are read then, so a missing PIN, root
+    /// or key is a pairing signal, not a start-up refusal (T-103 item 1).
+    pub(crate) fn access_settings(&self) -> AccessSettings {
+        AccessSettings {
+            issuer: self.suiss.access.clone(),
+            region: self.suiss.region.clone(),
+            client_id: self.access_client_id.clone(),
+            receiver: format!("{}/v1/inbound/events", self.publisher.source),
+            module: self.access.module.clone(),
+            token: self.access.token.clone(),
+            pin_file: self.access.pin_file.clone(),
+            roots_file: self.suiss.tls_roots.clone(),
+            timeout: Duration::from_millis(self.access.call_timeout_ms),
+        }
     }
 }
 
@@ -1123,6 +1171,31 @@ mod tests {
                 "{toml}"
             );
         }
+    }
+
+    // T-103
+    #[test]
+    fn t_103_the_pairing_step_reads_the_access_settings_and_pushes_to_the_installation() {
+        let config = with(
+            "access_client_id = \"cli_work\"\n[access]\ntoken = \"work-access\"",
+        )
+        .unwrap();
+        let settings = config.access_settings();
+        assert_eq!(settings.issuer, "https://access.example");
+        assert_eq!(settings.region, "local");
+        assert_eq!(settings.client_id, "cli_work");
+        assert_eq!(settings.token, "work-access");
+        assert_eq!(settings.receiver, "https://work.example/v1/inbound/events");
+        assert_eq!(settings.timeout, Duration::from_secs(5));
+        assert_eq!(
+            config.postgres.access,
+            "postgres://work_access@localhost/work"
+        );
+        assert!(matches!(
+            with("[postgres]\naccess = \"postgres://work_access:pw@db/work\""),
+            Err(ConfigError::PasswordInUrl("postgres.access"))
+        ));
+        assert!(with("[access]\npin = \"1234\"").is_err());
     }
 
     // OP-46 OP-33 OP-32 T-93

@@ -2,7 +2,8 @@
 //! serves, `/readyz` is ready only while both PostgreSQL databases and the signer answer, each
 //! within one second, and `/metrics` is the Prometheus text exposition over a bounded label set
 //! (T-39 rule 5). A NATS, Access or Relay outage never makes the process unready; it shows as an
-//! alarm gauge on `/metrics` and in the log (T-21, T-28, T-84).
+//! alarm gauge on `/metrics` and in the log (T-21, T-28, T-84), as do the realms the Access
+//! pairing step could not pair and the state of Work's Access event stream (T-103).
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -17,6 +18,8 @@ use tokio::time::timeout;
 use work_ledger::time::{LedgerTime, ProcessMonotonic};
 use work_ledger::{CheckpointStats, Ledgers, SignerClient};
 use work_store::Pool;
+
+use crate::pairing::PairingStats;
 
 /// Upper bound on each readiness probe.
 pub(crate) const PROBE_TIMEOUT: Duration = Duration::from_secs(1);
@@ -34,6 +37,7 @@ pub(crate) struct Health {
     pub(crate) checkpoints: Arc<CheckpointStats>,
     /// Whether the last Access discovery answered (T-96 item 2).
     pub(crate) access: Arc<AtomicBool>,
+    pub(crate) pairing: Arc<PairingStats>,
 }
 
 /// The answers of one round of probes.
@@ -78,6 +82,9 @@ pub(crate) struct Counts {
     pub(crate) checkpoint_failures: u64,
     pub(crate) mirrors: u64,
     pub(crate) mirror_failures: u64,
+    pub(crate) unpaired_realms: u64,
+    pub(crate) event_stream_recreated: u64,
+    pub(crate) event_stream_up: bool,
 }
 
 fn gauge(up: bool) -> u8 {
@@ -115,7 +122,16 @@ pub(crate) fn exposition(probes: Probes, counts: Counts) -> String {
          work_replica_mirrors_total {}\n\
          # HELP work_replica_mirror_failures_total Mirror passes that failed.\n\
          # TYPE work_replica_mirror_failures_total counter\n\
-         work_replica_mirror_failures_total {}\n",
+         work_replica_mirror_failures_total {}\n\
+         # HELP work_access_unpaired_realms Live realms that three pairing runs in a row did not pair (T-103).\n\
+         # TYPE work_access_unpaired_realms gauge\n\
+         work_access_unpaired_realms {}\n\
+         # HELP work_access_event_stream_recreated_total Times Work opened its Access event stream again (T-103).\n\
+         # TYPE work_access_event_stream_recreated_total counter\n\
+         work_access_event_stream_recreated_total {}\n\
+         # HELP work_access_event_stream_up Work's Access event stream is enabled (T-102).\n\
+         # TYPE work_access_event_stream_up gauge\n\
+         work_access_event_stream_up {}\n",
         gauge(probes.ready()),
         gauge(probes.canonical),
         gauge(probes.derived),
@@ -127,6 +143,9 @@ pub(crate) fn exposition(probes: Probes, counts: Counts) -> String {
         counts.checkpoint_failures,
         counts.mirrors,
         counts.mirror_failures,
+        counts.unpaired_realms,
+        counts.event_stream_recreated,
+        gauge(counts.event_stream_up),
     )
 }
 
@@ -164,6 +183,9 @@ impl Health {
             checkpoint_failures: self.checkpoints.failed(),
             mirrors: self.checkpoints.mirrored(),
             mirror_failures: self.checkpoints.mirror_failed(),
+            unpaired_realms: self.pairing.unpaired(),
+            event_stream_recreated: self.pairing.recreated(),
+            event_stream_up: self.pairing.stream_up(),
         }
     }
 }
@@ -224,6 +246,9 @@ mod tests {
         checkpoint_failures: 0,
         mirrors: 0,
         mirror_failures: 0,
+        unpaired_realms: 0,
+        event_stream_recreated: 0,
+        event_stream_up: false,
     };
 
     // T-39 T-84 T-21 T-93
@@ -277,7 +302,7 @@ mod tests {
         assert!(exposition(ALL, NONE).contains("work_dependency_up{dependency=\"access\"} 1\n"));
     }
 
-    // T-39 OP-18 T-93
+    // T-39 OP-18 T-93 T-103
     #[test]
     fn t_39_metrics_raise_the_nats_alarm_with_a_bounded_label_set() {
         let text = exposition(Probes { nats: false, ..ALL }, NONE);
@@ -292,6 +317,17 @@ mod tests {
             NONE,
         );
         assert!(not_ready.contains("\nwork_ready 0\n"));
+        let pairing = exposition(
+            ALL,
+            Counts {
+                unpaired_realms: 2,
+                event_stream_recreated: 1,
+                ..NONE
+            },
+        );
+        assert!(pairing.contains("\nwork_access_unpaired_realms 2\n"));
+        assert!(pairing.contains("\nwork_access_event_stream_recreated_total 1\n"));
+        assert!(pairing.contains("\nwork_access_event_stream_up 0\n"));
         for line in text.lines().filter(|l| !l.starts_with('#')) {
             let (name, value) = line.rsplit_once(' ').unwrap_or_default();
             assert!(value.parse::<u64>().is_ok(), "{line}");
