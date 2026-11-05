@@ -5855,6 +5855,7 @@ title = ""
 tests = [
   "crates/access-client/src/domain/relay.rs::t_99_a_relay_document_of_another_access_refuses_start",
   "crates/access-client/src/domain/relay.rs::t_99_a_relay_document_whose_issuer_is_not_suiss_relay_refuses_start",
+  "crates/access-client/src/domain/relay.rs::t_99_a_relay_document_without_its_access_client_refuses_start",
   "crates/access-client/src/domain/relay.rs::t_99_region_version_and_events_capability_are_needed_at_start",
   "crates/access-client/src/domain/relay.rs::t_99_relay_is_found_from_access_discovery",
 ]
