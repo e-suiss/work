@@ -93,7 +93,9 @@ family = "MD"
 status = "central-decision"
 stage = 1
 title = ""
-tests = []
+tests = [
+  "crates/export/src/domain/tests.rs::p_2_the_golden_ledger_verifies_offline_from_its_bundle",
+]
 
 [[rule]]
 id = "MD-13"
@@ -2937,6 +2939,11 @@ stage = 0
 acceptance = "filled"
 title = "Protocol, CDDL, vectors and verifier are Apache-2.0 and verifiable offline"
 tests = [
+  "crates/export/src/domain/tests.rs::p_2_a_signed_record_verifies_only_under_a_trusted_author_key",
+  "crates/export/src/domain/tests.rs::p_2_a_tampered_bundle_does_not_verify",
+  "crates/export/src/domain/tests.rs::p_2_the_golden_ledger_verifies_offline_from_its_bundle",
+  "crates/export/src/domain/tests.rs::t_10_a_bundle_is_canonical_json_lines_that_round_trip",
+  "crates/store/src/rebuild.rs::t_10_an_export_reads_only_canonical_tables",
   "xtask/src/policy.rs::md_15_f_9_p_2_paid_or_cloud_only_names_are_rejected",
 ]
 
@@ -3050,6 +3057,7 @@ stage = 1
 acceptance = "to-fill"
 title = ""
 tests = [
+  "crates/export/src/domain/tests.rs::p_2_a_signed_record_verifies_only_under_a_trusted_author_key",
   "crates/kernel/tests/cose.rs::p_105_a_record_whose_author_is_not_the_key_owner_is_kid_unknown",
   "crates/kernel/tests/cose.rs::p_6_ed25519_record_signature_verifies_over_the_signed_record_bytes",
   "crates/kernel/tests/cose.rs::p_8_the_shared_verifier_fills_the_signature_port_and_names_the_record_by_its_payload",
@@ -3078,6 +3086,8 @@ stage = 1
 acceptance = "to-fill"
 title = ""
 tests = [
+  "crates/export/src/domain/tests.rs::p_2_a_tampered_bundle_does_not_verify",
+  "crates/export/src/domain/tests.rs::p_2_the_golden_ledger_verifies_offline_from_its_bundle",
   "crates/kernel/src/envelope.rs::p_11_ingest_is_one_of_the_three_forms",
   "crates/kernel/src/reason.rs::p_11_every_reason_round_trips_through_its_wire_string",
   "crates/kernel/tests/activation_vectors.rs::p_110_activation_envelopes_decode_by_their_key_above_position_0",
@@ -4074,6 +4084,7 @@ stage = 2
 acceptance = "to-fill"
 title = ""
 tests = [
+  "crates/export/src/domain/tests.rs::p_20_a_checkpoint_must_match_the_bundle_root",
   "crates/kernel/src/codec/mod.rs::p_101_digest_round_trips_and_body_commitment_uses_prefix_0x03",
   "crates/kernel/src/codec/mod.rs::p_104_a_part_above_64_kib_commits_to_the_digest_of_its_content",
   "crates/kernel/src/codec/mod.rs::p_79_record_id_ledger_id_and_proof_commit_are_unprefixed_sha_256",
@@ -4484,6 +4495,9 @@ title = ""
 tests = [
   "bins/work-signer/tests/signer.rs::t_72_the_signer_serves_only_inside_its_lockdown",
   "bins/work-signer/tests/signer.rs::t_7_the_signer_signs_checkpoints_of_its_ledgers_only",
+  "crates/export/src/domain/tests.rs::p_2_a_tampered_bundle_does_not_verify",
+  "crates/export/src/domain/tests.rs::p_2_the_golden_ledger_verifies_offline_from_its_bundle",
+  "crates/export/src/domain/tests.rs::t_10_a_bundle_is_canonical_json_lines_that_round_trip",
   "crates/kernel/tests/activation_vectors.rs::p_110_a_stored_activation_verifies_after_the_genesis_without_a_record_step",
   "crates/kernel/tests/ledger_vectors.rs::ev_35_a_stored_presenter_annotation_must_match_the_record_evidence",
   "crates/kernel/tests/ledger_vectors.rs::t_10_an_entry_that_does_not_match_its_bytes_is_an_envelope_mismatch",
@@ -4491,6 +4505,7 @@ tests = [
   "crates/ledger/src/envelope.rs::t_10_the_pending_record_id_is_recomputed_from_its_bytes",
   "crates/store/src/rebuild.rs::op_1_a_rebuild_reads_only_canonical_tables",
   "crates/store/src/rebuild.rs::op_45_body_tables_are_neither_rebuilt_nor_compared",
+  "crates/store/src/rebuild.rs::t_10_an_export_reads_only_canonical_tables",
   "crates/store/src/rebuild.rs::t_10_every_sync_derived_table_is_rebuilt_or_checked_against_the_log",
   "sdks/bindings/core/tests/bytes.rs::t_10_stored_entries_verify_from_their_bytes_through_bindings_core",
   "sdks/bindings/core/tests/vectors.rs::t_10_derivation_takes_record_ids_from_the_stored_bytes_through_bindings_core",
@@ -6157,6 +6172,7 @@ tests = [
   "bins/work-server/src/config.rs::op_33_witnesses_need_a_unique_id_a_cosigner_key_and_an_http_url",
   "bins/work-server/src/config.rs::op_46_independent_k_needs_k_counted_witnesses_configured",
   "bins/work-server/src/config.rs::op_46_the_declaration_defaults_to_claiming_nothing_and_saas_needs_independence",
+  "crates/export/src/domain/tests.rs::p_20_a_checkpoint_must_match_the_bundle_root",
   "crates/kernel/tests/ledger_vectors.rs::t_4_checkpoint_and_cosignature_vectors_through_the_kernel_verifier",
   "crates/ledger/src/checkpoint.rs::op_46_saas_declares_independent_time_and_at_least_two_witnesses",
   "crates/ledger/src/ledgers.rs::op_33_a_checkpoint_is_due_after_60_s_or_1000_records_whichever_comes_first",

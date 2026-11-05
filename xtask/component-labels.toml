@@ -199,7 +199,9 @@ label = "PROJECTION"
 crates = ["crates/export", "bins/work-cli"]
 never = "never exports derived views as canonical"
 enforced_by = [
+  "bins/work-cli/tests/containers/main.rs::md_12_a_ledger_exported_by_work_cli_verifies_without_the_database",
+  "crates/export/src/domain/tests.rs::p_2_the_golden_ledger_verifies_offline_from_its_bundle",
   "crates/ledger/tests/containers/main.rs::op_1_a_tampered_row_is_a_sev_1_diff_and_never_a_rebuild_input",
   "crates/store/src/rebuild.rs::op_1_a_rebuild_reads_only_canonical_tables",
+  "crates/store/src/rebuild.rs::t_10_an_export_reads_only_canonical_tables",
 ]
-open = "the canonical record bundle export is not written yet; replay is `work-cli rebuild`"

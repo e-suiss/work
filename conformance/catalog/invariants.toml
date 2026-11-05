@@ -1418,6 +1418,7 @@ status = "canonical-invariant"
 stage = 1
 title = ""
 tests = [
+  "crates/export/src/domain/tests.rs::p_2_a_signed_record_verifies_only_under_a_trusted_author_key",
   "crates/kernel/src/verify.rs::sec_5_p_22_verification_states_only_authorship_and_inclusion",
   "crates/kernel/tests/cose.rs::p_8_the_shared_verifier_fills_the_signature_port_and_names_the_record_by_its_payload",
 ]
@@ -1732,6 +1733,8 @@ tests = [
   "bins/work-server/src/config.rs::t_7_the_checkpoint_origin_prefix_is_required_and_ends_with_a_slash",
   "bins/work-signer/src/answer.rs::t_7_only_the_canonical_body_of_a_configured_ledger_checkpoint_is_signed",
   "bins/work-signer/tests/signer.rs::t_7_the_signer_signs_checkpoints_of_its_ledgers_only",
+  "crates/export/src/domain/tests.rs::p_20_a_checkpoint_must_match_the_bundle_root",
+  "crates/export/src/domain/tests.rs::p_2_the_golden_ledger_verifies_offline_from_its_bundle",
   "crates/kernel/tests/ledger_vectors.rs::t_4_checkpoint_and_cosignature_vectors_through_the_kernel_verifier",
   "crates/kernel/tests/ledger_vectors.rs::t_4_every_entry_is_included_in_the_cosigned_checkpoint",
   "crates/ledger/src/checkpoint.rs::op_46_the_acknowledgement_declares_the_profile_asked_for",
