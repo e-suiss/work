@@ -3291,7 +3291,11 @@ acceptance = "to-fill"
 title = ""
 tests = [
   "crates/dispatch/src/domain.rs::p_35_out_of_range_time_is_an_error",
+  "crates/dispatch/src/domain.rs::p_35_the_envelope_names_subject_content_type_schema_and_correlation",
   "crates/dispatch/src/domain.rs::p_35_time_is_rfc3339_utc_milliseconds",
+  "crates/proto/src/events.rs::p_35_subject_and_dataschema_come_from_the_item_and_the_type",
+  "crates/proto/src/events.rs::p_37_a_thin_event_names_the_author_chain_and_the_first_correlation",
+  "crates/store/src/outbox.rs::p_34_only_the_append_of_a_record_writes_an_outbox_pointer",
 ]
 
 [[rule]]
@@ -3310,7 +3314,11 @@ status = "frozen-protocol"
 stage = 3
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/dispatch/src/domain.rs::p_37_data_carries_only_the_related_parties",
+  "crates/dispatch/src/domain.rs::t_98_changed_data_names_the_cause_and_revoked_data_the_kind",
+  "crates/proto/src/events.rs::p_37_a_thin_event_names_the_author_chain_and_the_first_correlation",
+]
 
 [[rule]]
 id = "P-38"
@@ -3318,7 +3326,11 @@ family = "P"
 status = "frozen-protocol"
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/dispatch/src/domain.rs::p_39_an_event_type_outside_the_catalog_is_never_published",
+  "crates/proto/src/events.rs::p_35_subject_and_dataschema_come_from_the_item_and_the_type",
+  "crates/proto/src/events.rs::t_98_the_primary_type_of_a_gate_condition_is_a_gate_type",
+]
 
 [[rule]]
 id = "P-39"
@@ -3326,7 +3338,13 @@ family = "P"
 status = "frozen-protocol"
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/dispatch/src/domain.rs::p_39_an_event_type_outside_the_catalog_is_never_published",
+  "crates/dispatch/src/domain.rs::p_39_the_outbox_publisher_is_the_only_event_path",
+  "crates/proto/src/events.rs::p_39_a_deprecated_type_stays_in_the_catalog_until_a_major_version",
+  "xtask/src/contracts_asyncapi.rs::p_39_a_deprecated_type_is_marked_and_still_documented",
+  "xtask/src/contracts_source.rs::p_39_a_deprecated_type_must_still_be_in_the_catalog",
+]
 
 [[rule]]
 id = "P-40"
@@ -4304,7 +4322,9 @@ status = "frozen-technical"
 acceptance = "filled"
 title = ""
 tests = [
+  "crates/dispatch/src/domain.rs::p_35_the_envelope_names_subject_content_type_schema_and_correlation",
   "crates/http/src/position.rs::t_97_work_min_position_is_one_pos_token",
+  "crates/proto/src/events.rs::p_35_subject_and_dataschema_come_from_the_item_and_the_type",
   "crates/proto/src/id.rs::p_112_a_wrong_prefix_is_invalid_id",
   "crates/proto/src/id.rs::p_112_every_prefix_round_trips_to_its_typed_id",
   "crates/proto/src/id.rs::p_112_pty_body_is_the_partyref_bytes",
@@ -4597,6 +4617,7 @@ tests = [
   "bins/work-server/src/config.rs::t_76_the_publisher_takes_the_policy_defaults_and_needs_an_https_source",
   "crates/dispatch/src/app.rs::t_17_pointers_publish_in_order_with_the_event_id_as_msg_id",
   "crates/dispatch/src/domain.rs::t_17_event_is_derived_deterministically_from_the_committed_row",
+  "crates/store/src/outbox.rs::p_34_only_the_append_of_a_record_writes_an_outbox_pointer",
 ]
 
 [[rule]]
@@ -5893,6 +5914,7 @@ status = "frozen-technical"
 acceptance = "filled"
 title = ""
 tests = [
+  "crates/dispatch/src/domain.rs::t_98_changed_data_names_the_cause_and_revoked_data_the_kind",
   "crates/http/src/api.rs::t_98_a_problem_type_is_described_without_an_identity",
   "crates/http/src/problem.rs::t_33_a_problem_carries_a_stable_code_and_no_internal_detail",
   "crates/http/src/problem.rs::t_98_a_problem_is_problem_json_with_its_request_and_retry_after",
@@ -5902,6 +5924,7 @@ tests = [
   "crates/ledger/src/auth_context/tests.rs::p_116_every_refusal_is_auth_context_invalid",
   "crates/proto/src/events.rs::t_98_event_names_are_the_item_and_a_past_tense_once_each",
   "crates/proto/src/events.rs::t_98_every_kernel_wire_name_has_an_event_type_or_waits_for_approval",
+  "crates/proto/src/events.rs::t_98_the_primary_type_of_a_gate_condition_is_a_gate_type",
   "xtask/src/contracts_asyncapi.rs::t_98_every_event_type_is_one_message_with_a_versioned_data_schema",
   "xtask/src/contracts_asyncapi.rs::t_98_yaml_is_block_style_with_sorted_keys_and_quoted_strings",
   "xtask/src/contracts_openapi.rs::e_45_every_mutating_operation_names_one_action",

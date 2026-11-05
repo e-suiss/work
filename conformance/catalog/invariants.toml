@@ -1860,7 +1860,10 @@ family = "P"
 status = "canonical-invariant"
 stage = 2
 title = ""
-tests = []
+tests = [
+  "crates/dispatch/src/domain.rs::p_39_the_outbox_publisher_is_the_only_event_path",
+  "crates/store/src/outbox.rs::p_34_only_the_append_of_a_record_writes_an_outbox_pointer",
+]
 
 [[rule]]
 id = "P-43"
