@@ -781,6 +781,11 @@ mod tests {
             AccessKeys::load(&module(), &label, &pin()),
             Err(AccessError::KeyStore(_))
         ));
+    }
+
+    // T-101
+    #[test]
+    fn t_101_a_service_key_that_is_not_ed25519_is_refused() {
         let (label, store) = token("key-kinds-service");
         store.generate_p256(CLIENT_LABEL).unwrap();
         store.generate_p256(SERVICE_LABEL).unwrap();
