@@ -72,7 +72,9 @@ impl RelayConfiguration {
             return Err(AccessError::Issuer("relay-configuration access_issuer"));
         }
         if w.access_client_id.is_empty() || w.access_client_id.len() > 256 {
-            return Err(AccessError::Document("relay-configuration access_client_id"));
+            return Err(AccessError::Document(
+                "relay-configuration access_client_id",
+            ));
         }
         if w.region != region {
             return Err(AccessError::Region("relay-configuration"));
@@ -204,9 +206,9 @@ mod tests {
         );
     }
 
-    // T-104
+    // T-99
     #[test]
-    fn t_104_a_relay_document_without_its_access_client_refuses_start() {
+    fn t_99_a_relay_document_without_its_access_client_refuses_start() {
         let missing = DOC.replace("        \"access_client_id\": \"app_relay\",\n", "");
         assert_ne!(missing, DOC);
         assert_eq!(
@@ -217,7 +219,9 @@ mod tests {
         for id in ["", long.as_str()] {
             assert_eq!(
                 read(&DOC.replace("\"app_relay\"", &format!("\"{id}\""))),
-                Err(AccessError::Document("relay-configuration access_client_id"))
+                Err(AccessError::Document(
+                    "relay-configuration access_client_id"
+                ))
             );
         }
     }
