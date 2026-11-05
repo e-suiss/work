@@ -941,8 +941,8 @@ mod tests {
         let _entered = span.enter();
         let expected = work_telemetry::traceparent(&span).unwrap().to_string();
         let get = || Request::get("https://access.example/x".to_owned(), "application/json");
-        let traced = get().traced(current_trace().as_deref());
-        let sent: Vec<&str> = traced
+        let request = get().traced(current_trace().as_deref());
+        let sent: Vec<&str> = request
             .headers
             .iter()
             .filter(|(n, _)| n == TRACEPARENT)

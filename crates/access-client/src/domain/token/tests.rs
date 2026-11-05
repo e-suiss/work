@@ -4,7 +4,7 @@ use std::collections::BTreeSet;
 
 use serde_json::json;
 use suiss_crypto::cose::Algorithm;
-use suiss_crypto::pkcs11::HsmSigner;
+use suiss_crypto::pkcs11::{HsmSigner, KeyStore};
 use suiss_crypto::sig::{P256_HALF_N, P256_N};
 use suiss_crypto::signer::Signer as _;
 
@@ -60,6 +60,7 @@ fn jwk(key: &PublicKey) -> Value {
 }
 
 struct Keys {
+    store: KeyStore,
     realm: HsmSigner,
     realm_p256: HsmSigner,
     holder: HsmSigner,
@@ -80,6 +81,7 @@ fn keys(test: &str) -> Keys {
         set.insert(thumbprint(&key), key).unwrap();
     }
     Keys {
+        store,
         realm,
         realm_p256,
         holder,
@@ -196,7 +198,7 @@ fn e_7_a_token_of_another_key_issuer_audience_or_time_is_refused() {
     anonymous.as_object_mut().unwrap().remove("sub");
     assert_eq!(refused(&anonymous), Err(TokenRefusal::Claims));
 
-    let stranger = hsm("token-stranger").1.generate_ed25519("other").unwrap();
+    let stranger = k.store.generate_ed25519("stranger").unwrap();
     let forged = jws(&stranger, &header(&stranger), &base);
     assert_eq!(
         verify_access_token(&forged, &k.set, &rules()),
@@ -300,7 +302,7 @@ fn e_7_a_dpop_proof_binds_the_token_to_its_key_and_this_request() {
         c[name] = value;
         assert_eq!(refused(&c), Err(TokenRefusal::Proof(part)), "{name}");
     }
-    let other = hsm("proof-other").1.generate_p256("other").unwrap();
+    let other = k.store.generate_p256("other").unwrap();
     let foreign = proof(&other, &base);
     assert_eq!(
         verify_proof(&foreign, &proof_rules(&token, &jkt)),
