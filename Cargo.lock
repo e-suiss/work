@@ -1312,9 +1312,9 @@ dependencies = [
 
 [[package]]
 name = "esuiss-crypto"
-version = "0.2.4"
+version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f79e24d2a6165157f2dfd8ca0eedb71bb4f83b48e020736361ce05e016fa95d"
+checksum = "fed657b01581bdde1a8f18a7885f9daadc386b906c9b088f0b8d3cda5dc20149"
 dependencies = [
  "aws-lc-rs",
  "cryptoki",
@@ -1330,9 +1330,9 @@ dependencies = [
 
 [[package]]
 name = "esuiss-ledger"
-version = "0.2.4"
+version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7ecedfe37448632c27342a7a6e50eb2d738322279e2c2e8ef135fa6058f74df7"
+checksum = "69df5d1037ef474428ccd9631d285562cfb53ab2cdeff606b1d076bae798ad0d"
 dependencies = [
  "esuiss-crypto",
  "sha2 0.11.1",
@@ -1341,9 +1341,9 @@ dependencies = [
 
 [[package]]
 name = "esuiss-restriction"
-version = "0.2.4"
+version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d66fc005f44f31978d0239059f8d4d107c730fc6125c1107c5ec2adef119c49f"
+checksum = "3cb0ae75e872b7f911e3940535b0ece23cefc5fb06b04f270fc980c7344edb97"
 dependencies = [
  "cedar-policy",
  "serde_json",
@@ -1352,18 +1352,18 @@ dependencies = [
 
 [[package]]
 name = "esuiss-retention"
-version = "0.2.5"
+version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e22fd628aa8c45fb7847e9b95473c520b6d724a4d7a6e3617dd6c6e5eeea4a32"
+checksum = "b8b82449ed672ae51ce55cc5e15d8a1d6a25096613f946b3490633b95d04050e"
 dependencies = [
  "thiserror 2.0.21",
 ]
 
 [[package]]
 name = "esuiss-sandbox"
-version = "0.2.4"
+version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f5ab9dfc241508c1889cdc149e793a8f4b0b13677df0fef4ca626aecb7bc322c"
+checksum = "06dcff67714f8cbd36ffa037c9ddeef35fda108e396004cc1dc0584f8a261298"
 dependencies = [
  "landlock",
  "libc",
