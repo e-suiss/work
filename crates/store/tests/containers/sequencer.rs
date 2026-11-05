@@ -1,9 +1,9 @@
 use sqlx::{AssertSqlSafe, Executor};
 use work_store::{
     AppendBatch, AppendError, CallerRef, CellId, Cluster, Durability, Expect, Genesis, HeaderRow,
-    IdempotencyKey, InboundRow, ItemHeadRow, ItemRef, KeyRow, LedgerId, LedgerTx, LogRow, NewHead,
-    OutboxRow, ReceivedKind, ReceivedRole, ReceivedRow, Seat, SequencerPool, Skeleton, StoreError,
-    StoredHead, StoredKey, StoredOutcome,
+    IdempotencyKey, InboundEvent, InboundRow, InboundSeen, ItemHeadRow, ItemRef, KeyRow, LedgerId,
+    LedgerTx, LogRow, NewHead, OutboxRow, ReceivedKind, ReceivedRole, ReceivedRow, Seat,
+    SequencerPool, Skeleton, StoreError, StoredHead, StoredKey, StoredOutcome,
 };
 
 use crate::env::{Env, L, M, commit_fails, fails, hex, run, scalar, with_ledgers};
@@ -511,7 +511,7 @@ fn works(epoch: u64, after: u64, n: u64) -> AppendBatch {
         b.outbox.push(OutboxRow {
             pos,
             event_id: format!("evt-{pos}"),
-            event_type: "work.recorded".to_owned(),
+            event_type: "work.updated".to_owned(),
             traceparent: TRACE.to_owned(),
             item: WORK,
         });
@@ -675,6 +675,66 @@ async fn op_38_an_inbound_event_and_a_record_id_are_recorded_once() {
         scalar(&env.canonical("work_app"), &hex(&L), seen, false).await,
         1
     );
+}
+
+// P-35 T-12 T-100 OP-38 OP-8
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs Docker"]
+async fn p_35_an_inbound_event_without_a_record_is_seen_once_per_tenant_ledger() {
+    let (env, seq) = opened().await;
+    let ledger = LedgerId::from_bytes(L);
+    let event = InboundEvent {
+        source: "https://relay.example".to_owned(),
+        source_id: "evt-1".to_owned(),
+        content_digest: [0x51; 32],
+        seen_at_ms: AT,
+    };
+    let mut tx = seq.begin(&ledger).await.unwrap();
+    assert_eq!(tx.note_inbound(&event).await.unwrap(), InboundSeen::First);
+    let racer = seq.clone();
+    let late = InboundEvent {
+        content_digest: [0x52; 32],
+        seen_at_ms: plus(AT, 1_000),
+        ..event.clone()
+    };
+    let second = tokio::spawn(async move {
+        let mut tx = racer.begin(&ledger).await.unwrap();
+        let seen = tx.note_inbound(&late).await.unwrap();
+        tx.commit().await.unwrap();
+        seen
+    });
+    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+    assert!(!second.is_finished());
+    tx.commit().await.unwrap();
+    assert_eq!(second.await.unwrap(), InboundSeen::Repeat);
+    let other = InboundEvent {
+        source_id: "evt-2".to_owned(),
+        ..event.clone()
+    };
+    let mut tx = seq.begin(&ledger).await.unwrap();
+    assert_eq!(tx.note_inbound(&other).await.unwrap(), InboundSeen::First);
+    tx.commit().await.unwrap();
+    let elsewhere = LedgerId::from_bytes(M);
+    let mut tx = seq.begin(&elsewhere).await.unwrap();
+    assert_eq!(tx.note_inbound(&event).await.unwrap(), InboundSeen::First);
+    tx.commit().await.unwrap();
+    let head = seq.acquire(&ledger, &seat(), any).await.unwrap();
+    let mut answer = works(head.epoch, 0, 1);
+    answer.inbound.push(InboundRow {
+        pos: 1,
+        source: event.source.clone(),
+        source_id: event.source_id.clone(),
+        content_digest: [0x51; 32],
+        seen_at_ms: plus(AT, 1),
+    });
+    assert!(matches!(
+        seq.append(&ledger, &answer).await,
+        Err(AppendError::Refused(StoreError::InboundSeen))
+    ));
+    let rows = "SELECT count(*) FROM work.inbound_seen WHERE result_pos IS NULL";
+    let app = env.canonical("work_app");
+    assert_eq!(scalar(&app, &hex(&L), rows, false).await, 2);
+    assert_eq!(scalar(&app, &hex(&M), rows, false).await, 1);
 }
 
 async fn epoch_of(env: &Env) -> i64 {
