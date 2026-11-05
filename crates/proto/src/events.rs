@@ -659,10 +659,7 @@ mod tests {
         );
         assert!(facts.parties.iter().all(|p| p.starts_with("pty_")));
         assert_eq!(facts.correlation.as_deref(), Some("ctx-1"));
-        assert_eq!(
-            facts.primary().map(|e| e.name),
-            Some("commitment.promised")
-        );
+        assert_eq!(facts.primary().map(|e| e.name), Some("commitment.promised"));
         let mut bare = fields(None);
         bare.correlation = None;
         bare.on_behalf_of = None;
@@ -721,7 +718,9 @@ mod tests {
         );
         assert_eq!(subject("record", &[1; 32]), None);
         assert_eq!(
-            find("commitment.revoked").map(EventType::dataschema).as_deref(),
+            find("commitment.revoked")
+                .map(EventType::dataschema)
+                .as_deref(),
             Some("schemas/commitment.revoked/1.json")
         );
         assert_eq!(DATA_CONTENT_TYPE, "application/json");

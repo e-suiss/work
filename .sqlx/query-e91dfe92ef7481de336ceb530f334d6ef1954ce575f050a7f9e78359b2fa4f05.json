@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT pg_catalog.pg_advisory_xact_lock(\n                   pg_catalog.hashtextextended($1::text, 0))::text AS \"locked!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "locked!",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "e91dfe92ef7481de336ceb530f334d6ef1954ce575f050a7f9e78359b2fa4f05"
+}

@@ -5289,6 +5289,7 @@ dependencies = [
  "thiserror 2.0.21",
  "tokio",
  "tracing",
+ "work-proto",
  "work-store",
  "work-testkit",
 ]
