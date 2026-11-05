@@ -571,20 +571,20 @@ mod tests {
         }
     }
 
-    fn declaration(wire: &str, params: Option<Vec<Param>>) -> Record {
+    fn declaration(wire: &str, params: Vec<Param>) -> Record {
         Record::Declaration(Declaration {
             subtype: uri(&format!("declaration/{wire}")),
             occurred_at: None,
-            core: fields(params),
+            core: fields((!params.is_empty()).then_some(params)),
         })
     }
 
-    fn condition_type(kind: &str) -> Option<Vec<Param>> {
+    fn condition_type(kind: &str) -> Vec<Param> {
         let text = format!("https://suiss.app/ns/work/condition/{kind}");
-        Some(vec![Param {
+        vec![Param {
             name: ParamName::parse("condition_type").unwrap(),
             value: ParamValue::Scalar(ParamScalar::Text(text)),
-        }])
+        }]
     }
 
     // T-98
@@ -647,7 +647,7 @@ mod tests {
     // P-37 P-35
     #[test]
     fn p_37_a_thin_event_names_the_author_chain_and_the_first_correlation() {
-        let facts = RecordFacts::of(&declaration("promise", None));
+        let facts = RecordFacts::of(&declaration("promise", Vec::new()));
         assert_eq!(facts.wire, Some("promise"));
         assert!(!facts.gate);
         assert_eq!(
@@ -685,13 +685,13 @@ mod tests {
         let wait = RecordFacts::of(&declaration("open_condition", condition_type("time")));
         assert!(!wait.gate);
         assert_eq!(wait.primary().map(|e| e.name), Some("condition.opened"));
-        let revoked = RecordFacts::of(&declaration("revoke_promise", None));
+        let revoked = RecordFacts::of(&declaration("revoke_promise", Vec::new()));
         let event = revoked.primary().unwrap();
         assert_eq!(
             (event.name, event.data),
             ("commitment.revoked", Data::Revoked)
         );
-        let decided = RecordFacts::of(&declaration("gate_decision", None));
+        let decided = RecordFacts::of(&declaration("gate_decision", Vec::new()));
         assert_eq!(decided.primary().map(|e| e.name), Some("gate.decided"));
         let other = RecordFacts::of(&Record::Declaration(Declaration {
             subtype: TypeUri::parse("https://example.com/practice/approve").unwrap(),
