@@ -7,23 +7,27 @@ use crate::problem::{Problem, ProblemCode};
 /// The idempotency header (P-54 item 4).
 pub const IDEMPOTENCY_KEY: HeaderName = HeaderName::from_static("idempotency-key");
 
+fn boxed(code: ProblemCode) -> Box<Problem> {
+    Box::new(Problem::new(code))
+}
+
 /// The one `Idempotency-Key` value of a changing request.
 ///
 /// # Errors
 /// `idempotency_key_missing` without the header, `idempotency_key_malformed` for more than one
 /// value or one that is not text.
-pub fn idempotency_key(headers: &HeaderMap) -> Result<&str, Problem> {
+pub fn idempotency_key(headers: &HeaderMap) -> Result<&str, Box<Problem>> {
     let mut values = headers.get_all(&IDEMPOTENCY_KEY).iter();
     let Some(value) = values.next() else {
-        return Err(Problem::new(ProblemCode::IdempotencyKeyMissing));
+        return Err(boxed(ProblemCode::IdempotencyKeyMissing));
     };
     if values.next().is_some() {
-        return Err(Problem::new(ProblemCode::IdempotencyKeyMalformed));
+        return Err(boxed(ProblemCode::IdempotencyKeyMalformed));
     }
     value
         .to_str()
         .map(str::trim)
-        .map_err(|_| Problem::new(ProblemCode::IdempotencyKeyMalformed))
+        .map_err(|_| boxed(ProblemCode::IdempotencyKeyMalformed))
 }
 
 /// The problem of an idempotency refusal by its reason code (P-96, P-97, P-54 item 4); a code
@@ -51,8 +55,9 @@ fn version(text: &str) -> Option<u64> {
     if canonical { digits.parse().ok() } else { None }
 }
 
-fn malformed() -> Problem {
-    Problem::new(ProblemCode::InvalidRequest).with_detail("If-Match takes one strong ETag")
+fn malformed() -> Box<Problem> {
+    let problem = Problem::new(ProblemCode::InvalidRequest);
+    Box::new(problem.with_detail("If-Match takes one strong ETag"))
 }
 
 /// The item version a change was made against, from its one strong `If-Match`.
@@ -60,10 +65,10 @@ fn malformed() -> Problem {
 /// # Errors
 /// `precondition_required` without `If-Match`; `invalid_request` for more than one value, a
 /// list, `*`, a weak or a malformed tag.
-pub fn if_match(headers: &HeaderMap) -> Result<u64, Problem> {
+pub fn if_match(headers: &HeaderMap) -> Result<u64, Box<Problem>> {
     let mut values = headers.get_all(header::IF_MATCH).iter();
     let Some(value) = values.next() else {
-        return Err(Problem::new(ProblemCode::PreconditionRequired));
+        return Err(boxed(ProblemCode::PreconditionRequired));
     };
     if values.next().is_some() {
         return Err(malformed());
@@ -80,11 +85,11 @@ pub fn if_match(headers: &HeaderMap) -> Result<u64, Problem> {
 ///
 /// # Errors
 /// `precondition_failed` when the item is no longer at the asked version.
-pub fn basis<T: Clone>(asked: u64, current: u64, heads: &[T]) -> Result<Vec<T>, Problem> {
+pub fn basis<T: Clone>(asked: u64, current: u64, heads: &[T]) -> Result<Vec<T>, Box<Problem>> {
     if asked == current {
         Ok(heads.to_vec())
     } else {
-        Err(Problem::new(ProblemCode::PreconditionFailed))
+        Err(boxed(ProblemCode::PreconditionFailed))
     }
 }
 
@@ -110,7 +115,7 @@ mod tests {
         "\"-1\"",
     ];
 
-    fn code<T: core::fmt::Debug>(result: Result<T, Problem>) -> ProblemCode {
+    fn code<T: core::fmt::Debug>(result: Result<T, Box<Problem>>) -> ProblemCode {
         result.unwrap_err().code
     }
 

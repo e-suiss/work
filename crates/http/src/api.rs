@@ -77,7 +77,6 @@ fn not_found() -> Ready<Problem> {
 }
 
 /// Every REST route behind the common layer, drawing new trace ids from `ids`.
-#[must_use]
 pub fn router(config: ApiConfig, ids: Arc<dyn TraceIds>) -> Router {
     let state = Arc::new(Common::new(config.limits, config.rate, ids));
     Router::new()

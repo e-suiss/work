@@ -48,7 +48,6 @@ impl Deprecated {
     }
 
     /// `router` with the headers of this deprecation on every answer.
-    #[must_use]
     pub fn announce(self, router: Router) -> Router {
         let layer = axum::middleware::map_response(move |mut response: Response| async move {
             self.apply(response.headers_mut());
