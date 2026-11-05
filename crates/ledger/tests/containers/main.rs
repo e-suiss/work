@@ -48,6 +48,7 @@ use work_testkit::realm::{self, ADMITTED_AT, Artifact, ISSUER, Realm};
 #[cfg(feature = "s3")]
 mod archive;
 mod body;
+mod reads;
 
 const PASSWORD: &str = "test-only-not-a-secret";
 const LOGINS: &str = "ALTER ROLE work_owner LOGIN PASSWORD 'test-only-not-a-secret';\nALTER ROLE work_sequencer LOGIN PASSWORD 'test-only-not-a-secret';\nALTER ROLE work_app LOGIN PASSWORD 'test-only-not-a-secret';\nALTER ROLE work_publisher LOGIN PASSWORD 'test-only-not-a-secret';\nALTER ROLE work_erasure LOGIN PASSWORD 'test-only-not-a-secret';\nALTER ROLE work_archive LOGIN PASSWORD 'test-only-not-a-secret';";
