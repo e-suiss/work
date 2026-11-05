@@ -528,7 +528,7 @@ services:
     image: ghcr.io/e-suiss/access@sha256:96f6bd8539ae955e4a9ca1c4580010f6c64b9e4fbcd4efec2ad5a55e1a1949f0
     entrypoint: ["sh", "-c"]
     command:
-      - "access-server bootstrap /etc/access/local/bootstrap-work.toml > /var/lib/access/bootstrap/bootstrap.json && cat /var/lib/access/bootstrap/bootstrap.json"
+      - "access-server bootstrap /etc/work-access/bootstrap-work.toml > /var/lib/access/bootstrap/bootstrap.json && cat /var/lib/access/bootstrap/bootstrap.json"
     environment:
       ACCESS_CONFIG: /etc/access/local/access.toml
       ACCESS_DELIVERY_TARGETS: '[{url="https://work-server:8443/v1/inbound/events", ca_file="/var/lib/access/certs/ca.crt"}]'
@@ -539,6 +539,7 @@ services:
       - access-sockets:/run/access
       - access-bootstrap:/var/lib/access/bootstrap
       - access-products:/etc/access/products:ro
+      - ./access/bootstrap-work.toml:/etc/work-access/bootstrap-work.toml:ro
     depends_on:
       access-migrate:
         condition: service_completed_successfully

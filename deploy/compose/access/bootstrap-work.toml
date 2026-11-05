@@ -1,0 +1,11 @@
+# T-96, T-101, T-103
+platform = "platform"
+tenants = ["acme"]
+issuer_style = "path"
+
+[[products]]
+product = "work"
+display_name = "Suiss Work"
+client_key = "/etc/access/products/work-client.jwk"
+service_key = "/etc/access/products/work-service.jwk"
+redirect_uri = "https://work.localhost/v1/access/approval"
