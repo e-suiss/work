@@ -11,6 +11,7 @@ publish = false
 [dependencies]
 suiss-crypto = { workspace = true, features = ["aws-lc"] }
 suiss-sandbox = { workspace = true }
+work-access-client = { workspace = true }
 work-dispatch = { workspace = true }
 work-kernel = { workspace = true }
 work-ledger = { workspace = true, features = ["s3"] }

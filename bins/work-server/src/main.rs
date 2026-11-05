@@ -9,10 +9,11 @@ mod services;
 mod startup;
 
 use std::process::ExitCode;
+use std::sync::Arc;
 
 use config::Config;
 use services::Services;
-use startup::{Infrastructure, TimeDriver};
+use startup::{AccessLink, Infrastructure, TimeDriver};
 use tokio::sync::watch;
 
 fn main() -> ExitCode {
@@ -107,17 +108,29 @@ async fn run(config: &Config) -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    let services = match Services::start(config, &infrastructure, time.clock()) {
-        Ok(services) => services,
+    let access = match AccessLink::start(config, time.clock()).await {
+        Ok(access) => access,
         Err(error) => {
-            tracing::error!(event = "server.start_refused", %error, "services do not start");
+            tracing::error!(event = "server.start_refused", %error, "Access refuses the start");
             time.stop();
             infrastructure.close(config.startup_timeout()).await;
             return ExitCode::FAILURE;
         }
     };
-    let served = serve(config, health::router(services.health(&infrastructure))).await;
+    let services = match Services::start(config, &infrastructure, time.clock()) {
+        Ok(services) => services,
+        Err(error) => {
+            tracing::error!(event = "server.start_refused", %error, "services do not start");
+            access.stop();
+            time.stop();
+            infrastructure.close(config.startup_timeout()).await;
+            return ExitCode::FAILURE;
+        }
+    };
+    let health = services.health(&infrastructure, Arc::clone(&access.up));
+    let served = serve(config, health::router(health)).await;
     services.stop().await;
+    access.stop();
     time.stop();
     infrastructure.close(config.startup_timeout()).await;
     match served {

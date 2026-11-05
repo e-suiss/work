@@ -197,6 +197,13 @@ roughtime = [
 ]
 "#;
 
+/// An Access that does not answer: the server starts and refuses consequential actions (T-28).
+const UNANSWERED_ACCESS: &str = concat!(
+    "[suiss]\naccess = \"https://127.0.0.1:9\"\nregion = \"local\"\ntls_roots = \"",
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../deploy/compose/nts/pki/root.pem\"\n"
+);
+
 /// How a server is started.
 pub(crate) struct Launch<'a> {
     pub(crate) nats: &'a str,
@@ -230,7 +237,7 @@ fn server(dbs: &Databases, launch: Launch<'_>) -> Child {
     let publisher = dbs.url(launch.publisher_role, &dbs.canonical);
     let deriver_url = dbs.url("work_deriver", &dbs.derived);
     let config = format!(
-        "{UNANSWERED_TIME_SOURCES}\n[signer]\nsocket = \"{}\"\n\n[checkpoint]\norigin_prefix = \"{PREFIX}\"\n\n[replica]\ndirectory = \"{}\"\n\n[publisher]\nsource = \"https://work.test\"\n",
+        "{UNANSWERED_TIME_SOURCES}\n[signer]\nsocket = \"{}\"\n\n[checkpoint]\norigin_prefix = \"{PREFIX}\"\n\n[replica]\ndirectory = \"{}\"\n\n[publisher]\nsource = \"https://work.test\"\n\n{UNANSWERED_ACCESS}",
         socket.display(),
         dir.join("replica").display(),
     );
@@ -424,6 +431,10 @@ async fn t_21_losing_nats_after_start_does_not_stop_the_server() {
     let (_, metrics) = get(at.internal, "/metrics").await;
     assert!(
         metrics.contains("work_dependency_up{dependency=\"nats\"} 0"),
+        "{metrics}"
+    );
+    assert!(
+        metrics.contains("work_dependency_up{dependency=\"access\"} 0"),
         "{metrics}"
     );
     child.kill().unwrap();

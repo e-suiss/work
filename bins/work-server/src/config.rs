@@ -11,6 +11,8 @@ use base64::engine::general_purpose::STANDARD;
 use figment::Figment;
 use figment::providers::{Env, Format, Serialized, Toml};
 use serde::{Deserialize, Serialize};
+use work_access_client::adapters::roots;
+use work_access_client::domain::discovery::Issuer;
 use work_dispatch::{PublisherConfig, StreamSettings};
 use work_kernel::proof::{TimeSources, Verifier, WitnessProfile};
 use work_ledger::time::{
@@ -65,6 +67,21 @@ pub(crate) struct Config {
     pub(crate) witnessing: Witnessing,
     /// The parser workers (T-72, T-94).
     pub(crate) parser: Parser,
+    /// The Suiss connection (T-96 item 1).
+    pub(crate) suiss: Suiss,
+}
+
+/// The single Suiss connection setting with Work's region and the roots that verify Access and
+/// Relay (T-96 item 1, E-4); none has a default.
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Suiss {
+    /// The Access issuer URL; Relay and every endpoint come from its discovery.
+    pub(crate) access: String,
+    /// Work's region, which Access and Relay must declare.
+    pub(crate) region: String,
+    /// A PEM file of the roots the server certificates of Access and Relay verify against.
+    pub(crate) tls_roots: PathBuf,
 }
 
 /// The most parser workers one server starts (T-94 item 8).
@@ -434,6 +451,12 @@ impl Default for Config {
                 call_timeout_ms: 5_000,
                 run_as: None,
             },
+            // T-96
+            suiss: Suiss {
+                access: String::new(),
+                region: String::new(),
+                tls_roots: PathBuf::new(),
+            },
         }
     }
 }
@@ -499,6 +522,8 @@ pub(crate) enum ConfigError {
          non-zero numbers `uid:gid`"
     )]
     Parser,
+    #[error("suiss.{0} is missing or malformed")]
+    Suiss(&'static str),
 }
 
 impl Config {
@@ -556,7 +581,21 @@ impl Config {
         self.declaration()?;
         self.witness_endpoints()?;
         self.parser_timeout()?;
+        self.access()?;
         Ok(())
+    }
+
+    /// The Access issuer, Work's region and the PEM roots, read and checked (T-96 item 1, E-4).
+    pub(crate) fn access(&self) -> Result<(Issuer, &str, Vec<u8>), ConfigError> {
+        let issuer = Issuer::parse(&self.suiss.access).map_err(|_| ConfigError::Suiss("access"))?;
+        let region = self.suiss.region.as_str();
+        if region.is_empty() || region.trim() != region {
+            return Err(ConfigError::Suiss("region"));
+        }
+        let pem =
+            std::fs::read(&self.suiss.tls_roots).map_err(|_| ConfigError::Suiss("tls_roots"))?;
+        roots(&pem).map_err(|_| ConfigError::Suiss("tls_roots"))?;
+        Ok((issuer, region, pem))
     }
 
     /// The bound on one exchange with a parser worker, after checking the parser settings
@@ -847,13 +886,69 @@ mod tests {
 
     const REQUIRED: &str = "[checkpoint]\norigin_prefix = \"work.example/ledger/\"\n[replica]\ndirectory = \"/var/lib/work/replica\"\n[publisher]\nsource = \"https://work.example\"\n";
 
+    const ROOTS: &str = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../deploy/compose/nts/pki/root.pem"
+    );
+
+    fn suiss() -> String {
+        format!(
+            "[suiss]\naccess = \"https://access.example\"\nregion = \"local\"\ntls_roots = \"{ROOTS}\"\n"
+        )
+    }
+
     fn with(toml: &str) -> Result<Config, ConfigError> {
         Config::from_figment(
             &Figment::from(Serialized::defaults(Config::default()))
                 .merge(Toml::string(&time_sources(2, 3)))
                 .merge(Toml::string(REQUIRED))
+                .merge(Toml::string(&suiss()))
                 .merge(Toml::string(toml)),
         )
+    }
+
+    // T-96 E-2 MD-3 T-20
+    #[test]
+    fn t_96_refuses_to_start_without_the_access_setting() {
+        let config = with("").unwrap();
+        let (issuer, region, pem) = config.access().unwrap();
+        assert_eq!(issuer.as_str(), "https://access.example");
+        assert_eq!(region, "local");
+        assert_eq!(roots(&pem).unwrap().len(), 1);
+        let without = Config::from_figment(
+            &Figment::from(Serialized::defaults(Config::default()))
+                .merge(Toml::string(&time_sources(2, 3)))
+                .merge(Toml::string(REQUIRED)),
+        );
+        assert!(matches!(without, Err(ConfigError::Suiss("access"))));
+        let not_pem = format!(
+            "[suiss]\ntls_roots = \"{}\"",
+            concat!(env!("CARGO_MANIFEST_DIR"), "/Cargo.toml")
+        );
+        for (toml, key) in [
+            ("[suiss]\naccess = \"http://access.example\"", "access"),
+            ("[suiss]\naccess = \"https://access.example/\"", "access"),
+            ("[suiss]\naccess = \"\"", "access"),
+            ("[suiss]\nregion = \"\"", "region"),
+            ("[suiss]\nregion = \" local\"", "region"),
+            (
+                "[suiss]\ntls_roots = \"/nonexistent/roots.pem\"",
+                "tls_roots",
+            ),
+            (not_pem.as_str(), "tls_roots"),
+        ] {
+            assert!(
+                matches!(with(toml), Err(ConfigError::Suiss(k)) if k == key),
+                "{toml}"
+            );
+        }
+        for other in [
+            "[suiss]\nrelay = \"https://relay.example\"",
+            "[suiss]\nclient_secret = \"s\"",
+            "[access]\nissuer = \"https://access.example\"",
+        ] {
+            assert!(matches!(with(other), Err(ConfigError::Parse(_))), "{other}");
+        }
     }
 
     #[test]
@@ -940,6 +1035,7 @@ mod tests {
                 .merge(Toml::string(
                     "[checkpoint]\norigin_prefix = \"work.example/ledger/\"\n[publisher]\nsource = \"https://work.example\"",
                 ))
+                .merge(Toml::string(&suiss()))
                 .merge(Toml::string(toml)),
         )
     }

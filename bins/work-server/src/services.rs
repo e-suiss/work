@@ -8,6 +8,7 @@
 //! time and runs the gossip comparison (OP-32, OP-33, SEC-32).
 
 use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 
 use suiss_crypto::secret::Secret;
 use tokio::task::JoinHandle;
@@ -160,8 +161,12 @@ impl Services {
         })
     }
 
-    /// What the health endpoints look at.
-    pub(crate) fn health(&self, infrastructure: &Infrastructure) -> Health {
+    /// What the health endpoints look at, with whether Access's discovery last answered.
+    pub(crate) fn health(
+        &self,
+        infrastructure: &Infrastructure,
+        access: Arc<AtomicBool>,
+    ) -> Health {
         Health {
             canonical: infrastructure.canonical.clone(),
             derived: infrastructure.derived.clone(),
@@ -169,6 +174,7 @@ impl Services {
             nats: infrastructure.nats.clone(),
             ledgers: Arc::clone(&self.ledgers),
             checkpoints: Arc::clone(&self.checkpoints),
+            access,
         }
     }
 

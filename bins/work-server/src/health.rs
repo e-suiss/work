@@ -5,6 +5,7 @@
 //! alarm gauge on `/metrics` and in the log (T-21, T-28, T-84).
 
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use axum::Router;
@@ -31,6 +32,8 @@ pub(crate) struct Health {
     pub(crate) nats: async_nats::Client,
     pub(crate) ledgers: Arc<Ledgers<LedgerTime<ProcessMonotonic>>>,
     pub(crate) checkpoints: Arc<CheckpointStats>,
+    /// Whether the last Access discovery answered (T-96 item 2).
+    pub(crate) access: Arc<AtomicBool>,
 }
 
 /// The answers of one round of probes.
@@ -44,6 +47,7 @@ pub(crate) struct Probes {
     pub(crate) derived: bool,
     pub(crate) signer: bool,
     pub(crate) nats: bool,
+    pub(crate) access: bool,
 }
 
 impl Probes {
@@ -96,6 +100,7 @@ pub(crate) fn exposition(probes: Probes, counts: Counts) -> String {
          work_dependency_up{{dependency=\"postgres_derived\"}} {}\n\
          work_dependency_up{{dependency=\"signer\"}} {}\n\
          work_dependency_up{{dependency=\"nats\"}} {}\n\
+         work_dependency_up{{dependency=\"access\"}} {}\n\
          # HELP work_ledgers_led Ledgers this process leads.\n\
          # TYPE work_ledgers_led gauge\n\
          work_ledgers_led {}\n\
@@ -116,6 +121,7 @@ pub(crate) fn exposition(probes: Probes, counts: Counts) -> String {
         gauge(probes.derived),
         gauge(probes.signer),
         gauge(probes.nats),
+        gauge(probes.access),
         counts.ledgers_led,
         counts.checkpoints_stored,
         counts.checkpoint_failures,
@@ -147,6 +153,7 @@ impl Health {
             derived,
             signer,
             nats: self.nats.connection_state() == async_nats::connection::State::Connected,
+            access: self.access.load(Ordering::Relaxed),
         }
     }
 
@@ -208,6 +215,7 @@ mod tests {
         derived: true,
         signer: true,
         nats: true,
+        access: true,
     };
 
     const NONE: Counts = Counts {
@@ -249,6 +257,24 @@ mod tests {
             .missing(),
             ["signer"]
         );
+    }
+
+    // T-96 T-28 T-93
+    #[test]
+    fn t_96_an_access_outage_raises_its_alarm_and_keeps_readiness() {
+        let down = Probes {
+            access: false,
+            ..ALL
+        };
+        assert!(down.ready());
+        assert!(down.missing().is_empty());
+        let text = exposition(down, NONE);
+        assert!(
+            text.contains("work_dependency_up{dependency=\"access\"} 0\n"),
+            "{text}"
+        );
+        assert!(text.contains("\nwork_ready 1\n"), "{text}");
+        assert!(exposition(ALL, NONE).contains("work_dependency_up{dependency=\"access\"} 1\n"));
     }
 
     // T-39 OP-18 T-93

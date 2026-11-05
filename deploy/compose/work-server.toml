@@ -1,12 +1,17 @@
-# OP-32, OP-42, OP-43, T-41, T-20, T-39, OP-33, T-76, OP-46, SEC-32
+# OP-32, OP-42, OP-43, T-41, T-20, T-39, OP-33, T-76, OP-46, SEC-32, T-96, E-2
+
+[suiss]
+access = "https://access-server:8443/realms/platform"
+region = "local"
+tls_roots = "/var/lib/access/product-tls/ca.crt"
 
 [postgres]
-canonical = "postgres://work_app@postgres:5432/work"
-derived = "postgres://work_app@postgres:5432/work_derived"
-sequencer = "postgres://work_sequencer@postgres:5432/work"
-checkpointer = "postgres://work_checkpointer@postgres:5432/work"
-publisher = "postgres://work_publisher@postgres:5432/work"
-deriver = "postgres://work_deriver@postgres:5432/work_derived"
+canonical = "postgres://work_app@work-postgres:5432/work"
+derived = "postgres://work_app@work-postgres:5432/work_derived"
+sequencer = "postgres://work_sequencer@work-postgres:5432/work"
+checkpointer = "postgres://work_checkpointer@work-postgres:5432/work"
+publisher = "postgres://work_publisher@work-postgres:5432/work"
+deriver = "postgres://work_deriver@work-postgres:5432/work_derived"
 
 [nats]
 url = "nats://nats:4222"

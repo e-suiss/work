@@ -5435,6 +5435,7 @@ dependencies = [
  "thiserror 2.0.21",
  "tokio",
  "tracing",
+ "work-access-client",
  "work-dispatch",
  "work-ledger",
  "work-parse",

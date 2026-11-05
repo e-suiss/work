@@ -7,14 +7,22 @@
 //! too: its sources are configured and counted at load (OP-32 item 4, OP-43 item 3), and a source
 //! that does not answer yet never blocks start-up (OP-43 item 2). The signer is not needed to
 //! start; until it answers the process is not ready and nothing is checkpointed (T-39 rule 6).
+//! Access's discovery is read here too (T-96, E-2): an answer that refuses start stops the
+//! process, while an Access that does not answer is an outage that refuses consequential actions
+//! and never readiness (T-28).
 
 use std::future::Future;
 use std::io::BufReader;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
+use tokio::time::MissedTickBehavior;
+use work_access_client::adapters::{DEFAULT_TIMEOUT, HttpsTransport, public_config, roots};
+use work_access_client::app::{Client, DISCOVERY_INTERVAL_MS};
+use work_access_client::ports::Clock as AccessClockPort;
 use work_ledger::SystemRng;
 use work_ledger::time::{
     LedgerTime, NTS_EVENT_QUEUE, ProcessMonotonic, RoughtimeUdp, read_roots, spawn_nts,
@@ -60,6 +68,94 @@ pub(crate) enum StartupError {
     LedgerTime(String),
     #[error("configuration: {0}")]
     Config(String),
+    #[error("access: {0}")]
+    Access(String),
+}
+
+/// Ledger time as the Access client reads it; while ledger time is unavailable the client is at
+/// the end of time and refuses every consequential call (OP-6, T-28).
+#[derive(Debug, Clone)]
+pub(crate) struct AccessClock(LedgerTime<ProcessMonotonic>);
+
+impl AccessClockPort for AccessClock {
+    fn now_ms(&self) -> u64 {
+        self.0.read().unwrap_or(u64::MAX)
+    }
+}
+
+/// Whether the discovery of the `[suiss] access` issuer last answered, and the task that reads
+/// it again every [`DISCOVERY_INTERVAL_MS`] (T-96 items 1, 2). The process holds no PEP
+/// certificate yet, so its client refuses every consequential call.
+#[derive(Debug)]
+pub(crate) struct AccessLink {
+    pub(crate) up: Arc<AtomicBool>,
+    refresh: JoinHandle<()>,
+}
+
+impl AccessLink {
+    /// Reads Access's discovery once. An answer that refuses start (another issuer, version or
+    /// region, a missing capability) stops the process; an Access that does not answer only
+    /// lowers the `access` gauge until a later read answers (T-96 item 2, T-28, T-93 item 3).
+    pub(crate) async fn start(
+        config: &Config,
+        time: LedgerTime<ProcessMonotonic>,
+    ) -> Result<Self, StartupError> {
+        let refused = |e: &dyn std::fmt::Display| StartupError::Access(e.to_string());
+        let (issuer, region, pem) = config.access().map_err(|e| refused(&e))?;
+        let tls = public_config(roots(&pem).map_err(|e| refused(&e))?).map_err(|e| refused(&e))?;
+        let client = Arc::new(Client::new(
+            HttpsTransport::new(tls, DEFAULT_TIMEOUT),
+            AccessClock(time),
+            issuer,
+            region,
+            0,
+        ));
+        let up = Arc::new(AtomicBool::new(false));
+        match client.discover().await {
+            Ok(doc) => {
+                up.store(true, Ordering::Relaxed);
+                tracing::info!(
+                    event = "access.discovered",
+                    issuer = doc.issuer.as_str(),
+                    relay = doc.relay.as_str(),
+                    "Access discovery read"
+                );
+            }
+            Err(error) if error.code() == "start_refused" => return Err(refused(&error)),
+            Err(error) => tracing::warn!(
+                event = "access.unreachable",
+                %error,
+                "Access does not answer; consequential actions are refused until it does"
+            ),
+        }
+        let refresh = tokio::spawn(rediscover(client, Arc::clone(&up)));
+        Ok(Self { up, refresh })
+    }
+
+    /// Stops the refresh.
+    pub(crate) fn stop(self) {
+        self.refresh.abort();
+    }
+}
+
+async fn rediscover(client: Arc<Client<HttpsTransport, AccessClock>>, up: Arc<AtomicBool>) {
+    let mut ticks = tokio::time::interval(Duration::from_millis(DISCOVERY_INTERVAL_MS));
+    ticks.set_missed_tick_behavior(MissedTickBehavior::Delay);
+    ticks.tick().await;
+    loop {
+        ticks.tick().await;
+        match client.discover().await {
+            Ok(_) => up.store(true, Ordering::Relaxed),
+            Err(error) => {
+                up.store(false, Ordering::Relaxed);
+                tracing::warn!(
+                    event = "access.unreachable",
+                    %error,
+                    "Access discovery failed; the last document is kept"
+                );
+            }
+        }
+    }
 }
 
 /// The running ledger time driver: one per NTS server, the NTS event follower and the
