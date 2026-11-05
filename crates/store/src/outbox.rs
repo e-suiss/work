@@ -234,3 +234,37 @@ impl LedgerTx<'_> {
         Ok(done.rows_affected())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::path::Path;
+
+    // P-34 P-35 T-17
+    #[test]
+    fn p_34_only_the_append_of_a_record_writes_an_outbox_pointer() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let insert = ["INSERT INTO", "ledger.outbox"].join(" ");
+        let mut writers = Vec::new();
+        for entry in std::fs::read_dir(root.join("src")).unwrap() {
+            let path = entry.unwrap().path();
+            let text = std::fs::read_to_string(&path).unwrap_or_default();
+            if text.contains(&insert) {
+                writers.push(path.file_name().unwrap().to_string_lossy().into_owned());
+            }
+        }
+        assert_eq!(writers, ["sequencer.rs"]);
+        let grant = ["GRANT INSERT ON", "ledger.outbox"].join(" ");
+        let mut grants = Vec::new();
+        for entry in std::fs::read_dir(root.join("migrations/canonical")).unwrap() {
+            let text = std::fs::read_to_string(entry.unwrap().path()).unwrap();
+            for line in text.lines().filter(|l| l.contains(&grant)) {
+                grants.push(line.to_owned());
+            }
+        }
+        assert_eq!(grants, ["GRANT INSERT ON ledger.outbox TO work_sequencer;"]);
+        let path = root.join("migrations/canonical/20261028100100_ledger_outbox.sql");
+        let table = std::fs::read_to_string(path).unwrap();
+        let fk = "FOREIGN KEY (ledger_id, pos) REFERENCES ledger.log (ledger_id, pos)";
+        assert!(table.contains(fk));
+    }
+}
