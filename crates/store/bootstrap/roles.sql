@@ -1,4 +1,4 @@
--- T-8 T-36 OP-12 P-17 Access OP-12 Access OP-17 Access OP-55 Access OP-73
+-- T-8 T-36 OP-12 P-17 T-103 Access OP-12 Access OP-17 Access OP-55 Access OP-73
 DO $$
 DECLARE
     r text;
@@ -12,7 +12,8 @@ BEGIN
         'work_erasure',
         'work_archive',
         'work_deriver',
-        'work_reconciler'
+        'work_reconciler',
+        'work_access'
     ] LOOP
         IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = r) THEN
             EXECUTE pg_catalog.format('CREATE ROLE %I NOLOGIN', r);

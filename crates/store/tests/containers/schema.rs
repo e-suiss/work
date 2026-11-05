@@ -70,19 +70,24 @@ scope_exception_allowed (fq) AS (
 partitioned_allowed (fq) AS (
     VALUES ('work.idempotency_key'), ('work.inbound_seen')
 ),
+installation_scope_allowed (fq) AS (
+    VALUES ('work.access_realm'), ('work.access_event_stream')
+),
 violations (check_id, object) AS (
     SELECT 'rls_enable_force', fq FROM tab
      WHERE NOT (relrowsecurity AND relforcerowsecurity)
     UNION ALL
     SELECT 'rls_ledger_scope_policy', fq FROM tab
-     WHERE NOT EXISTS (
+     WHERE fq NOT IN (SELECT fq FROM installation_scope_allowed)
+       AND NOT EXISTS (
          SELECT 1 FROM pg_catalog.pg_policy p
           WHERE p.polrelid = tab.oid AND NOT p.polpermissive AND p.polname = 'ledger_scope'
             AND pg_catalog.pg_get_expr(p.polqual, p.polrelid) LIKE '%current_ledger_id()%'
             AND pg_catalog.pg_get_expr(p.polwithcheck, p.polrelid) LIKE '%current_ledger_id()%')
     UNION ALL
     SELECT 'pk_ledger_prefix', fq FROM tab
-     WHERE NOT EXISTS (
+     WHERE fq NOT IN (SELECT fq FROM installation_scope_allowed)
+       AND NOT EXISTS (
          SELECT 1 FROM pg_catalog.pg_constraint k
            JOIN pg_catalog.pg_attribute a ON a.attrelid = k.conrelid AND a.attnum = k.conkey[1]
           WHERE k.conrelid = tab.oid AND k.contype = 'p' AND a.attname = 'ledger_id')
@@ -92,6 +97,7 @@ violations (check_id, object) AS (
       JOIN pg_catalog.pg_class ic ON ic.oid = i.indexrelid
       LEFT JOIN pg_catalog.pg_attribute a ON a.attrelid = tab.oid AND a.attnum = i.indkey[0]
      WHERE a.attname IS DISTINCT FROM 'ledger_id'
+       AND tab.fq NOT IN (SELECT fq FROM installation_scope_allowed)
     UNION ALL
     SELECT 'fk_composite_ledger', tab.fq || ' ' || k.conname FROM tab
       JOIN pg_catalog.pg_constraint k ON k.conrelid = tab.oid AND k.contype = 'f'
@@ -117,6 +123,15 @@ violations (check_id, object) AS (
     UNION ALL
     SELECT 'job_queue_set_exact', fq FROM tab
      WHERE (descr LIKE '%guard=job_queue;%') <> EXISTS (SELECT 1 FROM job_queue_delete j WHERE j.fq = tab.fq)
+    UNION ALL
+    SELECT 'installation_scope_exact', fq FROM installation_scope_allowed a
+     WHERE pg_catalog.current_database() = 'work'
+       AND NOT EXISTS (
+           SELECT 1 FROM tab
+            WHERE tab.fq = a.fq AND tab.descr LIKE 'label=OPERATIONAL;%'
+              AND NOT EXISTS (
+                  SELECT 1 FROM pg_catalog.pg_policy p
+                   WHERE p.polrelid = tab.oid AND NOT p.polpermissive))
     UNION ALL
     SELECT 'partitioned_set_exact', fq FROM tab
      WHERE relkind = 'p' AND fq NOT IN (SELECT fq FROM partitioned_allowed)
@@ -291,7 +306,7 @@ async fn violations(c: &mut PgConnection) -> Vec<(String, String)> {
         .collect()
 }
 
-// T-36 OP-12 OP-14 T-17 T-81 T-82 OP-39 C-8 C-40 P-17 SEC-13
+// T-36 OP-12 OP-14 T-17 T-81 T-82 OP-39 C-8 C-40 P-17 SEC-13 T-103
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "needs Docker"]
 async fn t_36_both_schemas_pass_the_security_checks() {

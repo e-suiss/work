@@ -36,7 +36,7 @@ create_work() {
     local bootstrap=/work-bootstrap
     psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname postgres -f "$bootstrap/roles.sql"
     for role in work_owner work_app work_sequencer work_checkpointer work_publisher work_erasure \
-        work_archive work_deriver work_reconciler; do
+        work_archive work_deriver work_reconciler work_access; do
         psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname postgres \
             -v role="$role" -v password="$WORK_DB_PASSWORD" <<'SQL'
 ALTER ROLE :"role" LOGIN PASSWORD :'password';

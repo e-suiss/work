@@ -5,7 +5,7 @@ use work_testkit::Postgres;
 
 const PASSWORD: &str = "test-only-not-a-secret";
 
-const ROLES: [&str; 9] = [
+const ROLES: [&str; 10] = [
     "work_owner",
     "work_app",
     "work_sequencer",
@@ -15,6 +15,7 @@ const ROLES: [&str; 9] = [
     "work_archive",
     "work_deriver",
     "work_reconciler",
+    "work_access",
 ];
 
 pub(crate) const L: [u8; 32] = [0xab; 32];

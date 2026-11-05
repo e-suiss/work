@@ -23,3 +23,15 @@ table = "work.record_header"
 column = "auth_context_ref"
 spec = "P-11"
 reason = "reference to the Access authentication context carried in the ledger envelope; not the derived C-40 context concept"
+
+[[exception]]
+table = "work.access_realm"
+column = "state"
+spec = "T-103"
+reason = "pairing state of a tenant realm with Access (unpaired, paired, refused or retired), written by the pairing step from Access's answers; an operational fact about the installation's Access client, not a derived state of work"
+
+[[exception]]
+table = "work.access_event_stream"
+column = "state"
+spec = "T-103"
+reason = "last status Access reported for Work's SSF push stream (enabled, paused, disabled, unreachable or missing); an operational fact about event delivery, not a derived state of work"

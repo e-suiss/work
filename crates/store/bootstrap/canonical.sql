@@ -1,11 +1,11 @@
--- OP-2 T-8 T-36 T-82 Access OP-12
+-- OP-2 T-8 T-36 T-82 T-103 Access OP-12
 REVOKE ALL ON SCHEMA public FROM PUBLIC;
 DO $$
 BEGIN
     EXECUTE pg_catalog.format('REVOKE ALL ON DATABASE %I FROM PUBLIC', pg_catalog.current_database());
     EXECUTE pg_catalog.format(
         'GRANT CONNECT ON DATABASE %I TO work_app, work_sequencer, work_checkpointer, work_publisher, '
-        'work_erasure, work_archive, work_deriver',
+        'work_erasure, work_archive, work_deriver, work_access',
         pg_catalog.current_database()
     );
 END

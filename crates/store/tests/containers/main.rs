@@ -10,6 +10,7 @@
     reason = "test code"
 )]
 
+mod access;
 mod canonical;
 mod derived;
 mod env;
