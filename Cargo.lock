@@ -5273,10 +5273,13 @@ name = "work-cli"
 version = "0.1.0"
 dependencies = [
  "esuiss-crypto",
+ "esuiss-work-kernel",
  "tokio",
+ "work-export",
  "work-ledger",
  "work-store",
  "work-telemetry",
+ "work-testkit",
 ]
 
 [[package]]
@@ -5297,6 +5300,12 @@ dependencies = [
 [[package]]
 name = "work-export"
 version = "0.1.0"
+dependencies = [
+ "esuiss-work-kernel",
+ "serde_json",
+ "thiserror 2.0.21",
+ "work-store",
+]
 
 [[package]]
 name = "work-federation"
