@@ -1,4 +1,6 @@
-//! The Access client's use cases: discovery at start and on refresh (T-96 item 2), Relay's discovery document (T-99 item 1), Domain Metadata kept per domain, verified and cached key lookups (T-101 item 4), the eligibility check (T-101 item 5), the realm token keys an `auth_context` artifact verifies under (P-116), tenant snapshots and the reconciliation job (T-96 item 4). Every consequential call is refused fail-closed while the PEP certificate has expired or the endpoint it needs is not served (T-28).
+//! The Access client's use cases: discovery at start and on refresh (T-96 item 2), Relay's discovery document (T-99 item 1), Domain Metadata kept per domain, verified and cached key lookups (T-101 item 4), the eligibility check (T-101 item 5), the realm token keys an `auth_context` artifact verifies under (P-116), tenant snapshots and the reconciliation job (T-96 item 4), and the platform routes with Work's pairing and event stream upkeep (T-103) in [`platform`]. Every consequential call is refused fail-closed while the PEP certificate has expired or the endpoint it needs is not served (T-28).
+
+pub mod platform;
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{Mutex, MutexGuard};
@@ -118,6 +120,26 @@ impl<T: Transport, C: Clock> Client<T, C> {
             return Err(AccessError::Expired);
         }
         fresh(self.state()?.discovered, now)
+    }
+
+    /// The endpoints the last discovery read.
+    ///
+    /// # Errors
+    /// [`AccessError::Unserved`] before discovery.
+    pub fn served(&self) -> Result<Endpoints, AccessError> {
+        self.endpoints()
+    }
+
+    /// Work's region (E-4).
+    #[must_use]
+    pub fn region(&self) -> &str {
+        &self.region
+    }
+
+    /// The Access issuer, `[suiss] access`.
+    #[must_use]
+    pub const fn issuer(&self) -> &Issuer {
+        &self.issuer
     }
 
     fn endpoints(&self) -> Result<Endpoints, AccessError> {
@@ -412,6 +434,19 @@ impl<T: Transport, C: Clock> Client<T, C> {
     /// # Errors
     /// [`AccessError`].
     pub async fn reconcile(&self, map: &impl TenantMap) -> Result<Vec<TenantChange>, AccessError> {
+        let seen = self.all_tenants().await?;
+        let changes = plan(&map.known().await?, &seen, &self.region);
+        for change in &changes {
+            map.apply(change.clone()).await?;
+        }
+        Ok(changes)
+    }
+
+    /// The whole tenant list. A list that does not end, or repeats a cursor, is refused.
+    ///
+    /// # Errors
+    /// [`AccessError`].
+    pub async fn all_tenants(&self) -> Result<Vec<TenantSnapshot>, AccessError> {
         let mut seen = Vec::new();
         let mut cursors = BTreeSet::new();
         let mut cursor: Option<String> = None;
@@ -419,13 +454,7 @@ impl<T: Transport, C: Clock> Client<T, C> {
             let page = self.tenants(cursor.as_deref()).await?;
             seen.extend(page.tenants);
             match page.next_cursor {
-                None => {
-                    let changes = plan(&map.known().await?, &seen, &self.region);
-                    for change in &changes {
-                        map.apply(change.clone()).await?;
-                    }
-                    return Ok(changes);
-                }
+                None => return Ok(seen),
                 Some(next) if !cursors.insert(next.clone()) => {
                     return Err(AccessError::Answer("cursor"));
                 }

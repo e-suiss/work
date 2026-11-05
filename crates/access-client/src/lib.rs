@@ -1,4 +1,4 @@
-//! Access public API client (T-8, T-28, T-96, T-99, T-101; Access OP-149): the single Access issuer setting and Suiss discovery, Relay's discovery document, the PEP client certificate from the PKCS#11 token, Instance key lookup verified under the domain's operational key with its `Access-Key-Excerpt`, the eligibility check, the realm token keys an `auth_context` artifact verifies under, and the tenant snapshots with their reconciliation.
+//! Access public API client (T-8, T-28, T-96, T-99, T-101; Access OP-149): the single Access issuer setting and Suiss discovery, Relay's discovery document, the PEP client certificate from the PKCS#11 token, Instance key lookup verified under the domain's operational key with its `Access-Key-Excerpt`, the eligibility check, the realm token keys an `auth_context` artifact verifies under, the tenant snapshots with their reconciliation, and the platform routes over which Work pairs with every tenant realm and keeps its event stream (T-103).
 
 pub mod adapters;
 pub mod app;

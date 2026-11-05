@@ -105,7 +105,7 @@ pub fn read(der: &[u8]) -> Result<CertificateFacts, AccessError> {
     })
 }
 
-fn digits(text: &[u8]) -> Option<u64> {
+pub(crate) fn digits(text: &[u8]) -> Option<u64> {
     text.iter().try_fold(0_u64, |acc, b| {
         b.is_ascii_digit()
             .then(|| {
@@ -161,7 +161,7 @@ fn time_ms(tag: u8, text: &[u8]) -> Option<u64> {
 }
 
 /// Days since 1970-01-01 of a proleptic Gregorian date from 1970 on.
-fn days_from_civil(year: u64, month: u64, day: u64) -> Option<u64> {
+pub(crate) fn days_from_civil(year: u64, month: u64, day: u64) -> Option<u64> {
     if year < 1970 {
         return None;
     }

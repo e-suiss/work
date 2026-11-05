@@ -1,0 +1,65 @@
+{
+  "streams": [
+    {
+      "stream_id": "6f1c2a4e-9b0d-4c3e-8a71-2d5f0e9b4c11",
+      "iss": "https://platform.id.example",
+      "aud": "cli_0123456789abcdefghjkmnpqrs",
+      "events_supported": [
+        "urn:suiss:access:event:authority-revoked",
+        "urn:suiss:access:event:authority-narrowed",
+        "urn:suiss:access:event:authority-expired",
+        "urn:suiss:access:event:mandate-ended",
+        "urn:suiss:access:event:instance-terminated",
+        "urn:suiss:access:event:revalidation-required",
+        "urn:suiss:access:event:projection-invalidated",
+        "urn:suiss:access:event:party.disabled",
+        "urn:suiss:access:event:party.compromised",
+        "urn:suiss:access:event:tenant.created",
+        "urn:suiss:access:event:organization.created",
+        "urn:suiss:access:event:organization.updated",
+        "urn:suiss:access:event:api_client.created",
+        "urn:suiss:access:event:api_client.updated",
+        "urn:suiss:access:event:api_client.disabled"
+      ],
+      "events_requested": [
+        "urn:suiss:access:event:api_client.created",
+        "urn:suiss:access:event:api_client.disabled",
+        "urn:suiss:access:event:api_client.updated",
+        "urn:suiss:access:event:authority-expired",
+        "urn:suiss:access:event:authority-narrowed",
+        "urn:suiss:access:event:authority-revoked",
+        "urn:suiss:access:event:instance-terminated",
+        "urn:suiss:access:event:mandate-ended",
+        "urn:suiss:access:event:organization.created",
+        "urn:suiss:access:event:organization.updated",
+        "urn:suiss:access:event:party.compromised",
+        "urn:suiss:access:event:party.disabled",
+        "urn:suiss:access:event:projection-invalidated",
+        "urn:suiss:access:event:revalidation-required",
+        "urn:suiss:access:event:tenant.created"
+      ],
+      "events_delivered": [
+        "urn:suiss:access:event:api_client.created",
+        "urn:suiss:access:event:api_client.disabled",
+        "urn:suiss:access:event:api_client.updated",
+        "urn:suiss:access:event:authority-expired",
+        "urn:suiss:access:event:authority-narrowed",
+        "urn:suiss:access:event:authority-revoked",
+        "urn:suiss:access:event:instance-terminated",
+        "urn:suiss:access:event:mandate-ended",
+        "urn:suiss:access:event:organization.created",
+        "urn:suiss:access:event:organization.updated",
+        "urn:suiss:access:event:party.compromised",
+        "urn:suiss:access:event:party.disabled",
+        "urn:suiss:access:event:projection-invalidated",
+        "urn:suiss:access:event:revalidation-required",
+        "urn:suiss:access:event:tenant.created"
+      ],
+      "delivery": {
+        "method": "urn:ietf:rfc:8935",
+        "endpoint_url": "https://work.example/ssf"
+      },
+      "status": "enabled"
+    }
+  ]
+}

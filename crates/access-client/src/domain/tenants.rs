@@ -6,7 +6,8 @@ use serde::Deserialize;
 use work_proto::id::TenantId;
 
 use crate::domain::AccessError;
-use crate::domain::discovery::Template;
+use crate::domain::discovery::{Issuer, Template};
+use crate::domain::pairing::RealmId;
 
 /// How often the reconciliation runs, besides at start (T-96 item 4).
 pub const RECONCILE_INTERVAL_MS: u64 = 60 * 60 * 1000;
@@ -28,12 +29,44 @@ pub enum TenantStatus {
 }
 
 #[derive(Deserialize)]
+struct RealmWire {
+    id: String,
+    issuer: String,
+    slug: String,
+}
+
+#[derive(Deserialize)]
 struct SnapshotWire {
     tenant: String,
     organizations: Vec<String>,
+    #[serde(default)]
+    realms: Vec<RealmWire>,
     region: String,
     status: String,
     version: String,
+}
+
+/// A live realm of a tenant (Access OP-149 m.19 (b), P-115 note).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SnapshotRealm {
+    /// The realm id.
+    pub id: RealmId,
+    /// The realm issuer, checked in the P-116 `realm` check.
+    pub issuer: String,
+    /// The slug attention items show.
+    pub slug: String,
+}
+
+fn realm(w: RealmWire) -> Result<SnapshotRealm, AccessError> {
+    Issuer::parse(&w.issuer).map_err(|_| AccessError::Answer("realm issuer"))?;
+    if w.slug.is_empty() || w.slug.len() > 255 {
+        return Err(AccessError::Answer("realm slug"));
+    }
+    Ok(SnapshotRealm {
+        id: RealmId::parse(&w.id)?,
+        issuer: w.issuer,
+        slug: w.slug,
+    })
 }
 
 #[derive(Deserialize)]
@@ -56,6 +89,17 @@ pub struct TenantSnapshot {
     pub version: String,
     /// Organization count; empty until Access's organization model, and unread by Work.
     pub organizations: usize,
+    /// The tenant's live realms; every realm Work pairs with (T-103).
+    pub realms: Vec<SnapshotRealm>,
+}
+
+impl TenantSnapshot {
+    /// Whether Work pairs with the tenant: it is `active` and of Work's `region` (T-103 item 1,
+    /// E-4).
+    #[must_use]
+    pub fn pairable(&self, region: &str) -> bool {
+        self.status == TenantStatus::Active && self.region == region
+    }
 }
 
 fn snapshot(w: SnapshotWire) -> Result<TenantSnapshot, AccessError> {
@@ -75,6 +119,7 @@ fn snapshot(w: SnapshotWire) -> Result<TenantSnapshot, AccessError> {
         status,
         version: w.version,
         organizations: w.organizations.len(),
+        realms: w.realms.into_iter().map(realm).collect::<Result<_, _>>()?,
     })
 }
 
@@ -186,6 +231,7 @@ mod tests {
             status: TenantStatus::Active,
             version: version.to_owned(),
             organizations: 0,
+            realms: Vec::new(),
         }
     }
 
@@ -282,5 +328,37 @@ mod tests {
         let unchanged = [tenant("tnt_a", "v1", "eu-central")];
         let only_a = BTreeMap::from([(TenantId::new("tnt_a").unwrap(), "v1".to_owned())]);
         assert_eq!(plan(&only_a, &unchanged, "eu-central"), Vec::new());
+    }
+
+    // T-103
+    #[test]
+    fn t_103_the_snapshot_names_its_live_realms_and_only_active_tenants_of_the_region_pair() {
+        let one = TenantSnapshot::from_json(
+            br#"{"tenant": "tnt_01", "organizations": [], "realms": [{"id": "a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1", "issuer": "https://shop1.id.example", "slug": "shop1"}], "region": "eu-central", "status": "active", "retention": {}, "version": "v1"}"#,
+        )
+        .unwrap();
+        assert_eq!(one.realms.len(), 1);
+        assert_eq!(
+            one.realms[0].id.as_str(),
+            "a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1"
+        );
+        assert_eq!(one.realms[0].slug, "shop1");
+        assert!(one.pairable("eu-central"));
+        assert!(!one.pairable("us-east"));
+        let suspended = TenantSnapshot {
+            status: TenantStatus::Suspended,
+            ..one.clone()
+        };
+        assert!(!suspended.pairable("eu-central"));
+        for bad in [
+            r#""id": "A1A1A1A1-a1a1-a1a1-a1a1-a1a1a1a1a1a1", "issuer": "https://shop1.id.example", "slug": "shop1""#,
+            r#""id": "a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1", "issuer": "http://shop1.id.example", "slug": "shop1""#,
+            r#""id": "a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1", "issuer": "https://shop1.id.example", "slug": """#,
+        ] {
+            let doc = format!(
+                r#"{{"tenant": "tnt_01", "organizations": [], "realms": [{{{bad}}}], "region": "eu-central", "status": "active", "version": "v1"}}"#
+            );
+            assert!(TenantSnapshot::from_json(doc.as_bytes()).is_err(), "{bad}");
+        }
     }
 }

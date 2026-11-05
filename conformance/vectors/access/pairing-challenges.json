@@ -1,0 +1,32 @@
+{
+  "tenant": "tnt_0123456789abcdefghjkmnpqrs",
+  "targets": [
+    {
+      "realm": "019a0000-0000-7000-8000-0000000000a1",
+      "status": "unpaired",
+      "domain": "Ag8bXl3r6kZrS4-2a2vC2QxEoNw5yWg6k2q1mFzT9uI",
+      "basis": "kQ3ZbU1cX0b0m2-4A5r9Lg",
+      "pep": "access-identity",
+      "party": "c3Vpc3Mtd29yay1wYXJ0eQ",
+      "kid": "s8yHkUNz5Wl1rYw2nQz6kq3n7zW3yQ2bP0mG1tA4hXc",
+      "challenge": "J8o3uQm6R0nqv2bX7yT1kZcLwP4sE9dH5aF6gK2iM0o",
+      "valid_from": "2026-11-05T09:00:00.000Z",
+      "valid_until": "2026-11-05T09:10:00.000Z",
+      "instance_create": {
+        "nonce": "J8o3uQm6R0nqv2bX7yT1kZcLwP4sE9dH5aF6gK2iM0o",
+        "intent": "q7Rz2mN1xP8wK3vB6tY9sL4cD0fG5hJ2kE7aU1iO3nM"
+      },
+      "party_register": {
+        "nonce": "J8o3uQm6R0nqv2bX7yT1kZcLwP4sE9dH5aF6gK2iM0oB",
+        "intent": "Zx3Vb6Nm9Lk2Jh5Gf8Dd1Ss4Aa7Qq0Ww3Ee6Rr9Tt2Y"
+      }
+    },
+    {
+      "realm": "019a0000-0000-7000-8000-0000000000a2",
+      "status": "paired",
+      "party": "c3Vpc3Mtd29yay1wYXJ0eQ",
+      "instance": "AZoAAAAAcACAAAAAAAAAsQ",
+      "kid": "s8yHkUNz5Wl1rYw2nQz6kq3n7zW3yQ2bP0mG1tA4hXc"
+    }
+  ]
+}

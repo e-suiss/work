@@ -1,4 +1,4 @@
-//! What the client needs from outside (T-32): an HTTPS exchange with Access or Relay under a bound, the time, and Work's tenant map for the reconciliation.
+//! What the client needs from outside (T-32): an HTTPS exchange with Access or Relay under a bound, the time, randomness, Work's tenant map for the reconciliation and Work's realm table for the pairing step.
 
 use std::collections::BTreeMap;
 use std::future::Future;
@@ -6,6 +6,8 @@ use std::future::Future;
 use serde_json::Value;
 use work_proto::id::TenantId;
 
+use crate::domain::pairing::{RealmChange, StoredRealm};
+use crate::domain::streams::StreamStatus;
 use crate::domain::tenants::TenantChange;
 use crate::domain::{AccessError, ProblemError};
 
@@ -86,6 +88,18 @@ impl Response {
             .map(|(_, v)| v.as_str())
     }
 
+    /// The body of a `200` or `201`; otherwise as [`Response::ok`].
+    ///
+    /// # Errors
+    /// [`AccessError::Unavailable`] or [`AccessError::Refused`].
+    pub fn created(&self) -> Result<&[u8], AccessError> {
+        if self.status == 201 {
+            Ok(&self.body)
+        } else {
+            self.ok()
+        }
+    }
+
     /// The body of a `200`; a `503` is the peer's outage and any other status its refusal, each
     /// with what its RFC 9457 problem names: `code`, `reason` and `errors`.
     ///
@@ -145,6 +159,60 @@ pub trait TenantMap: Send + Sync {
 
     /// Applies one change.
     fn apply(&self, change: TenantChange) -> impl Future<Output = Result<(), AccessError>> + Send;
+}
+
+/// Randomness for one-time values such as an assertion's `jti` (T-32 rule 2).
+pub trait Random: Send + Sync {
+    /// Fills `out`.
+    ///
+    /// # Errors
+    /// [`AccessError::KeyStore`] when no randomness is available.
+    fn fill(&self, out: &mut [u8]) -> Result<(), AccessError>;
+}
+
+/// The stored stream: its id, its last status (`None` while missing) and how often Work opened
+/// it again.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct StoredStream {
+    /// The stream id.
+    pub id: Option<String>,
+    /// The last status read.
+    pub status: Option<StreamStatus>,
+    /// Reopenings so far.
+    pub recreated: u64,
+}
+
+/// Work's realm table and stream row (T-103 item 5).
+pub trait PairingStore: Send + Sync {
+    /// The stored realms of `tenant`.
+    fn realms(
+        &self,
+        tenant: &TenantId,
+    ) -> impl Future<Output = Result<Vec<StoredRealm>, AccessError>> + Send;
+
+    /// Applies one change at `at_ms`; for [`RealmChange::Failed`] the failed runs in a row now.
+    fn apply(
+        &self,
+        tenant: &TenantId,
+        change: &RealmChange,
+        at_ms: u64,
+    ) -> impl Future<Output = Result<Option<u64>, AccessError>> + Send;
+
+    /// How many live realms have at least `runs` failed runs in a row.
+    fn stalled(&self, runs: u64) -> impl Future<Output = Result<u64, AccessError>> + Send;
+
+    /// The stored stream.
+    fn stream(&self) -> impl Future<Output = Result<Option<StoredStream>, AccessError>> + Send;
+
+    /// Records the stream `id` read with `status` at `at_ms` (`None` for both while missing);
+    /// `recreated` counts one more reopening.
+    fn record_stream(
+        &self,
+        id: Option<&str>,
+        status: Option<StreamStatus>,
+        recreated: bool,
+        at_ms: u64,
+    ) -> impl Future<Output = Result<StoredStream, AccessError>> + Send;
 }
 
 #[cfg(test)]

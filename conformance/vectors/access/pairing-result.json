@@ -1,0 +1,13 @@
+{
+  "tenant": "tnt_0123456789abcdefghjkmnpqrs",
+  "targets": [
+    {
+      "realm": "019a0000-0000-7000-8000-0000000000a1",
+      "status": "paired",
+      "party": "c3Vpc3Mtd29yay1wYXJ0eQ",
+      "instance": "AZoAAAAAcACAAAAAAAAAsA",
+      "kid": "s8yHkUNz5Wl1rYw2nQz6kq3n7zW3yQ2bP0mG1tA4hXc"
+    }
+  ],
+  "event_stream": "6f1c2a4e-9b0d-4c3e-8a71-2d5f0e9b4c11"
+}

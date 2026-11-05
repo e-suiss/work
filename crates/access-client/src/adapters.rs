@@ -1,4 +1,4 @@
-//! The outside of the Access client: the PEP credential, a TLS client certificate whose private key never leaves the PKCS#11 token and whose certificate is a token object of the same label (T-101 item 2, T-56), and the HTTPS transport that presents it to `/access/v1` and the ADP over TLS 1.3, one HTTP/1.1 connection per call, every step under a bound (T-32 rule 7).
+//! The outside of the Access client: the PEP credential, a TLS client certificate whose private key never leaves the PKCS#11 token and whose certificate is a token object of the same label (T-101 item 2, T-56), the client assertion key `work-access-client` (P-256) and the service key `work-access-service` (Ed25519) of the same token (T-101 note items 1 and 6), and the HTTPS transport that presents the certificate to `/access/v1` and the ADP, or no certificate on the platform routes, over TLS 1.3, one HTTP/1.1 connection per call, every step under a bound (T-32 rule 7).
 
 use std::path::Path;
 use std::sync::{Arc, Mutex};
@@ -18,10 +18,10 @@ use rustls::pki_types::{CertificateDer, ServerName};
 use rustls::sign::{CertifiedKey, Signer as TlsSigner, SigningKey, SingleCertAndKey};
 use rustls::{ClientConfig, RootCertStore, SignatureAlgorithm, SignatureScheme};
 use sha2::{Digest as _, Sha256};
-use suiss_crypto::cose::PublicKey;
+use suiss_crypto::cose::{Algorithm, PublicKey};
 use suiss_crypto::pkcs11::{HsmSigner, KeyStore};
 use suiss_crypto::secret::Secret;
-use suiss_crypto::signer::Signer as _;
+use suiss_crypto::signer::{SignError, Signer};
 use tokio::net::TcpStream;
 use tokio::time::timeout;
 use tokio_rustls::TlsConnector;
@@ -32,6 +32,12 @@ use crate::ports::{Method, Request, Response, Transport};
 
 /// The token label of the PEP key and certificate (T-101 item 2).
 pub const PEP_LABEL: &str = "work-access-pep";
+
+/// The token label of the client assertion key, P-256 (T-101 note item 1).
+pub const CLIENT_LABEL: &str = "work-access-client";
+
+/// The token label of the service Instance key, Ed25519 (T-101 note item 6).
+pub const SERVICE_LABEL: &str = "work-access-service";
 
 /// Default bound of one call (T-32 rule 7).
 pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(5);
@@ -272,6 +278,83 @@ impl PepCredential {
     }
 }
 
+/// A signing key of the token behind a lock, so that tasks share it; the private key never
+/// leaves the token (T-56).
+pub struct TokenSigner {
+    signer: Mutex<HsmSigner>,
+    key: PublicKey,
+    algorithm: Algorithm,
+}
+
+impl std::fmt::Debug for TokenSigner {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TokenSigner")
+            .field("algorithm", &self.algorithm)
+            .finish_non_exhaustive()
+    }
+}
+
+impl TokenSigner {
+    fn of(signer: HsmSigner) -> Self {
+        Self {
+            key: signer.public_key(),
+            algorithm: signer.algorithm(),
+            signer: Mutex::new(signer),
+        }
+    }
+}
+
+impl Signer for TokenSigner {
+    fn algorithm(&self) -> Algorithm {
+        self.algorithm
+    }
+
+    fn public_key(&self) -> PublicKey {
+        self.key.clone()
+    }
+
+    fn sign(&self, message: &[u8]) -> Result<Vec<u8>, SignError> {
+        self.signer
+            .lock()
+            .map_err(|_| SignError::Sign)?
+            .sign(message)
+    }
+}
+
+/// Work's two Access keys besides the PEP's: the client assertion key and the service key.
+#[derive(Debug)]
+pub struct AccessKeys {
+    /// `work-access-client`, P-256; signs only client assertions.
+    pub client: TokenSigner,
+    /// `work-access-service`, Ed25519; signs only Actor Intent Statements and the service
+    /// Party's records.
+    pub service: TokenSigner,
+}
+
+impl AccessKeys {
+    /// Loads both keys from the token: the client key must be P-256 and the service key
+    /// Ed25519 (T-101 note item 1).
+    ///
+    /// # Errors
+    /// [`AccessError::KeyStore`].
+    pub fn load(module: &Path, token: &str, pin: &Secret<String>) -> Result<Self, AccessError> {
+        let store = KeyStore::open(module, token, pin).map_err(|e| store_error(&e))?;
+        let client = TokenSigner::of(store.signer(CLIENT_LABEL).map_err(|e| store_error(&e))?);
+        if !matches!(client.key, PublicKey::P256(_)) {
+            return Err(AccessError::KeyStore(format!(
+                "{CLIENT_LABEL} is not P-256"
+            )));
+        }
+        let service = TokenSigner::of(store.signer(SERVICE_LABEL).map_err(|e| store_error(&e))?);
+        if !matches!(service.key, PublicKey::Ed25519(_)) {
+            return Err(AccessError::KeyStore(format!(
+                "{SERVICE_LABEL} is not Ed25519"
+            )));
+        }
+        Ok(Self { client, service })
+    }
+}
+
 /// The roots of a PEM file that the server certificates of Access and Relay verify against.
 ///
 /// # Errors
@@ -436,17 +519,30 @@ impl Transport for HttpsTransport {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::atomic::{AtomicU8, Ordering};
+
+    use access_kernel::ais::{Expected, verify};
+    use access_kernel::combinator::{Capacity, Mode};
+    use access_kernel::digest::Digest;
+    use access_kernel::verify::key_scope::thumbprint;
     use cryptoki::context::{CInitializeArgs, CInitializeFlags, Pkcs11};
-    use suiss_crypto::sig::{PureBackend, ed25519};
+    use suiss_crypto::sig::{PureBackend, ed25519, p256};
 
     use super::*;
     use crate::app::Client;
+    use crate::app::platform::{Platform, sign_challenge};
     use crate::domain::discovery::Issuer;
     use crate::domain::eligibility::EligibilityRequest;
+    use crate::domain::from_b64url;
     use crate::domain::keys::tests::{module, pin, token};
     use crate::domain::keys::{AsOf, DomainId, KernelId, Kid};
+    use crate::domain::pairing::tests::challenge_for;
+    use crate::domain::pairing::{
+        Answer, Target, Unsignable, bootstrap_basis, plan_challenges, register_nonce, statements,
+    };
     use crate::domain::x509::tests::{certificate, name};
     use crate::ports::Clock;
+    use crate::ports::Random;
 
     const NOW: u64 = 1_793_793_600_000;
 
@@ -605,5 +701,156 @@ mod tests {
         assert_eq!((t.port, t.path.as_str()), (443, "/"));
         assert!(target("http://access.example/").is_err());
         assert!(target("https://u@access.example/").is_err());
+    }
+
+    struct Counter(AtomicU8);
+
+    impl Random for Counter {
+        fn fill(&self, out: &mut [u8]) -> Result<(), AccessError> {
+            out.fill(self.0.fetch_add(1, Ordering::Relaxed));
+            Ok(())
+        }
+    }
+
+    fn keys(test: &str) -> AccessKeys {
+        let (label, store) = token(test);
+        store.generate_p256(CLIENT_LABEL).unwrap();
+        store.generate_ed25519(SERVICE_LABEL).unwrap();
+        AccessKeys::load(&module(), &label, &pin()).unwrap()
+    }
+
+    fn claims(jwt: &str) -> (serde_json::Value, serde_json::Value) {
+        let part = |n: usize| -> serde_json::Value {
+            serde_json::from_slice(&from_b64url(jwt.split('.').nth(n).unwrap()).unwrap()).unwrap()
+        };
+        (part(0), part(1))
+    }
+
+    // T-101
+    #[test]
+    fn t_101_a_platform_call_carries_a_fresh_es256_assertion() {
+        let keys = keys("assertion");
+        let PublicKey::P256(sec1) = keys.client.public_key() else {
+            panic!("a P-256 client key");
+        };
+        let kid = b64url(&thumbprint(&keys.client.public_key()));
+        let transport = HttpsTransport::new(
+            public_config(RootCertStore::empty()).unwrap(),
+            DEFAULT_TIMEOUT,
+        );
+        let platform = Platform::new(
+            transport,
+            At(NOW),
+            Counter(AtomicU8::new(1)),
+            keys.client,
+            "cli_work",
+            &Issuer::parse("https://access.example").unwrap(),
+        );
+        let first = platform.assertion().unwrap();
+        let second = platform.assertion().unwrap();
+        assert_ne!(first, second);
+        for jwt in [&first, &second] {
+            let (input, signature) = jwt.rsplit_once('.').unwrap();
+            p256(
+                &PureBackend,
+                &sec1,
+                input.as_bytes(),
+                &from_b64url(signature).unwrap(),
+                true,
+            )
+            .unwrap();
+            let (header, body) = claims(jwt);
+            assert_eq!(header["alg"], "ES256");
+            assert_eq!(header["kid"], kid.as_str());
+            assert_eq!(header["typ"], "client-authentication+jwt");
+            assert_eq!(body["iss"], "cli_work");
+            assert_eq!(body["sub"], "cli_work");
+            assert_eq!(body["aud"], "https://access.example");
+        }
+        assert_ne!(claims(&first).1["jti"], claims(&second).1["jti"]);
+        assert!(!format!("{platform:?}").contains("PRIVATE"));
+    }
+
+    // T-101
+    #[test]
+    fn t_101_the_client_key_is_p256_and_the_service_key_ed25519() {
+        let (label, store) = token("key-kinds");
+        store.generate_ed25519(CLIENT_LABEL).unwrap();
+        store.generate_ed25519(SERVICE_LABEL).unwrap();
+        assert!(matches!(
+            AccessKeys::load(&module(), &label, &pin()),
+            Err(AccessError::KeyStore(_))
+        ));
+        let (label, store) = token("key-kinds-service");
+        store.generate_p256(CLIENT_LABEL).unwrap();
+        store.generate_p256(SERVICE_LABEL).unwrap();
+        assert!(matches!(
+            AccessKeys::load(&module(), &label, &pin()),
+            Err(AccessError::KeyStore(_))
+        ));
+    }
+
+    // T-103
+    #[test]
+    fn t_103_the_service_key_signs_statements_access_verifies() {
+        let keys = keys("ais");
+        let service = keys.service.public_key();
+        let c = challenge_for(&service, NOW);
+        let s = statements(&c, &service, NOW).unwrap();
+        let signed = sign_challenge(&keys.service, c.realm.clone(), c.challenge, &s).unwrap();
+        let basis = bootstrap_basis(&c.domain);
+        let domain = Digest(c.domain);
+        let create = Digest(c.instance_create.intent);
+        let expected = Expected {
+            domain: &domain,
+            nonce: &c.challenge,
+            intent: &create,
+            mode: Mode::Commit,
+            pep: &c.pep,
+            capacity: Capacity::Own,
+            basis: &basis,
+            exercise: None,
+        };
+        verify(&signed.ais, &service, &expected, NOW).unwrap();
+        let register = Digest(c.party_register.as_ref().unwrap().intent);
+        let nonce = register_nonce(&c.challenge);
+        let expected = Expected {
+            nonce: &nonce,
+            intent: &register,
+            ..expected
+        };
+        verify(
+            signed.register_ais.as_ref().unwrap(),
+            &service,
+            &expected,
+            NOW,
+        )
+        .unwrap();
+        assert!(verify(&signed.ais, &service, &expected, NOW).is_err());
+        assert_eq!(signed.ais.first(), Some(&0xd2));
+    }
+
+    // T-103
+    #[test]
+    fn t_103_a_tampered_access_digest_is_never_signed() {
+        let keys = keys("tampered");
+        let service = keys.service.public_key();
+        let mut c = challenge_for(&service, NOW);
+        c.instance_create.intent = [0x5a; 32];
+        let answer = Answer {
+            tenant: "tnt_01".to_owned(),
+            targets: vec![Target::Unpaired(Box::new(c.clone()))],
+            event_stream: None,
+        };
+        let plan = plan_challenges(&answer, &service, NOW);
+        assert!(plan.sign.is_empty());
+        assert_eq!(
+            plan.unsignable,
+            vec![(c.realm.clone(), Unsignable::InstanceIntent)]
+        );
+        assert_eq!(
+            statements(&c, &service, NOW),
+            Err(Unsignable::InstanceIntent)
+        );
     }
 }
