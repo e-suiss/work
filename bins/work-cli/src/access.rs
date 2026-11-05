@@ -1,6 +1,7 @@
 //! `work-cli access pair [--tenant <tnt_…>]` (T-103 item 1): the server's pairing step at once, over every active tenant or one, with the server's own settings from the same environment names, printing each signal. It is the step `work-server` runs at start and every hour, not a second way of pairing.
 
 use std::path::PathBuf;
+use std::process::ExitCode;
 use std::time::Duration;
 
 use work_access_client::app::platform::{Report, Scope, Signal};
@@ -56,7 +57,7 @@ fn settings(var: &dyn Fn(&str) -> Option<String>) -> Result<AccessSettings, Stri
 }
 
 /// Runs the step over `tenant`, or every active tenant.
-pub(crate) fn run(tenant: Option<TenantId>) -> Result<Report, String> {
+fn run(tenant: Option<TenantId>) -> Result<Report, String> {
     let env = |name: &str| std::env::var(name).ok();
     let settings = settings(&env)?;
     let url = env(DB_URL).ok_or_else(|| format!("{DB_URL} is not set"))?;
@@ -71,8 +72,40 @@ pub(crate) fn run(tenant: Option<TenantId>) -> Result<Report, String> {
     })
 }
 
+/// `work-cli access pair`: runs the step, prints each signal and a summary, and fails while a
+/// signal needs the operator.
+#[allow(
+    clippy::print_stdout,
+    clippy::print_stderr,
+    reason = "command line output"
+)]
+pub(crate) fn command(tenant: Option<TenantId>) -> ExitCode {
+    match run(tenant) {
+        Ok(report) => {
+            for signal in &report.signals {
+                eprintln!("{}: {signal}", signal.event());
+            }
+            println!(
+                "access pair: {} tenants, {} realms paired, event stream {}",
+                report.tenants,
+                report.paired,
+                if report.stream_up { "up" } else { "down" }
+            );
+            if clean(&report) {
+                ExitCode::SUCCESS
+            } else {
+                ExitCode::FAILURE
+            }
+        }
+        Err(e) => {
+            eprintln!("access pair: {e}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
 /// Whether the step ended without a signal the operator has to act on.
-pub(crate) fn clean(report: &Report) -> bool {
+fn clean(report: &Report) -> bool {
     report
         .signals
         .iter()
