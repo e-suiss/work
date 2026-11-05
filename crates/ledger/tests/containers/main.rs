@@ -250,7 +250,7 @@ fn submission<'a>(arrival: Arrival<'a>, actors: &'a ActorTypes) -> Submission<'a
         origin: Origin::Direct,
         understood_extensions: &[],
         limits: SemanticLimits::default(),
-        event_type: "work.recorded",
+        event_type: "work.updated",
         traceparent: TRACE,
         idempotency: None,
         inbound: None,

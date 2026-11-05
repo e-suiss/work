@@ -1,6 +1,6 @@
 //! Ports of the publisher and the consumer (T-32 rule 2): `Outbox`, the ledgers with pending
-//! pointers, the pending pointers of one ledger and their removal after the ack (§18 OP-34);
-//! `Bus`, the NATS JetStream signal (T-17, T-21, T-76); `Pull`, the per-partition durable pull
+//! pointers, the pending pointers of one ledger, their committed records (§15 P-37) and their
+//! removal after the ack (§18 OP-34); `Bus`, the NATS JetStream signal (T-17, T-21, T-76); `Pull`, the per-partition durable pull
 //! consumers (T-76 rule 6); `Handler`, what a consumer hands each event to; and `Committed`, the
 //! cursor scans of committed state a consumer falls back to while NATS is unreachable, resumed
 //! from the consumer's cursor (T-21, §18 OP-39). Ledger discovery pages by the last id seen
@@ -36,6 +36,14 @@ pub trait Outbox: Send + Sync {
         ledger: &LedgerId,
         keys: &[PointerKey],
     ) -> impl Future<Output = Result<u64, StoreError>> + Send;
+
+    /// The committed log row of `ledger` at `pos`, whose record the thin event reads its Party
+    /// ids and correlation from (§15 P-37).
+    fn record(
+        &self,
+        ledger: &LedgerId,
+        pos: u64,
+    ) -> impl Future<Output = Result<Option<CommittedRecord>, StoreError>> + Send;
 }
 
 /// One event to publish.

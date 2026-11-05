@@ -70,6 +70,17 @@ impl Outbox for PgOutbox {
         tx.commit().await?;
         Ok(n)
     }
+
+    async fn record(
+        &self,
+        ledger: &LedgerId,
+        pos: u64,
+    ) -> Result<Option<CommittedRecord>, StoreError> {
+        let mut tx = self.pool.begin(ledger).await?;
+        let row = tx.committed_record(pos).await?;
+        tx.commit().await?;
+        Ok(row)
+    }
 }
 
 /// Committed state for a consumer's fallback: the canonical store over a pool logged in as

@@ -1,12 +1,14 @@
 //! Pure publisher logic (T-32 rule 3): the T-76 stream settings and their checks, the stable
-//! partition of a ledger, the subject of an event, the minimal CloudEvents envelope built only
-//! from the committed log row and its outbox pointer (§15 P-35, P-42; §17 T-17, T-18), the
+//! partition of a ledger, the subject of an event, the thin CloudEvents envelope built only
+//! from the committed log row and its outbox pointer (§15 P-35, P-37, P-42; §17 T-17, T-18), the
 //! retry backoff of a NATS outage (T-21), and the consumer side: per-partition durable names and
 //! filters (T-76 rules 5 and 6), the parsed [`Event`] and the bounded [`Seen`] set that drops
 //! repeated event ids without relying on order (T-18).
 
 use core::time::Duration;
 use std::collections::{BTreeSet, VecDeque};
+
+use work_proto::events::{DATA_CONTENT_TYPE, Data, RecordFacts, find};
 
 /// T-76 stream and subject schema; every value is a POLICY DEFAULT and configurable.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -416,6 +418,11 @@ pub struct EventFacts<'a> {
     pub recorded_at_ms: i64,
     /// Version of the work item after the record (`seq`, §15 P-29, T-81).
     pub seq: u64,
+    /// The prefixed id of the work item (`subject`, §15 P-35 item 2, P-112).
+    pub subject: &'a str,
+    /// What the thin event takes from the record; `None` for bytes that are not a protocol 1.0
+    /// record (§15 P-37, P-87).
+    pub record: Option<&'a RecordFacts>,
 }
 
 /// The event could not be built.
@@ -424,6 +431,12 @@ pub enum EnvelopeError {
     /// `recorded_at` is outside the RFC 3339 range.
     #[error("recorded_at is outside the RFC 3339 range")]
     Time,
+    /// The pointer's type is not in the event catalog (§15 P-38, P-39 item 1).
+    #[error("event type is not in the catalog")]
+    Type,
+    /// The record gives no `cause` or `kind` its type's `data` requires (T-98 items 4 and 5).
+    #[error("the record gives no cause or kind for the event data")]
+    Data,
 }
 
 /// The `source` of events of `ledger` (§15 P-35 rule 2).
@@ -432,27 +445,66 @@ pub fn source(installation: &str, ledger: &[u8; 32]) -> String {
     format!("{installation}/ledgers/{}", hex(ledger))
 }
 
-/// The structured-mode CloudEvents 1.0 JSON of the minimal event (§15 P-35, P-42; T-18):
-/// `specversion`, `id`, `source`, `type`, `time` = the record's `recorded_at`, and the
-/// extensions `traceparent`, `recordid`, `ledger`, `pos` and `seq` (the item version as a decimal
-/// string, like `pos`; T-81); members in byte order, so equal facts give equal bytes.
+/// The thin `data` of an event (§15 P-37): the related Party ids, with `cause` for an
+/// `<item>.changed` type and `kind` for a revocation (T-98 items 4 and 5); never a record body.
 ///
 /// # Errors
-/// [`EnvelopeError::Time`].
+/// [`EnvelopeError::Type`] for a type outside the catalog, [`EnvelopeError::Data`] when the
+/// record gives no `cause` or `kind` the type needs.
+pub fn thin_data(facts: &EventFacts<'_>) -> Result<serde_json::Value, EnvelopeError> {
+    let event = find(facts.event_type).ok_or(EnvelopeError::Type)?;
+    let parties = facts.record.map(|r| r.parties.clone()).unwrap_or_default();
+    let mut data = serde_json::Map::new();
+    data.insert("parties".to_owned(), parties.into());
+    match event.data {
+        Data::Thin => {}
+        Data::Changed => {
+            let cause = facts.record.and_then(RecordFacts::primary);
+            let cause = cause.ok_or(EnvelopeError::Data)?;
+            data.insert("cause".to_owned(), cause.name.into());
+        }
+        Data::Revoked => {
+            let wire = facts.record.and_then(|r| r.wire);
+            let kind = wire.filter(|w| event.sources.contains(w));
+            let kind = kind.ok_or(EnvelopeError::Data)?;
+            data.insert("kind".to_owned(), kind.into());
+        }
+    }
+    Ok(data.into())
+}
+
+/// The structured-mode CloudEvents 1.0 JSON of the thin event (§15 P-35, P-37, P-42; T-18):
+/// `specversion`, `id`, `source`, `type`, `time` = the record's `recorded_at`, `subject` = the
+/// item's prefixed id, `datacontenttype`, `dataschema` = the type's versioned schema, the
+/// extensions `traceparent`, `recordid`, `ledger`, `pos`, `seq` (the item version as a decimal
+/// string, like `pos`; T-81) and, when the record carries one, `correlationid`, and the
+/// [`thin_data`]; members in byte order, so equal facts give equal bytes.
+///
+/// # Errors
+/// [`EnvelopeError::Time`], or the error of [`thin_data`].
 pub fn cloud_event(installation: &str, facts: &EventFacts<'_>) -> Result<Vec<u8>, EnvelopeError> {
     let time = rfc3339_millis(facts.recorded_at_ms).ok_or(EnvelopeError::Time)?;
-    let event = serde_json::json!({
+    let catalogued = find(facts.event_type).ok_or(EnvelopeError::Type)?;
+    let mut event = serde_json::json!({
         "specversion": "1.0",
         "id": facts.event_id,
         "source": source(installation, facts.ledger),
         "type": facts.event_type,
         "time": time,
+        "subject": facts.subject,
+        "datacontenttype": DATA_CONTENT_TYPE,
+        "dataschema": catalogued.dataschema(),
         "traceparent": facts.traceparent,
         "recordid": hex(facts.record_id),
         "ledger": hex(facts.ledger),
         "pos": facts.pos.to_string(),
         "seq": facts.seq.to_string(),
+        "data": thin_data(facts)?,
     });
+    let correlation = facts.record.and_then(|r| r.correlation.as_deref());
+    if let (Some(id), Some(members)) = (correlation, event.as_object_mut()) {
+        members.insert("correlationid".to_owned(), id.into());
+    }
     Ok(event.to_string().into_bytes())
 }
 
@@ -464,6 +516,8 @@ pub struct Event {
     pub id: String,
     /// CloudEvents `type`.
     pub event_type: String,
+    /// CloudEvents `subject`, the prefixed id of the work item (§15 P-35 item 2).
+    pub subject: String,
     /// Ledger digest.
     pub ledger: [u8; 32],
     /// Log position the event reflects (T-18).
@@ -483,6 +537,7 @@ impl Event {
         Self {
             id: facts.event_id.to_owned(),
             event_type: facts.event_type.to_owned(),
+            subject: facts.subject.to_owned(),
             ledger: *facts.ledger,
             pos: facts.pos,
             record_id: *facts.record_id,
@@ -535,6 +590,7 @@ pub fn parse_event(payload: &[u8]) -> Result<Event, EventError> {
     Ok(Event {
         id: member("id")?.to_owned(),
         event_type: member("type")?.to_owned(),
+        subject: member("subject")?.to_owned(),
         ledger: unhex32(member("ledger")?).ok_or(EventError::Hex("ledger"))?,
         pos: decimal(member("pos")?).ok_or(EventError::Pos)?,
         record_id: unhex32(member("recordid")?).ok_or(EventError::Hex("recordid"))?,
@@ -679,7 +735,22 @@ mod tests {
             record_id: &[0x01; 32],
             recorded_at_ms: 1_792_749_600_123,
             seq: 3,
+            subject: "cmt_0a0a",
+            record: None,
         }
+    }
+
+    fn record(wire: &'static str) -> RecordFacts {
+        RecordFacts {
+            wire: Some(wire),
+            gate: false,
+            parties: vec!["pty_cDph".to_owned(), "pty_cDpi".to_owned()],
+            correlation: Some("ctx-1".to_owned()),
+        }
+    }
+
+    fn json(facts: &EventFacts<'_>) -> serde_json::Value {
+        serde_json::from_slice(&cloud_event("https://w.example", facts).unwrap()).unwrap()
     }
 
     #[test]
@@ -796,7 +867,141 @@ mod tests {
         assert_eq!(v["ledger"], "ab".repeat(32));
         assert_eq!(v["pos"], "7");
         assert_eq!(v["seq"], "3");
-        assert_eq!(v.as_object().map(serde_json::Map::len), Some(10));
+        assert_eq!(v.as_object().map(serde_json::Map::len), Some(14));
+    }
+
+    // P-35 P-112
+    #[test]
+    fn p_35_the_envelope_names_subject_content_type_schema_and_correlation() {
+        let bare = json(&facts());
+        assert_eq!(bare["subject"], "cmt_0a0a");
+        assert_eq!(bare["datacontenttype"], "application/json");
+        assert_eq!(bare["dataschema"], "schemas/commitment.requested/1.json");
+        assert!(bare.get("correlationid").is_none());
+        let r = record("request");
+        let v = json(&EventFacts {
+            record: Some(&r),
+            ..facts()
+        });
+        assert_eq!(v["correlationid"], "ctx-1");
+        assert_eq!(v.as_object().map(serde_json::Map::len), Some(15));
+        let event = parse_event(v.to_string().as_bytes()).unwrap();
+        assert_eq!(event.subject, "cmt_0a0a");
+    }
+
+    // P-37
+    #[test]
+    fn p_37_data_carries_only_the_related_parties() {
+        let r = record("request");
+        let v = json(&EventFacts {
+            record: Some(&r),
+            ..facts()
+        });
+        assert_eq!(
+            v["data"],
+            serde_json::json!({"parties": ["pty_cDph", "pty_cDpi"]})
+        );
+        assert_eq!(json(&facts())["data"], serde_json::json!({"parties": []}));
+        let members: Vec<&String> = v.as_object().unwrap().keys().collect();
+        assert!(members.iter().all(|m| !m.contains("body")));
+    }
+
+    // T-98 P-37
+    #[test]
+    fn t_98_changed_data_names_the_cause_and_revoked_data_the_kind() {
+        let r = record("promise");
+        let changed = EventFacts {
+            event_type: "work.changed",
+            record: Some(&r),
+            ..facts()
+        };
+        assert_eq!(json(&changed)["data"]["cause"], "commitment.promised");
+        assert_eq!(json(&changed)["dataschema"], "schemas/work.changed/1.json");
+        let unknown = EventFacts {
+            record: None,
+            ..changed
+        };
+        assert_eq!(
+            cloud_event("https://w.example", &unknown),
+            Err(EnvelopeError::Data)
+        );
+        let revoke = record("revoke_promise");
+        let revoked = EventFacts {
+            event_type: "commitment.revoked",
+            record: Some(&revoke),
+            ..facts()
+        };
+        assert_eq!(json(&revoked)["data"]["kind"], "revoke_promise");
+        let not_a_revocation = EventFacts {
+            record: Some(&r),
+            ..revoked
+        };
+        assert_eq!(
+            cloud_event("https://w.example", &not_a_revocation),
+            Err(EnvelopeError::Data)
+        );
+    }
+
+    fn sources(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
+        let Ok(entries) = std::fs::read_dir(dir) else {
+            return;
+        };
+        for entry in entries {
+            let path = entry.unwrap().path();
+            if path.is_dir() {
+                sources(&path, out);
+            } else if path.extension().is_some_and(|e| e == "rs") {
+                out.push(path);
+            }
+        }
+    }
+
+    // P-39 P-34
+    #[test]
+    fn p_39_the_outbox_publisher_is_the_only_event_path() {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let needles = [
+            [".", "publish("].concat(),
+            ["_", "publish("].concat(),
+            ["publish", "_with"].concat(),
+        ];
+        let mut found = Vec::new();
+        for group in ["crates", "bins"] {
+            for member in std::fs::read_dir(root.join(group)).unwrap() {
+                let member = member.unwrap().path();
+                let mut files = Vec::new();
+                sources(&member.join("src"), &mut files);
+                for file in files {
+                    let text = std::fs::read_to_string(&file).unwrap();
+                    if needles.iter().any(|n| text.contains(n.as_str())) {
+                        let rel = file.strip_prefix(&root).unwrap().to_string_lossy();
+                        found.push(rel.replace('\\', "/"));
+                    }
+                }
+            }
+        }
+        found.sort();
+        assert_eq!(
+            found,
+            [
+                "crates/dispatch/src/adapters.rs",
+                "crates/dispatch/src/app.rs"
+            ]
+        );
+    }
+
+    // P-38 P-39
+    #[test]
+    fn p_39_an_event_type_outside_the_catalog_is_never_published() {
+        let hidden = EventFacts {
+            event_type: "work.recorded",
+            ..facts()
+        };
+        assert_eq!(
+            cloud_event("https://w.example", &hidden),
+            Err(EnvelopeError::Type)
+        );
+        assert_eq!(thin_data(&hidden), Err(EnvelopeError::Type));
     }
 
     #[test]

@@ -1,5 +1,5 @@
 //! The outbox publisher (T-17, §18 OP-34): per ledger it reads pending pointers in one
-//! transaction, builds each event from the committed record, publishes with `Nats-Msg-Id` and
+//! transaction, builds each thin event from the committed record (§15 P-37), publishes with `Nats-Msg-Id` and
 //! awaits the JetStream ack outside any transaction (T-32 rule 4), then removes the acknowledged
 //! pointers in a second transaction. Delivery is at least once and deduplicated by event id
 //! (T-76 rule 3); a NATS outage leaves the pointers in place and is retried with backoff (T-21).
@@ -11,11 +11,12 @@
 //! Both page through the ledgers with pending pointers by the last id seen and start over after
 //! a short page (T-83).
 
-use std::collections::{BTreeMap, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::future::Future;
 use std::time::Duration;
 
 use tokio::time::{sleep, timeout};
+use work_proto::events::{RecordFacts, subject};
 use work_store::{LedgerId, PendingEvent, PointerKey, StoreError};
 
 use crate::domain::{
@@ -117,7 +118,8 @@ impl<O: Outbox, B: Bus> Publisher<O, B> {
             if batch.is_empty() {
                 return Ok(total);
             }
-            let (acked, duplicates, failure) = self.send(ledger, &batch).await;
+            let records = self.records(ledger, &batch).await?;
+            let (acked, duplicates, failure) = self.send(ledger, &batch, &records).await;
             let removed = if acked.is_empty() {
                 0
             } else {
@@ -215,8 +217,30 @@ impl<O: Outbox, B: Bus> Publisher<O, B> {
             .map_err(DispatchError::from)
     }
 
-    fn outbound(&self, ledger: &LedgerId, event: &PendingEvent) -> Result<Outbound, EnvelopeError> {
-        let facts = facts(ledger, event);
+    async fn records(
+        &self,
+        ledger: &LedgerId,
+        batch: &[PendingEvent],
+    ) -> Result<BTreeMap<u64, RecordFacts>, DispatchError> {
+        let positions: BTreeSet<u64> = batch.iter().map(|e| e.key.pos).collect();
+        let mut out = BTreeMap::new();
+        for pos in positions {
+            let row = self.store(self.outbox.record(ledger, pos)).await?;
+            if let Some(facts) = row.and_then(|r| RecordFacts::decode(&r.record_bytes)) {
+                out.insert(pos, facts);
+            }
+        }
+        Ok(out)
+    }
+
+    fn outbound(
+        &self,
+        ledger: &LedgerId,
+        event: &PendingEvent,
+        record: Option<&RecordFacts>,
+    ) -> Result<Outbound, EnvelopeError> {
+        let subject = item_subject(event);
+        let facts = facts(ledger, event, &subject, record);
         Ok(Outbound {
             subject: self
                 .config
@@ -232,6 +256,7 @@ impl<O: Outbox, B: Bus> Publisher<O, B> {
         &self,
         ledger: &LedgerId,
         batch: &[PendingEvent],
+        records: &BTreeMap<u64, RecordFacts>,
     ) -> (Vec<PointerKey>, u64, Option<DispatchError>) {
         let mut acked = Vec::with_capacity(batch.len());
         let mut duplicates = 0_u64;
@@ -247,7 +272,7 @@ impl<O: Outbox, B: Bus> Publisher<O, B> {
             if failure.is_some() {
                 break;
             }
-            let outbound = match self.outbound(ledger, event) {
+            let outbound = match self.outbound(ledger, event, records.get(&event.key.pos)) {
                 Ok(o) => o,
                 Err(e) => {
                     failure = Some(e.into());
@@ -298,7 +323,16 @@ impl<O: Outbox, B: Bus> Publisher<O, B> {
     }
 }
 
-fn facts<'a>(ledger: &'a LedgerId, event: &'a PendingEvent) -> EventFacts<'a> {
+fn item_subject(event: &PendingEvent) -> String {
+    subject(event.item.kind(), event.item.id()).unwrap_or_default()
+}
+
+fn facts<'a>(
+    ledger: &'a LedgerId,
+    event: &'a PendingEvent,
+    subject: &'a str,
+    record: Option<&'a RecordFacts>,
+) -> EventFacts<'a> {
     EventFacts {
         ledger: ledger.as_bytes(),
         pos: event.key.pos,
@@ -308,6 +342,8 @@ fn facts<'a>(ledger: &'a LedgerId, event: &'a PendingEvent) -> EventFacts<'a> {
         record_id: &event.record_id,
         recorded_at_ms: event.recorded_at_ms,
         seq: event.version,
+        subject,
+        record,
     }
 }
 
@@ -546,7 +582,9 @@ impl<P: Pull, H: Handler> Consumer<P, H> {
                     .store(committed.pending_after(ledger, after.as_ref(), page))
                     .await?;
                 for row in &rows {
-                    match self.take(&Event::from_facts(&facts(ledger, row))).await {
+                    let subject = item_subject(row);
+                    let event = Event::from_facts(&facts(ledger, row, &subject, None));
+                    match self.take(&event).await {
                         Outcome::Handled => done.handled = done.handled.saturating_add(1),
                         Outcome::Duplicate => {
                             done.duplicates = done.duplicates.saturating_add(1);
@@ -646,6 +684,8 @@ mod tests {
     use std::collections::BTreeMap;
     use std::sync::Mutex;
 
+    use work_store::CommittedRecord;
+
     use super::*;
     use crate::domain::StreamSettings;
     use crate::ports::Acked;
@@ -739,6 +779,14 @@ mod tests {
             });
             self.removals.lock().unwrap().push(keys.to_vec());
             std::future::ready(Ok(u64::try_from(gone).unwrap()))
+        }
+
+        fn record(
+            &self,
+            _ledger: &LedgerId,
+            _pos: u64,
+        ) -> impl Future<Output = Result<Option<CommittedRecord>, StoreError>> + Send {
+            std::future::ready(Ok(None))
         }
     }
 
@@ -1222,7 +1270,8 @@ mod tests {
         fn payload(ledger: &[u8; 32], pos: u64, id: &str) -> Vec<u8> {
             let row = pending(pos, id);
             let l = LedgerId::from_bytes(*ledger);
-            cloud_event("https://work.example", &facts(&l, &row)).unwrap()
+            let subject = item_subject(&row);
+            cloud_event("https://work.example", &facts(&l, &row, &subject, None)).unwrap()
         }
 
         fn consumer() -> Consumer<MemPull, MemHandler> {
@@ -1466,10 +1515,12 @@ mod tests {
         async fn t_18_the_fallback_event_equals_the_published_one() {
             let row = pending(9, "z");
             let l = LedgerId::from_bytes(L);
+            let subject = item_subject(&row);
+            let facts = facts(&l, &row, &subject, None);
             let published =
-                parse_event(&cloud_event("https://work.example", &facts(&l, &row)).unwrap())
-                    .unwrap();
-            assert_eq!(published, Event::from_facts(&facts(&l, &row)));
+                parse_event(&cloud_event("https://work.example", &facts).unwrap()).unwrap();
+            assert_eq!(published, Event::from_facts(&facts));
+            assert_eq!(published.subject, format!("cmt_{}", "02".repeat(32)));
         }
 
         #[tokio::test]

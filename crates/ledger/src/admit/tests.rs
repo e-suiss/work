@@ -217,7 +217,7 @@ fn submit(
             origin: g.origin,
             understood_extensions: &g.understood,
             limits: SemanticLimits::default(),
-            event_type: "work.recorded",
+            event_type: "work.updated",
             traceparent: TRACE,
             idempotency: None,
             inbound: None,

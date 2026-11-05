@@ -490,7 +490,7 @@ fn pending(ledger: &LedgerId, record: &[u8], actors: &ActorTypes) -> PendingReco
             origin: Origin::Direct,
             understood_extensions: &[],
             limits: SemanticLimits::default(),
-            event_type: "work.recorded",
+            event_type: "work.updated",
             traceparent: TRACE,
             idempotency: None,
             inbound: None,
@@ -518,7 +518,7 @@ async fn next_event(consumer: &PullConsumer) -> async_nats::Message {
     .unwrap()
 }
 
-// T-17 T-76 OP-34 T-81 P-42 T-39 T-93
+// T-17 T-76 OP-34 T-81 P-42 T-39 T-93 P-35 P-37
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "needs Docker"]
 async fn t_17_a_committed_record_reaches_jetstream_through_the_server() {
@@ -586,7 +586,7 @@ async fn t_17_a_committed_record_reaches_jetstream_through_the_server() {
     assert_eq!(headers.get("traceparent").unwrap().as_str(), TRACE);
     let ledger_hex = ledger.to_hex();
     let subject = message.subject.as_str();
-    let tail = format!(".{ledger_hex}.work.recorded");
+    let tail = format!(".{ledger_hex}.work.updated");
     assert!(subject.starts_with("work.evt."), "{subject}");
     assert!(subject.ends_with(&tail), "{subject}");
     let event: Json = serde_json::from_slice(&message.payload).unwrap();
@@ -596,6 +596,9 @@ async fn t_17_a_committed_record_reaches_jetstream_through_the_server() {
     assert_eq!(event["traceparent"], TRACE);
     let source = format!("https://work.test/ledgers/{ledger_hex}");
     assert_eq!(event["source"], source);
+    assert_eq!(event["dataschema"], "schemas/work.updated/1.json");
+    let parties = event["data"]["parties"].as_array().cloned();
+    assert!(parties.is_some_and(|p| !p.is_empty()), "{event}");
 
     let publisher = dbs.pool_on(Cluster::Canonical, "work_publisher");
     let drained = tokio::time::timeout(DEADLINE, async {
