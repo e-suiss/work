@@ -1,5 +1,8 @@
 //! Work command line: administration, export, replay and offline verification.
 
+mod access;
+mod clock;
+
 use std::process::ExitCode;
 
 use suiss_crypto::secret::Secret;
@@ -7,6 +10,7 @@ use work_export::adapters::StoreSource;
 use work_export::app::{self, Exported};
 use work_export::domain::{Report, Trust, hex};
 use work_ledger::{Node, Retention, S3Config, SystemRng, WormStore, tls_trusting};
+use work_proto::id::TenantId;
 use work_store::{
     ArchivePool, CellId, Cluster, Durability, ExportLog, LedgerId, Pool, SequencerPool,
 };
@@ -14,7 +18,8 @@ use work_telemetry::{DEFAULT_METRIC_INTERVAL, Meters, MetricConfig, meter_provid
 
 const USAGE: &str = "usage: work-cli --version | work-cli migrate <canonical|derived> | \
                      work-cli rebuild <ledger hex> <single-node|quorum> | work-cli archive | \
-                     work-cli export <ledger hex> <bundle> | work-cli verify <bundle> <trust>";
+                     work-cli export <ledger hex> <bundle> | work-cli verify <bundle> <trust> | \\
+                     work-cli access pair [--tenant <tnt_…>]";
 
 /// The cell a rebuild's scratch database leads the rebuilt ledger in (OP-9, OP-1 item 3).
 const REBUILD_CELL: &str = "rebuild";
@@ -51,6 +56,7 @@ enum Command {
     Archive,
     Export(LedgerId, String),
     Verify(String, String),
+    AccessPair(Option<TenantId>),
 }
 
 fn durability(name: &str) -> Option<Durability> {
@@ -83,6 +89,10 @@ fn main() -> ExitCode {
         ["archive"] => Some(Command::Archive),
         ["export", l, p] => LedgerId::from_hex(l).map(|l| Command::Export(l, (*p).to_owned())),
         ["verify", b, t] => Some(Command::Verify((*b).to_owned(), (*t).to_owned())),
+        ["access", "pair"] => Some(Command::AccessPair(None)),
+        ["access", "pair", "--tenant", tenant] if tenant.starts_with("tnt_") => {
+            TenantId::new(tenant).map(|t| Command::AccessPair(Some(t)))
+        }
         _ => None,
     };
     match command {
@@ -147,6 +157,7 @@ fn main() -> ExitCode {
         },
         Some(Command::Export(ledger, path)) => run_export(ledger, &path),
         Some(Command::Verify(bundle, trust)) => run_verify(&bundle, &trust),
+        Some(Command::AccessPair(tenant)) => access::command(tenant),
     }
 }
 

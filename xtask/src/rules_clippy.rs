@@ -27,6 +27,10 @@ pub(crate) const ADAPTERS: &[(&str, &str)] = &[
         "crates/ledger/src/adapters.rs",
         "the Rng adapter over the operating system's CSPRNG",
     ),
+    (
+        "bins/work-cli/src/clock.rs",
+        "the wall clock of `work-cli access pair`, whose assertion and challenge times Access checks against its own clock (T-103)",
+    ),
 ];
 
 fn v(path: String, message: String) -> Violation {
