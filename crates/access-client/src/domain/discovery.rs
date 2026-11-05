@@ -87,9 +87,21 @@ pub enum Endpoint {
     AuthContext,
     /// The Frontend API Instance endpoint.
     Instances,
+    /// `POST /access/v1/tenants/{tenant}/pairing/challenges`.
+    PairingChallenges,
+    /// `POST /access/v1/tenants/{tenant}/pairing`.
+    Pairing,
+    /// `/access/v1/platform/streams`.
+    PlatformStreams,
+    /// `POST /access/v1/tenants/{tenant}/subjects:resolve`.
+    SubjectResolution,
+    /// `GET /access/v1/exercises/{exercise}`.
+    Exercise,
+    /// `GET /access/v1/exercises/{exercise}/agency`.
+    ExerciseAgency,
 }
 
-const ENDPOINTS: [(&str, Endpoint, Option<&str>); 7] = [
+const ENDPOINTS: [(&str, Endpoint, Option<&str>); 13] = [
     ("adp", Endpoint::Adp, None),
     ("key_lookup", Endpoint::KeyLookup, Some("kid")),
     ("key_batch", Endpoint::KeyBatch, None),
@@ -97,6 +109,24 @@ const ENDPOINTS: [(&str, Endpoint, Option<&str>); 7] = [
     ("tenant_snapshot", Endpoint::TenantSnapshot, Some("tenant")),
     ("auth_context", Endpoint::AuthContext, None),
     ("instances", Endpoint::Instances, None),
+    (
+        "pairing_challenges",
+        Endpoint::PairingChallenges,
+        Some("tenant"),
+    ),
+    ("pairing", Endpoint::Pairing, Some("tenant")),
+    ("platform_streams", Endpoint::PlatformStreams, None),
+    (
+        "subject_resolution",
+        Endpoint::SubjectResolution,
+        Some("tenant"),
+    ),
+    ("exercise", Endpoint::Exercise, Some("exercise")),
+    (
+        "exercise_agency",
+        Endpoint::ExerciseAgency,
+        Some("exercise"),
+    ),
 ];
 
 impl Endpoint {
@@ -627,6 +657,84 @@ mod tests {
         assert_eq!(
             doc.endpoints.agreed(Endpoint::Eligibility, Some(&same)),
             Err(AccessError::DiscoveryMismatch(Endpoint::Eligibility))
+        );
+    }
+
+    // T-96
+    #[test]
+    fn t_96_every_endpoint_access_serves_is_read_with_its_variable() {
+        let served = [
+            (
+                "adp",
+                "https://access.example/.well-known/authzen-configuration",
+            ),
+            ("auth_context", "https://acme.id.example/v1/me/auth-context"),
+            (
+                "eligibility",
+                "https://access.example/access/v1/eligibility:check",
+            ),
+            (
+                "exercise",
+                "https://access.example/access/v1/exercises/{exercise}",
+            ),
+            (
+                "exercise_agency",
+                "https://access.example/access/v1/exercises/{exercise}/agency",
+            ),
+            ("instances", "https://acme.id.example/v1/me/instances"),
+            (
+                "key_batch",
+                "https://access.example/access/v1/keys:batchGet",
+            ),
+            ("key_lookup", "https://access.example/access/v1/keys/{kid}"),
+            (
+                "pairing",
+                "https://access.example/access/v1/tenants/{tenant}/pairing",
+            ),
+            (
+                "pairing_challenges",
+                "https://access.example/access/v1/tenants/{tenant}/pairing/challenges",
+            ),
+            (
+                "platform_streams",
+                "https://access.example/access/v1/platform/streams",
+            ),
+            (
+                "subject_resolution",
+                "https://access.example/access/v1/tenants/{tenant}/subjects:resolve",
+            ),
+            (
+                "tenant_snapshot",
+                "https://access.example/access/v1/tenants/{tenant}/snapshot",
+            ),
+        ];
+        let endpoints = Endpoints::from_pairs(served).unwrap();
+        assert_eq!(
+            endpoints
+                .get(Endpoint::PairingChallenges)
+                .unwrap()
+                .expand("tnt_01"),
+            "https://access.example/access/v1/tenants/tnt_01/pairing/challenges"
+        );
+        assert_eq!(
+            endpoints
+                .get(Endpoint::ExerciseAgency)
+                .unwrap()
+                .expand("e/1"),
+            "https://access.example/access/v1/exercises/e%2F1/agency"
+        );
+        assert_eq!(
+            endpoints
+                .get(Endpoint::PlatformStreams)
+                .unwrap()
+                .expand("x"),
+            "https://access.example/access/v1/platform/streams"
+        );
+        for (name, _, _) in ENDPOINTS {
+            assert!(served.iter().any(|(n, _)| *n == name), "{name}");
+        }
+        assert!(
+            Endpoints::from_pairs([("exercise", "https://a.example/exercises/{tenant}")]).is_err()
         );
     }
 

@@ -5,9 +5,9 @@ version = "0.1.0"
 
 [access]
 status = "build"
-version = "main-e711dde"
+version = "main-2784923-local"
 image = "ghcr.io/e-suiss/access"
-digest = "sha256:d92918789fcb59d03a5496a9f1b8b5e2953cfa5979a7f6e206e6b067729bd0a9"
+digest = "sha256:91c3fd3ac87d8f3de50da58dc967ee346fbf035241ebd5a4633eb479e52cf796"
 
 [relay]
 status = "build"

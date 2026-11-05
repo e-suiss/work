@@ -9,6 +9,8 @@ RUN apt-get update \
  && chown 65532:softhsm /var/lib/softhsm/tokens
 
 COPY --chmod=0755 entrypoint.sh /usr/local/bin/softhsm-entrypoint
+# T-56, T-101, T-103
+COPY --chmod=0755 access-keys.sh /usr/local/bin/work-access-keys
 
 USER nonroot
 ENTRYPOINT ["/usr/local/bin/softhsm-entrypoint"]

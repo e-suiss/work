@@ -28,9 +28,10 @@ test-containers:
     docker build --quiet --tag work-dev/witness:local deploy/compose/witness
     cargo nextest run --workspace --locked --no-tests=fail --run-ignored only -E 'binary(=containers)'
 
-# OP-32, OP-42, OP-43, T-41
+# OP-32, OP-42, OP-43, T-41, T-96, T-101
 test-compose:
-    cargo nextest run --workspace --locked --no-tests=fail --run-ignored only -E 'binary(=compose)'
+    dir="$(mktemp -d)"; just dev-access "$dir"; \
+    WORK_ACCESS_LOCAL="$dir" cargo nextest run --workspace --locked --no-tests=fail --run-ignored only -E 'binary(=compose)'
 
 fmt:
     cargo fmt --all
@@ -159,10 +160,16 @@ dev:
     @echo "Grafana        http://127.0.0.1:${WORK_DEV_GRAFANA_PORT:-3310}  (user admin, password local-only-not-a-secret)"
     @echo "Jaeger         http://127.0.0.1:${WORK_DEV_JAEGER_UI_PORT:-16696}   Prometheus http://127.0.0.1:${WORK_DEV_PROMETHEUS_PORT:-9099}"
     @echo "OTLP           127.0.0.1:${WORK_DEV_OTLP_GRPC_PORT:-4327} (gRPC), 127.0.0.1:${WORK_DEV_OTLP_HTTP_PORT:-4328} (HTTP)"
-    @echo "Access         http://127.0.0.1:${WORK_DEV_ACCESS_PORT:-8180}  (Mailpit http://127.0.0.1:${WORK_DEV_MAIL_UI_PORT:-8035})"
+    @echo "Access         https://access-server:8443 on 127.0.0.1:8443  (CA, PEP certificate and bootstrap.json: just dev-access <dir>)"
     @echo "Relay          http://127.0.0.1:${WORK_DEV_RELAY_PORT:-4010}"
     @echo "Witness        http://127.0.0.1:${WORK_DEV_WITNESS_PORT:-7390}  (litewitness, C2SP tlog-witness)"
     @echo "Work server    http://127.0.0.1:${WORK_DEV_SERVER_PORT:-8190}  (health http://127.0.0.1:${WORK_DEV_SERVER_INTERNAL_PORT:-8191}/readyz, signer socket in volume signer-socket)"
+
+# T-96, T-101, T-103
+dev-access dir:
+    mkdir -p "{{dir}}"
+    for f in ca.crt pep.crt pep.key; do {{compose}} exec -T access cat "/var/lib/access/certs/$f" > "{{dir}}/$f"; done
+    {{compose}} exec -T access cat /var/lib/access/bootstrap/bootstrap.json > "{{dir}}/bootstrap.json"
 
 dev-down:
     {{compose}} down
@@ -317,7 +324,7 @@ sqlx_db_url := "postgres://postgres:" + dev_db_password + "@127.0.0.1:" + sqlx_d
 sqlx-db:
     #!/usr/bin/env bash
     set -euo pipefail
-    image="$(sed -n 's/^ *image: \(postgres@sha256:[0-9a-f]*\).*$/\1/p' deploy/compose/compose.yaml)"
+    image="$(sed -n 's/^ *image: \(postgres@sha256:[0-9a-f]*\).*$/\1/p' deploy/compose/compose.yaml | sort -u)"
     [ -n "$image" ] || { echo "no postgres pin in deploy/compose/compose.yaml" >&2; exit 1; }
     docker rm --force work-sqlx > /dev/null 2>&1 || true
     docker run --detach --name work-sqlx --env POSTGRES_PASSWORD={{dev_db_password}} \

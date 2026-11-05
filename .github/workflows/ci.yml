@@ -440,9 +440,27 @@ jobs:
         with:
           cache-key: compose
           tools: nextest
+      - name: Room for the images and the test build
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
+          docker system prune --all --force
+          df -h /
+      - name: SoftHSM and the Access host name for the tests (T-56, T-96, T-101)
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install --yes --no-install-recommends softhsm2
+          mkdir -p "$RUNNER_TEMP/softhsm/tokens"
+          printf 'directories.tokendir = %s\nobjectstore.backend = file\nlog.level = ERROR\n' \
+            "$RUNNER_TEMP/softhsm/tokens" > "$RUNNER_TEMP/softhsm/softhsm2.conf"
+          echo "SOFTHSM2_CONF=$RUNNER_TEMP/softhsm/softhsm2.conf" >> "$GITHUB_ENV"
+          echo "127.0.0.1 access-server" | sudo tee -a /etc/hosts
       - name: Local environment starts (T-41, T-51, T-56, T-57)
         run: just dev
-      - name: Ledger time against the local NTS and Roughtime servers (OP-32, OP-42, OP-43, T-41)
+      - name: Free the image build cache
+        run: |
+          docker builder prune --all --force
+          df -h /
+      - name: Ledger time against the local NTS and Roughtime servers and the Access client against the local Access (OP-32, OP-42, OP-43, T-41, T-96, T-101)
         env:
           NEXTEST_PROFILE: ci
         run: just test-compose
@@ -464,8 +482,11 @@ jobs:
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:7072/)" != "000"
       - name: Access and Relay answer (T-51, E-2, MD-3)
         run: |
-          for _ in $(seq 1 60); do curl -fsS http://127.0.0.1:8180/healthz >/dev/null 2>&1 && break; sleep 1; done
-          curl -fsS http://127.0.0.1:8180/healthz
+          c() { docker compose -f deploy/compose/compose.yaml "$@"; }
+          c exec -T access cat /var/lib/access/certs/ca.crt > "$RUNNER_TEMP/access-ca.crt"
+          for _ in $(seq 1 60); do curl -fsS --cacert "$RUNNER_TEMP/access-ca.crt" https://access-server:8443/healthz >/dev/null 2>&1 && break; sleep 1; done
+          curl -fsS --cacert "$RUNNER_TEMP/access-ca.crt" https://access-server:8443/healthz
+          c exec -T access cat /var/lib/access/bootstrap/bootstrap.json | grep -q '"product": *"work"'
           for _ in $(seq 1 60); do curl -fsS http://127.0.0.1:4010/readyz >/dev/null 2>&1 && break; sleep 1; done
           curl -fsS http://127.0.0.1:4010/readyz
       - name: Server is live and ready with the signer and runs a Roughtime round (T-39, T-72, OP-43)
@@ -507,7 +528,7 @@ jobs:
           lock | grep -q '<ObjectLockEnabled>Enabled</ObjectLockEnabled>'
       - name: Logs on failure
         if: failure()
-        run: docker compose -f deploy/compose/compose.yaml logs --no-color --tail 80 access relay relay-migrate nts-a nts-b roughtime-a roughtime-b roughtime-c s3 witness work-signer work-server
+        run: docker compose -f deploy/compose/compose.yaml logs --no-color --tail 80 work-access-keys access-init access-migrate access-bootstrap access relay relay-migrate nts-a nts-b roughtime-a roughtime-b roughtime-c s3 witness work-signer work-server
       - name: Stop
         if: always()
         run: just dev-down

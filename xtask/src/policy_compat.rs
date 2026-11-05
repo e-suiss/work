@@ -366,6 +366,7 @@ fn is_build_ref(version: &str) -> bool {
         .strip_prefix("main-")
         .or_else(|| version.strip_prefix("sha-"))
         .unwrap_or_default();
+    let hex = hex.strip_suffix("-local").unwrap_or(hex);
     (7..=40).contains(&hex.len()) && hex.chars().all(|c| c.is_ascii_hexdigit())
 }
 
@@ -494,6 +495,12 @@ mod tests {
         assert!(compose_violations(&c, &pinned).is_empty());
         let floating = compat(&text.replace("main-e711dde", "main"));
         assert_eq!(format_violations(&floating).len(), 1);
+        let local = compat(&text.replace("main-e711dde", "main-2784923-local"));
+        assert!(format_violations(&local).is_empty());
+        for bad in ["main-local", "main-2784923-dev", "sha-2784923-local-local"] {
+            let c = compat(&text.replace("main-e711dde", bad));
+            assert_eq!(format_violations(&c).len(), 1, "{bad}");
+        }
     }
 
     // T-40 T-51

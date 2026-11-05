@@ -7,6 +7,18 @@ x-hardening: &hardening
   security_opt: ["no-new-privileges:true"]
   restart: unless-stopped
 
+x-access-hardening: &access-hardening
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+
+x-access-process: &access-process
+  <<: *access-hardening
+  platform: linux/amd64
+  user: "65532:65532"
+  read_only: true
+  tmpfs:
+    - /tmp:uid=65532,gid=65532
+
 
 services:
   # T-20, T-36, T-51
@@ -350,23 +362,231 @@ services:
       timeout: 3s
       retries: 60
 
-  # T-51, E-2, MD-3
-  access:
-    <<: *hardening
-    image: ghcr.io/e-suiss/access@sha256:d92918789fcb59d03a5496a9f1b8b5e2953cfa5979a7f6e206e6b067729bd0a9
+  # T-51, T-41
+  access-volume-owners:
+    <<: *access-hardening
+    image: ghcr.io/e-suiss/access@sha256:91c3fd3ac87d8f3de50da58dc967ee346fbf035241ebd5a4633eb479e52cf796
     platform: linux/amd64
+    user: "0:0"
+    cap_add: [CHOWN, FOWNER]
     read_only: true
-    environment:
-      ACCESS_LISTEN: 0.0.0.0:8080
-    ports:
-      - "127.0.0.1:${WORK_DEV_ACCESS_PORT:-8180}:8080"
+    entrypoint: ["sh", "-c"]
+    command:
+      - >-
+        chown 65532:65532 /var/lib/access/certs /var/lib/access/secrets /var/lib/access/initdb
+        /var/lib/access/signer /var/lib/access/identity-signer /var/lib/access/bootstrap
+        /var/lib/access/products &&
+        chmod 0750 /var/lib/access/certs /var/lib/access/secrets /var/lib/access/initdb
+        /var/lib/access/signer /var/lib/access/identity-signer /var/lib/access/bootstrap
+        /var/lib/access/products &&
+        chown 65532:softhsm /var/lib/softhsm/tokens && chmod 0770 /var/lib/softhsm/tokens
+    volumes:
+      - access-certs:/var/lib/access/certs
+      - access-secrets:/var/lib/access/secrets
+      - access-initdb:/var/lib/access/initdb
+      - access-softhsm:/var/lib/softhsm/tokens
+      - access-signer:/var/lib/access/signer
+      - access-identity-signer:/var/lib/access/identity-signer
+      - access-bootstrap:/var/lib/access/bootstrap
+      - access-products:/var/lib/access/products
+    networks: [access]
+
+  # T-51, T-41, T-101
+  access-init:
+    <<: *access-process
+    image: ghcr.io/e-suiss/access@sha256:91c3fd3ac87d8f3de50da58dc967ee346fbf035241ebd5a4633eb479e52cf796
+    command: ["access-local-init"]
     depends_on:
-      postgres:
+      access-volume-owners:
+        condition: service_completed_successfully
+    volumes:
+      - access-certs:/var/lib/access/certs
+      - access-secrets:/var/lib/access/secrets
+      - access-initdb:/var/lib/access/initdb
+      - access-softhsm:/var/lib/softhsm/tokens
+      - access-signer:/var/lib/access/signer
+      - access-identity-signer:/var/lib/access/identity-signer
+    networks: [access]
+
+  # T-51, T-20
+  access-postgres:
+    <<: *access-hardening
+    image: postgres@sha256:74935e72241653ca55e0414067e6d8763aceb8a810eb51b452253ec3dcfc4336 # 18.6-trixie
+    user: "999:999"
+    group_add: ["65532"]
+    read_only: true
+    entrypoint:
+      - sh
+      - -c
+      - >-
+        install -m 0600 /docker-entrypoint-initdb.d/postgres.key /var/run/postgresql/server.key &&
+        exec docker-entrypoint.sh postgres
+        -c ssl=on -c ssl_min_protocol_version=TLSv1.3
+        -c ssl_cert_file=/var/lib/access/certs/postgres.crt
+        -c ssl_key_file=/var/run/postgresql/server.key
+    tmpfs:
+      - /var/run/postgresql:uid=999,gid=999
+      - /tmp:uid=999,gid=999
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD_FILE: /docker-entrypoint-initdb.d/superuser
+      POSTGRES_INITDB_ARGS: --auth=scram-sha-256 --data-checksums
+    volumes:
+      - access-pgdata:/var/lib/postgresql
+      - access-certs:/var/lib/access/certs:ro
+      - access-initdb:/docker-entrypoint-initdb.d:ro
+    depends_on:
+      access-init:
+        condition: service_completed_successfully
+    networks:
+      access:
+        aliases: [postgres]
+    healthcheck:
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "postgres", "-d", "access"]
+      interval: 2s
+      timeout: 3s
+      retries: 60
+
+  # T-51, T-36
+  access-migrate:
+    <<: *access-process
+    image: ghcr.io/e-suiss/access@sha256:91c3fd3ac87d8f3de50da58dc967ee346fbf035241ebd5a4633eb479e52cf796
+    command: ["access-server", "migrate"]
+    environment:
+      ACCESS_CONFIG: /etc/access/local/access.toml
+    volumes:
+      - access-certs:/var/lib/access/certs:ro
+      - access-secrets:/var/lib/access/secrets:ro
+    depends_on:
+      access-postgres:
         condition: service_healthy
-      nats:
+    networks: [access]
+
+  # T-51, T-56
+  access-signer:
+    <<: *access-process
+    image: ghcr.io/e-suiss/access@sha256:91c3fd3ac87d8f3de50da58dc967ee346fbf035241ebd5a4633eb479e52cf796
+    command: ["access-signer"]
+    restart: unless-stopped
+    environment:
+      ACCESS_SIGNER_CONFIG: /etc/access/local/access-signer.toml
+    volumes:
+      - access-secrets:/var/lib/access/secrets:ro
+      - access-softhsm:/var/lib/softhsm/tokens
+      - access-signer:/var/lib/access/signer
+      - access-sockets:/run/access
+    depends_on:
+      access-init:
+        condition: service_completed_successfully
+    networks: [access]
+    healthcheck:
+      test: ["CMD", "test", "-S", "/run/access/signer.sock"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  # T-51, T-56
+  access-identity-signer:
+    <<: *access-process
+    image: ghcr.io/e-suiss/access@sha256:91c3fd3ac87d8f3de50da58dc967ee346fbf035241ebd5a4633eb479e52cf796
+    command: ["access-identity-signer"]
+    restart: unless-stopped
+    environment:
+      ACCESS_IDENTITY_SIGNER_CONFIG: /etc/access/local/access-identity-signer.toml
+    volumes:
+      - access-secrets:/var/lib/access/secrets:ro
+      - access-softhsm:/var/lib/softhsm/tokens
+      - access-identity-signer:/var/lib/access/identity-signer
+      - access-sockets:/run/access
+    depends_on:
+      access-init:
+        condition: service_completed_successfully
+    networks: [access]
+    healthcheck:
+      test: ["CMD", "test", "-S", "/run/access/identity-signer.sock"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  # T-56, T-101, T-103
+  work-access-keys:
+    <<: *access-hardening
+    build: ./softhsm
+    image: work-dev/softhsm:local
+    read_only: true
+    entrypoint: ["/usr/local/bin/work-access-keys"]
+    environment:
+      SOFTHSM_TOKEN_LABEL: work-dev
+      SOFTHSM_USER_PIN: "1234"
+      WORK_ACCESS_KEYS: /var/lib/work-access/products
+    tmpfs:
+      - /tmp:uid=65532,gid=65532
+    volumes:
+      - softhsm:/var/lib/softhsm/tokens
+      - access-products:/var/lib/work-access/products
+    depends_on:
+      softhsm:
         condition: service_healthy
-      mailpit:
+      access-volume-owners:
+        condition: service_completed_successfully
+
+  # T-96, T-101, T-103, T-51
+  access-bootstrap:
+    <<: *access-process
+    image: ghcr.io/e-suiss/access@sha256:91c3fd3ac87d8f3de50da58dc967ee346fbf035241ebd5a4633eb479e52cf796
+    entrypoint: ["sh", "-c"]
+    command:
+      - >-
+        access-server bootstrap /etc/access/local/bootstrap-work.toml
+        > /var/lib/access/bootstrap/bootstrap.json &&
+        cat /var/lib/access/bootstrap/bootstrap.json
+    environment:
+      ACCESS_CONFIG: /etc/access/local/access.toml
+    volumes:
+      - access-certs:/var/lib/access/certs:ro
+      - access-secrets:/var/lib/access/secrets:ro
+      - access-softhsm:/var/lib/softhsm/tokens
+      - access-sockets:/run/access
+      - access-bootstrap:/var/lib/access/bootstrap
+      - access-products:/etc/access/products:ro
+    depends_on:
+      access-migrate:
+        condition: service_completed_successfully
+      access-signer:
         condition: service_healthy
+      access-identity-signer:
+        condition: service_healthy
+      work-access-keys:
+        condition: service_completed_successfully
+    networks: [access]
+
+  # T-51, E-2, MD-3, T-96, T-101
+  access:
+    <<: *access-process
+    image: ghcr.io/e-suiss/access@sha256:91c3fd3ac87d8f3de50da58dc967ee346fbf035241ebd5a4633eb479e52cf796
+    command: ["access-server"]
+    restart: unless-stopped
+    environment:
+      ACCESS_CONFIG: /etc/access/local/access.toml
+    volumes:
+      - access-certs:/var/lib/access/certs:ro
+      - access-secrets:/var/lib/access/secrets:ro
+      - access-softhsm:/var/lib/softhsm/tokens
+      - access-sockets:/run/access
+      - access-bootstrap:/var/lib/access/bootstrap:ro
+    ports:
+      - "127.0.0.1:8443:8443"
+    depends_on:
+      access-bootstrap:
+        condition: service_completed_successfully
+    networks:
+      access:
+        aliases: [access-server]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "--cacert", "/var/lib/access/certs/ca.crt", "https://localhost:8443/healthz"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
 
   mailpit:
     <<: *hardening
@@ -463,6 +683,20 @@ volumes:
   softhsm:
   signer-socket:
   witness-public:
+  access-certs:
+  access-secrets:
+  access-initdb:
+  access-pgdata:
+  access-softhsm:
+  access-signer:
+  access-identity-signer:
+  access-sockets:
+  access-bootstrap:
+  access-products:
+
+networks:
+  default:
+  access:
 
 secrets:
   relay_db_password:
