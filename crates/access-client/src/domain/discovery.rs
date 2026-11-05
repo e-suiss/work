@@ -21,6 +21,26 @@ pub const SUISS_CONFIGURATION: &str = "suiss-configuration";
 /// Upper bound of an endpoint URL, from the CDDL `https-url` rule.
 pub const MAX_URL: usize = 2048;
 
+/// How long past Access's `max-age` a discovery document stays fresh: the bound of the refresh
+/// call that replaces it (T-32 rule 7).
+pub const REFRESH_GRACE_MS: u64 = 5_000;
+
+/// Whether the discovery document `read`, as the time it was read and Access's `max-age`, both
+/// in milliseconds, still carries a consequential action at `now_ms` (T-96 item 2, T-28).
+/// Without a document nothing does.
+///
+/// # Errors
+/// [`AccessError::Unserved`] without a document, [`AccessError::Stale`] past the bound.
+pub fn fresh(read: Option<(u64, u64)>, now_ms: u64) -> Result<(), AccessError> {
+    let Some((read_at_ms, max_age_ms)) = read else {
+        return Err(AccessError::Unserved(Endpoint::Adp));
+    };
+    if now_ms.saturating_sub(read_at_ms) > max_age_ms.saturating_add(REFRESH_GRACE_MS) {
+        return Err(AccessError::Stale);
+    }
+    Ok(())
+}
+
 /// An `https` base URL: the Access issuer of `[suiss] access` or Relay's `suiss_relay`.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Issuer(String);
@@ -442,6 +462,21 @@ mod tests {
             capabilities: capabilities.iter().map(|c| (*c).to_owned()).collect(),
             signed_metadata: None,
         }
+    }
+
+    // T-96 T-28 E-38
+    #[test]
+    fn t_96_a_stale_discovery_refuses_consequential_actions() {
+        assert_eq!(fresh(None, 0), Err(AccessError::Unserved(Endpoint::Adp)));
+        let read = Some((1_000, 300_000));
+        assert_eq!(fresh(read, 1_000), Ok(()));
+        assert_eq!(fresh(read, 1_000 + 300_000 + REFRESH_GRACE_MS), Ok(()));
+        assert_eq!(
+            fresh(read, 1_001 + 300_000 + REFRESH_GRACE_MS),
+            Err(AccessError::Stale)
+        );
+        assert_eq!(AccessError::Stale.code(), "authority_unverifiable");
+        assert_eq!(fresh(Some((u64::MAX, u64::MAX)), 0), Ok(()));
     }
 
     // T-96

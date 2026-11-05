@@ -208,6 +208,34 @@ mod tests {
         assert_eq!(last.next_cursor, None);
     }
 
+    // E-43 E-3
+    #[test]
+    fn e_43_a_personal_tenant_is_mapped_like_every_other_tenant() {
+        let household = TenantSnapshot::from_json(
+            br#"{"tenant": "tnt_home", "organizations": [], "realms": [], "region": "eu-central", "status": "active", "version": "v1", "retention": {}}"#,
+        )
+        .unwrap();
+        assert_eq!(household.tenant.as_str(), "tnt_home");
+        assert_eq!(household.organizations, 0);
+        let company = tenant("tnt_acme", "v1", "eu-central");
+        assert_eq!(
+            plan(
+                &BTreeMap::new(),
+                &[household.clone(), company.clone()],
+                "eu-central"
+            ),
+            vec![
+                TenantChange::Opened(household.clone()),
+                TenantChange::Opened(company)
+            ]
+        );
+        let known = BTreeMap::from([(household.tenant.clone(), "v1".to_owned())]);
+        assert_eq!(
+            plan(&known, std::slice::from_ref(&household), "eu-central"),
+            Vec::new()
+        );
+    }
+
     // T-96
     #[test]
     fn t_96_the_list_is_found_beside_the_snapshot_template() {

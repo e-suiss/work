@@ -66,6 +66,9 @@ pub enum AccessError {
     /// The PEP certificate has expired (T-101 item 2).
     #[error("the PEP certificate has expired")]
     Expired,
+    /// The discovery document is older than Access's `max-age` allows (T-96 item 2).
+    #[error("the discovery document is stale")]
+    Stale,
     /// Access or Relay refused the call.
     #[error("the peer answered {status} {code}")]
     Refused {
@@ -156,6 +159,41 @@ pub(crate) mod tests {
             "authority_unverifiable"
         );
         assert_eq!(AccessError::Expired.code(), "authority_unverifiable");
+    }
+
+    // E-5 E-6 INV-30
+    #[test]
+    fn e_5_access_is_reached_only_through_the_endpoints_its_discovery_publishes() {
+        for (file, source) in [
+            ("lib.rs", include_str!("lib.rs")),
+            ("app.rs", include_str!("app.rs")),
+            ("adapters.rs", include_str!("adapters.rs")),
+            ("ports.rs", include_str!("ports.rs")),
+            ("domain.rs", include_str!("domain.rs")),
+            ("domain/cache.rs", include_str!("domain/cache.rs")),
+            ("domain/discovery.rs", include_str!("domain/discovery.rs")),
+            (
+                "domain/eligibility.rs",
+                include_str!("domain/eligibility.rs"),
+            ),
+            ("domain/keys.rs", include_str!("domain/keys.rs")),
+            ("domain/metadata.rs", include_str!("domain/metadata.rs")),
+            ("domain/realm.rs", include_str!("domain/realm.rs")),
+            ("domain/relay.rs", include_str!("domain/relay.rs")),
+            ("domain/tenants.rs", include_str!("domain/tenants.rs")),
+            ("domain/x509.rs", include_str!("domain/x509.rs")),
+        ] {
+            let code = source.split("#[cfg(test)]").next().unwrap_or_default();
+            for line in code.lines().map(str::trim).filter(|l| !l.starts_with("//")) {
+                for path in ["/access/", "/v1/", "/internal"] {
+                    assert!(!line.contains(path), "{file}: {line}");
+                }
+            }
+        }
+        assert_eq!(
+            AccessError::Unserved(Endpoint::Exercise).code(),
+            "authority_unverifiable"
+        );
     }
 
     // T-101

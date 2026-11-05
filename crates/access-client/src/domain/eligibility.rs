@@ -139,6 +139,34 @@ mod tests {
         }
     }
 
+    fn members(body: &[u8]) -> Vec<String> {
+        let mut names: Vec<String> = serde_json::from_slice::<Value>(body)
+            .unwrap()
+            .as_object()
+            .unwrap()
+            .keys()
+            .cloned()
+            .collect();
+        names.sort();
+        names
+    }
+
+    // E-15 E-39
+    #[test]
+    fn e_15_access_receives_only_opaque_references_and_the_typed_set() {
+        let request =
+            EligibilityRequest::new(KernelId([4; 16]), set(), ConsistencyToken::new("ct1"))
+                .unwrap();
+        assert_eq!(members(&request.body()), ["as_of", "set", "subject"]);
+        let batch = crate::domain::keys::batch_body(
+            &crate::domain::keys::DomainId([1; 32]),
+            &[crate::domain::keys::Kid([2; 32])],
+            &crate::domain::keys::AsOf::Head,
+        )
+        .unwrap();
+        assert_eq!(members(&batch), ["domain", "kids"]);
+    }
+
     // T-101
     #[test]
     fn t_101_the_answer_carries_a_consistency_token() {

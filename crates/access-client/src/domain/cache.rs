@@ -148,6 +148,12 @@ impl KeyCache {
         self.bound(now_ms);
     }
 
+    /// Drops every entry of `kid` in `domain`, whatever its `as_of` (T-102 item 5, E-14).
+    pub fn forget(&mut self, domain: DomainId, kid: Kid) {
+        self.entries
+            .retain(|(d, k, _), _| *d != domain || *k != kid);
+    }
+
     /// The number of entries.
     #[must_use]
     pub fn len(&self) -> usize {
@@ -228,6 +234,34 @@ mod tests {
                 .get(d.id, d.kid(), &AsOf::Head, 31_536_000_000)
                 .is_none()
         );
+    }
+
+    // E-14 T-9
+    #[test]
+    fn e_14_an_instance_termination_drops_its_cached_keys_at_once() {
+        let (_, store) = token("forget");
+        let d = domain(&store);
+        let m = d.read();
+        let excerpt = d.excerpt("key-lookup");
+        let answer = verify_answer(
+            &m,
+            &d.id,
+            &[d.kid()],
+            &d.answer(vec![d.entry("active", false)], &[], 4),
+            &excerpt,
+            Some(4),
+        )
+        .unwrap();
+        let minute = CachePolicy::parse(Some("max-age=60"));
+        let mut cache = KeyCache::default();
+        cache.put(&answer, &AsOf::Head, minute, 0);
+        cache.put(&answer, &AsOf::Position(4), minute, 0);
+        assert_eq!(cache.len(), 2);
+        cache.forget(d.id, Kid([0; 32]));
+        assert_eq!(cache.len(), 2);
+        cache.forget(d.id, d.kid());
+        assert!(cache.is_empty());
+        assert!(cache.get(d.id, d.kid(), &AsOf::Head, 1).is_none());
     }
 
     // T-101

@@ -10,7 +10,7 @@ use work_proto::id::TenantId;
 use crate::domain::cache::{CachePolicy, CachedKey, KeyCache};
 use crate::domain::discovery::{
     AuthzenConfiguration, Endpoint, Endpoints, Issuer, SUISS_CONFIGURATION, SuissConfiguration,
-    percent,
+    fresh, percent,
 };
 use crate::domain::eligibility::{Eligibility, EligibilityRequest};
 use crate::domain::keys::{
@@ -45,6 +45,7 @@ struct Trusted {
 #[derive(Default)]
 struct State {
     configuration: Option<SuissConfiguration>,
+    discovered: Option<(u64, u64)>,
     domains: BTreeMap<DomainId, Trusted>,
     cache: KeyCache,
     realms: BTreeMap<Issuer, (KeySet, u64)>,
@@ -112,10 +113,11 @@ impl<T: Transport, C: Clock> Client<T, C> {
     }
 
     fn consequential(&self) -> Result<(), AccessError> {
-        if self.clock.now_ms() > self.pep_not_after_ms {
+        let now = self.clock.now_ms();
+        if now > self.pep_not_after_ms {
             return Err(AccessError::Expired);
         }
-        Ok(())
+        fresh(self.state()?.discovered, now)
     }
 
     fn endpoints(&self) -> Result<Endpoints, AccessError> {
@@ -127,20 +129,38 @@ impl<T: Transport, C: Clock> Client<T, C> {
     }
 
     /// Reads the Suiss configuration and the `AuthZEN` document and checks what start needs; the
-    /// document is kept for every later call (T-96 item 2, Access OP-149 m.2).
+    /// document is kept for every later call and carries consequential actions for as long as
+    /// Access's `max-age` allows (T-96 item 2, Access OP-149 m.2). A failed refresh keeps the
+    /// last document.
     ///
     /// # Errors
     /// [`AccessError`]; at start each refuses start.
     pub async fn discover(&self) -> Result<SuissConfiguration, AccessError> {
+        let read_at = self.clock.now_ms();
         let answer = self
             .get(self.issuer.well_known(SUISS_CONFIGURATION), JSON)
             .await?;
         let doc = SuissConfiguration::from_json(answer.ok()?, &self.issuer)?;
+        let max_age = CachePolicy::parse(answer.header("cache-control"))
+            .max_age_ms
+            .unwrap_or(DISCOVERY_INTERVAL_MS);
         let adp = doc.endpoints.get(Endpoint::Adp)?.as_str().to_owned();
         let authzen = AuthzenConfiguration::from_json(self.get(adp, JSON).await?.ok()?)?;
         doc.check_start(&authzen, &self.region)?;
-        self.state()?.configuration = Some(doc.clone());
+        let mut state = self.state()?;
+        state.configuration = Some(doc.clone());
+        state.discovered = Some((read_at, max_age));
         Ok(doc)
+    }
+
+    /// Drops every cached key `kid` of `domain` at once, as an `instance-terminated` event asks;
+    /// the next admission looks the key up again (T-102 item 5, E-14).
+    ///
+    /// # Errors
+    /// [`AccessError::Transport`] when the client state is poisoned.
+    pub fn forget(&self, domain: DomainId, kid: Kid) -> Result<(), AccessError> {
+        self.state()?.cache.forget(domain, kid);
+        Ok(())
     }
 
     /// Reads Relay's discovery document at the `suiss_relay` discovery named, over

@@ -1,4 +1,4 @@
-//! The Access client against the real Access of the local environment (T-96, T-101, P-116): discovery of the platform and `acme` realms at their path-form issuers, the PEP certificate over mutual TLS for the tenant list and snapshot, and a realm's token keys. These tests need `just dev`; `just test-compose` runs them with `WORK_ACCESS_LOCAL` naming the directory `just dev-access` fills with Access's local CA, its PEP certificate and key and `bootstrap.json`, and with `access-server` resolving to the loopback address.
+//! The Access client against the real Access of the local environment (T-96, T-101, P-116, T-28): discovery of the platform and `acme` realms at their path-form issuers, the PEP certificate over mutual TLS for the tenant list and snapshot, a realm's token keys, and what the client does once Access cannot be reached. These tests need `just dev`; `just test-compose` runs them with `WORK_ACCESS_LOCAL` naming the directory `just dev-access` fills with Access's local CA, its PEP certificate and key and `bootstrap.json`, and with `access-server` resolving to the loopback address.
 
 #![allow(
     clippy::unwrap_used,
@@ -13,6 +13,7 @@
 use std::path::PathBuf;
 use std::process::Command;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD;
@@ -26,12 +27,14 @@ use rustls::{ClientConfig, RootCertStore};
 use serde_json::Value;
 use suiss_crypto::secret::Secret;
 use work_access_client::adapters::{DEFAULT_TIMEOUT, HttpsTransport, PEP_LABEL, PepCredential};
-use work_access_client::app::Client;
+use work_access_client::app::{Client, DISCOVERY_INTERVAL_MS, REALM_KEYS_MAX_AGE_MS};
 use work_access_client::domain::AccessError;
 use work_access_client::domain::discovery::{
-    Endpoint, Issuer, SUISS_CONFIGURATION, SuissConfiguration,
+    Endpoint, Issuer, REFRESH_GRACE_MS, SUISS_CONFIGURATION, SuissConfiguration,
 };
-use work_access_client::ports::{Clock, Request, Transport};
+use work_access_client::domain::eligibility::EligibilityRequest;
+use work_access_client::domain::keys::{AsOf, DomainId, KernelId, Kid};
+use work_access_client::ports::{Clock, Request, Response, Transport};
 use work_proto::id::TenantId;
 
 const ACCESS: &str = "https://access-server:8443";
@@ -45,6 +48,34 @@ struct At(u64);
 impl Clock for At {
     fn now_ms(&self) -> u64 {
         self.0
+    }
+}
+
+/// A clock the test moves.
+struct Moving(Arc<AtomicU64>);
+
+impl Clock for Moving {
+    fn now_ms(&self) -> u64 {
+        self.0.load(Ordering::SeqCst)
+    }
+}
+
+/// A closed port on the loopback address: what a client of an Access that is down reaches.
+const CLOSED: &str = "https://127.0.0.1:1";
+
+/// The transport to the local Access, which the test can cut: once cut, every call goes to
+/// [`CLOSED`] instead.
+struct Severable {
+    inner: HttpsTransport,
+    cut: Arc<AtomicBool>,
+}
+
+impl Transport for Severable {
+    async fn send(&self, mut request: Request) -> Result<Response, AccessError> {
+        if self.cut.load(Ordering::SeqCst) {
+            request.url = request.url.replacen(ACCESS, CLOSED, 1);
+        }
+        self.inner.send(request).await
     }
 }
 
@@ -326,4 +357,67 @@ async fn p_116_the_realm_token_keys_come_from_the_realm_jwks() {
             .unwrap();
         assert_ne!(keys.keys.len(), 0, "{slug}");
     }
+}
+
+// E-38 T-28 SEC-8 MD-3 T-96
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs the local environment"]
+async fn e_38_without_access_consequential_calls_fail_closed_and_reads_last_only_their_bound() {
+    let local = Local::open();
+    let pep = local.pep();
+    let issuer = local.issuer("acme");
+    let cut = Arc::new(AtomicBool::new(false));
+    let now = Arc::new(AtomicU64::new(pep.not_after_ms() - DAY_MS));
+    let client = Client::new(
+        Severable {
+            inner: local.transport(&pep),
+            cut: Arc::clone(&cut),
+        },
+        Moving(Arc::clone(&now)),
+        issuer.clone(),
+        REGION,
+        pep.not_after_ms(),
+    );
+    client.discover().await.unwrap();
+    let keys = client.realm_keys(&issuer, &[0; 32]).await.unwrap();
+    let kid = *keys.keys.keys().next().unwrap();
+    let request = EligibilityRequest::new(KernelId([1; 16]), serde_json::Map::new(), None).unwrap();
+
+    cut.store(true, Ordering::SeqCst);
+    let cached = client.realm_keys(&issuer, &kid).await.unwrap();
+    assert_eq!(
+        cached.keys.keys().collect::<Vec<_>>(),
+        keys.keys.keys().collect::<Vec<_>>()
+    );
+    for refused in [
+        client.eligibility(&request).await.map(|_| ()),
+        client
+            .keys(DomainId([1; 32]), &[Kid([2; 32])], &AsOf::Head)
+            .await
+            .map(|_| ()),
+        client.tenants(None).await.map(|_| ()),
+        client.discover().await.map(|_| ()),
+    ] {
+        let error = refused.unwrap_err();
+        assert!(
+            matches!(error, AccessError::Transport(_) | AccessError::Timeout),
+            "{error:?}"
+        );
+        assert_eq!(error.code(), "authority_unverifiable");
+    }
+    now.fetch_add(REALM_KEYS_MAX_AGE_MS, Ordering::SeqCst);
+    assert!(client.realm_keys(&issuer, &kid).await.is_err());
+
+    now.fetch_add(DISCOVERY_INTERVAL_MS + REFRESH_GRACE_MS, Ordering::SeqCst);
+    cut.store(false, Ordering::SeqCst);
+    assert_eq!(client.eligibility(&request).await, Err(AccessError::Stale));
+    client.discover().await.unwrap();
+    let answered = client.eligibility(&request).await;
+    assert!(
+        !matches!(
+            answered,
+            Err(AccessError::Stale | AccessError::Transport(_) | AccessError::Timeout)
+        ),
+        "{answered:?}"
+    );
 }

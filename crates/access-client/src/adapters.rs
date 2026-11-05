@@ -13,6 +13,7 @@ use cryptoki::types::AuthPin;
 use http_body_util::{BodyExt as _, Full, Limited};
 use hyper::client::conn::http1;
 use hyper_util::rt::TokioIo;
+use rustls::pki_types::pem::PemObject as _;
 use rustls::pki_types::{CertificateDer, ServerName};
 use rustls::sign::{CertifiedKey, Signer as TlsSigner, SigningKey, SingleCertAndKey};
 use rustls::{ClientConfig, RootCertStore, SignatureAlgorithm, SignatureScheme};
@@ -269,6 +270,39 @@ impl PepCredential {
             .with_client_cert_resolver(Arc::new(SingleCertAndKey::from(self.certified.clone())));
         Ok(Arc::new(config))
     }
+}
+
+/// The roots of a PEM file that the server certificates of Access and Relay verify against.
+///
+/// # Errors
+/// [`AccessError::Certificate`] for a file without certificates or with one that does not parse.
+pub fn roots(pem: &[u8]) -> Result<RootCertStore, AccessError> {
+    let mut store = RootCertStore::empty();
+    for certificate in CertificateDer::pem_slice_iter(pem) {
+        let certificate = certificate.map_err(|_| AccessError::Certificate("roots"))?;
+        store
+            .add(certificate)
+            .map_err(|_| AccessError::Certificate("roots"))?;
+    }
+    if store.is_empty() {
+        return Err(AccessError::Certificate("roots"));
+    }
+    Ok(store)
+}
+
+/// TLS 1.3 settings that trust `roots` and present no certificate, for the public discovery
+/// documents (T-96 item 2).
+///
+/// # Errors
+/// [`AccessError::Transport`].
+pub fn public_config(roots: RootCertStore) -> Result<Arc<ClientConfig>, AccessError> {
+    let provider = Arc::new(rustls::crypto::aws_lc_rs::default_provider());
+    let config = ClientConfig::builder_with_provider(provider)
+        .with_protocol_versions(&[&rustls::version::TLS13])
+        .map_err(|e| failed(&e))?
+        .with_root_certificates(roots)
+        .with_no_client_auth();
+    Ok(Arc::new(config))
 }
 
 struct Target {
@@ -545,6 +579,20 @@ mod tests {
             Err(AccessError::Expired)
         );
         assert_eq!(credential.check(NOW.saturating_sub(1000)), Ok(()));
+    }
+
+    // T-96
+    #[test]
+    fn t_96_the_server_certificates_verify_against_the_roots_of_one_pem_file() {
+        let pem = include_bytes!("../../../deploy/compose/nts/pki/root.pem");
+        let store = roots(pem).unwrap();
+        assert_eq!(store.len(), 1);
+        assert!(public_config(store).is_ok());
+        assert_eq!(roots(b"").unwrap_err(), AccessError::Certificate("roots"));
+        assert_eq!(
+            roots(b"-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----\n").unwrap_err(),
+            AccessError::Certificate("roots")
+        );
     }
 
     // T-101
