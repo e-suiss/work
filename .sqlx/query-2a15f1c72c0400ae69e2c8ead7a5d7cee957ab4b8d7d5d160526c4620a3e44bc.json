@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO work.inbound_seen\n             (ledger_id, source, source_id, content_digest, result_pos, seen_at)\n             SELECT $1::bytea, $2::text, $3::text, $4::bytea, NULL::bigint,\n                    pg_catalog.to_timestamp(0)\n                    + interval '1 millisecond' * $5::bigint::double precision\n             WHERE NOT EXISTS (SELECT 1 FROM work.inbound_seen\n                               WHERE ledger_id = $1 AND source = $2 AND source_id = $3)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Text",
+        "Text",
+        "Bytea",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "2a15f1c72c0400ae69e2c8ead7a5d7cee957ab4b8d7d5d160526c4620a3e44bc"
+}
