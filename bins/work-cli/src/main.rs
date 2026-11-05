@@ -145,31 +145,49 @@ fn main() -> ExitCode {
                 ExitCode::FAILURE
             }
         },
-        Some(Command::Export(ledger, path)) => match export(ledger, &path) {
-            Ok(written) => {
-                println!(
-                    "exported {}: {} entries and {} checkpoints to {path}",
-                    ledger.to_hex(),
-                    written.entries,
-                    written.checkpoints
-                );
-                ExitCode::SUCCESS
-            }
-            Err(e) => {
-                eprintln!("export {}: {e}", ledger.to_hex());
-                ExitCode::FAILURE
-            }
-        },
-        Some(Command::Verify(bundle, trust)) => match verify(&bundle, &trust) {
-            Ok(report) => {
-                println!("{}", summary(&report));
-                ExitCode::SUCCESS
-            }
-            Err(e) => {
-                eprintln!("verify {bundle}: {e}");
-                ExitCode::FAILURE
-            }
-        },
+        Some(Command::Export(ledger, path)) => run_export(ledger, &path),
+        Some(Command::Verify(bundle, trust)) => run_verify(&bundle, &trust),
+    }
+}
+
+#[allow(
+    clippy::print_stdout,
+    clippy::print_stderr,
+    reason = "command line output"
+)]
+fn run_export(ledger: LedgerId, path: &str) -> ExitCode {
+    match export(ledger, path) {
+        Ok(written) => {
+            println!(
+                "exported {}: {} entries and {} checkpoints to {path}",
+                ledger.to_hex(),
+                written.entries,
+                written.checkpoints
+            );
+            ExitCode::SUCCESS
+        }
+        Err(e) => {
+            eprintln!("export {}: {e}", ledger.to_hex());
+            ExitCode::FAILURE
+        }
+    }
+}
+
+#[allow(
+    clippy::print_stdout,
+    clippy::print_stderr,
+    reason = "command line output"
+)]
+fn run_verify(bundle: &str, trust: &str) -> ExitCode {
+    match verify(bundle, trust) {
+        Ok(report) => {
+            println!("{}", summary(&report));
+            ExitCode::SUCCESS
+        }
+        Err(e) => {
+            eprintln!("verify {bundle}: {e}");
+            ExitCode::FAILURE
+        }
     }
 }
 
