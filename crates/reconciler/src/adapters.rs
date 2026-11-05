@@ -25,7 +25,7 @@ fn store(e: &StoreError) -> AccessError {
     AccessError::Transport(format!("store: {e}"))
 }
 
-fn stored(row: RealmRow) -> Result<StoredRealm, AccessError> {
+fn stored(row: &RealmRow) -> Result<StoredRealm, AccessError> {
     let state = match row.state {
         RealmState::Unpaired => PairState::Unpaired,
         RealmState::Paired => PairState::Paired,
@@ -73,7 +73,7 @@ impl PairingStore for PgPairing {
             .realms(tenant.as_str())
             .await
             .map_err(|e| store(&e))?
-            .into_iter()
+            .iter()
             .map(stored)
             .collect()
     }
@@ -188,7 +188,7 @@ mod tests {
             paired_at_ms: None,
             updated_at_ms: 0,
         };
-        let s = stored(row.clone()).unwrap();
+        let s = stored(&row).unwrap();
         assert_eq!(
             (s.state, s.kid, s.realm.as_str()),
             (
@@ -201,6 +201,6 @@ mod tests {
             kid: Some("short".to_owned()),
             ..row
         };
-        assert!(stored(bad).is_err());
+        assert!(stored(&bad).is_err());
     }
 }
