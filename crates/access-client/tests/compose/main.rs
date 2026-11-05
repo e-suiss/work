@@ -360,7 +360,31 @@ async fn t_101_the_bootstrap_root_key_is_looked_up_and_verified_in_each_realm_do
             "application/cose",
             body.to_string().into_bytes(),
         );
-        assert_eq!(status(&transport, lookup).await, (200, String::new()));
+        let plain = Request::post(
+            doc.endpoints.get(Endpoint::KeyBatch).unwrap().expand(""),
+            JSON,
+            body.to_string().into_bytes(),
+        );
+        let answer = transport.send(plain).await.unwrap();
+        let single = Request::get(
+            format!(
+                "{}?domain={}",
+                doc.endpoints
+                    .get(Endpoint::KeyLookup)
+                    .unwrap()
+                    .expand(&root.text()),
+                domain.text()
+            ),
+            "application/cose",
+        );
+        let alone = status(&transport, single).await;
+        assert_eq!(
+            status(&transport, lookup).await,
+            (200, String::new()),
+            "json form {} {}; single {alone:?}",
+            answer.status,
+            String::from_utf8_lossy(&answer.body)
+        );
         let both = batch
             .keys(domain, &[root, stranger], &AsOf::Head)
             .await
