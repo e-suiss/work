@@ -1,4 +1,4 @@
-//! Relay's discovery document (T-99 items 1–3; Relay E-81): found at `<suiss_relay>/.well-known/relay-configuration`, used only when its `issuer` is `suiss_relay`, its `access_issuer` is Work's Access issuer, its region is Work's, it supports the dated contract version Work speaks and it offers the events capability.
+//! Relay's discovery document (T-99 items 1–3, T-104; Relay E-81, E-90): found at `<suiss_relay>/.well-known/relay-configuration`, used only when its `issuer` is `suiss_relay`, its `access_issuer` is Work's Access issuer, its region is Work's, it supports the dated contract version Work speaks, it offers the events capability and it names the Access client whose sector its subscriber and responder `sub`s are in.
 
 use std::collections::BTreeSet;
 
@@ -7,9 +7,8 @@ use serde::Deserialize;
 use crate::domain::AccessError;
 use crate::domain::discovery::Issuer;
 
-/// The capability Relay must offer before Work starts (T-99 item 3), compared in Relay's
-/// spelling.
-pub const REQUIRED_RELAY_CAPABILITY: &str = "urn:esuiss:relay:events:1";
+/// The capability Relay must offer before Work starts (T-99 item 3).
+pub const REQUIRED_RELAY_CAPABILITY: &str = "urn:suiss:relay:events:1";
 
 /// The well-known path of Relay's discovery document below `suiss_relay`.
 pub const RELAY_CONFIGURATION: &str = "/.well-known/relay-configuration";
@@ -20,6 +19,7 @@ struct Wire {
     api_base: String,
     region: String,
     access_issuer: String,
+    access_client_id: String,
     contract_versions_supported: Vec<String>,
     jwks_uri: String,
     capabilities: Vec<String>,
@@ -36,6 +36,9 @@ pub struct RelayConfiguration {
     pub api_base: String,
     /// The product event key set.
     pub jwks_uri: String,
+    /// The `client_id` of Relay's Access client: the sector of every subscriber `external_id`
+    /// and responder `sub`, and the `client_id` of `subjects:resolve` (T-104).
+    pub access_client_id: String,
     /// The capability URNs.
     pub capabilities: BTreeSet<String>,
     /// The events endpoint.
@@ -68,6 +71,9 @@ impl RelayConfiguration {
         if w.access_issuer != access.as_str() {
             return Err(AccessError::Issuer("relay-configuration access_issuer"));
         }
+        if w.access_client_id.is_empty() || w.access_client_id.len() > 256 {
+            return Err(AccessError::Document("relay-configuration access_client_id"));
+        }
         if w.region != region {
             return Err(AccessError::Region("relay-configuration"));
         }
@@ -96,6 +102,7 @@ impl RelayConfiguration {
             issuer: suiss_relay.clone(),
             api_base: w.api_base,
             jwks_uri: w.jwks_uri,
+            access_client_id: w.access_client_id,
             capabilities,
             events_endpoint,
         })
@@ -111,10 +118,11 @@ mod tests {
         "api_base": "https://relay.example/v1",
         "region": "eu-central",
         "access_issuer": "https://acme.id.example",
+        "access_client_id": "app_relay",
         "contract_version": "2026-11-01",
         "contract_versions_supported": ["2026-11-01"],
         "jwks_uri": "https://relay.example/.well-known/relay-jwks.json",
-        "capabilities": ["urn:esuiss:relay:events:1"],
+        "capabilities": ["urn:suiss:relay:events:1"],
         "events_endpoint": "https://relay.example/v1/events"
     }"#;
 
@@ -146,6 +154,7 @@ mod tests {
         let doc = read(DOC).unwrap();
         assert_eq!(doc.issuer, relay());
         assert_eq!(doc.events_endpoint, "https://relay.example/v1/events");
+        assert_eq!(doc.access_client_id, "app_relay");
     }
 
     // T-99
@@ -186,12 +195,30 @@ mod tests {
         );
         assert_eq!(
             read(&DOC.replace(
-                "[\"urn:esuiss:relay:events:1\"]",
-                "[\"urn:suiss:relay:events:1\"]"
+                "[\"urn:suiss:relay:events:1\"]",
+                "[\"urn:esuiss:relay:events:1\"]"
             )),
             Err(AccessError::Capability(
                 REQUIRED_RELAY_CAPABILITY.to_owned()
             ))
         );
+    }
+
+    // T-104
+    #[test]
+    fn t_104_a_relay_document_without_its_access_client_refuses_start() {
+        let missing = DOC.replace("        \"access_client_id\": \"app_relay\",\n", "");
+        assert_ne!(missing, DOC);
+        assert_eq!(
+            read(&missing),
+            Err(AccessError::Document("relay-configuration"))
+        );
+        let long = "a".repeat(257);
+        for id in ["", long.as_str()] {
+            assert_eq!(
+                read(&DOC.replace("\"app_relay\"", &format!("\"{id}\""))),
+                Err(AccessError::Document("relay-configuration access_client_id"))
+            );
+        }
     }
 }
