@@ -146,8 +146,7 @@ impl Reads {
                 return Err(ReadRefusal::CursorInvalid);
             }
             Some(Opened::At(at)) => Some(at),
-            Some(Opened::Expired) => None,
-            None => None,
+            Some(Opened::Expired) | None => None,
         };
         let limit = limit.clamp(1, MAX_CHANGES);
         let (mut tx, head) = self.snapshot(ledger).await?;

@@ -3517,6 +3517,7 @@ tests = [
   "crates/http/src/deprecation.rs::p_54_a_deprecated_route_announces_deprecation_and_sunset",
   "crates/http/src/json.rs::p_54_large_integers_travel_as_canonical_decimal_strings",
   "crates/http/src/rate.rs::p_54_a_caller_past_its_quota_waits_for_the_next_window",
+  "crates/http/src/reads.rs::p_57_a_changes_query_names_its_cursor_and_limit_once",
   "crates/store/src/idempotency.rs::p_97_a_key_that_is_not_a_uuidv7_does_not_parse",
   "crates/store/src/idempotency.rs::p_97_a_uuidv7_key_parses_round_trips_and_carries_its_time",
   "xtask/src/contracts_openapi.rs::p_54_pages_are_cursors_names_are_snake_case_and_large_integers_are_strings",
@@ -3538,6 +3539,7 @@ stage = 3
 acceptance = "to-fill"
 title = ""
 tests = [
+  "crates/http/src/reads.rs::p_57_a_changes_query_names_its_cursor_and_limit_once",
   "crates/query/src/adapters.rs::p_57_a_sync_cursor_opens_only_for_its_caller_and_expires_with_its_key",
   "crates/query/src/domain/reads.rs::p_57_a_cursor_lays_out_its_place_and_names_its_caller_in_the_mac",
 ]
@@ -4748,6 +4750,7 @@ stage = 3
 acceptance = "to-fill"
 title = ""
 tests = [
+  "crates/http/src/reads.rs::p_57_a_changes_query_names_its_cursor_and_limit_once",
   "crates/query/src/adapters.rs::p_57_a_sync_cursor_opens_only_for_its_caller_and_expires_with_its_key",
   "crates/query/src/domain/reads.rs::p_57_a_cursor_lays_out_its_place_and_names_its_caller_in_the_mac",
 ]

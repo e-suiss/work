@@ -2,10 +2,10 @@
 
 use std::sync::Arc;
 
-use axum::extract::{Path, Query, State};
+use axum::extract::{Path, State};
 use axum::http::{HeaderMap, HeaderName, HeaderValue, Method, Uri, header};
 use axum::response::{IntoResponse, Response};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use utoipa::{IntoParams, ToSchema};
 use work_kernel::id::{Digest, LedgerId, RecordId, WorkId};
 use work_proto::id::{Cursor, ExternalId as _, PositionToken};
@@ -398,13 +398,36 @@ impl EvidenceAnswer {
 }
 
 /// The query of a changes read.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, IntoParams)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, IntoParams)]
 #[into_params(parameter_in = Query)]
 pub struct ChangesQuery {
     /// The cursor of the previous answer, `cur_…`; without one, every Work the caller may read.
     pub cursor: Option<String>,
     /// The most Works to answer, 1 to 500; 100 without one.
     pub limit: Option<u32>,
+}
+
+impl ChangesQuery {
+    /// The query of `uri`: its `cursor` and `limit`, other parameters ignored.
+    ///
+    /// # Errors
+    /// `400 invalid_request` for a repeated parameter or a `limit` that is not a number.
+    pub fn of(uri: &Uri) -> Result<Self, Box<Problem>> {
+        let bad = || Box::new(Problem::new(ProblemCode::InvalidRequest));
+        let mut query = Self::default();
+        for pair in uri.query().unwrap_or_default().split('&') {
+            let (name, value) = pair.split_once('=').unwrap_or((pair, ""));
+            match name {
+                "cursor" if query.cursor.is_none() => query.cursor = Some(value.to_owned()),
+                "limit" if query.limit.is_none() => {
+                    query.limit = Some(value.parse().map_err(|_| bad())?);
+                }
+                "cursor" | "limit" => return Err(bad()),
+                _ => {}
+            }
+        }
+        Ok(query)
+    }
 }
 
 /// Reads one Work.
@@ -568,7 +591,6 @@ pub async fn get_work(
 pub async fn list_changes(
     State(services): State<Arc<ApiServices>>,
     Path(ledger): Path<String>,
-    Query(query): Query<ChangesQuery>,
     method: Method,
     uri: Uri,
     headers: HeaderMap,
@@ -581,7 +603,11 @@ pub async fn list_changes(
         Ok(ledger) => ledger,
         Err(e) => return e,
     };
-    let cursor = match query.cursor.as_deref().map(parsed::<Cursor>).transpose() {
+    let query = match ChangesQuery::of(&uri) {
+        Ok(query) => query,
+        Err(problem) => return problem.into_response(),
+    };
+    let cursor: Option<Cursor> = match query.cursor.as_deref().map(parsed::<Cursor>).transpose() {
         Ok(cursor) => cursor,
         Err(e) => return e,
     };
@@ -753,6 +779,28 @@ mod tests {
             (ReadRefusal::Unavailable, ProblemCode::Busy),
         ] {
             assert_eq!(read_problem(refusal).code, code);
+        }
+    }
+
+    // P-57 T-26 P-54
+    #[test]
+    fn p_57_a_changes_query_names_its_cursor_and_limit_once() {
+        let of = |q: &str| ChangesQuery::of(&format!("/v1/ledgers/l/changes{q}").parse().unwrap());
+        assert_eq!(of("").unwrap(), ChangesQuery::default());
+        let read = of("?cursor=cur_AQ&limit=5&x=1").unwrap();
+        assert_eq!(read.cursor.as_deref(), Some("cur_AQ"));
+        assert_eq!(read.limit, Some(5));
+        for bad in [
+            "?limit=five",
+            "?limit=-1",
+            "?cursor=a&cursor=b",
+            "?limit=1&limit=2",
+        ] {
+            assert_eq!(
+                of(bad).unwrap_err().code,
+                ProblemCode::InvalidRequest,
+                "{bad}"
+            );
         }
     }
 
