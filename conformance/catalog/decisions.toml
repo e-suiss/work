@@ -1371,6 +1371,8 @@ status = "frozen-product"
 stage = 3
 title = ""
 tests = [
+  "crates/access-client/src/domain/adp/tests.rs::p_116_a_step_up_is_the_authentication_terms_access_names_and_work_adds_none",
+  "crates/access-client/src/domain/adp/tests.rs::t_101_work_s_pep_commits_only_the_statement_the_actor_s_device_signed",
   "crates/access-client/src/domain/directory.rs::t_96_only_live_realms_of_active_tenants_of_the_region_name_callers",
   "crates/access-client/src/domain/subjects.rs::t_101_every_value_asked_is_answered_once_as_a_pair_or_unknown",
   "crates/access-client/src/domain/subjects.rs::t_101_one_call_resolves_one_direction_of_at_most_a_hundred_values",
@@ -1379,6 +1381,7 @@ tests = [
   "crates/access-client/src/domain/token/tests.rs::e_7_a_token_of_another_key_issuer_audience_or_time_is_refused",
   "crates/access-client/src/domain/token/tests.rs::e_7_a_token_outside_the_profile_is_refused_before_its_claims",
   "crates/access-client/src/domain/token/tests.rs::e_7_a_token_signed_by_the_realm_key_names_the_pairwise_subject_of_its_client",
+  "crates/http/src/authority.rs::p_116_the_answer_says_whether_the_caller_steps_up_at_access_or_has_the_request_approved",
   "crates/http/src/reads.rs::t_28_no_caller_is_401_with_the_dpop_challenge_and_an_unverifiable_one_503",
   "crates/query/src/app/caller.rs::e_38_when_access_does_not_answer_no_caller_is_named",
   "crates/query/src/app/caller.rs::e_5_no_client_or_product_has_a_path_of_its_own_to_a_caller",
@@ -1583,6 +1586,7 @@ status = "frozen-technical"
 acceptance = "to-fill"
 title = ""
 tests = [
+  "crates/access-client/src/domain/adp/tests.rs::t_101_work_builds_the_canonical_commit_intent_of_a_ledger_and_its_adp_form",
   "crates/http/src/writes.rs::p_54_a_declaration_carries_one_key_one_if_match_and_its_access_evidence",
   "crates/http/tests/openapi.rs::e_45_every_api_operation_names_exactly_one_action",
   "crates/proto/src/action.rs::e_45_effect_classes_and_params_follow_the_table",
@@ -3569,6 +3573,7 @@ tests = [
   "crates/http/src/api.rs::p_53_every_route_is_versioned_and_an_unknown_one_is_a_problem",
   "crates/http/src/api.rs::p_54_a_caller_past_its_quota_is_rate_limited",
   "crates/http/src/api.rs::t_98_a_problem_type_is_described_without_an_identity",
+  "crates/http/src/authority.rs::t_101_an_authority_request_carries_one_key_the_intent_and_the_caller_s_own_statement",
   "crates/http/src/conditional.rs::p_54_a_changing_request_sends_one_idempotency_key",
   "crates/http/src/conditional.rs::p_54_if_match_is_the_item_version_and_becomes_the_basis",
   "crates/http/src/deprecation.rs::p_54_a_deprecated_route_announces_deprecation_and_sunset",
@@ -4443,10 +4448,13 @@ status = "frozen-protocol"
 acceptance = "filled"
 title = ""
 tests = [
+  "crates/access-client/src/domain/adp/tests.rs::p_116_a_step_up_is_the_authentication_terms_access_names_and_work_adds_none",
+  "crates/access-client/src/domain/adp/tests.rs::t_101_work_s_pep_commits_only_the_statement_the_actor_s_device_signed",
   "crates/access-client/src/domain/directory.rs::t_96_only_live_realms_of_active_tenants_of_the_region_name_callers",
   "crates/access-client/src/domain/realm.rs::p_116_a_realm_key_named_by_another_kid_or_algorithm_is_refused",
   "crates/access-client/src/domain/realm.rs::p_116_the_jwks_uri_comes_from_the_realm_openid_configuration",
   "crates/access-client/src/domain/realm.rs::p_116_the_realm_jwks_gives_the_token_keys_by_thumbprint",
+  "crates/http/src/authority.rs::p_116_the_answer_says_whether_the_caller_steps_up_at_access_or_has_the_request_approved",
   "crates/ledger/src/admit/tests.rs::p_116_an_unsigned_record_is_refused_with_the_artifact_of_another_record",
   "crates/ledger/src/admit/tests.rs::p_116_the_envelope_names_the_artifact_by_its_digest_with_the_payload_assurance",
   "crates/ledger/src/auth_context/tests.rs::p_116_a_context_of_an_unpaired_realm_is_refused",
@@ -4542,6 +4550,7 @@ acceptance = "to-fill"
 pd = "set"
 title = ""
 tests = [
+  "crates/access-client/tests/explanation.rs::pr_11_pr_17_work_and_the_access_kernel_agree_on_access_s_explanation_examples",
   "crates/kernel/src/explanation.rs::pr_11_pr_17_a_rule_set_deny_is_a_restricted_blocker_at_domain_policy",
   "crates/kernel/src/explanation.rs::pr_11_pr_17_a_rule_set_require_is_one_unmet_term_per_requirement_in_canonical_order",
   "crates/proto/src/explanation.rs::pr_11_pr_17_a_rule_set_result_is_explained_as_access_explains_a_restriction",
@@ -6137,6 +6146,12 @@ tests = [
   "crates/access-client/src/adapters.rs::t_101_the_client_key_is_p256_and_the_service_key_ed25519",
   "crates/access-client/src/adapters.rs::t_101_the_pep_certificate_and_its_key_come_from_the_token",
   "crates/access-client/src/domain.rs::t_101_kernel_identifiers_are_canonical_unpadded_base64url",
+  "crates/access-client/src/domain/adp/tests.rs::e_17_the_typed_authority_request_answers_the_require_action_it_was_built_for",
+  "crates/access-client/src/domain/adp/tests.rs::p_116_a_step_up_is_the_authentication_terms_access_names_and_work_adds_none",
+  "crates/access-client/src/domain/adp/tests.rs::t_101_access_s_decision_reads_as_allow_deny_or_require_action",
+  "crates/access-client/src/domain/adp/tests.rs::t_101_the_evaluation_names_the_caller_the_intent_and_the_approvals_it_relies_on",
+  "crates/access-client/src/domain/adp/tests.rs::t_101_work_builds_the_canonical_commit_intent_of_a_ledger_and_its_adp_form",
+  "crates/access-client/src/domain/adp/tests.rs::t_101_work_s_pep_commits_only_the_statement_the_actor_s_device_signed",
   "crates/access-client/src/domain/approval.rs::e_17_work_only_sends_the_user_to_the_access_approval_surface",
   "crates/access-client/src/domain/approval.rs::t_101_a_pushed_request_is_named_by_its_request_uri_and_digest",
   "crates/access-client/src/domain/approval.rs::t_101_the_return_names_the_exercise_only_for_the_state_work_sent",
@@ -6152,6 +6167,7 @@ tests = [
   "crates/access-client/src/domain/exercise/tests.rs::t_101_an_exercise_for_another_intent_is_refused",
   "crates/access-client/src/domain/exercise/tests.rs::t_101_an_exercise_id_is_the_domain_and_nonce_digest",
   "crates/access-client/src/domain/exercise/tests.rs::t_101_the_intent_digest_is_recomputed_from_the_canonical_envelope",
+  "crates/access-client/src/domain/exercise/tests.rs::t_101_the_receipt_of_an_allowed_evaluation_is_verified_for_work_s_pep",
   "crates/access-client/src/domain/keys.rs::p_12_every_looked_up_key_names_its_party_s_actor_kind",
   "crates/access-client/src/domain/keys.rs::t_101_an_excerpt_without_key_lookup_usage_or_signed_by_another_key_is_refused",
   "crates/access-client/src/domain/keys.rs::t_101_entries_must_state_their_key_consistently",
@@ -6169,6 +6185,9 @@ tests = [
   "crates/access-client/src/domain/x509.rs::t_101_the_certificate_expiry_and_key_are_read_from_its_der",
   "crates/access-client/src/ports.rs::t_101_a_refusal_carries_its_problem_code_reason_and_pointers",
   "crates/access-client/src/ports.rs::t_101_a_signer_without_its_key_is_a_temporary_outage_not_a_refusal",
+  "crates/http/src/authority.rs::p_116_the_answer_says_whether_the_caller_steps_up_at_access_or_has_the_request_approved",
+  "crates/http/src/authority.rs::t_101_an_authority_request_carries_one_key_the_intent_and_the_caller_s_own_statement",
+  "crates/query/src/domain/authority.rs::t_101_a_request_s_access_keys_and_state_are_its_caller_s_alone",
   "crates/query/src/domain/writes/tests.rs::e_45_the_exercise_is_the_work_commit_intent_of_this_ledger_and_valid_now",
   "crates/query/src/domain/writes/tests.rs::p_105_a_record_whose_author_is_not_the_key_s_party_is_kid_unknown",
   "crates/query/src/domain/writes/tests.rs::sec_19_a_record_signed_after_a_compromise_or_with_an_ended_key_is_kid_unknown",

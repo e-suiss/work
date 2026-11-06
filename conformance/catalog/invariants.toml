@@ -654,10 +654,17 @@ status = "canonical-invariant"
 stage = 3
 title = ""
 tests = [
+  "crates/access-client/src/domain/adp/tests.rs::e_17_the_typed_authority_request_answers_the_require_action_it_was_built_for",
+  "crates/access-client/src/domain/adp/tests.rs::t_101_access_s_decision_reads_as_allow_deny_or_require_action",
+  "crates/access-client/src/domain/adp/tests.rs::t_101_the_evaluation_names_the_caller_the_intent_and_the_approvals_it_relies_on",
   "crates/access-client/src/domain/approval.rs::e_17_work_only_sends_the_user_to_the_access_approval_surface",
   "crates/access-client/src/domain/approval.rs::t_101_a_pushed_request_is_named_by_its_request_uri_and_digest",
   "crates/access-client/src/domain/approval.rs::t_101_the_return_names_the_exercise_only_for_the_state_work_sent",
   "crates/access-client/src/domain/exercise/tests.rs::t_101_a_receiptless_exercise_leaves_the_gate_waiting",
+  "crates/access-client/src/domain/exercise/tests.rs::t_101_the_receipt_of_an_allowed_evaluation_is_verified_for_work_s_pep",
+  "crates/http/src/authority.rs::p_116_the_answer_says_whether_the_caller_steps_up_at_access_or_has_the_request_approved",
+  "crates/http/src/authority.rs::t_101_an_authority_request_carries_one_key_the_intent_and_the_caller_s_own_statement",
+  "crates/query/src/domain/authority.rs::t_101_a_request_s_access_keys_and_state_are_its_caller_s_alone",
 ]
 
 [[rule]]
@@ -1751,9 +1758,11 @@ status = "canonical-invariant"
 stage = 1
 title = ""
 tests = [
+  "crates/access-client/src/domain/adp/tests.rs::t_101_access_s_decision_reads_as_allow_deny_or_require_action",
   "crates/access-client/src/domain/exercise/tests.rs::t_101_an_allowed_exercise_with_its_receipt_is_the_authority_proof",
   "crates/access-client/src/domain/exercise/tests.rs::t_101_an_exercise_for_another_intent_is_refused",
   "crates/access-client/src/domain/exercise/tests.rs::t_101_the_intent_digest_is_recomputed_from_the_canonical_envelope",
+  "crates/access-client/src/domain/exercise/tests.rs::t_101_the_receipt_of_an_allowed_evaluation_is_verified_for_work_s_pep",
   "crates/http/src/writes.rs::p_54_a_declaration_carries_one_key_one_if_match_and_its_access_evidence",
   "crates/http/src/writes.rs::t_28_a_write_access_cannot_check_is_503_and_one_it_does_not_authorise_403",
   "crates/kernel/tests/record_vectors.rs::p_11_accepted_record_vectors",
@@ -2028,6 +2037,7 @@ status = "canonical-invariant"
 stage = 8
 title = ""
 tests = [
+  "crates/access-client/tests/explanation.rs::pr_11_pr_17_work_and_the_access_kernel_agree_on_access_s_explanation_examples",
   "crates/kernel/src/explanation.rs::pr_11_pr_17_a_rule_set_deny_is_a_restricted_blocker_at_domain_policy",
   "crates/kernel/src/explanation.rs::pr_11_pr_17_a_rule_set_require_is_one_unmet_term_per_requirement_in_canonical_order",
   "crates/kernel/src/explanation.rs::pr_11_what_explanation_cddl_refuses_is_refused",

@@ -8,7 +8,8 @@ use base64::Engine as _;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use serde_json::{Map, Number, Value as Json};
 use work_kernel::codec::Value;
-use work_kernel::explanation::{Explanation, ExplanationError, check_term};
+use work_kernel::explanation::check_term;
+pub use work_kernel::explanation::{Explanation, ExplanationError};
 
 const JSON_MAX: u64 = 9_007_199_254_740_991;
 const JSON_MIN: i64 = -9_007_199_254_740_991;

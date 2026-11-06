@@ -67,7 +67,7 @@ impl<T, C, P> std::fmt::Debug for Writes<T, C, P> {
     }
 }
 
-fn unverifiable(error: &AccessError) -> WriteRefusal {
+pub(crate) fn unverifiable(error: &AccessError) -> WriteRefusal {
     WriteRefusal::Unverifiable(match error {
         AccessError::Transport(_) | AccessError::Timeout | AccessError::Unavailable { .. } => {
             "access_unreachable"
@@ -80,13 +80,15 @@ fn unverifiable(error: &AccessError) -> WriteRefusal {
     })
 }
 
-async fn bounded<V>(call: impl Future<Output = Result<V, AccessError>>) -> Result<V, AccessError> {
+pub(crate) async fn bounded<V>(
+    call: impl Future<Output = Result<V, AccessError>>,
+) -> Result<V, AccessError> {
     timeout(ACCESS_BOUND, call)
         .await
         .map_err(|_| AccessError::Timeout)?
 }
 
-fn store_ledger(ledger: &LedgerId) -> work_store::LedgerId {
+pub(crate) fn store_ledger(ledger: &LedgerId) -> work_store::LedgerId {
     work_store::LedgerId::from_bytes(*ledger.0.as_bytes())
 }
 
@@ -270,6 +272,29 @@ fn authority_of<'a>(
     Ok((given, intent))
 }
 
+/// The governing domain of `caller`'s realm and the issuers of the realms of its tenant Work is
+/// paired with, from Work's pairing rows (P-115 item 2, P-116).
+pub(crate) async fn caller_realm(
+    realms: &AccessPool,
+    caller: &Caller,
+) -> Result<(DomainId, BTreeSet<String>), WriteRefusal> {
+    let rows = realms
+        .realms(caller.tenant.as_str())
+        .await
+        .map_err(|_| WriteRefusal::Unverifiable("realm_unreadable"))?;
+    let paired: BTreeSet<String> = rows
+        .iter()
+        .filter(|r| r.state == RealmState::Paired)
+        .map(|r| r.issuer.clone())
+        .collect();
+    let domain = rows
+        .iter()
+        .find(|r| r.realm == caller.realm && r.state == RealmState::Paired)
+        .and_then(|r| r.domain)
+        .ok_or(WriteRefusal::Unverifiable("realm_unpaired"))?;
+    Ok((DomainId(domain), paired))
+}
+
 /// What admitting one record needs once Access authorised it.
 struct Admission<'a> {
     caller: &'a Caller,
@@ -334,22 +359,7 @@ where
     /// The governing domain of the caller's realm and the issuers of the realms of its tenant
     /// Work is paired with, as an `auth_context` names its realm (P-115 item 2, P-116).
     async fn realm(&self, caller: &Caller) -> Result<(DomainId, BTreeSet<String>), WriteRefusal> {
-        let rows = self
-            .realms
-            .realms(caller.tenant.as_str())
-            .await
-            .map_err(|_| WriteRefusal::Unverifiable("realm_unreadable"))?;
-        let paired: BTreeSet<String> = rows
-            .iter()
-            .filter(|r| r.state == RealmState::Paired)
-            .map(|r| r.issuer.clone())
-            .collect();
-        let domain = rows
-            .iter()
-            .find(|r| r.realm == caller.realm && r.state == RealmState::Paired)
-            .and_then(|r| r.domain)
-            .ok_or(WriteRefusal::Unverifiable("realm_unpaired"))?;
-        Ok((DomainId(domain), paired))
+        caller_realm(&self.realms, caller).await
     }
 
     /// The bindings Access names for the record's Parties: the author's from its signing key,

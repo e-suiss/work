@@ -13,7 +13,7 @@ use work_query::domain::caller::{Caller, CallerRefusal, Presented};
 use work_query::domain::reads::{
     Changes, DEFAULT_CHANGES, Evidence, Inclusion, ReadRefusal, WorkView,
 };
-use work_query::ports::{Authenticate, RecordWrites, WorkReads};
+use work_query::ports::{Authenticate, AuthorityRequests, RecordWrites, WorkReads};
 
 use crate::conditional::etag;
 use crate::json::rfc3339_millis;
@@ -35,6 +35,8 @@ pub struct ApiServices {
     pub reads: Arc<dyn WorkReads>,
     /// The consequential writes.
     pub writes: Arc<dyn RecordWrites>,
+    /// The authority requests Work's PEP commits at Access.
+    pub authorities: Arc<dyn AuthorityRequests>,
     /// `https://<host>[:<port>]`, without a trailing slash.
     pub origin: String,
 }

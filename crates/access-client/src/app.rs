@@ -10,6 +10,7 @@ use suiss_crypto::cose::KeySet;
 
 use work_proto::id::TenantId;
 
+use crate::domain::adp::Decision;
 use crate::domain::approval::{
     ApprovalRequest, Pushed, State as ApprovalState, approval_url, push_body,
 };
@@ -21,7 +22,8 @@ use crate::domain::discovery::{
 };
 use crate::domain::eligibility::{Eligibility, EligibilityRequest};
 use crate::domain::exercise::{
-    ExerciseId, Expected, Intent, VerifiedExercise, verify_agency, verify_exercise,
+    ExerciseId, Expected, Intent, VerifiedExercise, verify_agency, verify_decision_receipt,
+    verify_exercise,
 };
 use crate::domain::keys::{
     ACCEPT_COSE, ActorKind, AsOf, DomainId, EXCERPT_HEADER, KernelId, KeyAnswer, Kid, MAX_KIDS,
@@ -74,6 +76,8 @@ struct State {
     disabled: bool,
     directory: Option<(BTreeMap<String, KnownRealm>, u64)>,
     subjects: SubjectCache,
+    evaluation: Option<String>,
+    realm_endpoints: BTreeMap<Issuer, (Endpoints, u64)>,
 }
 
 /// A key the client looked up: verified, from the cache or a fresh answer, or unknown to Access.
@@ -308,6 +312,7 @@ impl<T: Transport, C: Clock> Client<T, C> {
         let mut state = self.state()?;
         state.configuration = Some(doc.clone());
         state.discovered = Some((read_at, max_age));
+        state.evaluation = authzen.evaluation;
         Ok(doc)
     }
 
@@ -678,19 +683,108 @@ impl<T: Transport, C: Clock> Client<T, C> {
         answer.ok().map(<[u8]>::to_vec)
     }
 
-    /// The Access Approval Surface URL for `request`, Work's registered `redirect_uri` and
-    /// `state` (T-101 item 7, E-17); Work sends the user there and approves nothing itself.
+    /// Commits one Exercise at the decision point over the PEP certificate under
+    /// `idempotency_key` (T-101 item 2, Access L1-ADP-5, L1-ADP-10): the `AuthZEN` evaluation
+    /// `body` as [`crate::domain::adp::Evaluation::body`] writes it, answered with Access's
+    /// decision. Never cached.
     ///
     /// # Errors
-    /// [`AccessError::Unserved`] while discovery does not publish `approval`, and the
-    /// refusals of [`approval_url`].
-    pub fn approval_url(
+    /// [`AccessError::Unserved`] while the decision point names no evaluation endpoint, the
+    /// refusals of [`Decision::from_json`], and every error that keeps a consequential action
+    /// from Access.
+    pub async fn evaluate(
         &self,
+        body: Vec<u8>,
+        idempotency_key: &str,
+    ) -> Result<Decision, AccessError> {
+        self.consequential()?;
+        let url = self
+            .state()?
+            .evaluation
+            .clone()
+            .ok_or(AccessError::Unserved(Endpoint::Adp))?;
+        let answer = self
+            .transport
+            .send(Request::post(url, JSON, body).with("idempotency-key", idempotency_key))
+            .await?;
+        Decision::from_json(answer.ok()?)
+    }
+
+    /// The Exercise an allowed evaluation named, verified for `intent` and Work's `audience`:
+    /// with the decision receipt the answer carried, under the domain key its excerpt binds; an
+    /// answer without one is asked of Access as [`Client::exercise`] does (T-101 item 7, Access
+    /// §9.8).
+    ///
+    /// # Errors
+    /// [`AccessError::Answer`] with the `receipt-*` code of the check that fails, and as
+    /// [`Client::exercise`].
+    pub async fn allowed(
+        &self,
+        domain: DomainId,
+        exercise: &ExerciseId,
+        receipt: Option<(&[u8], &[u8])>,
+        intent: &Intent,
+        audience: &str,
+    ) -> Result<VerifiedExercise, AccessError> {
+        let Some((sign1, excerpt)) = receipt else {
+            return self.exercise(domain, exercise, intent, audience).await;
+        };
+        self.consequential()?;
+        let (metadata, _) = self.metadata(domain).await?;
+        let expected = Expected {
+            exercise,
+            domain: &domain,
+            intent,
+            audience,
+            now_ms: self.clock.now_ms(),
+        };
+        verify_decision_receipt(&metadata, sign1, excerpt, &expected)
+    }
+
+    /// The endpoints of `realm`'s own Suiss configuration, where its Frontend API serves the
+    /// Approval Surface and the pushed requests (Access OP-149 m.3, m.29 (a)): those of the last
+    /// discovery for Work's own issuer, otherwise read from the realm and kept for
+    /// [`DISCOVERY_INTERVAL_MS`].
+    ///
+    /// # Errors
+    /// [`AccessError`]; the approval call is not made.
+    pub async fn realm_endpoints(&self, realm: &Issuer) -> Result<Endpoints, AccessError> {
+        if realm == &self.issuer {
+            return self.endpoints();
+        }
+        let now = self.clock.now_ms();
+        let cached = self
+            .state()?
+            .realm_endpoints
+            .get(realm)
+            .filter(|(_, read_at)| now.saturating_sub(*read_at) < DISCOVERY_INTERVAL_MS)
+            .map(|(e, _)| e.clone());
+        if let Some(endpoints) = cached {
+            return Ok(endpoints);
+        }
+        let answer = self.get(realm.well_known(SUISS_CONFIGURATION), JSON).await?;
+        let endpoints = SuissConfiguration::from_json(answer.ok()?, realm)?.endpoints;
+        self.state()?
+            .realm_endpoints
+            .insert(realm.clone(), (endpoints.clone(), now));
+        Ok(endpoints)
+    }
+
+    /// The Access Approval Surface URL of `realm` for `request`, Work's registered
+    /// `redirect_uri` and `state` (T-101 item 7, E-17); Work sends the user there and approves
+    /// nothing itself.
+    ///
+    /// # Errors
+    /// [`AccessError::Unserved`] while the realm's discovery does not publish `approval`, the
+    /// refusals of [`approval_url`], and those of [`Client::realm_endpoints`].
+    pub async fn approval_url(
+        &self,
+        realm: &Issuer,
         request: &ApprovalRequest,
         redirect_uri: &str,
         state: &ApprovalState,
     ) -> Result<String, AccessError> {
-        let endpoints = self.endpoints()?;
+        let endpoints = self.realm_endpoints(realm).await?;
         approval_url(
             endpoints.get(Endpoint::Approval)?,
             request,
@@ -699,22 +793,24 @@ impl<T: Transport, C: Clock> Client<T, C> {
         )
     }
 
-    /// Pushes a typed authority request with the approver's pre-signed contribution under
-    /// `idempotency_key` (Access OP-149 m.9, RFC 9126); Access keeps it until it expires.
+    /// Pushes a typed authority request with the approver's pre-signed contribution to `realm`
+    /// under `idempotency_key` (Access OP-149 m.9, RFC 9126); Access keeps it until it expires.
     ///
     /// # Errors
-    /// [`AccessError::Unserved`] while discovery does not publish `approval_requests`, the
-    /// refusals of [`push_body`] and [`Pushed::from_json`], and every error that keeps a
-    /// consequential action from Access.
+    /// [`AccessError::Unserved`] while the realm's discovery does not publish
+    /// `approval_requests`, the refusals of [`push_body`] and [`Pushed::from_json`], and every
+    /// error that keeps a consequential action from Access.
     pub async fn push_approval(
         &self,
+        realm: &Issuer,
         request: &serde_json::Value,
         contribution: &serde_json::Value,
         idempotency_key: &str,
     ) -> Result<Pushed, AccessError> {
         self.consequential()?;
         let url = self
-            .endpoints()?
+            .realm_endpoints(realm)
+            .await?
             .get(Endpoint::ApprovalRequests)?
             .expand("");
         let body = push_body(request, contribution)?;

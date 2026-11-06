@@ -122,6 +122,37 @@ fn t_101_an_allowed_exercise_with_its_receipt_is_the_authority_proof() {
     assert_eq!(got.receipt, d.sign(receipt::CONTENT_TYPE, &payload));
 }
 
+// T-101 P-13 E-17
+#[test]
+fn t_101_the_receipt_of_an_allowed_evaluation_is_verified_for_work_s_pep() {
+    let (_, store) = token("decision-receipt");
+    let d = domain(&store);
+    let i = intent();
+    let payload = receipt(&d, &i, |_| {});
+    let sign1 = d.sign(receipt::CONTENT_TYPE, &payload);
+    let excerpt = d.excerpt("receipt");
+    let got = verify_decision_receipt(&d.read(), &sign1, &excerpt, &expected(&d, &i)).unwrap();
+    assert_eq!(got.exercise, EXERCISE);
+    assert_eq!(got.position, 12);
+    assert_eq!(got.intent, i.digest);
+    assert_eq!(got.instance, Some(KernelId([3; 16])));
+    assert_eq!(got.capacity, Capacity::Own);
+    assert_eq!(got.receipt, sign1);
+    assert_eq!(got.excerpt, excerpt);
+    let elsewhere = Expected {
+        audience: "cli_other",
+        ..expected(&d, &i)
+    };
+    assert_eq!(
+        verify_decision_receipt(&d.read(), &sign1, &excerpt, &elsewhere),
+        Err(AccessError::Answer("receipt-audience"))
+    );
+    assert_eq!(
+        verify_decision_receipt(&d.read(), b"x", &excerpt, &expected(&d, &i)),
+        Err(AccessError::Answer("receipt-malformed"))
+    );
+}
+
 // T-101 E-17
 #[test]
 fn t_101_a_receiptless_exercise_leaves_the_gate_waiting() {

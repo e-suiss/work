@@ -373,6 +373,30 @@ pub fn verify_exercise(
     Ok(verified(expected, position, instance, checked))
 }
 
+/// Verifies the decision receipt an allowed evaluation carries (Access §9.8, L2-RCP-2) as
+/// [`verify_exercise`] verifies an Exercise answer's: under the domain key its `excerpt` binds to
+/// Domain Metadata, for the asked Exercise, domain and intent, addressed to Work's PEP.
+///
+/// # Errors
+/// [`AccessError::Answer`]: the `receipt-*` code of the receipt check that fails.
+pub fn verify_decision_receipt(
+    metadata: &DomainMetadata,
+    sign1: &[u8],
+    excerpt: &[u8],
+    expected: &Expected<'_>,
+) -> Result<VerifiedExercise, AccessError> {
+    let payload = unverified_payload(sign1).map_err(|_| answer("receipt-malformed"))?;
+    let wire = ReceiptWire {
+        payload: b64url(&payload),
+        cose_sign1: Some(b64url(sign1)),
+        key_excerpt: Some(b64url(excerpt)),
+    };
+    let checked = verify_receipt(metadata, &wire, expected)?;
+    let instance = checked.0.instance.map(|i| KernelId(i.0));
+    let position = checked.0.record;
+    Ok(verified(expected, position, instance, checked))
+}
+
 /// Verifies an `exercise_agency` answer (Access OP-149 m.11): the asked Exercise and domain, a
 /// receipt that verifies as for [`verify_exercise`], and a capacity and chain that are the
 /// verified receipt's own.

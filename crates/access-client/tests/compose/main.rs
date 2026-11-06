@@ -607,7 +607,15 @@ mod signed {
         }
         let state = State::new("work-test").unwrap();
         let request = ApprovalRequest::Digest([0x2e; 32]);
-        match client.approval_url(&request, "https://work.example/v1/access/approval", &state) {
+        let url = client
+            .approval_url(
+                client.issuer(),
+                &request,
+                "https://work.example/v1/access/approval",
+                &state,
+            )
+            .await;
+        match url {
             Err(AccessError::Unserved(Endpoint::Approval)) => {}
             Ok(url) => assert!(url.contains("request="), "{url}"),
             other => panic!("{other:?}"),

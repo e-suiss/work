@@ -6,6 +6,7 @@ use std::pin::Pin;
 use work_kernel::id::{LedgerId, RecordId, WorkId};
 use work_proto::id::{Cursor, PositionToken};
 
+use crate::domain::authority::{AuthorityAnswer, AuthorityAsk};
 use crate::domain::caller::{Caller, CallerRefusal, Presented};
 use crate::domain::reads::{Changes, Evidence, ReadRefusal, WorkView};
 use crate::domain::writes::{DeclarationRequest, WriteRefusal, Written};
@@ -60,6 +61,17 @@ pub trait RecordWrites: Send + Sync {
         ledger: &'a LedgerId,
         request: &'a DeclarationRequest,
     ) -> Pending<'a, Result<Written, WriteRefusal>>;
+}
+
+/// What a caller asks Work's PEP to commit at Access before a write (T-101 item 2, E-17).
+pub trait AuthorityRequests: Send + Sync {
+    /// Commits `ask` for `caller` over `ledger` and answers what Access decided.
+    fn request<'a>(
+        &'a self,
+        caller: &'a Caller,
+        ledger: &'a LedgerId,
+        ask: &'a AuthorityAsk,
+    ) -> Pending<'a, Result<AuthorityAnswer, WriteRefusal>>;
 }
 
 /// The writer of the ledgers this process leads (OP-31, OP-41).

@@ -5,6 +5,9 @@ use std::collections::BTreeMap;
 use serde_json::{Map, Value};
 use utoipa::OpenApi as _;
 
+use crate::authority::{
+    ApprovalAnswer, AuthorityDecision, BasisInput, HoldingInput, NewAuthorityRequest, ProofInput,
+};
 use crate::problem::{FieldError, Problem, ProblemCode, ProblemType};
 use crate::reads::{
     AuthContextAnswer, AuthorSignature, ChangeEntry, ChangesAnswer, CheckpointAnswer,
@@ -44,7 +47,8 @@ fn security_scheme() -> Value {
         crate::reads::get_work,
         crate::reads::list_changes,
         crate::reads::get_record_evidence,
-        crate::writes::create_declaration
+        crate::writes::create_declaration,
+        crate::authority::create_authority_request
     ),
     components(schemas(
         Problem,
@@ -65,7 +69,13 @@ fn security_scheme() -> Value {
         AuthContextInput,
         AuthorityInput,
         ActorTypesInput,
-        WrittenAnswer
+        WrittenAnswer,
+        NewAuthorityRequest,
+        BasisInput,
+        HoldingInput,
+        ProofInput,
+        AuthorityDecision,
+        ApprovalAnswer
     ))
 )]
 struct Api;

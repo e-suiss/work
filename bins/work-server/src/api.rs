@@ -1,4 +1,4 @@
-//! The REST routes of the process (P-53, P-56, T-97, WD-115): the public ones always, and those that act for a caller once `[api] origin` is set and the read position keys open in the `[access]` token (T-56). The caller is named over the process's Access client with Work's `client_id` as `aud`, and a commitment Declaration is written through the same client, Work's pairing rows and the ledgers this process leads, under a decision receipt addressed to the process's PEP certificate (P-13); while those routes cannot be served this is logged, and the public ones keep answering.
+//! The REST routes of the process (P-53, P-56, T-97, WD-115): the public ones always, and those that act for a caller once `[api] origin` is set and the read position keys open in the `[access]` token (T-56). The caller is named over the process's Access client with Work's `client_id` as `aud`, an authority request is committed at Access's decision point through the same client and its PEP certificate, and a commitment Declaration is written through the same client, Work's pairing rows and the ledgers this process leads, under a decision receipt addressed to the process's PEP certificate (P-13); while those routes cannot be served this is logged, and the public ones keep answering.
 
 use std::sync::Arc;
 
@@ -7,6 +7,7 @@ use work_http::api::{ApiConfig, router, router_with};
 use work_http::common::TraceIds;
 use work_http::reads::ApiServices;
 use work_query::adapters::PositionKeys;
+use work_query::app::authority::Authorities;
 use work_query::app::caller::Authenticator;
 use work_query::app::reads::Reads;
 use work_query::app::writes::Writes;
@@ -56,6 +57,13 @@ fn services(config: &Config, backing: &Backing<'_>) -> Result<ApiServices, Strin
             backing.realms.clone(),
             Arc::clone(&backing.sequence),
             Arc::clone(backing.access),
+        )),
+        authorities: Arc::new(Authorities::new(
+            Arc::clone(backing.access),
+            backing.pep.map(str::to_owned),
+            backing.canonical.clone(),
+            backing.realms.clone(),
+            format!("{}/v1/access/approval", config.api.origin),
         )),
         origin: config.api.origin.clone(),
     })

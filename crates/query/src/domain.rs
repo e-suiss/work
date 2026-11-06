@@ -7,6 +7,7 @@ use serde::Deserialize;
 use work_kernel::id::LedgerId;
 use work_proto::position::Positions;
 
+pub mod authority;
 pub mod caller;
 pub mod notices;
 pub mod reads;

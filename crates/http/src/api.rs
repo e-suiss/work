@@ -10,6 +10,7 @@ use axum::middleware::from_fn_with_state;
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 
+use crate::authority;
 use crate::common::{self, Common, TraceIds};
 use crate::gateway::Limits;
 use crate::problem::{Problem, ProblemCode, ProblemType};
@@ -105,6 +106,10 @@ pub fn router_with(
         .route(
             "/v1/ledgers/{ledger}/declarations",
             post(writes::create_declaration),
+        )
+        .route(
+            "/v1/authority-requests",
+            post(authority::create_authority_request),
         )
         .with_state(services);
     Router::new()

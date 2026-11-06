@@ -435,6 +435,8 @@ struct AuthzenWire {
     capabilities: Vec<String>,
     #[serde(default)]
     signed_metadata: Option<String>,
+    #[serde(default)]
+    access_evaluation_endpoint: Option<String>,
 }
 
 /// The `AuthZEN` discovery document of the realm, or of one domain with its signed Domain
@@ -445,6 +447,8 @@ pub struct AuthzenConfiguration {
     pub capabilities: BTreeSet<String>,
     /// The domain's `COSE_Sign1` Domain Metadata, in a domain's document.
     pub signed_metadata: Option<Vec<u8>>,
+    /// The `access_evaluation_endpoint` a PEP commits an Exercise at, an `https` URL.
+    pub evaluation: Option<String>,
 }
 
 impl AuthzenConfiguration {
@@ -461,9 +465,17 @@ impl AuthzenConfiguration {
             .map(from_b64url)
             .transpose()
             .map_err(|_| AccessError::Document("authzen-configuration"))?;
+        if wire
+            .access_evaluation_endpoint
+            .as_deref()
+            .is_some_and(|e| e.strip_prefix("https://").is_none_or(str::is_empty))
+        {
+            return Err(AccessError::Document("authzen-configuration"));
+        }
         Ok(Self {
             capabilities: wire.capabilities.into_iter().collect(),
             signed_metadata,
+            evaluation: wire.access_evaluation_endpoint,
         })
     }
 }
@@ -486,6 +498,7 @@ mod tests {
         AuthzenConfiguration {
             capabilities: capabilities.iter().map(|c| (*c).to_owned()).collect(),
             signed_metadata: None,
+            evaluation: None,
         }
     }
 

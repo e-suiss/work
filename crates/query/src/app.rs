@@ -1,5 +1,6 @@
 //! Use cases; one transaction each (T-32).
 
+pub mod authority;
 pub mod caller;
 pub mod notices;
 pub mod reads;
