@@ -219,7 +219,10 @@ mod tests {
     fn t_102_each_tenant_has_its_own_deduplication_scope() {
         let a = TenantId::new("tnt_a").unwrap();
         let b = TenantId::new("tnt_b").unwrap();
-        assert_eq!(tenant_scope(&a), tenant_scope(&a.clone()));
+        assert_eq!(
+            tenant_scope(&a),
+            tenant_scope(&TenantId::new("tnt_a").unwrap())
+        );
         assert_ne!(tenant_scope(&a), tenant_scope(&b));
         assert_eq!(tenant_scope(&a).to_hex(), {
             let mut h = Sha256::new();

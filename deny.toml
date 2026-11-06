@@ -13,7 +13,9 @@ feature-depth = 1
 unmaintained = "all"
 unsound = "all"
 yanked = "deny"
-ignore = []
+ignore = [
+    { id = "RUSTSEC-2026-0440", reason = "T-37: astral-tokio-tar is unmaintained since 2026-11-03 and reaches the graph only through testcontainers, a dev-dependency of work-testkit; no testcontainers release replaces it yet" },
+]
 
 # T-38
 [licenses]

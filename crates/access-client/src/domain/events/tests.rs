@@ -1,6 +1,6 @@
 #![allow(clippy::arithmetic_side_effects, reason = "test code")]
 
-use serde_json::{Value, json};
+use serde_json::{Map, Value, json};
 use suiss_crypto::cose::KeySet;
 use suiss_crypto::pkcs11::HsmSigner;
 use suiss_crypto::signer::Signer as _;
@@ -42,13 +42,15 @@ pub(crate) fn realm_keys(test: &str) -> RealmKeys {
 
 /// The claims of one event as Access writes them for the platform stream.
 pub(crate) fn claims_of(name: &str, payload: &Value, tenant: Option<&str>, jti: u8) -> Value {
+    let mut events = Map::new();
+    events.insert(format!("{EVENT_PREFIX}{name}"), payload.clone());
     let mut c = json!({
         "iss": ISSUER,
         "aud": CLIENT,
         "iat": NOW / 1000,
         "jti": b64url(&[jti; 32]),
         "sub_id": {"format": "opaque", "id": TENANT},
-        "events": {format!("{EVENT_PREFIX}{name}"): payload},
+        "events": events,
     });
     if let Some(t) = tenant {
         c["access_tenant"] = json!(t);
@@ -311,11 +313,13 @@ fn t_102_issuer_audience_age_and_jti_are_checked() {
         with("jti", json!("short")),
         Err(Refusal::InvalidRequest("jti"))
     );
-    let two = json!({
-        format!("{EVENT_PREFIX}authority-revoked"): revoked(),
-        format!("{EVENT_PREFIX}mandate-ended"): revoked(),
-    });
-    assert_eq!(with("events", two), Err(Refusal::InvalidRequest("events")));
+    let mut two = Map::new();
+    two.insert(format!("{EVENT_PREFIX}authority-revoked"), revoked());
+    two.insert(format!("{EVENT_PREFIX}mandate-ended"), revoked());
+    assert_eq!(
+        with("events", Value::Object(two)),
+        Err(Refusal::InvalidRequest("events"))
+    );
     assert_eq!(
         with("events", json!({"urn:other:event": revoked()})),
         Err(Refusal::InvalidRequest("events"))

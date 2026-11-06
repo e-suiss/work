@@ -35,7 +35,7 @@ pub const IAT_SKEW_MS: u64 = 60_000;
 pub enum Verifier {
     /// An Access SET.
     Access,
-    /// A Relay CloudEvent.
+    /// A Relay event.
     Relay,
     /// Neither: `415`.
     Unsupported,
@@ -287,7 +287,9 @@ impl Event {
     #[must_use]
     pub fn name(&self) -> &str {
         match self {
-            Self::Revocation { name, .. } | Self::Organization(name) | Self::Unknown(name) => name,
+            Self::Revocation { name, .. } | Self::Organization(name) | Self::Unknown(name) => {
+                name.as_str()
+            }
             Self::InstanceTerminated { .. } => "instance-terminated",
             Self::Compromised { .. } => "party.compromised",
             Self::PartyDisabled { .. } => "party.disabled",

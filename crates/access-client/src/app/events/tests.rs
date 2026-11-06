@@ -1,7 +1,7 @@
 #![allow(clippy::arithmetic_side_effects, reason = "test code")]
 
 use std::collections::BTreeSet;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use serde_json::{Value, json};
 use work_proto::id::TenantId;
@@ -101,9 +101,8 @@ impl InboundLog for Seen {
     }
 }
 
-/// What the effects were asked to do, in order.
-#[derive(Default)]
-struct Done(Mutex<Vec<String>>);
+/// What the effects were asked to do, in order; the cache and the client are the real ones.
+struct Done(Mutex<Vec<String>>, Arc<Client<Offline, At>>);
 
 impl Effects for Done {
     fn pair(&self, tenant: &TenantId) {
@@ -114,6 +113,7 @@ impl Effects for Done {
     }
 
     fn forget_domain(&self, domain: DomainId) {
+        self.1.forget_domain(domain).unwrap();
         self.0
             .lock()
             .unwrap()
@@ -121,6 +121,7 @@ impl Effects for Done {
     }
 
     fn disable_client(&self) {
+        self.1.disable().unwrap();
         self.0.lock().unwrap().push("disable".to_owned());
     }
 
@@ -131,7 +132,7 @@ impl Effects for Done {
 
 struct World {
     keys: RealmKeys,
-    client: Client<Offline, At>,
+    client: Arc<Client<Offline, At>>,
     realms: Realms,
     seen: Seen,
     done: Done,
@@ -140,26 +141,26 @@ struct World {
 impl World {
     fn new(test: &str) -> Self {
         let keys = realm_keys(test);
-        let client = Client::new(
+        let client = Arc::new(Client::new(
             Offline,
             At(NOW),
             Issuer::parse(ISSUER).unwrap(),
             "local",
             NOW + 86_400_000,
-        );
+        ));
         client.put_event_keys(keys.set.clone(), NOW);
         Self {
             keys,
+            done: Done(Mutex::new(Vec::new()), Arc::clone(&client)),
             client,
             realms: Realms(BTreeSet::from([TENANT.to_owned()])),
             seen: Seen::default(),
-            done: Done::default(),
         }
     }
 
     async fn push(&self, content_type: &str, body: &[u8]) -> Outcome {
         Intake {
-            client: &self.client,
+            client: self.client.as_ref(),
             client_id: CLIENT,
             realms: &self.realms,
             log: &self.seen,
@@ -260,7 +261,6 @@ async fn t_102_a_revocation_drops_the_cache_at_once() {
             Some(&format!("forget {}", d.id.text())),
             "{name}"
         );
-        w.client.forget_domain(d.id).unwrap();
         assert_eq!(w.client.cached_keys().unwrap(), 0, "{name}");
     }
     w.client.put_key(&answer, &AsOf::Head, NOW);
@@ -361,7 +361,6 @@ async fn t_102_only_works_own_disabled_client_fails_closed() {
             "access.client_disabled".to_owned(),
         ]
     );
-    w.client.disable().unwrap();
     assert_eq!(w.client.consequential(), Err(AccessError::Disabled));
 }
 

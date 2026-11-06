@@ -644,7 +644,9 @@ mod upkeep {
         );
         let after = platform.stream(&endpoints, &live.id).await.unwrap();
         assert!(
-            after.is_none_or(|s| s.status == StreamStatus::Disabled),
+            after
+                .as_ref()
+                .is_none_or(|s| s.status == StreamStatus::Disabled),
             "{after:?}"
         );
     }
