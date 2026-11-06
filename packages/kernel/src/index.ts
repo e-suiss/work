@@ -397,13 +397,11 @@ export interface RecordMapping {
 /** The external standard mappings of a record's bytes (P-48). */
 export type MappingAnswer = Accepted<RecordMapping> | Rejected | UnknownProtocol;
 
-/** One restriction rule set: the Cedar schema and the Access Restriction Profile policy source (T-23, PR-17). */
+/** One restriction rule set: the Cedar schema and the Access Restriction Profile policy source, with the rule set's 16-byte reference in unpadded base64url that its `DENY` explanation names, and the requirement terms each `@require` reference names (T-23, PR-11, PR-17). */
 export interface RestrictionRuleSet {
   readonly schema: string;
   readonly policies: string;
-  /** The rule set's 16-byte reference, unpadded base64url; its `DENY` explanation names it. */
   readonly ref?: string;
-  /** The requirement terms each `@require` reference names (PR-11, PR-17). */
   readonly requirements?: Readonly<Record<string, readonly RequirementTerm[]>>;
 }
 
