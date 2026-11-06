@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "INSERT INTO work.record_signer (ledger_id, pos, tenant, recorded_at, kid, author)\n             VALUES ($1, $2, $3,\n             pg_catalog.to_timestamp(0) + interval '1 millisecond' * $4::bigint::double precision,\n             $5, $6)",
+  "query": "INSERT INTO work.record_signer (ledger_id, pos, tenant, recorded_at, kid, author, instance)\n             VALUES ($1, $2, $3,\n             pg_catalog.to_timestamp(0) + interval '1 millisecond' * $4::bigint::double precision,\n             $5, $6, $7)",
   "describe": {
     "columns": [],
     "parameters": {
@@ -31,10 +31,11 @@
               "Domain": "Text"
             }
           }
-        }
+        },
+        "Bytea"
       ]
     },
     "nullable": []
   },
-  "hash": "5b456e851d7845ac88614f877db5aded3f961cd23c56713a3e710e036928d909"
+  "hash": "3d94027e8e4f21a83cd115c143dcc84ce7b0aadade169a6f3abbc24938db385d"
 }

@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT DISTINCT ledger_id::bytea AS \"ledger!\", kid AS \"kid?\", instance AS \"instance?\"\n               FROM work.record_signer\n               WHERE tenant = $1\n                 AND recorded_at BETWEEN\n                     pg_catalog.to_timestamp(0) + interval '1 millisecond' * $5::bigint::double precision\n                 AND pg_catalog.to_timestamp(0) + interval '1 millisecond' * $6::bigint::double precision\n                 AND (kid = ANY ($2::bytea[])\n                      OR (kid IS NULL AND instance = ANY ($3::bytea[]))\n                      OR (kid IS NULL AND instance IS NULL AND author::text = $4))\n               ORDER BY 1, 2, 3",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "ledger!",
+        "type_info": "Bytea",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "kid?",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "work.record_signer",
+            "name": "kid"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "instance?",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "work.record_signer",
+            "name": "instance"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "ByteaArray",
+        "ByteaArray",
+        "Text",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null,
+      true,
+      true
+    ]
+  },
+  "hash": "27f5f65a857bb79b98b7c05e59b4b0c17bb0e0600b4aa20fe2d99e5ab885fa4d"
+}
