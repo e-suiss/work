@@ -19,7 +19,7 @@ pub const EXT_KEY: &str = "https://suiss.app/ns/work/compromise-window/1";
 
 /// The CDDL of the body, byte for byte `conformance/cddl/work-compromise-window.cddl`; the
 /// notice's `versions.schema` is its SHA-256.
-pub const CDDL: &str = r#"; SEC-36
+pub const CDDL: &str = r"; SEC-36
 
 compromise-window = {
   instance: bstr .size 16,
@@ -33,7 +33,7 @@ compromise-window = {
 
 kid = tstr .size 43
 digest = [-16, bstr .size 32]
-"#;
+";
 
 /// The external reference prefix of the Access event a notice answers.
 pub const EVENT_PREFIX: &str = "urn:suiss:access:event:";
