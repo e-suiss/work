@@ -21,6 +21,9 @@ pub enum Unplannable {
     Party,
 }
 
+/// The kids that signed and the Instances that wrote unsigned records of a window in a ledger.
+type Writers = (Vec<[u8; 32]>, Vec<[u8; 16]>);
+
 /// The notices of `compromise` that `author` writes, one per ledger of `hits` in ledger order.
 ///
 /// # Errors
@@ -37,7 +40,7 @@ pub fn plan(
         .ok_or(Unplannable::Instances)?;
     let source = compromise.source.clone().ok_or(Unplannable::Source)?;
     let party = PartyRef::new(&compromise.party).ok_or(Unplannable::Party)?;
-    let mut ledgers: BTreeMap<[u8; 32], (Vec<[u8; 32]>, Vec<[u8; 16]>)> = BTreeMap::new();
+    let mut ledgers: BTreeMap<[u8; 32], Writers> = BTreeMap::new();
     for hit in hits {
         let (kids, instances) = ledgers.entry(hit.ledger).or_default();
         kids.extend(hit.kid);
