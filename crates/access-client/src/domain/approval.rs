@@ -82,9 +82,9 @@ pub fn approval_url(
         return Err(AccessError::Answer("redirect_uri"));
     }
     if let ApprovalRequest::Pushed(uri) = request
-        && !uri
+        && uri
             .strip_prefix(REQUEST_URI_PREFIX)
-            .is_some_and(|rest| !rest.is_empty())
+            .is_none_or(str::is_empty)
     {
         return Err(AccessError::Answer("request"));
     }

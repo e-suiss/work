@@ -66,7 +66,7 @@ fn record(id: &str) -> Record {
         .find(|r| r["id"] == id)
         .unwrap();
     match decode_record(&unhex(r["hex"].as_str().unwrap())).unwrap() {
-        Decoded::Record(record) => record,
+        Decoded::Record(record) => *record,
         Decoded::UnknownProtocol(_) => panic!("{id}"),
     }
 }

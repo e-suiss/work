@@ -204,7 +204,10 @@ fn carried(request: &DeclarationRequest) -> Result<Carried, WriteRefusal> {
             .ok_or_else(|| WriteRefusal::Rejected("schema:container".to_owned()))?
     };
     match decode_record(&bytes).map_err(|r| WriteRefusal::Rejected(r.to_string()))? {
-        Decoded::Record(record) => Ok(Carried { bytes, record }),
+        Decoded::Record(record) => Ok(Carried {
+            bytes,
+            record: *record,
+        }),
         Decoded::UnknownProtocol(_) => Err(WriteRefusal::Rejected(
             "protocol_version_unknown".to_owned(),
         )),

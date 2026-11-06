@@ -26,7 +26,7 @@ use crate::reads::{ApiServices, caller_of};
 /// The Access `auth_context` artifact of an unsigned human record.
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize, ToSchema)]
 #[serde(deny_unknown_fields)]
-pub struct AuthContextBody {
+pub struct AuthContextInput {
     /// The tagged `COSE_Sign1` as Access issued it, unpadded base64url.
     pub artifact: String,
     /// Access's `digest` of it, unpadded base64url of 32 bytes.
@@ -36,7 +36,7 @@ pub struct AuthContextBody {
 /// The Access Exercise the record's `authority` refers to.
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize, ToSchema)]
 #[serde(deny_unknown_fields)]
-pub struct AuthorityBody {
+pub struct AuthorityInput {
     /// The `ExerciseID`, unpadded base64url of 32 bytes.
     pub exercise: String,
     /// The canonical intent envelope Access allowed it for, unpadded base64url.
@@ -47,7 +47,7 @@ pub struct AuthorityBody {
 /// `declared_unverified`, and Access's bindings win (P-12).
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize, ToSchema)]
 #[serde(deny_unknown_fields)]
-pub struct ActorTypesBody {
+pub struct ActorTypesInput {
     /// The author's: `human`, `agent`, `system`, `machine` or `organization`.
     pub author: String,
     /// One per `on_behalf_of` ring, in chain order.
@@ -61,17 +61,17 @@ pub struct ActorTypesBody {
 /// One commitment Declaration.
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize, ToSchema)]
 #[serde(deny_unknown_fields)]
-pub struct DeclarationBody {
+pub struct NewDeclaration {
     /// The tagged `COSE_Sign1` of a signed record, or the `SignedRecord` bytes of an unsigned
     /// human one sent with `auth_context`, unpadded base64url.
     pub record: String,
     /// The `auth_context` artifact of an unsigned human record.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub auth_context: Option<AuthContextBody>,
+    pub auth_context: Option<AuthContextInput>,
     /// The Exercise the record's `authority` refers to.
-    pub authority: AuthorityBody,
+    pub authority: AuthorityInput,
     /// The declared actor types.
-    pub actor_types: ActorTypesBody,
+    pub actor_types: ActorTypesInput,
 }
 
 /// The written record.
@@ -143,7 +143,7 @@ pub fn declaration_request(
 ) -> Result<DeclarationRequest, Box<Problem>> {
     let idempotency_key = idempotency_key(headers)?.to_owned();
     let if_match = if_match(headers)?;
-    let body: DeclarationBody =
+    let body: NewDeclaration =
         serde_json::from_slice(raw).map_err(|_| Box::new(invalid("body")))?;
     let auth_context = body
         .auth_context
@@ -225,7 +225,7 @@ fn created(ledger: &LedgerId, written: &Written) -> Response {
         ("Idempotency-Key" = String, Header, description = "A UUIDv7; the same key with the same body answers the first result."),
         ("If-Match" = String, Header, description = "The strong ETag of the version of the item the record changes, `\"0\"` before its first record.")
     ),
-    request_body(content = DeclarationBody, content_type = "application/json"),
+    request_body(content = NewDeclaration, content_type = "application/json"),
     responses(
         (status = 201, description = "The record is in the ledger.", body = WrittenAnswer, headers(
             ("Request-Id" = String, description = "The request, `<trace id>-<span id>`."),

@@ -11,7 +11,7 @@ use crate::reads::{
     EvidenceAnswer, InclusionAnswer, LedgerAttestation, WitnessAnswer, WorkAnswer,
 };
 use crate::writes::{
-    ActorTypesBody, AuthContextBody, AuthorityBody, DeclarationBody, WrittenAnswer,
+    ActorTypesInput, AuthContextInput, AuthorityInput, NewDeclaration, WrittenAnswer,
 };
 
 /// The committed document, relative to the workspace root.
@@ -61,10 +61,10 @@ fn security_scheme() -> Value {
         InclusionAnswer,
         WitnessAnswer,
         EvidenceAnswer,
-        DeclarationBody,
-        AuthContextBody,
-        AuthorityBody,
-        ActorTypesBody,
+        NewDeclaration,
+        AuthContextInput,
+        AuthorityInput,
+        ActorTypesInput,
         WrittenAnswer
     ))
 )]
