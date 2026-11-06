@@ -147,9 +147,10 @@ impl AccessLink {
         let trusted = roots(&pem).map_err(|e| refused(&e))?;
         let (tls, not_after) = match pep(config) {
             Ok(pep) => {
+                let x5t = pep.x5t_s256();
                 tracing::info!(
                     event = "access.pep_loaded",
-                    x5t = pep.x5t_s256().as_str(),
+                    x5t = x5t.as_str(),
                     not_after_ms = pep.not_after_ms(),
                     "PEP certificate loaded from the token"
                 );
