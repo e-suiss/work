@@ -41,7 +41,7 @@ impl<T, C> std::fmt::Debug for Authenticator<T, C> {
 
 fn unverifiable(error: &AccessError) -> CallerRefusal {
     match error {
-        AccessError::Transport(_) | AccessError::Timeout => {
+        AccessError::Transport(_) | AccessError::Timeout | AccessError::Unavailable { .. } => {
             CallerRefusal::Unverifiable("access_unreachable")
         }
         AccessError::Stale => CallerRefusal::Unverifiable("access_stale"),
