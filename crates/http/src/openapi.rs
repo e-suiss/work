@@ -10,6 +10,9 @@ use crate::reads::{
     AuthContextAnswer, AuthorSignature, ChangeEntry, ChangesAnswer, CheckpointAnswer,
     EvidenceAnswer, InclusionAnswer, LedgerAttestation, WitnessAnswer, WorkAnswer,
 };
+use crate::writes::{
+    ActorTypesBody, AuthContextBody, AuthorityBody, DeclarationBody, WrittenAnswer,
+};
 
 /// The committed document, relative to the workspace root.
 pub const DOCUMENT: &str = "sdks/openapi/work-v1.json";
@@ -40,7 +43,8 @@ fn security_scheme() -> Value {
         crate::api::problem_type,
         crate::reads::get_work,
         crate::reads::list_changes,
-        crate::reads::get_record_evidence
+        crate::reads::get_record_evidence,
+        crate::writes::create_declaration
     ),
     components(schemas(
         Problem,
@@ -56,7 +60,12 @@ fn security_scheme() -> Value {
         CheckpointAnswer,
         InclusionAnswer,
         WitnessAnswer,
-        EvidenceAnswer
+        EvidenceAnswer,
+        DeclarationBody,
+        AuthContextBody,
+        AuthorityBody,
+        ActorTypesBody,
+        WrittenAnswer
     ))
 )]
 struct Api;

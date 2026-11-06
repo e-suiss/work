@@ -1,6 +1,6 @@
 [package]
 name = "work-query"
-description = "Query service: the caller from an Access token, scoped reads, incremental sync and evidence (T-13, T-14, T-26)."
+description = "Query service: the caller from an Access token, scoped reads, incremental sync and evidence, and the commitment Declarations written under Access authority (T-13, T-14, T-26, P-13)."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -13,6 +13,7 @@ suiss-crypto = { workspace = true, features = ["pkcs11"] }
 suiss-restriction = { workspace = true }
 work-access-client = { workspace = true }
 work-kernel = { workspace = true }
+work-ledger = { workspace = true }
 work-proto = { workspace = true }
 work-store = { workspace = true }
 serde = { workspace = true, features = ["derive", "std"] }

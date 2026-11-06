@@ -146,8 +146,12 @@ async fn run(config: &Config) -> ExitCode {
     ));
     let routes = api::routes(
         config,
-        &infrastructure.canonical,
-        &access.client,
+        &api::Backing {
+            canonical: &infrastructure.canonical,
+            realms: &infrastructure.access,
+            access: &access.client,
+            sequence: services.sequence(),
+        },
         Arc::new(SystemTraceIds),
     );
     let served = serve(config, routes, health::router(health), receiver).await;

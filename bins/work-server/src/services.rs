@@ -20,6 +20,7 @@ use work_ledger::{
     SignerClient, SystemRng, WitnessSetup, WormReplica, WormStore, run_checkpoints, run_witnessing,
     tls_trusting,
 };
+use work_query::ports::Sequence;
 use work_reconciler::adapters::PgPairing;
 
 use crate::config::{Config, ReplicaTarget};
@@ -174,6 +175,11 @@ impl Services {
             pairing,
             pairer,
         })
+    }
+
+    /// The ledgers this process leads, as the write path hands them admitted records (P-13).
+    pub(crate) fn sequence(&self) -> Arc<dyn Sequence> {
+        Arc::clone(&self.ledgers) as Arc<dyn Sequence>
     }
 
     /// The pairing step, for `tenant.created` (T-102 item 5).

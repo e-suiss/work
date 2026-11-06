@@ -10,6 +10,7 @@ use work_proto::position::Positions;
 pub mod caller;
 pub mod reads;
 pub mod restriction;
+pub mod writes;
 
 /// The `freshness` value of a read answered before its view reached the asked position
 /// (T-97 item 3, T-14).

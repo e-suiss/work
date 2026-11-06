@@ -2,6 +2,7 @@
 
 pub mod caller;
 pub mod reads;
+pub mod writes;
 
 use std::collections::BTreeMap;
 use std::time::Duration;

@@ -13,7 +13,7 @@ use work_query::domain::caller::{Caller, CallerRefusal, Presented};
 use work_query::domain::reads::{
     Changes, DEFAULT_CHANGES, Evidence, Inclusion, ReadRefusal, WorkView,
 };
-use work_query::ports::{Authenticate, WorkReads};
+use work_query::ports::{Authenticate, RecordWrites, WorkReads};
 
 use crate::conditional::etag;
 use crate::json::rfc3339_millis;
@@ -26,13 +26,15 @@ pub const DPOP: HeaderName = HeaderName::from_static("dpop");
 /// The challenge of a `401` (RFC 9449 section 7.1).
 pub const CHALLENGE: &str = "DPoP algs=\"ES256 Ed25519\"";
 
-/// What the reads that act for a caller need: who the caller is, what it may read, and the
-/// origin the API is reached at, which every `DPoP` proof names in `htu`.
+/// What the routes that act for a caller need: who the caller is, what it may read, what it
+/// may write, and the origin the API is reached at, which every `DPoP` proof names in `htu`.
 pub struct ApiServices {
     /// Names the caller of a request.
     pub auth: Arc<dyn Authenticate>,
     /// The scoped reads.
     pub reads: Arc<dyn WorkReads>,
+    /// The consequential writes.
+    pub writes: Arc<dyn RecordWrites>,
     /// `https://<host>[:<port>]`, without a trailing slash.
     pub origin: String,
 }

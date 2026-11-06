@@ -1,4 +1,4 @@
-//! What the API layer asks of the query service (T-32): the caller of a request from its Access token, and the scoped reads; both object-safe, so the router holds them without knowing the transport, the clock or the pool behind them.
+//! What the API layer asks of the query service (T-32): the caller of a request from its Access token, the scoped reads and the consequential writes, and what the write path asks of the ledgers' writers; all object-safe, so the router holds them without knowing the transport, the clock or the pool behind them.
 
 use std::future::Future;
 use std::pin::Pin;
@@ -8,6 +8,7 @@ use work_proto::id::{Cursor, PositionToken};
 
 use crate::domain::caller::{Caller, CallerRefusal, Presented};
 use crate::domain::reads::{Changes, Evidence, ReadRefusal, WorkView};
+use crate::domain::writes::{DeclarationRequest, WriteRefusal, Written};
 
 /// A future the API layer awaits.
 pub type Pending<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
@@ -48,4 +49,25 @@ pub trait WorkReads: Send + Sync {
         ledger: &'a LedgerId,
         record: &'a RecordId,
     ) -> Pending<'a, Result<Evidence, ReadRefusal>>;
+}
+
+/// The consequential writes of a named caller (P-13, P-21, E-45).
+pub trait RecordWrites: Send + Sync {
+    /// Writes the commitment Declaration `request` carries into `ledger` for `caller`.
+    fn declare<'a>(
+        &'a self,
+        caller: &'a Caller,
+        ledger: &'a LedgerId,
+        request: &'a DeclarationRequest,
+    ) -> Pending<'a, Result<Written, WriteRefusal>>;
+}
+
+/// The writer of the ledgers this process leads (OP-31, OP-41).
+pub trait Sequence: Send + Sync {
+    /// Commits the admitted `record` to `ledger`.
+    fn submit<'a>(
+        &'a self,
+        ledger: &'a work_store::LedgerId,
+        record: work_ledger::PendingRecord,
+    ) -> Pending<'a, Result<work_ledger::Committed, work_ledger::SubmitError>>;
 }

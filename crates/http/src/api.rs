@@ -8,13 +8,14 @@ use axum::extract::Path;
 use axum::http::{HeaderValue, header};
 use axum::middleware::from_fn_with_state;
 use axum::response::{IntoResponse, Response};
-use axum::routing::get;
+use axum::routing::{get, post};
 
 use crate::common::{self, Common, TraceIds};
 use crate::gateway::Limits;
 use crate::problem::{Problem, ProblemCode, ProblemType};
 use crate::rate::RatePolicy;
 use crate::reads::{self, ApiServices};
+use crate::writes;
 
 /// The major version every route starts with (P-54 item 1).
 pub const MAJOR: &str = "/v1";
@@ -100,6 +101,10 @@ pub fn router_with(
         .route(
             "/v1/ledgers/{ledger}/records/{record}/evidence",
             get(reads::get_record_evidence),
+        )
+        .route(
+            "/v1/ledgers/{ledger}/declarations",
+            post(writes::create_declaration),
         )
         .with_state(services);
     Router::new()
