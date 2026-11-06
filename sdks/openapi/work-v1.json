@@ -180,6 +180,29 @@
         ],
         "type": "object"
       },
+      "CompromiseWindowAnswer": {
+        "description": "A compromise window the record falls in (SEC-36 item 4): derived from the notice the Work\nservice Party wrote for an Access compromise declaration, never part of the record (C-4).",
+        "properties": {
+          "notice": {
+            "description": "The notice, `rec_…`.",
+            "type": "string"
+          },
+          "window_from": {
+            "description": "The window's start, RFC 3339 UTC.",
+            "type": "string"
+          },
+          "window_to": {
+            "description": "The window's end, the declaration's commit time, RFC 3339 UTC.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "notice",
+          "window_from",
+          "window_to"
+        ],
+        "type": "object"
+      },
       "EvidenceAnswer": {
         "description": "A record's evidence, each kind apart (P-20): an author signature, the ledger's acceptance,\nthe inclusion proof and the external time and witnesses are never shown as one another.",
         "properties": {
@@ -208,6 +231,13 @@
                 "type": "null"
               }
             ]
+          },
+          "compromise_window": {
+            "description": "The compromise windows the record falls in; empty outside every window.",
+            "items": {
+              "$ref": "#/components/schemas/CompromiseWindowAnswer"
+            },
+            "type": "array"
           },
           "inclusion": {
             "$ref": "#/components/schemas/InclusionAnswer",
@@ -244,6 +274,7 @@
           "ledger_attestation",
           "inclusion",
           "witnesses",
+          "compromise_window",
           "position"
         ],
         "type": "object"

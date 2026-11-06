@@ -133,7 +133,10 @@ mod tests {
                 .instance,
             [5; 16]
         );
-        assert!(plan(&compromise(), &author(), &[]).unwrap().is_empty());
+        assert_eq!(
+            plan(&compromise(), &author(), &[]).unwrap(),
+            Vec::<NoticeInput>::new()
+        );
     }
 
     // SEC-36

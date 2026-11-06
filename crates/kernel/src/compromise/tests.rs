@@ -32,7 +32,7 @@ fn input() -> NoticeInput {
 
 fn decoded(bytes: &[u8]) -> Record {
     match decode_record(bytes).unwrap() {
-        Decoded::Record(r) => r,
+        Decoded::Record(r) => *r,
         Decoded::UnknownProtocol(_) => panic!("a known protocol"),
     }
 }
@@ -60,7 +60,7 @@ fn sec_36_one_notice_per_access_declaration() {
     );
     let record = decoded(&first);
     assert_eq!(record.kind(), crate::record::Kind::Claim);
-    assert!(record.basis().is_empty());
+    assert_eq!(record.basis(), &[] as &[RecordId]);
     assert_eq!(record.core().author.as_str(), "AwMDAwMDAwMDAwMDAwMDAw");
 }
 

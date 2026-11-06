@@ -420,11 +420,29 @@ mod tests {
             }]
         );
         assert_eq!(compromise_marks(5_000, None, "pty-a", &notices).len(), 1);
-        assert!(compromise_marks(5_001, Some([7; 32]), "pty-a", &notices).is_empty());
-        assert!(compromise_marks(999, None, "pty-a", &notices).is_empty());
-        assert!(compromise_marks(3_000, Some([8; 32]), "pty-a", &notices).is_empty());
-        assert!(compromise_marks(3_000, None, "pty-b", &notices).is_empty());
-        assert!(compromise_marks(-1, None, "pty-a", &notices).is_empty());
-        assert!(compromise_marks(3_000, Some([7; 32]), "pty-a", &[]).is_empty());
+        assert_eq!(
+            compromise_marks(5_001, Some([7; 32]), "pty-a", &notices),
+            Vec::<CompromiseMark>::new()
+        );
+        assert_eq!(
+            compromise_marks(999, None, "pty-a", &notices),
+            Vec::<CompromiseMark>::new()
+        );
+        assert_eq!(
+            compromise_marks(3_000, Some([8; 32]), "pty-a", &notices),
+            Vec::<CompromiseMark>::new()
+        );
+        assert_eq!(
+            compromise_marks(3_000, None, "pty-b", &notices),
+            Vec::<CompromiseMark>::new()
+        );
+        assert_eq!(
+            compromise_marks(-1, None, "pty-a", &notices),
+            Vec::<CompromiseMark>::new()
+        );
+        assert_eq!(
+            compromise_marks(3_000, Some([7; 32]), "pty-a", &[]),
+            Vec::<CompromiseMark>::new()
+        );
     }
 }
