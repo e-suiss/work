@@ -1020,6 +1020,7 @@ mod commit {
     use std::collections::BTreeMap;
     use std::time::Duration;
 
+    use access_kernel::codec::Canonical as _;
     use access_kernel::digest::Digest as AccessDigest;
     use access_kernel::intent::{ContextRefs, IntentEnvelope};
     use access_kernel::model::{ActionRef, ResourceRef, Window};

@@ -96,20 +96,17 @@ pub struct Client<T, C> {
 }
 
 impl<T: Transport, C: Clock> PartyKinds for Client<T, C> {
-    fn kinds(
+    async fn kinds(
         &self,
         domain: DomainId,
         parties: &[KernelId],
-    ) -> impl std::future::Future<Output = Result<BTreeMap<KernelId, ActorKind>, AccessError>> + Send
-    {
-        async move {
-            Ok(self
-                .parties(domain, parties, &AsOf::Head)
-                .await?
-                .into_iter()
-                .map(|p| (p.party, p.actor_kind))
-                .collect())
-        }
+    ) -> Result<BTreeMap<KernelId, ActorKind>, AccessError> {
+        Ok(self
+            .parties(domain, parties, &AsOf::Head)
+            .await?
+            .into_iter()
+            .map(|p| (p.party, p.actor_kind))
+            .collect())
     }
 }
 
