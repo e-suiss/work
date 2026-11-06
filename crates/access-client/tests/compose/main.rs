@@ -460,10 +460,8 @@ async fn t_101_a_broken_set_is_refused_with_the_pointer_of_what_it_names() {
     assert_eq!(refused.code(), "authority_unverifiable");
 }
 
-/// The signed key lookup (T-101 item 4). A new domain's first operational key signs only once it
-/// has been published for its lead (about 65 minutes); until then the lookup answers `503`
-/// `signer-no-key`, so these run in the nightly job after
-/// `wait_until_access_signs_key_lookups`.
+/// The signed key lookup (T-101 item 4), after `wait_until_access_signs_key_lookups`, which
+/// waits while the lookup answers `503` `signer-no-key`.
 mod signed {
     use super::{AccessError, AsOf, Duration, KeyState, Kid, Local, Looked};
 
@@ -688,7 +686,7 @@ mod upkeep {
 
 /// The platform stream's status as its owner sets it (T-102 item 7, T-103): paused, which
 /// work-server reports as an operator signal with `work_access_event_stream_up` 0 after its next
-/// pairing step, and enabled again. The nightly job runs each by name and restarts work-server
+/// pairing step, and enabled again. The CI compose job runs each by name and restarts work-server
 /// after it.
 mod status {
     use work_access_client::domain::streams::StreamStatus;

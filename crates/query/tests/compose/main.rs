@@ -1,4 +1,4 @@
-//! The caller of a request named from a real Access user token (T-104, C-9, E-7, T-97, P-56): the `acme` test user signs in through Access's real authorization code flow with PKCE, a `DPoP` key born in Work's token copy and `resource` naming Work's `client_id`; the token Access's own headless client got names Work too and stays bound to that client's key; the caller is named to the test user's Party, and `work-server` serves its reads for that caller only. A fresh realm signs no token for about 90 minutes, so these run in the nightly job after `signed::wait_until_access_signs_tokens`, with `WORK_ACCESS_LOCAL` naming the directory `just dev-access` filled and `SOFTHSM2_CONF` naming its token copy; `retired` runs around retiring Work's client, at the end of that job.
+//! The caller of a request named from a real Access user token (T-104, C-9, E-7, T-97, P-56): the `acme` test user signs in through Access's real authorization code flow with PKCE, a `DPoP` key born in Work's token copy and `resource` naming Work's `client_id`; the token Access's own headless client got names Work too and stays bound to that client's key; the caller is named to the test user's Party, and `work-server` serves its reads for that caller only. `just test-compose-signed` runs them after `signed::wait_until_access_signs_tokens`, with `WORK_ACCESS_LOCAL` naming the directory `just dev-access` filled and `SOFTHSM2_CONF` naming its token copy; `retired` runs around retiring Work's client, at the end of the CI compose job.
 
 #![allow(
     clippy::unwrap_used,
@@ -8,6 +8,7 @@
     clippy::arithmetic_side_effects,
     clippy::missing_panics_doc,
     clippy::too_many_lines,
+    clippy::unused_self,
     reason = "test code"
 )]
 
@@ -817,7 +818,7 @@ mod signed {
     }
 }
 
-/// Around retiring Work's platform client, the last step of the nightly job (T-102 item 5,
+/// Around retiring Work's platform client, the last step of the CI compose job (T-102 item 5,
 /// T-28): before it the test user is named, and once `api_client.disabled` arrived no caller is.
 mod retired {
     use super::{Local, RETIRED_TOKEN, ledger_path};

@@ -28,7 +28,7 @@ test-containers:
     docker build --quiet --tag work-dev/witness:local deploy/compose/witness
     cargo nextest run --workspace --locked --no-tests=fail --run-ignored only -E 'binary(=containers)'
 
-# OP-32, OP-42, OP-43, T-41, T-96, T-101: what needs no signature of Access's new realms
+# OP-32, OP-42, OP-43, T-41, T-96, T-101
 test-compose:
     dir="$(mktemp -d)"; just dev-access "$dir"; \
     WORK_ACCESS_LOCAL="$dir" SOFTHSM2_CONF="$dir/softhsm2.conf" cargo nextest run --workspace --locked --no-tests=fail --run-ignored only -E 'binary(=compose) & not test(/^(signed|upkeep|status|retired)::/)'
@@ -39,11 +39,11 @@ test-compose-upkeep:
     dir="$(mktemp -d)"; just dev-access "$dir"; \
     WORK_ACCESS_LOCAL="$dir" SOFTHSM2_CONF="$dir/softhsm2.conf" cargo nextest run --workspace --locked --no-tests=fail --run-ignored only -E 'binary(=compose) & test(/^upkeep::/)'
 
-# T-101, T-104, T-97: once Access's new realms sign key lookups and tokens (waiting at
-# most `wait` seconds), the signed key lookup, a real user token from Access's own client and one
-# from Work's, and the reads work-server serves for it; `dir` keeps the token copy for
+# T-101, T-104, T-97: once Access's realms sign key lookups and tokens (waiting at most `wait`
+# seconds), the signed key lookup, a real user token from Access's own client and one from
+# Work's, and the reads work-server serves for it; `dir` keeps the token copy for
 # `test-compose-only`
-test-compose-signed dir wait="9000":
+test-compose-signed dir wait="600":
     just dev-access "{{dir}}"
     WORK_ACCESS_LOCAL="{{dir}}" SOFTHSM2_CONF="{{dir}}/softhsm2.conf" WORK_ACCESS_SIGNED_WAIT_S="{{wait}}" cargo nextest run --workspace --locked --no-tests=fail --run-ignored only -E 'binary(=compose) & test(/^signed::wait_until_/)'
     {{compose}} run --rm --no-deps -T --entrypoint access-local-client access-bootstrap login --issuer "$(jq -er '.realms[] | select(.slug == "acme") | .issuer' "{{dir}}/bootstrap.json")" --ca /var/lib/access/certs/ca.crt --client-id "$(jq -er '.test_user.client_id' "{{dir}}/bootstrap.json")" --redirect-uri "$(jq -er '.test_user.redirect_uri' "{{dir}}/bootstrap.json")" --identifier "$(jq -er '.test_user.identifier' "{{dir}}/bootstrap.json")" --password-env BOOTSTRAP_TEST_PASSWORD --resource "$(jq -er '.clients[] | select(.product == "work") | .client_id' "{{dir}}/bootstrap.json")" > "{{dir}}/tool-login.json"

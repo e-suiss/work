@@ -429,7 +429,7 @@ jobs:
   compose:
     name: compose
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 75
     permissions:
       contents: read
     steps:
@@ -523,6 +523,10 @@ jobs:
           for _ in $(seq 1 180); do test "$(c logs work-server | grep -c 'access.pairing_ran')" -ge 2 && break; sleep 1; done
           c logs work-server | grep 'access.pairing_ran' | tail -n 1 | grep -q '"paired":0'
           q -c "select tenant, slug, paired_at from work.access_realm where state = 'paired' order by tenant, slug" | diff "$RUNNER_TEMP/paired-before" -
+      - name: The signed key lookup, real user tokens from Access's client and Work's own, and the reads work-server serves for that user (T-101, T-104, T-97)
+        env:
+          NEXTEST_PROFILE: ci
+        run: just test-compose-signed "$RUNNER_TEMP/access-local" 600
       - name: The routes that act for a caller are mounted and ask for a DPoP token first (T-97, P-56, C-9, SEC-18)
         run: |
           c() { docker compose -f deploy/compose/compose.yaml "$@"; }
@@ -532,6 +536,76 @@ jobs:
           curl -s -D - -o /dev/null "$url" | tr -d '\r' | grep -qi '^www-authenticate: DPoP'
           test "$(curl -s -o /dev/null -w '%{http_code}' -H 'Authorization: Bearer x' "$url")" = 401
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8190/v1/problems/busy)" = 200
+      - name: Access pushes tenant.created to the event entry, which verifies it, records it once and pairs the new tenant (T-102, T-103)
+        run: |
+          c() { docker compose -f deploy/compose/compose.yaml "$@"; }
+          q() { c exec -T -e PGPASSWORD=local-only-not-a-secret work-postgres psql -h 127.0.0.1 -U work_app -d work -tA "$@"; }
+          c run --rm --no-deps -T --entrypoint access-server access-bootstrap bootstrap /etc/work-access/bootstrap-work-beta.toml > "$RUNNER_TEMP/bootstrap-beta.json"
+          beta="$(jq -er '.realms[] | select(.slug == "beta") | .tenant' "$RUNNER_TEMP/bootstrap-beta.json")"
+          for _ in $(seq 1 180); do c logs work-server | grep 'access.event_accepted' | grep 'tenant.created' | grep -q "$beta" && break; sleep 1; done
+          c logs work-server | grep 'access.event_accepted' | grep 'tenant.created' | grep "$beta"
+          if c logs work-server | grep -q 'access.event_refused'; then c logs work-server | grep 'access.event_refused'; exit 1; fi
+          scope="$(printf 'work/inbound/access-tenant/v1\000%s' "$beta" | sha256sum | cut -d' ' -f1)"
+          test "$(q -c "select set_config('app.ledger_id', '$scope', false)" -c "select count(*) from work.inbound_seen where source = 'https://access-server:8443/realms/platform'" | tail -n 1)" = 1
+          for _ in $(seq 1 120); do test "$(q -c "select count(*) from work.access_realm where tenant = '$beta' and state = 'paired'")" -ge 1 && break; sleep 1; done
+          test "$(q -c "select count(*) from work.access_realm where tenant = '$beta' and state = 'paired'")" -ge 1
+      - name: A compromise declaration reaches the entry as party.compromised with its window, which drops the domain's keys and raises a signal (T-102)
+        run: |
+          c() { docker compose -f deploy/compose/compose.yaml "$@"; }
+          b="$RUNNER_TEMP/access-local/bootstrap.json"
+          acme="$(jq -er '.realms[] | select(.slug == "acme") | .tenant' "$b")"
+          c run --rm --no-deps -T --entrypoint access-local-client access-bootstrap compromise \
+            --api https://access-server:8443 --ca /var/lib/access/certs/ca.crt \
+            --cert /var/lib/access/certs/pep.crt --key /var/lib/access/certs/pep.key \
+            --domain "$(jq -er '.compromise.domain' "$b")" --issuer-party "$(jq -er '.compromise.issuer' "$b")" \
+            --party "$(jq -er '.sample.subject' "$b")"
+          for _ in $(seq 1 180); do c logs work-server | grep 'access.party_compromised' | grep -q "$acme" && break; sleep 1; done
+          c logs work-server | grep 'access.event_accepted' | grep 'party.compromised' | grep "$acme"
+          c logs work-server | grep 'access.party_compromised' | grep "$acme" | grep -q 'compromised from'
+          if c logs work-server | grep -q 'access.compromise_unprocessed'; then exit 1; fi
+          if c logs work-server | grep -q 'access.event_refused'; then c logs work-server | grep 'access.event_refused'; exit 1; fi
+      - name: A paused platform stream lowers work_access_event_stream_up and raises attention; enabled again, it is up (T-102, T-103)
+        env:
+          NEXTEST_PROFILE: ci
+        run: |
+          c() { docker compose -f deploy/compose/compose.yaml "$@"; }
+          step() {
+            runs="$(c logs work-server | grep -c 'access.pairing_ran')"
+            c restart work-server
+            for _ in $(seq 1 180); do test "$(c logs work-server | grep -c 'access.pairing_ran')" -gt "$runs" && break; sleep 1; done
+            for _ in $(seq 1 60); do curl -fsS http://127.0.0.1:8191/readyz >/dev/null 2>&1 && break; sleep 1; done
+          }
+          just test-compose-only "$RUNNER_TEMP/access-local" status::t_102_the_owner_pauses_the_platform_stream
+          step
+          c logs work-server | grep 'access.event_stream_down' | grep -q 'paused'
+          curl -fsS http://127.0.0.1:8191/metrics | grep -qx 'work_access_event_stream_up 0'
+          just test-compose-only "$RUNNER_TEMP/access-local" status::t_102_the_owner_enables_the_platform_stream_again
+          step
+          curl -fsS http://127.0.0.1:8191/metrics | grep -qx 'work_access_event_stream_up 1'
+      - name: A disabled stream is opened again by work-server and counted (T-103)
+        env:
+          NEXTEST_PROFILE: ci
+        run: |
+          c() { docker compose -f deploy/compose/compose.yaml "$@"; }
+          q() { c exec -T -e PGPASSWORD=local-only-not-a-secret work-postgres psql -h 127.0.0.1 -U work_app -d work -tA "$@"; }
+          before="$(q -c "select stream_id from work.access_event_stream")"
+          just test-compose-upkeep
+          runs="$(c logs work-server | grep -c 'access.pairing_ran')"
+          c restart work-server
+          for _ in $(seq 1 180); do test "$(c logs work-server | grep -c 'access.pairing_ran')" -gt "$runs" && break; sleep 1; done
+          c logs work-server | grep -q 'access.event_stream_recreated'
+          test "$(q -c "select recreated from work.access_event_stream")" = 1
+          test "$(q -c "select stream_id from work.access_event_stream")" != "$before"
+          curl -fsS http://127.0.0.1:8191/metrics | grep -qx 'work_access_event_stream_recreated_total 1'
+          curl -fsS http://127.0.0.1:8191/metrics | grep -qx 'work_access_event_stream_up 1'
+      - name: Access pushes api_client.updated for Work's client, which raises a signal (T-102)
+        run: |
+          c() { docker compose -f deploy/compose/compose.yaml "$@"; }
+          for _ in $(seq 1 60); do curl -fsS http://127.0.0.1:8191/readyz >/dev/null 2>&1 && break; sleep 1; done
+          c run --rm --no-deps -T --entrypoint access-server access-bootstrap client-update /etc/work-access/bootstrap-work.toml work "Suiss Work (renamed)"
+          for _ in $(seq 1 180); do c logs work-server | grep -q 'access.client_updated' && break; sleep 1; done
+          c logs work-server | grep 'access.event_accepted' | grep -q 'api_client.updated'
+          c logs work-server | grep -q 'access.client_updated'
       - name: The witness speaks C2SP tlog-witness and the server is configured with it (OP-33, OP-46, T-41)
         run: |
           c() { docker compose -f deploy/compose/compose.yaml "$@"; }
@@ -555,9 +629,21 @@ jobs:
           c restart s3
           for _ in $(seq 1 60); do lock >/dev/null 2>&1 && break; sleep 1; done
           lock | grep -q '<ObjectLockEnabled>Enabled</ObjectLockEnabled>'
+      - name: Once Access retires Work's client, api_client.disabled fails every caller closed; the last step, since it ends the client (T-102, T-28)
+        env:
+          NEXTEST_PROFILE: ci
+        run: |
+          c() { docker compose -f deploy/compose/compose.yaml "$@"; }
+          just test-compose-only "$RUNNER_TEMP/access-local" retired::t_102_before_work_s_client_is_retired_the_test_user_is_named
+          c run --rm --no-deps -T --entrypoint access-server access-bootstrap client-retire /etc/work-access/bootstrap-work.toml work
+          for _ in $(seq 1 180); do c logs work-server | grep -q 'access.client_disabled' && break; sleep 1; done
+          c logs work-server | grep 'access.event_accepted' | grep -q 'api_client.disabled'
+          c logs work-server | grep -q 'access.client_disabled'
+          just test-compose-only "$RUNNER_TEMP/access-local" retired::t_102_once_work_s_client_is_disabled_no_caller_is_named
+          if c logs work-server | grep -q 'access.event_refused'; then c logs work-server | grep 'access.event_refused'; exit 1; fi
       - name: Logs on failure
         if: failure()
-        run: docker compose -f deploy/compose/compose.yaml logs --no-color --tail 200 work-access-keys work-access-pep work-server-tls work-access-client-id work-migrate access-init access-migrate access-bootstrap access relay relay-migrate nts-a nts-b roughtime-a roughtime-b roughtime-c s3 witness work-signer work-server
+        run: docker compose -f deploy/compose/compose.yaml logs --no-color --tail 200 work-access-keys work-access-pep work-server-tls work-access-client-id work-migrate access-init access-migrate access-bootstrap access-signer access-identity-signer access relay relay-migrate nts-a nts-b roughtime-a roughtime-b roughtime-c s3 witness work-signer work-server
       - name: Stop
         if: always()
         run: just dev-down
