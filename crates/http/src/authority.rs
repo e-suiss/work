@@ -191,12 +191,10 @@ pub fn decision(answer: AuthorityAnswer) -> AuthorityDecision {
             request,
             approval,
         } => {
-            let next = if !step_up.is_empty() {
-                Some(STEP_UP.to_owned())
-            } else if request.is_some() {
-                Some(APPROVE.to_owned())
+            let next = if step_up.is_empty() {
+                request.is_some().then(|| APPROVE.to_owned())
             } else {
-                None
+                Some(STEP_UP.to_owned())
             };
             AuthorityDecision {
                 outcome: "require_action".to_owned(),

@@ -55,7 +55,7 @@ fn refused_call(error: &AccessError, code: &'static str) -> WriteRefusal {
 fn exercise_refusal(error: &AccessError) -> WriteRefusal {
     match error {
         AccessError::Refused { status: 404, .. } => WriteRefusal::Denied("exercise_unknown"),
-        AccessError::Answer(code) => WriteRefusal::Denied(*code),
+        AccessError::Answer(code) => WriteRefusal::Denied(code),
         other => unverifiable(other),
     }
 }
