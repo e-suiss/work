@@ -715,3 +715,65 @@ fn p_116_the_envelope_names_the_artifact_by_its_digest_with_the_payload_assuranc
     assert!(context.step_up);
     assert_eq!(context.assurance, "aal3");
 }
+
+/// `record` with its `authority` replaced by a decision receipt digest of `digest`.
+fn with_authority(record: &[u8], digest: [u8; 32]) -> Vec<u8> {
+    let Value::Map(mut entries) = decode(record, Limits::CEILING).unwrap() else {
+        panic!("a map");
+    };
+    for (k, v) in &mut entries {
+        if *k == Value::text("authority") {
+            *v = Value::Map(vec![
+                (Value::text("proof"), Value::text("decision_receipt")),
+                (Value::text("digest"), Digest(digest).to_value()),
+            ]);
+        }
+    }
+    suiss_crypto::dcbor::encode(&Value::Map(entries), Limits::CEILING).unwrap()
+}
+
+// P-13 T-90 P-5
+#[test]
+fn p_13_the_authority_proof_is_kept_only_when_the_record_refers_to_it() {
+    let proof = b"receipt bytes as Access sent them".to_vec();
+    let mut g = humans()
+        .into_iter()
+        .find(|g| g.id == "record/declaration-cancel-reason-sub-code")
+        .unwrap();
+    g.record = with_authority(&g.record, sha256(&proof));
+    let (ledger, _) = slot_of(&g.envelope);
+    let mut record = pending(&g, &ledger).unwrap();
+    let unchanged = record.clone();
+    assert_eq!(
+        record.keep_authority_proof(AuthorityProofKind::DecisionReceipt, b"other bytes"),
+        Err(AuthorityProofMismatch::Digest)
+    );
+    assert_eq!(
+        record.keep_authority_proof(AuthorityProofKind::PortableAuthorityProof, &proof),
+        Err(AuthorityProofMismatch::Kind)
+    );
+    assert_eq!(
+        record.keep_authority_proof(AuthorityProofKind::DecisionReceipt, &[]),
+        Err(AuthorityProofMismatch::Digest)
+    );
+    assert_eq!(record, unchanged);
+    record
+        .keep_authority_proof(AuthorityProofKind::DecisionReceipt, &proof)
+        .unwrap();
+    let [context, kept] = record.received() else {
+        panic!("two received rows");
+    };
+    assert_eq!(context.role, ReceivedRole::AuthContext);
+    assert_eq!(kept.role, ReceivedRole::AuthorityProof);
+    assert_eq!(kept.kind, ReceivedKind::AccessDecisionReceipt);
+    assert_eq!(kept.bytes, proof);
+    let claim = humans()
+        .into_iter()
+        .find(|g| g.id == "record/claim-comment-private")
+        .unwrap();
+    let mut comment = pending(&claim, &ledger).unwrap();
+    assert_eq!(
+        comment.keep_authority_proof(AuthorityProofKind::DecisionReceipt, &proof),
+        Err(AuthorityProofMismatch::Unnamed)
+    );
+}

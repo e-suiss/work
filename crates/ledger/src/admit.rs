@@ -17,7 +17,7 @@ use work_kernel::id::{PartyRef, RecordId, WorkId};
 use work_kernel::items::{self, ItemKey, Touch};
 use work_kernel::limits::SemanticLimits;
 use work_kernel::reason::{EnvelopeField, Limit, Reason, Schema};
-use work_kernel::record::{Claim, ClaimType, Record};
+use work_kernel::record::{AuthorityProofKind, Claim, ClaimType, Record};
 use work_kernel::relation::{
     ConcernsSource, DerivedRole, DerivedTarget, ReferenceTarget, Relation,
 };
@@ -643,6 +643,66 @@ pub fn admit<V: SignatureVerifier + ?Sized>(
         inbound: s.inbound,
         effective_at: c.effective_at,
     })
+}
+
+/// The Access proof given for a record is not the one its `authority` refers to (P-13); nothing
+/// was written.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, thiserror::Error)]
+pub enum AuthorityProofMismatch {
+    /// The record carries no `authority`, or its stored bytes do not decode as a record.
+    #[error("the record names no authority")]
+    Unnamed,
+    /// The record's `authority` names another kind of proof.
+    #[error("the authority names another kind of proof")]
+    Kind,
+    /// The record's `authority` digest is not the SHA-256 of the proof bytes.
+    #[error("the authority digest is not the proof's")]
+    Digest,
+    /// The proof is empty or larger than [`MAX_RECEIVED`].
+    #[error("the proof is empty or too large")]
+    Size,
+}
+
+const fn proof_kind(proof: AuthorityProofKind) -> ReceivedKind {
+    match proof {
+        AuthorityProofKind::DecisionReceipt => ReceivedKind::AccessDecisionReceipt,
+        AuthorityProofKind::PortableAuthorityProof => ReceivedKind::AccessPortableAuthorityProof,
+        AuthorityProofKind::ApprovalActStatement => ReceivedKind::AccessApprovalActStatement,
+        AuthorityProofKind::EligibilityCheck => ReceivedKind::AccessEligibilityCheck,
+    }
+}
+
+impl PendingRecord {
+    /// Keeps `proof`, the Access proof of `kind` the record's `authority` refers to, exactly as
+    /// received beside the record (P-13, P-5 item 4, T-90): the record must name an
+    /// `authority` of that kind whose digest is the SHA-256 of `proof`, so the reference is
+    /// never invented and the proof is checked again from the log alone.
+    ///
+    /// # Errors
+    /// [`AuthorityProofMismatch`]; the record is unchanged.
+    pub fn keep_authority_proof(
+        &mut self,
+        kind: AuthorityProofKind,
+        proof: &[u8],
+    ) -> Result<(), AuthorityProofMismatch> {
+        let Ok(Decoded::Record(record)) = decode_record(&self.record_bytes) else {
+            return Err(AuthorityProofMismatch::Unnamed);
+        };
+        let authority = record
+            .core()
+            .authority
+            .ok_or(AuthorityProofMismatch::Unnamed)?;
+        if authority.proof != kind {
+            return Err(AuthorityProofMismatch::Kind);
+        }
+        if *authority.digest.as_bytes() != sha256(proof) {
+            return Err(AuthorityProofMismatch::Digest);
+        }
+        let row = received(proof_kind(kind), ReceivedRole::AuthorityProof, proof)
+            .map_err(|_| AuthorityProofMismatch::Size)?;
+        self.received.push(row);
+        Ok(())
+    }
 }
 
 impl GroupCommit {

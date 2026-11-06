@@ -59,7 +59,7 @@ mod worm;
 
 pub use actors::{ActorBindings, BindingConflict, Declared, DeclaredActors};
 pub use adapters::SystemRng;
-pub use admit::{AdmitError, Arrival, MAX_RECEIVED, Submission, admit};
+pub use admit::{AdmitError, Arrival, AuthorityProofMismatch, MAX_RECEIVED, Submission, admit};
 #[cfg(feature = "s3")]
 pub use archive::{ArchiveError, archive_cold, archive_key, archive_manifest, archive_partition};
 pub use auth_context::{AuthContext, AuthContextInvalid};
