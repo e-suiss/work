@@ -312,6 +312,18 @@ pub struct WitnessAnswer {
     pub cosigned_at: String,
 }
 
+/// A compromise window the record falls in (SEC-36 item 4): derived from the notice the Work
+/// service Party wrote for an Access compromise declaration, never part of the record (C-4).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, ToSchema)]
+pub struct CompromiseWindowAnswer {
+    /// The notice, `rec_…`.
+    pub notice: String,
+    /// The window's start, RFC 3339 UTC.
+    pub window_from: String,
+    /// The window's end, the declaration's commit time, RFC 3339 UTC.
+    pub window_to: String,
+}
+
 /// A record's evidence, each kind apart (P-20): an author signature, the ledger's acceptance,
 /// the inclusion proof and the external time and witnesses are never shown as one another.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, ToSchema)]
@@ -334,6 +346,8 @@ pub struct EvidenceAnswer {
     pub inclusion: InclusionAnswer,
     /// The external time stamps and witness cosignatures of the covering checkpoint.
     pub witnesses: Vec<WitnessAnswer>,
+    /// The compromise windows the record falls in; empty outside every window.
+    pub compromise_window: Vec<CompromiseWindowAnswer>,
     /// The positions the answer reflects, `pos_…` (T-97 item 2).
     pub position: String,
 }
@@ -393,6 +407,15 @@ impl EvidenceAnswer {
                     witness: w.witness.clone(),
                     kind: w.kind.clone(),
                     cosigned_at: time(w.cosigned_at_ms),
+                })
+                .collect(),
+            compromise_window: e
+                .compromise_window
+                .iter()
+                .map(|m| CompromiseWindowAnswer {
+                    notice: m.notice.to_external(),
+                    window_from: time(i64::try_from(m.window_from_ms).unwrap_or(i64::MAX)),
+                    window_to: time(i64::try_from(m.window_to_ms).unwrap_or(i64::MAX)),
                 })
                 .collect(),
             position: e.position.to_external(),
@@ -711,7 +734,7 @@ pub async fn get_record_evidence(
 mod tests {
     use axum::http::StatusCode;
     use serde_json::Value;
-    use work_query::domain::reads::{Attestation, CheckpointRef, CosignatureView};
+    use work_query::domain::reads::{Attestation, CheckpointRef, CompromiseMark, CosignatureView};
 
     use super::*;
 
@@ -743,6 +766,11 @@ mod tests {
                 witness: "w1".to_owned(),
                 kind: "witness".to_owned(),
                 cosigned_at_ms: 1_792_749_601_000,
+            }],
+            compromise_window: vec![CompromiseMark {
+                notice: RecordId(Digest::sha256([6; 32])),
+                window_from_ms: 1_792_749_000_000,
+                window_to_ms: 1_792_749_700_000,
             }],
             position: PositionToken::new(vec![1, 2, 3]).unwrap(),
         };
@@ -842,5 +870,17 @@ mod tests {
         );
         assert_eq!(covered["inclusion"]["status"], "covered");
         assert!(covered["inclusion"].get("path").is_none());
+    }
+
+    // SEC-36
+    #[test]
+    fn sec_36_the_evidence_answer_shows_the_compromise_window_apart() {
+        let marked = evidence(None, Inclusion::Pending);
+        let window = &marked["compromise_window"][0];
+        assert_eq!(window["notice"], format!("rec_{}", "06".repeat(32)));
+        assert_eq!(window["window_from"], "2026-10-23T09:50:00.000Z");
+        assert_eq!(window["window_to"], "2026-10-23T10:01:40.000Z");
+        assert_eq!(marked["compromise_window"].as_array().unwrap().len(), 1);
+        assert!(marked.get("author_signature").is_none());
     }
 }

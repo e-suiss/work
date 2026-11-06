@@ -6,7 +6,7 @@ use suiss_crypto::sig::{PureBackend, ed25519, p256};
 use work_proto::id::TenantId;
 
 use crate::domain::discovery::REFRESH_GRACE_MS;
-use crate::domain::keys::{DomainId, Kid};
+use crate::domain::keys::{DomainId, KernelId, Kid};
 use crate::domain::{fixed_b64url, from_b64url};
 
 /// The media type of an Access SET (RFC 8417 §2.3).
@@ -254,11 +254,15 @@ pub enum Event {
         domain: DomainId,
         /// The Party, as Access wrote it.
         party: String,
+        /// The Party's Instances established inside the window, each beside its key in `kids`.
+        instances: Vec<KernelId>,
         /// The compromised keys.
         kids: Vec<Kid>,
         /// `window_from`–`declared_at`, Unix milliseconds; `None` when the event does not carry
         /// `window_from`, which leaves it unprocessed (T-102 item 5).
         window: Option<(u64, u64)>,
+        /// The `party_compromise` Claim's identifier, when the source is a Claim.
+        source: Option<String>,
     },
     /// `party.disabled`.
     PartyDisabled {
@@ -339,6 +343,17 @@ fn domain(payload: &Map<String, Value>) -> Result<DomainId, Refusal> {
 }
 
 fn compromised(payload: &Map<String, Value>) -> Result<Event, Refusal> {
+    let instances = payload
+        .get("instances")
+        .and_then(Value::as_array)
+        .ok_or(Refusal::InvalidRequest("instances"))?
+        .iter()
+        .map(|i| {
+            i.as_str()
+                .and_then(|i| KernelId::parse(i).ok())
+                .ok_or(Refusal::InvalidRequest("instances"))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
     let kids = payload
         .get("kids")
         .and_then(Value::as_array)
@@ -350,6 +365,19 @@ fn compromised(payload: &Map<String, Value>) -> Result<Event, Refusal> {
                 .ok_or(Refusal::InvalidRequest("kids"))
         })
         .collect::<Result<Vec<_>, _>>()?;
+    if kids.len() != instances.len() {
+        return Err(Refusal::InvalidRequest("instances"));
+    }
+    let source = match payload.get("source").and_then(|s| s.get("claim")) {
+        None => None,
+        Some(claim) => Some(
+            claim
+                .as_str()
+                .filter(|c| KernelId::parse(c).is_ok())
+                .ok_or(Refusal::InvalidRequest("source"))?
+                .to_owned(),
+        ),
+    };
     let declared = payload
         .get("declared_at")
         .and_then(Value::as_u64)
@@ -367,8 +395,10 @@ fn compromised(payload: &Map<String, Value>) -> Result<Event, Refusal> {
     Ok(Event::Compromised {
         domain: domain(payload)?,
         party: text(payload, "party")?.to_owned(),
+        instances,
         kids,
         window,
+        source,
     })
 }
 
@@ -471,6 +501,30 @@ pub fn claims(payload: &[u8], expected: &Expected<'_>) -> Result<Set, Refusal> {
         tenant,
         event,
     })
+}
+
+/// A `party.compromised` event with its window, as the SEC-36 notice is written from it
+/// (WD-123).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Compromise {
+    /// The tenant.
+    pub tenant: TenantId,
+    /// The governing domain.
+    pub domain: DomainId,
+    /// The Party, as Access wrote it.
+    pub party: String,
+    /// The Instances, each beside its key in `kids`.
+    pub instances: Vec<KernelId>,
+    /// The compromised keys.
+    pub kids: Vec<Kid>,
+    /// `window_from`–`declared_at`, Unix milliseconds.
+    pub window: (u64, u64),
+    /// The `party_compromise` Claim's identifier.
+    pub source: Option<String>,
+    /// The SET `jti`.
+    pub jti: String,
+    /// SHA-256 of the SET bytes as received.
+    pub event_digest: [u8; 32],
 }
 
 /// What an Access event tells the operator (T-102 items 5, 7).

@@ -395,11 +395,36 @@ fn t_102_a_compromise_carries_its_window_from_window_from() {
         &keys.set,
     )
     .unwrap();
-    let Event::Compromised { window, kids, .. } = windowed.event else {
+    let Event::Compromised {
+        window,
+        kids,
+        instances,
+        source,
+        ..
+    } = windowed.event
+    else {
         panic!("{windowed:?}");
     };
     assert_eq!(window, Some((NOW - 60_000, NOW)));
     assert_eq!(kids, vec![Kid::parse(KID).unwrap()]);
+    assert_eq!(
+        instances,
+        vec![KernelId::parse("BAQEBAQEBAQEBAQEBAQEBA").unwrap()]
+    );
+    assert_eq!(source.as_deref(), Some("CAgICAgICAgICAgICAgICA"));
+    let mut unpaired = compromised(Some(NOW - 60_000));
+    unpaired["instances"] = json!([]);
+    assert_eq!(
+        read(
+            &signed(
+                &keys.ed25519,
+                "Ed25519",
+                &claims_of("party.compromised", &unpaired, Some(TENANT), 12),
+            ),
+            &keys.set,
+        ),
+        Err(Refusal::InvalidRequest("instances"))
+    );
     let bare = read(
         &signed(
             &keys.ed25519,

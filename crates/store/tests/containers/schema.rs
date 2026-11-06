@@ -71,7 +71,7 @@ partitioned_allowed (fq) AS (
     VALUES ('work.idempotency_key'), ('work.inbound_seen')
 ),
 installation_scope_allowed (fq) AS (
-    VALUES ('work.access_realm'), ('work.access_event_stream')
+    VALUES ('work.access_realm'), ('work.access_event_stream'), ('work.record_signer')
 ),
 violations (check_id, object) AS (
     SELECT 'rls_enable_force', fq FROM tab

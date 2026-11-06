@@ -16,7 +16,7 @@ pub struct ErasureScope {
 
 // OP-13 OP-14 OP-15 OP-45 T-90
 /// The erasure scope list of the canonical database; the derived database has none.
-pub const ERASURE_SCOPE: [ErasureScope; 10] = [
+pub const ERASURE_SCOPE: [ErasureScope; 12] = [
     ErasureScope {
         table: "ledger.log",
         erasure: "pseudonymous_skeleton",
@@ -66,6 +66,16 @@ pub const ERASURE_SCOPE: [ErasureScope; 10] = [
         table: "work.idempotency_key",
         erasure: "pseudonymous_skeleton",
         columns: &["caller_ref"],
+    },
+    ErasureScope {
+        table: "work.record_signer",
+        erasure: "pseudonymous_skeleton",
+        columns: &["author"],
+    },
+    ErasureScope {
+        table: "work.compromise_notice",
+        erasure: "pseudonymous_skeleton",
+        columns: &["party"],
     },
 ];
 

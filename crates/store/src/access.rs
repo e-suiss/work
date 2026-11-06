@@ -205,6 +205,10 @@ impl AccessPool {
         Ok(Self { pool })
     }
 
+    pub(crate) const fn pool(&self) -> &PgPool {
+        &self.pool
+    }
+
     /// The realms of `tenant`, retired ones included, by realm.
     ///
     /// # Errors

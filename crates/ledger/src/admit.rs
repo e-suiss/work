@@ -12,6 +12,7 @@ use std::fmt::Write as _;
 use suiss_crypto::dcbor::Value;
 use suiss_crypto::digest::{Digest, sha256};
 use work_kernel::codec::{Decoded, decode_record, proof_commit, record_id};
+use work_kernel::compromise;
 use work_kernel::cose::parse_container;
 use work_kernel::id::{PartyRef, RecordId, WorkId};
 use work_kernel::items::{self, ItemKey, Touch};
@@ -30,7 +31,7 @@ use work_kernel::verify::{
 };
 use work_proto::events::{EventType, Item, RecordFacts};
 use work_store::{
-    BodyCommitmentRow, EndpointRow, Expect, HeaderRow, ItemRef, LedgerId, ReceivedKind,
+    BodyCommitmentRow, EndpointRow, Expect, HeaderRow, ItemRef, LedgerId, NoticeRow, ReceivedKind,
     ReceivedRole, ReceivedRow, RelationRow, Skeleton,
 };
 
@@ -398,7 +399,19 @@ pub(crate) fn skeleton(
                 commit: *b.commit.as_bytes(),
             })
             .collect(),
+        notice: notice(record),
     }
+}
+
+fn notice(record: &Record) -> Option<NoticeRow> {
+    let n = compromise::notice(record)?;
+    Some(NoticeRow {
+        event_digest: n.window.event_digest,
+        window_from_ms: n.window.window_from,
+        window_to_ms: n.window.window_to,
+        kids: n.window.kids,
+        party: n.party,
+    })
 }
 
 pub(crate) fn ingest(quarantine: Option<&str>) -> Value {
@@ -420,6 +433,7 @@ pub(crate) fn auth_context_value(reference: &[u8; 32], step_up: bool, assurance:
 /// A record as it arrived: its `SignedRecord` bytes, the bytes kept as received and how the
 /// envelope binds its author.
 struct Arrived {
+    kid: Option<[u8; 32]>,
     record_bytes: Vec<u8>,
     received: Vec<ReceivedRow>,
     binding: Binding,
@@ -448,6 +462,7 @@ fn arrive<V: SignatureVerifier + ?Sized>(
                 VerifyOutcome::Verified(_) => {}
             }
             Ok(Arrived {
+                kid: auth_context::kid(cose),
                 record_bytes: payload,
                 received: vec![row],
                 binding: Binding {
@@ -470,6 +485,7 @@ fn arrive<V: SignatureVerifier + ?Sized>(
             let context = auth_context::verify(&auth_context, id.0.as_bytes())?;
             let value = auth_context_value(&context.digest, context.step_up, context.aal);
             Ok(Arrived {
+                kid: None,
                 record_bytes: record.to_vec(),
                 received: vec![row],
                 binding: Binding {
@@ -642,6 +658,8 @@ pub fn admit<V: SignatureVerifier + ?Sized>(
         idempotency: s.idempotency,
         inbound: s.inbound,
         effective_at: c.effective_at,
+        kid: a.kid,
+        tenant: None,
     })
 }
 

@@ -130,6 +130,8 @@ pub(crate) fn replayed(
         idempotency: None,
         inbound: None,
         effective_at,
+        kid: None,
+        tenant: None,
     })
 }
 

@@ -9,6 +9,7 @@ mod access;
 mod archive;
 mod body;
 mod checkpoint;
+mod compromise;
 mod cursor;
 mod erasure;
 mod error;
@@ -38,6 +39,7 @@ pub use checkpoint::{
     CHECKPOINTER_ROLE, CheckpointRow, CheckpointerPool, CosignatureRow, HeadSnapshot, MirrorEntry,
     RecordDurability,
 };
+pub use compromise::{NoticeView, WindowHit};
 pub use erasure::{ERASURE_SCOPE, ErasureScope};
 pub use error::{AppendError, StoreError};
 pub use export::{CosignedCheckpoint, EXPORT_INPUTS, EXPORT_READS, ExportLog};
@@ -66,8 +68,8 @@ pub use sequencer::{
 };
 pub use server::{connect, server_version_num};
 pub use skeleton::{
-    BodyCommitmentRow, EndpointRow, HeaderRow, InboundRow, ReceivedKind, ReceivedRole, ReceivedRow,
-    RelationRow, Skeleton, StoredLogEntry,
+    BodyCommitmentRow, EndpointRow, HeaderRow, InboundRow, NoticeRow, ReceivedKind, ReceivedRole,
+    ReceivedRow, RelationRow, SignerRow, Skeleton, StoredLogEntry,
 };
 pub use witness::{ObservationVerdict, WitnessObservation};
 

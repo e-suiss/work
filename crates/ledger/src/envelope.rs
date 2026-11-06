@@ -4,8 +4,8 @@ use suiss_ledger::Hash;
 use suiss_ledger::sequencer::{Entry, Slot};
 use work_kernel::record::ProtocolVersion;
 use work_store::{
-    BodyPartRow, CallerRef, Expect, IdempotencyKey, ItemRef, LedgerId, ReceivedRow, Skeleton,
-    Stored,
+    BodyPartRow, CallerRef, Expect, IdempotencyKey, ItemRef, LedgerId, ReceivedRow, SignerRow,
+    Skeleton, Stored,
 };
 
 use crate::admit::auth_context_value;
@@ -43,6 +43,11 @@ pub struct PendingRecord {
     /// `params.effective_at` of a Declaration, checked against the ledger time the sequencer
     /// assigns (P-27, P-80).
     pub(crate) effective_at: Option<u64>,
+    /// The `kid` of a signed record (SEC-36).
+    pub(crate) kid: Option<[u8; 32]>,
+    /// The tenant the record is written for, which the SEC-36 lookup of a tenant's ledgers
+    /// reads (WD-123).
+    pub(crate) tenant: Option<String>,
 }
 
 /// An inbound event or federated record by its source and id (OP-8, P-35 item 4).
@@ -70,6 +75,27 @@ impl PendingRecord {
     #[must_use]
     pub fn record_id(&self) -> [u8; 32] {
         sha256(&self.record_bytes)
+    }
+
+    /// Writes the record for `tenant`, so that the SEC-36 lookup of the tenant's ledgers finds
+    /// it by its `kid` or, unsigned, by its author (WD-123).
+    pub fn for_tenant(&mut self, tenant: &str) {
+        self.tenant = Some(tenant.to_owned());
+    }
+
+    /// Who signed or wrote the record, for the tenant it is written for (WD-123).
+    #[must_use]
+    pub fn signer(&self) -> Option<SignerRow> {
+        let tenant = self.tenant.clone()?;
+        let author = match self.kid {
+            Some(_) => None,
+            None => Some(self.skeleton.as_ref()?.header.author.clone()),
+        };
+        Some(SignerRow {
+            tenant,
+            kid: self.kid,
+            author,
+        })
     }
 
     /// The items the record touches (T-89).
@@ -241,6 +267,8 @@ impl Entry for Activating<'_> {
             idempotency: None,
             inbound: None,
             effective_at: None,
+            kid: None,
+            tenant: None,
         };
         Ok((
             leaf_hash(&bytes),
@@ -364,6 +392,8 @@ mod tests {
                 idempotency: None,
                 inbound: None,
                 effective_at: None,
+                kid: None,
+                tenant: None,
             };
             let (leaf, sealed) = Bound {
                 ledger: &ledger,
@@ -395,6 +425,8 @@ mod tests {
             idempotency: None,
             inbound: None,
             effective_at: None,
+            kid: None,
+            tenant: None,
         };
         let expected = decode(
             &hex(signed["record_digest"].as_str().unwrap()),

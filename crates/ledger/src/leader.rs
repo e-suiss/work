@@ -339,6 +339,8 @@ mod tests {
             idempotency: None,
             inbound: None,
             effective_at: None,
+            kid: None,
+            tenant: None,
         }
     }
 

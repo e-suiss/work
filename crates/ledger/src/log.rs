@@ -59,6 +59,7 @@ pub(crate) fn rows(batch: &Batch<SealedRecord>) -> AppendBatch {
             skeleton: r.skeleton.clone(),
             body: r.body.clone(),
             activation: sealed.record.activation,
+            signer: r.signer(),
         });
         items.extend(r.items.iter().map(|c| ItemHeadRow {
             item: c.item,

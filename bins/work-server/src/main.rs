@@ -17,10 +17,13 @@ use std::sync::Arc;
 
 use config::Config;
 use services::Services;
-use startup::{AccessLink, Infrastructure, TimeDriver};
+use startup::{AccessLink, Infrastructure, TimeDriver, read_pin};
 use tokio::sync::watch;
+use work_access_client::adapters::{AccessKeys, TokenSigner};
 use work_http::common::TraceIds;
 use work_http::inbound::{self as entry, Receiver};
+use work_query::app::notices::Notices;
+use work_query::ports::Sequence;
 use work_reconciler::adapters::PgInbound;
 
 use crate::inbound::{AccessReceiver, TlsListener};
@@ -143,6 +146,7 @@ async fn run(config: &Config) -> ExitCode {
         services.pairer(),
         PgInbound::new(infrastructure.sequencer.clone()),
         config.client_id_reader(),
+        notices(config, &infrastructure, services.sequence()),
     ));
     let routes = api::routes(
         config,
@@ -164,6 +168,35 @@ async fn run(config: &Config) -> ExitCode {
         Err(error) => {
             tracing::error!(%error, "server stopped with an error");
             ExitCode::FAILURE
+        }
+    }
+}
+
+/// The SEC-36 notice writer over the `work-access-service` key of the `[access]` token; without
+/// the key no notice is written and every compromise is logged as such (WD-123).
+fn notices(
+    config: &Config,
+    infrastructure: &Infrastructure,
+    sequence: Arc<dyn Sequence>,
+) -> Option<Arc<Notices<TokenSigner>>> {
+    let keys = read_pin(&config.access.pin_file).and_then(|pin| {
+        AccessKeys::load(&config.access.module, &config.access.token, &pin)
+            .map_err(|e| e.to_string())
+    });
+    match keys {
+        Ok(keys) => Some(Arc::new(Notices::new(
+            infrastructure.canonical.clone(),
+            infrastructure.access.clone(),
+            sequence,
+            Arc::new(keys.service),
+        ))),
+        Err(error) => {
+            tracing::error!(
+                event = "access.compromise_notices_unserved",
+                %error,
+                "the service key does not open; no SEC-36 notice is written"
+            );
+            None
         }
     }
 }

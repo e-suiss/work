@@ -6,7 +6,7 @@ use std::future::Future;
 use serde_json::Value;
 use work_proto::id::TenantId;
 
-use crate::domain::events::Signal;
+use crate::domain::events::{Compromise, Signal};
 use crate::domain::keys::{ActorKind, DomainId, KernelId};
 use crate::domain::pairing::{RealmChange, StoredRealm};
 use crate::domain::streams::StreamStatus;
@@ -290,6 +290,10 @@ pub trait Effects: Send + Sync {
 
     /// Tells the operator.
     fn signal(&self, signal: &Signal);
+
+    /// Writes the SEC-36 compromise window notice into every ledger of the tenant that holds a
+    /// record of the window (WD-123).
+    fn compromised(&self, compromise: &Compromise);
 }
 
 #[cfg(test)]

@@ -13,8 +13,9 @@ use crate::adapters::{OpenError, PositionKeys};
 use crate::domain::caller::Caller;
 use crate::domain::reads::{
     Attestation, Change, Changes, CheckpointRef, CursorAt, Evidence, Inclusion, MAX_CHANGES,
-    MAX_PROOF_LEAVES, Opened, ReadRefusal, WorkView, audit_path,
+    MAX_PROOF_LEAVES, Opened, ReadRefusal, WorkView, audit_path, compromise_marks,
 };
+use crate::domain::writes::header_kid;
 use crate::domain::{PositionRefusal, check_heads};
 use crate::ports::{Pending, WorkReads};
 
@@ -232,16 +233,17 @@ impl Reads {
             else {
                 return Ok(None);
             };
+            let notices = tx.notices_at(row.recorded_at_ms).await?;
             let checkpoint = tx.covering_checkpoint(row.pos).await?;
             let leaves = match &checkpoint {
                 Some(c) if c.size <= MAX_PROOF_LEAVES => Some(tx.leaf_hashes(c.size).await?),
                 _ => None,
             };
-            Ok::<_, StoreError>(Some((row, checkpoint, leaves)))
+            Ok::<_, StoreError>(Some((row, notices, checkpoint, leaves)))
         }
         .await;
         let _closed = tx.rollback().await;
-        let Some((row, checkpoint, leaves)) = read? else {
+        let Some((row, notices, checkpoint, leaves)) = read? else {
             return Err(ReadRefusal::NotFound);
         };
         let leaf_hash = Digest::sha256(row.leaf_hash);
@@ -270,6 +272,8 @@ impl Reads {
                 (inclusion, c.cosignatures)
             }
         };
+        let kid = row.author_signature.as_deref().and_then(header_kid);
+        let compromise_window = compromise_marks(row.recorded_at_ms, kid, &row.author, &notices);
         Ok(Evidence {
             ledger: *ledger,
             record: *record,
@@ -284,6 +288,7 @@ impl Reads {
             },
             inclusion,
             witnesses,
+            compromise_window,
             position: self.position(caller, ledger, head)?,
         })
     }

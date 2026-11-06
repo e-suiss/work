@@ -544,6 +544,7 @@ where
         pending
             .keep_authority_proof(AuthorityProofKind::DecisionReceipt, &exercise.receipt)
             .map_err(|_| WriteRefusal::Denied("authority_digest"))?;
+        pending.for_tenant(caller.tenant.as_str());
         let committed = self
             .sequence
             .submit(&store_ledger(ledger), pending)

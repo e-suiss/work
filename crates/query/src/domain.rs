@@ -8,6 +8,7 @@ use work_kernel::id::LedgerId;
 use work_proto::position::Positions;
 
 pub mod caller;
+pub mod notices;
 pub mod reads;
 pub mod restriction;
 pub mod writes;

@@ -12,7 +12,7 @@ use sqlx::PgPool;
 use crate::publisher::check_role;
 use crate::{
     AppendError, BodyPartRow, CallerRef, IdempotencyKey, InboundRow, ItemRef, LedgerId, LedgerTx,
-    ReceivedRow, Skeleton, StoreError, StoredKey,
+    ReceivedRow, SignerRow, Skeleton, StoreError, StoredKey,
 };
 
 /// The login role a [`SequencerPool`] must have.
@@ -146,6 +146,9 @@ pub struct LogRow {
     /// Whether the entry is a version activation, whose record bytes are its envelope bytes
     /// and whose position the append also writes to `ledger.version_activation` (P-110 item 4).
     pub activation: bool,
+    /// Who signed or wrote the record, for the SEC-36 lookup of a tenant's ledgers; none for a
+    /// rebuild or a record admitted for no tenant (WD-123).
+    pub signer: Option<SignerRow>,
 }
 
 impl std::fmt::Debug for LogRow {
@@ -403,6 +406,7 @@ fn lone_activation(b: &AppendBatch) -> bool {
                 && r.received.is_empty()
                 && r.skeleton.is_none()
                 && r.body.is_empty()
+                && r.signer.is_none()
                 && b.items.is_empty()
                 && b.outbox.is_empty()
                 && b.keys.is_empty()
@@ -430,6 +434,13 @@ async fn insert_record_rows(tx: &mut LedgerTx<'_>, records: &[LogRow]) -> Result
         tx.link_received(r.pos, &r.received)
             .await
             .map_err(row_failure)?;
+    }
+    for r in records {
+        if let Some(signer) = &r.signer {
+            tx.insert_signer(r.pos, r.recorded_at_ms, signer)
+                .await
+                .map_err(row_failure)?;
+        }
     }
     for r in records {
         tx.insert_body(r.pos, &r.body).await.map_err(row_failure)?;

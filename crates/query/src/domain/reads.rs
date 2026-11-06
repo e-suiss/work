@@ -4,6 +4,7 @@ use work_kernel::id::{Digest, LedgerId, RecordId, WorkId};
 use work_kernel::proof::node_hash;
 use work_proto::id::{Cursor, PositionToken};
 pub use work_store::CosignatureView;
+use work_store::NoticeView;
 
 /// The most Works one page of changes carries (PD).
 pub const MAX_CHANGES: u32 = 500;
@@ -145,8 +146,51 @@ pub struct Evidence {
     pub inclusion: Inclusion,
     /// The witness cosignatures and time stamps of the covering checkpoint.
     pub witnesses: Vec<CosignatureView>,
+    /// The compromise windows it falls in, derived from the notices of its ledger (SEC-36
+    /// item 4, C-4); empty for a record outside every window.
+    pub compromise_window: Vec<CompromiseMark>,
     /// The positions the answer reflects (T-97 item 2).
     pub position: PositionToken,
+}
+
+/// A compromise window a record falls in, derived from a SEC-36 notice and never canonical
+/// (C-4).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct CompromiseMark {
+    /// The notice record.
+    pub notice: RecordId,
+    /// The window's start, Unix milliseconds.
+    pub window_from_ms: u64,
+    /// The window's end, Unix milliseconds.
+    pub window_to_ms: u64,
+}
+
+/// The windows of `notices` that mark a record recorded at `recorded_at_ms`: one signed with
+/// `kid` when the notice names that kid, or an unsigned one when its `author` is the notice's
+/// compromised Party (SEC-36 items 3 and 4).
+#[must_use]
+pub fn compromise_marks(
+    recorded_at_ms: i64,
+    kid: Option<[u8; 32]>,
+    author: &str,
+    notices: &[NoticeView],
+) -> Vec<CompromiseMark> {
+    let Ok(at) = u64::try_from(recorded_at_ms) else {
+        return Vec::new();
+    };
+    notices
+        .iter()
+        .filter(|n| n.window_from_ms <= at && at <= n.window_to_ms)
+        .filter(|n| match kid {
+            Some(k) => n.kids.contains(&k),
+            None => n.party.as_deref() == Some(author),
+        })
+        .map(|n| CompromiseMark {
+            notice: RecordId(Digest::sha256(n.record)),
+            window_from_ms: n.window_from_ms,
+            window_to_ms: n.window_to_ms,
+        })
+        .collect()
 }
 
 /// The ledger's acceptance of a record.
@@ -349,5 +393,38 @@ mod tests {
         assert!(tag_matches(&mac, &[7; CURSOR_TAG]));
         mac[3] = 0;
         assert!(!tag_matches(&mac, &[7; CURSOR_TAG]));
+    }
+
+    fn notice(kids: Vec<[u8; 32]>, party: Option<&str>) -> NoticeView {
+        NoticeView {
+            record: [6; 32],
+            pos: 9,
+            window_from_ms: 1_000,
+            window_to_ms: 5_000,
+            kids,
+            party: party.map(str::to_owned),
+        }
+    }
+
+    // SEC-36
+    #[test]
+    fn sec_36_the_evidence_view_marks_a_record_of_a_window() {
+        let notices = [notice(vec![[7; 32]], Some("pty-a"))];
+        let marked = compromise_marks(1_000, Some([7; 32]), "pty-a", &notices);
+        assert_eq!(
+            marked,
+            vec![CompromiseMark {
+                notice: RecordId(Digest::sha256([6; 32])),
+                window_from_ms: 1_000,
+                window_to_ms: 5_000,
+            }]
+        );
+        assert_eq!(compromise_marks(5_000, None, "pty-a", &notices).len(), 1);
+        assert!(compromise_marks(5_001, Some([7; 32]), "pty-a", &notices).is_empty());
+        assert!(compromise_marks(999, None, "pty-a", &notices).is_empty());
+        assert!(compromise_marks(3_000, Some([8; 32]), "pty-a", &notices).is_empty());
+        assert!(compromise_marks(3_000, None, "pty-b", &notices).is_empty());
+        assert!(compromise_marks(-1, None, "pty-a", &notices).is_empty());
+        assert!(compromise_marks(3_000, Some([7; 32]), "pty-a", &[]).is_empty());
     }
 }

@@ -135,6 +135,15 @@ impl Effects for Done {
     fn signal(&self, signal: &Signal) {
         self.0.lock().unwrap().push(signal.event().to_owned());
     }
+
+    fn compromised(&self, compromise: &Compromise) {
+        self.0.lock().unwrap().push(format!(
+            "notice {} {} {}",
+            compromise.jti,
+            compromise.instances.len(),
+            compromise.source.as_deref().unwrap_or_default()
+        ));
+    }
 }
 
 struct World {
@@ -299,13 +308,16 @@ async fn t_102_a_compromise_without_window_from_marks_nothing() {
             ),
         )
         .await;
-    assert!(matches!(windowed, Outcome::Accepted { .. }));
+    let Outcome::Accepted { jti, .. } = windowed else {
+        panic!("{windowed:?}");
+    };
     assert_eq!(
         w.done(),
         vec![
             "access.compromise_unprocessed".to_owned(),
             forget(),
             "access.party_compromised".to_owned(),
+            format!("notice {jti} 1 CAgICAgICAgICAgICAgICA"),
         ]
     );
 }

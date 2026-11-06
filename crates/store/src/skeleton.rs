@@ -221,6 +221,34 @@ pub struct Skeleton {
     pub relations: Vec<RelationRow>,
     /// Its body commitments, in author order.
     pub body: Vec<BodyCommitmentRow>,
+    /// The compromise window it notices, when it is a SEC-36 notice (WD-123).
+    pub notice: Option<NoticeRow>,
+}
+
+/// The compromise window a SEC-36 notice states, read from the notice record (WD-123, C-4).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NoticeRow {
+    /// SHA-256 of the Access event's bytes.
+    pub event_digest: [u8; 32],
+    /// The window's start, Unix milliseconds.
+    pub window_from_ms: u64,
+    /// The window's end, Unix milliseconds.
+    pub window_to_ms: u64,
+    /// The compromised kids.
+    pub kids: Vec<[u8; 32]>,
+    /// The compromised Party.
+    pub party: Option<String>,
+}
+
+/// Who signed or wrote a record, kept for the SEC-36 lookup of a tenant's ledgers (WD-123).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SignerRow {
+    /// The tenant the record was written for.
+    pub tenant: String,
+    /// The `kid` of a signed record.
+    pub kid: Option<[u8; 32]>,
+    /// The author of an unsigned record, written with its `auth_context`.
+    pub author: Option<String>,
 }
 
 /// An inbound event or federated record a record answers, deduplicated by `source` and `source_id` (OP-8, OP-38 item 5).
@@ -439,6 +467,61 @@ impl LedgerTx<'_> {
             .await
             .map_err(refused)?;
         }
+        if let Some(n) = &s.notice {
+            self.insert_notice(at, n).await?;
+        }
+        Ok(())
+    }
+
+    /// Writes the window of a SEC-36 notice at `at`; a second notice of the same event in the
+    /// ledger breaks `compromise_notice_pk` (WD-123).
+    async fn insert_notice(&mut self, at: i64, n: &NoticeRow) -> Result<(), StoreError> {
+        let ledger = *self.ledger().as_bytes();
+        let kids: Vec<Vec<u8>> = n.kids.iter().map(|k| k.to_vec()).collect();
+        sqlx::query!(
+            "INSERT INTO work.compromise_notice
+             (ledger_id, event_digest, pos, window_from, window_to, kids, party)
+             VALUES ($1, $2, $3,
+             pg_catalog.to_timestamp(0) + interval '1 millisecond' * $4::bigint::double precision,
+             pg_catalog.to_timestamp(0) + interval '1 millisecond' * $5::bigint::double precision,
+             $6, $7)",
+            ledger.as_slice(),
+            n.event_digest.as_slice(),
+            at,
+            signed(n.window_from_ms)?,
+            signed(n.window_to_ms)?,
+            kids.as_slice(),
+            n.party.as_deref()
+        )
+        .execute(self.conn())
+        .await
+        .map_err(refused)?;
+        Ok(())
+    }
+
+    /// Writes who signed or wrote the record at `pos`, recorded at `recorded_at_ms` (WD-123).
+    pub(crate) async fn insert_signer(
+        &mut self,
+        pos: u64,
+        recorded_at_ms: u64,
+        row: &SignerRow,
+    ) -> Result<(), StoreError> {
+        let ledger = *self.ledger().as_bytes();
+        sqlx::query!(
+            "INSERT INTO work.record_signer (ledger_id, pos, tenant, recorded_at, kid, author)
+             VALUES ($1, $2, $3,
+             pg_catalog.to_timestamp(0) + interval '1 millisecond' * $4::bigint::double precision,
+             $5, $6)",
+            ledger.as_slice(),
+            signed(pos)?,
+            row.tenant.as_str(),
+            signed(recorded_at_ms)?,
+            row.kid.as_ref().map(<[u8; 32]>::as_slice),
+            row.author.as_deref()
+        )
+        .execute(self.conn())
+        .await
+        .map_err(refused)?;
         Ok(())
     }
 

@@ -52,6 +52,7 @@ fn record(pos: u64, prev: [u8; 32], leaf: [u8; 32], at: u64) -> LogRow {
         skeleton: None,
         body: vec![],
         activation: false,
+        signer: None,
     }
 }
 
@@ -499,6 +500,7 @@ fn works(epoch: u64, after: u64, n: u64) -> AppendBatch {
             basis: vec![[0x0d; 32]],
             relations: vec![],
             body: vec![],
+            notice: None,
         });
         prev = r.leaf;
         b.records.push(r);

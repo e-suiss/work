@@ -6,7 +6,8 @@ use work_proto::id::TenantId;
 use crate::app::Client;
 use crate::domain::AccessError;
 use crate::domain::events::{
-    ClientChange, Event, Expected, Refusal, Set, Signal, Verifier, claims, parse, verifier,
+    ClientChange, Compromise, Event, Expected, Refusal, Set, Signal, Verifier, claims, parse,
+    verifier,
 };
 use crate::domain::pairing::PairState;
 use crate::ports::{Arrival, Clock, Effects, InboundLog, PairingStore, Transport};
@@ -176,11 +177,12 @@ where
                 Err(e) => return Outcome::Unavailable(e),
             }
         }
+        let digest: [u8; 32] = Sha256::digest(body).into();
         let arrival = Arrival {
             tenant: &set.tenant,
             source: &set.iss,
             id: &set.jti,
-            digest: Sha256::digest(body).into(),
+            digest,
             at_ms: self.client.now_ms(),
         };
         match self.log.note(&arrival).await {
@@ -193,7 +195,7 @@ where
             }
             Err(e) => return Outcome::Unavailable(e),
         }
-        self.apply(&set);
+        self.apply(&set, digest);
         Outcome::Accepted {
             name: set.event.name().to_owned(),
             tenant: set.tenant,
@@ -201,7 +203,7 @@ where
         }
     }
 
-    fn apply(&self, set: &Set) {
+    fn apply(&self, set: &Set, digest: [u8; 32]) {
         let e = self.effects;
         match &set.event {
             Event::Revocation { domain, .. } | Event::InstanceTerminated { domain } => {
@@ -210,8 +212,10 @@ where
             Event::Compromised {
                 domain,
                 party,
+                instances,
+                kids,
                 window: Some(window),
-                ..
+                source,
             } => {
                 e.forget_domain(*domain);
                 e.signal(&Signal::Compromised {
@@ -219,6 +223,17 @@ where
                     domain: *domain,
                     party: party.clone(),
                     window: *window,
+                });
+                e.compromised(&Compromise {
+                    tenant: set.tenant.clone(),
+                    domain: *domain,
+                    party: party.clone(),
+                    instances: instances.clone(),
+                    kids: kids.clone(),
+                    window: *window,
+                    source: source.clone(),
+                    jti: set.jti.clone(),
+                    event_digest: digest,
                 });
             }
             Event::Compromised {

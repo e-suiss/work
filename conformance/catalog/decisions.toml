@@ -2976,6 +2976,25 @@ tests = [
 ]
 
 [[rule]]
+id = "SEC-36"
+family = "SEC"
+status = "frozen-protocol"
+stage = 3
+acceptance = "to-fill"
+title = ""
+tests = [
+  "crates/http/src/reads.rs::sec_36_the_evidence_answer_shows_the_compromise_window_apart",
+  "crates/kernel/src/compromise/tests.rs::sec_36_a_body_without_kids_or_with_a_reversed_window_is_refused",
+  "crates/kernel/src/compromise/tests.rs::sec_36_one_notice_per_access_declaration",
+  "crates/kernel/src/compromise/tests.rs::sec_36_records_in_the_window_stay_and_are_marked",
+  "crates/kernel/src/compromise/tests.rs::sec_36_the_notice_is_a_core_observation_claim_of_a_system_party",
+  "crates/kernel/tests/compromise_window.rs::sec_36_the_notice_body_matches_its_vectors",
+  "crates/query/src/domain/notices.rs::sec_36_an_event_without_instance_or_claim_writes_no_notice",
+  "crates/query/src/domain/notices.rs::sec_36_one_notice_per_ledger_holding_a_record_of_the_window",
+  "crates/query/src/domain/reads.rs::sec_36_the_evidence_view_marks_a_record_of_a_window",
+]
+
+[[rule]]
 id = "P-1"
 family = "P"
 status = "frozen-protocol"
