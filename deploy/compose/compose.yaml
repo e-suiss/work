@@ -44,7 +44,7 @@ x-relay-env: &relay-env
   RELAY_HOST: relay
   RELAY_ROLES: api,worker,socket
   RELAY_ACCESS_ISSUER: https://access-server:8443/realms/platform
-  LOCAL_ACCESS_CLIENT_FILE: /run/relay-access/client_id
+  LOCAL_ACCESS_CLIENT_FILE: /var/lib/relay-client/client_id
   PORT: "4000"
   METRICS_PORT: "9568"
   POOL_SIZE: "5"
@@ -791,12 +791,12 @@ services:
       LOCAL_MIGRATOR_DATABASE_URL: ecto://relay_migrator@work-postgres:5432/relay
       LOCAL_BOOTSTRAP: /var/lib/access/bootstrap/bootstrap.json
       LOCAL_ACCESS_CA: /var/lib/access/product-tls/ca.crt
-      LOCAL_TRUST: /run/relay-trust
+      LOCAL_TRUST: /var/lib/relay-trust
     volumes:
       - access-bootstrap:/var/lib/access/bootstrap:ro
       - access-product-tls:/var/lib/access/product-tls:ro
-      - relay-trust:/run/relay-trust
-      - relay-access-client:/run/relay-access
+      - relay-trust:/var/lib/relay-trust
+      - relay-access-client:/var/lib/relay-client
     depends_on:
       work-postgres:
         condition: service_healthy
@@ -824,7 +824,7 @@ services:
     volumes:
       - relay-softhsm:/var/lib/relay-softhsm
       - relay-trust:/etc/ssl/certs:ro
-      - relay-access-client:/run/relay-access:ro
+      - relay-access-client:/var/lib/relay-client:ro
       - access-product-tls:/var/lib/access/product-tls:ro
     ports:
       - "127.0.0.1:${WORK_DEV_RELAY_PORT:-4010}:4000"
