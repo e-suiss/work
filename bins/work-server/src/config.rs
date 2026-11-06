@@ -77,6 +77,23 @@ pub(crate) struct Config {
     pub(crate) access_client_id: String,
     /// The TLS listener of the event entry (T-102 item 2).
     pub(crate) inbound: Inbound,
+    /// The REST routes that act for a caller (P-56, T-97).
+    pub(crate) api: Api,
+}
+
+/// `[api]`: what the routes that act for a caller need besides the Access client (P-56, T-97
+/// item 1, WD-115 item 2): the origin every `DPoP` proof names, and the read position MAC keys
+/// in the `[access]` token (T-56).
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Api {
+    /// `<scheme>://<host>[:<port>]` the API is reached at, without a trailing slash; empty
+    /// serves no route that acts for a caller.
+    pub(crate) origin: String,
+    /// The id of the read position key that seals.
+    pub(crate) position_key: u8,
+    /// The id of the previous read position key, which still opens.
+    pub(crate) previous_position_key: Option<u8>,
 }
 
 /// `[inbound]`: the TLS listener of `POST /v1/inbound/events`, whose key signs inside the
@@ -513,6 +530,12 @@ impl Default for Config {
                 certificate: PathBuf::new(),
                 key_label: SERVER_TLS_LABEL.to_owned(),
             },
+            // T-97
+            api: Api {
+                origin: String::new(),
+                position_key: 1,
+                previous_position_key: None,
+            },
         }
     }
 }
@@ -580,6 +603,8 @@ pub(crate) enum ConfigError {
     Parser,
     #[error("suiss.{0} is missing or malformed")]
     Suiss(&'static str),
+    #[error("api.origin must be empty or an http(s) origin without a path or a trailing slash")]
+    ApiOrigin,
 }
 
 impl Config {
@@ -639,6 +664,9 @@ impl Config {
         self.witness_endpoints()?;
         self.parser_timeout()?;
         self.access()?;
+        if !api_origin_ok(&self.api.origin) {
+            return Err(ConfigError::ApiOrigin);
+        }
         Ok(())
     }
 
@@ -928,6 +956,22 @@ fn ident_ok(id: &str) -> bool {
     bytes.next().is_some_and(|b| b.is_ascii_lowercase())
         && id.len() <= 64
         && bytes.all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_')
+}
+
+fn api_origin_ok(origin: &str) -> bool {
+    if origin.is_empty() {
+        return true;
+    }
+    let Some(authority) = origin
+        .strip_prefix("https://")
+        .or_else(|| origin.strip_prefix("http://"))
+    else {
+        return false;
+    };
+    !authority.is_empty()
+        && authority
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b':' | b'[' | b']'))
 }
 
 fn origin_prefix_ok(prefix: &str) -> bool {
@@ -1269,6 +1313,42 @@ mod tests {
         .unwrap();
         assert_eq!(served.inbound.listen.map(|a| a.port()), Some(8443));
         assert!(with("[inbound]\nkey_file = \"/tmp/k.pem\"").is_err());
+    }
+
+    // T-97
+    #[test]
+    fn t_97_the_caller_routes_take_an_origin_and_the_read_position_keys() {
+        let config = with("").unwrap();
+        assert_eq!(config.api.origin, "");
+        assert_eq!(config.api.position_key, 1);
+        assert_eq!(config.api.previous_position_key, None);
+        for origin in [
+            "https://work.example",
+            "http://127.0.0.1:8190",
+            "https://[::1]:8443",
+        ] {
+            let served = with(&format!(
+                "[api]\norigin = \"{origin}\"\nposition_key = 2\nprevious_position_key = 1"
+            ))
+            .unwrap();
+            assert_eq!(served.api.origin, origin);
+            assert_eq!(served.api.previous_position_key, Some(1));
+        }
+        for origin in [
+            "work.example",
+            "https://work.example/",
+            "https://work.example/v1",
+            "ftp://work.example",
+            "https://",
+        ] {
+            assert!(
+                matches!(
+                    with(&format!("[api]\norigin = \"{origin}\"")),
+                    Err(ConfigError::ApiOrigin)
+                ),
+                "{origin}"
+            );
+        }
     }
 
     // OP-46 OP-33 OP-32 T-93

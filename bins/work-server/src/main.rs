@@ -2,6 +2,7 @@
 //! installs telemetry and composes crates; business logic lives in `crates/` (T-31). Started as
 //! `work-server parser-worker` it is a locked-down parser worker instead (T-72, T-94).
 
+mod api;
 mod config;
 mod health;
 mod inbound;
@@ -18,7 +19,6 @@ use config::Config;
 use services::Services;
 use startup::{AccessLink, Infrastructure, TimeDriver};
 use tokio::sync::watch;
-use work_http::api::{ApiConfig, router};
 use work_http::common::TraceIds;
 use work_http::inbound::{self as entry, Receiver};
 use work_reconciler::adapters::PgInbound;
@@ -144,7 +144,13 @@ async fn run(config: &Config) -> ExitCode {
         PgInbound::new(infrastructure.sequencer.clone()),
         config.client_id_reader(),
     ));
-    let served = serve(config, health::router(health), receiver).await;
+    let routes = api::routes(
+        config,
+        &infrastructure.canonical,
+        &access.client,
+        Arc::new(SystemTraceIds),
+    );
+    let served = serve(config, routes, health::router(health), receiver).await;
     services.stop().await;
     access.stop();
     time.stop();
@@ -194,6 +200,7 @@ async fn event_entry(config: &Config) -> std::io::Result<Option<TlsListener>> {
 
 async fn serve(
     config: &Config,
+    routes: axum::Router,
     internal: axum::Router,
     receiver: Arc<dyn Receiver>,
 ) -> std::io::Result<()> {
@@ -202,7 +209,6 @@ async fn serve(
     let events = event_entry(config).await?;
     tracing::info!(listen = %config.listen, internal_listen = %config.internal_listen, version = env!("CARGO_PKG_VERSION"), "work-server listening");
     let (stop, stopping) = watch::channel(false);
-    let routes = router(ApiConfig::default(), Arc::new(SystemTraceIds));
     let routes = routes.into_make_service_with_connect_info::<SocketAddr>();
     let api = axum::serve(api, routes)
         .with_graceful_shutdown(stopped(stopping.clone()))

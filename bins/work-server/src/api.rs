@@ -1,0 +1,69 @@
+//! The REST routes of the process (P-53, P-56, T-97, WD-115): the public ones always, and those that act for a caller once `[api] origin` is set and the read position keys open in the `[access]` token (T-56). The caller is named over the process's Access client with Work's `client_id` as `aud`; while those routes cannot be served this is logged, and the public ones keep answering.
+
+use std::sync::Arc;
+
+use suiss_crypto::pkcs11::KeyStore;
+use work_http::api::{ApiConfig, router, router_with};
+use work_http::common::TraceIds;
+use work_http::reads::ApiServices;
+use work_query::adapters::PositionKeys;
+use work_query::app::caller::Authenticator;
+use work_query::app::reads::Reads;
+use work_store::Pool;
+
+use crate::config::Config;
+use crate::startup::{AccessClient, read_pin};
+
+fn services(
+    config: &Config,
+    canonical: &Pool,
+    access: &Arc<AccessClient>,
+) -> Result<ApiServices, String> {
+    if config.api.origin.is_empty() {
+        return Err("api.origin is not set".to_owned());
+    }
+    let pin = read_pin(&config.access.pin_file)?;
+    let store = KeyStore::open(&config.access.module, &config.access.token, &pin)
+        .map_err(|e| e.to_string())?;
+    let keys = PositionKeys::open(
+        &store,
+        config.api.position_key,
+        config.api.previous_position_key,
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(ApiServices {
+        auth: Arc::new(Authenticator::new(
+            Arc::clone(access),
+            Some(config.client_id()),
+        )),
+        reads: Arc::new(Reads::new(canonical.clone(), Arc::new(keys))),
+        origin: config.api.origin.clone(),
+    })
+}
+
+/// The REST routes, with those that act for a caller when they can be served.
+pub(crate) fn routes(
+    config: &Config,
+    canonical: &Pool,
+    access: &Arc<AccessClient>,
+    ids: Arc<dyn TraceIds>,
+) -> axum::Router {
+    match services(config, canonical, access) {
+        Ok(services) => {
+            tracing::info!(
+                event = "api.caller_routes_served",
+                origin = services.origin.as_str(),
+                "the routes that act for a caller are served"
+            );
+            router_with(ApiConfig::default(), ids, Arc::new(services))
+        }
+        Err(error) => {
+            tracing::error!(
+                event = "api.caller_routes_unserved",
+                %error,
+                "the routes that act for a caller are not served"
+            );
+            router(ApiConfig::default(), ids)
+        }
+    }
+}

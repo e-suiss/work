@@ -9,7 +9,7 @@ repository.workspace = true
 publish = false
 
 [dependencies]
-suiss-crypto = { workspace = true, features = ["aws-lc"] }
+suiss-crypto = { workspace = true, features = ["aws-lc", "pkcs11"] }
 suiss-sandbox = { workspace = true }
 work-access-client = { workspace = true }
 work-dispatch = { workspace = true }
@@ -18,6 +18,7 @@ work-kernel = { workspace = true }
 work-ledger = { workspace = true, features = ["s3"] }
 work-parse = { workspace = true }
 work-proto = { workspace = true }
+work-query = { workspace = true }
 work-reconciler = { workspace = true }
 work-store = { workspace = true }
 work-telemetry = { workspace = true }

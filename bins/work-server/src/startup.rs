@@ -105,7 +105,7 @@ pub(crate) struct AccessLink {
     refresh: JoinHandle<()>,
 }
 
-fn read_pin(path: &std::path::Path) -> Result<Secret<String>, String> {
+pub(crate) fn read_pin(path: &std::path::Path) -> Result<Secret<String>, String> {
     let pin = std::fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))?;
     Ok(Secret::new(pin.trim_end().to_owned()))
 }

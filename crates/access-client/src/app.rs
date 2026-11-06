@@ -159,6 +159,13 @@ impl<T: Transport, C: Clock> Client<T, C> {
         Ok(())
     }
 
+    /// Whether Access disabled Work's own client (`api_client.disabled`); a poisoned state
+    /// counts as disabled.
+    #[must_use]
+    pub fn disabled(&self) -> bool {
+        !self.state().is_ok_and(|s| !s.disabled)
+    }
+
     /// Drops every cached key of `domain` at once (T-102 item 5, E-14).
     ///
     /// # Errors

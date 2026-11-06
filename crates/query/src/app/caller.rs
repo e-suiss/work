@@ -86,6 +86,9 @@ impl<T: Transport, C: Clock> Authenticator<T, C> {
             .audience
             .as_deref()
             .ok_or(CallerRefusal::Unverifiable("audience_unset"))?;
+        if self.access.disabled() {
+            return Err(CallerRefusal::Unverifiable("client_disabled"));
+        }
         let (issuer, kid) = unverified(token)?;
         let realm = bounded(self.access.realm_of(&issuer))
             .await?
@@ -226,6 +229,22 @@ mod tests {
         assert_eq!(
             unset.caller(presented(Some(&header), Some("proof"))).await,
             Err(CallerRefusal::Unverifiable("audience_unset"))
+        );
+    }
+
+    // T-102
+    #[tokio::test]
+    async fn t_102_once_access_disables_work_s_client_no_caller_is_named() {
+        let auth = unreachable();
+        let header = format!("DPoP {}", token("https://access.example/realms/acme"));
+        auth.access.disable().unwrap();
+        assert_eq!(
+            auth.caller(presented(Some(&header), Some("proof"))).await,
+            Err(CallerRefusal::Unverifiable("client_disabled"))
+        );
+        assert_eq!(
+            auth.caller(presented(None, Some("proof"))).await,
+            Err(CallerRefusal::Unauthenticated("token_missing"))
         );
     }
 
