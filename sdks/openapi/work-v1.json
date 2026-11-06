@@ -1,6 +1,34 @@
 {
   "components": {
     "schemas": {
+      "ActorTypesInput": {
+        "additionalProperties": false,
+        "description": "The actor types the request declares; the envelope writes them only as\n`declared_unverified`, and Access's bindings win (P-12).",
+        "properties": {
+          "author": {
+            "description": "The author's: `human`, `agent`, `system`, `machine` or `organization`.",
+            "type": "string"
+          },
+          "evidence": {
+            "description": "One per evidence presenter, in `evidence` order.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "on_behalf_of": {
+            "description": "One per `on_behalf_of` ring, in chain order.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "author"
+        ],
+        "type": "object"
+      },
       "AuthContextAnswer": {
         "description": "The Access authentication context an unsigned human record names; not an author signature\n(P-21 item 3).",
         "properties": {
@@ -10,6 +38,25 @@
           }
         },
         "required": [
+          "digest"
+        ],
+        "type": "object"
+      },
+      "AuthContextInput": {
+        "additionalProperties": false,
+        "description": "The Access `auth_context` artifact of an unsigned human record.",
+        "properties": {
+          "artifact": {
+            "description": "The tagged `COSE_Sign1` as Access issued it, unpadded base64url.",
+            "type": "string"
+          },
+          "digest": {
+            "description": "Access's `digest` of it, unpadded base64url of 32 bytes.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "artifact",
           "digest"
         ],
         "type": "object"
@@ -24,6 +71,25 @@
         },
         "required": [
           "cose_sign1"
+        ],
+        "type": "object"
+      },
+      "AuthorityInput": {
+        "additionalProperties": false,
+        "description": "The Access Exercise the record's `authority` refers to.",
+        "properties": {
+          "exercise": {
+            "description": "The `ExerciseID`, unpadded base64url of 32 bytes.",
+            "type": "string"
+          },
+          "intent": {
+            "description": "The canonical intent envelope Access allowed it for, unpadded base64url.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "exercise",
+          "intent"
         ],
         "type": "object"
       },
@@ -262,6 +328,41 @@
         ],
         "type": "object"
       },
+      "NewDeclaration": {
+        "additionalProperties": false,
+        "description": "One commitment Declaration.",
+        "properties": {
+          "actor_types": {
+            "$ref": "#/components/schemas/ActorTypesInput",
+            "description": "The declared actor types."
+          },
+          "auth_context": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/AuthContextInput",
+                "description": "The `auth_context` artifact of an unsigned human record."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "authority": {
+            "$ref": "#/components/schemas/AuthorityInput",
+            "description": "The Exercise the record's `authority` refers to."
+          },
+          "record": {
+            "description": "The tagged `COSE_Sign1` of a signed record, or the `SignedRecord` bytes of an unsigned\nhuman one sent with `auth_context`, unpadded base64url.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "record",
+          "authority",
+          "actor_types"
+        ],
+        "type": "object"
+      },
       "Problem": {
         "description": "An RFC 9457 problem response (T-98 item 6).",
         "properties": {
@@ -479,6 +580,34 @@
           "opened_at",
           "updated_at",
           "position"
+        ],
+        "type": "object"
+      },
+      "WrittenAnswer": {
+        "description": "The written record.",
+        "properties": {
+          "ledger": {
+            "description": "The ledger, `led_…`.",
+            "type": "string"
+          },
+          "pos": {
+            "description": "Its position.",
+            "type": "string"
+          },
+          "record": {
+            "description": "The record, `rec_…`.",
+            "type": "string"
+          },
+          "replayed": {
+            "description": "True when the answer is that of the request first sent with this `Idempotency-Key`.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ledger",
+          "record",
+          "pos",
+          "replayed"
         ],
         "type": "object"
       }
@@ -747,6 +876,381 @@
           "works"
         ],
         "x-work-action": "work:read"
+      }
+    },
+    "/v1/ledgers/{ledger}/declarations": {
+      "post": {
+        "description": "The record is admitted only under the Access Exercise its `authority` refers to: Access is\nasked for that Exercise on every request, its decision receipt must verify and be exactly the\nproof the `authority` digest names, the intent must be `work:commit` on this ledger and valid\nnow, and the record's capacity must be the Exercise's. A signed record is checked against the\nkey Access binds at admission; an unsigned one must be the caller's own, with its Access\n`auth_context`. When Access cannot be asked, nothing is written.",
+        "operationId": "create_declaration",
+        "parameters": [
+          {
+            "description": "The ledger, `led_…`.",
+            "in": "path",
+            "name": "ledger",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "A UUIDv7; the same key with the same body answers the first result.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "The strong ETag of the version of the item the record changes, `\"0\"` before its first record.",
+            "in": "header",
+            "name": "If-Match",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewDeclaration"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WrittenAnswer"
+                }
+              }
+            },
+            "description": "The record is in the ledger.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "A body, identifier or header that does not open.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No valid Access access token and DPoP proof.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "WWW-Authenticate": {
+                "description": "The DPoP challenge.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "The Access evidence does not authorise this record.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No such ledger.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "412": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "The item is no longer at the If-Match version.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "The kernel rejected the record, its auth_context does not verify, or the key was reused with another body.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "428": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No If-Match.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "The caller has spent its quota.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Retry-After": {
+                "description": "Seconds until the next window.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Access cannot be reached, so the authority cannot be verified, the ledger is busy, or the outcome is being checked; send the same request again.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Retry-After": {
+                "description": "Seconds to wait when the ledger is busy.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Writes one commitment Declaration.",
+        "tags": [
+          "records"
+        ],
+        "x-work-action": "work:commit"
       }
     },
     "/v1/ledgers/{ledger}/records/{record}/evidence": {

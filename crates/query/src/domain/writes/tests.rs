@@ -33,14 +33,14 @@ fn json(text: &str) -> Json {
 
 /// The golden promise the agent signed with its Ed25519 key, and that key.
 fn promise() -> (Vec<u8>, [u8; 32], PublicKey) {
-    let cose = json(COSE);
-    let case = cose["cases"]
+    let vectors = json(COSE);
+    let signed = vectors["cases"]
         .as_array()
         .unwrap()
         .iter()
         .find(|c| c["id"] == "cose-sign1/declaration-promise-for-principal")
         .unwrap();
-    let key = cose["keys"]
+    let key = vectors["keys"]
         .as_array()
         .unwrap()
         .iter()
@@ -51,7 +51,7 @@ fn promise() -> (Vec<u8>, [u8; 32], PublicKey) {
         .try_into()
         .unwrap();
     (
-        unhex(case["cose_hex"].as_str().unwrap()),
+        unhex(signed["cose_hex"].as_str().unwrap()),
         kid,
         PublicKey::Ed25519(public),
     )
