@@ -289,43 +289,52 @@ mod tests {
     }
 
     impl Transport for &Wire {
-        async fn post(&self, request: Request) -> Result<Response, RelayError> {
+        fn post(
+            &self,
+            request: Request,
+        ) -> impl Future<Output = Result<Response, RelayError>> + Send {
             self.sent.lock().unwrap().push(request);
-            self.answers
-                .lock()
-                .unwrap()
-                .pop_front()
-                .unwrap_or_else(|| Err(RelayError::Unreachable("closed".to_owned())))
+            std::future::ready(
+                self.answers
+                    .lock()
+                    .unwrap()
+                    .pop_front()
+                    .unwrap_or_else(|| Err(RelayError::Unreachable("closed".to_owned()))),
+            )
         }
     }
 
     struct Token;
 
     impl Credential for Token {
-        async fn bearer(&self) -> Result<String, RelayError> {
-            Ok("at".to_owned())
+        fn bearer(&self) -> impl Future<Output = Result<String, RelayError>> + Send {
+            std::future::ready(Ok("at".to_owned()))
         }
     }
 
     struct Directory(Option<BTreeMap<String, Option<String>>>);
 
     impl Recipients for Directory {
-        async fn subs(
+        fn subs(
             &self,
             _tenant: &TenantId,
             _realm: &str,
             client_id: &str,
             parties: &[String],
-        ) -> Result<BTreeMap<String, Option<String>>, Unresolvable> {
+        ) -> impl Future<Output = Result<BTreeMap<String, Option<String>>, Unresolvable>> + Send
+        {
             assert_eq!(client_id, "app_relay");
-            let known = self
-                .0
-                .clone()
-                .ok_or_else(|| Unresolvable("503".to_owned()))?;
-            Ok(parties
-                .iter()
-                .map(|p| (p.clone(), known.get(p).cloned().flatten()))
-                .collect())
+            std::future::ready(
+                self.0
+                    .clone()
+                    .ok_or_else(|| Unresolvable("503".to_owned()))
+                    .map(|known| {
+                        parties
+                            .iter()
+                            .map(|p| (p.clone(), known.get(p).cloned().flatten()))
+                            .collect()
+                    }),
+            )
         }
     }
 
@@ -336,22 +345,25 @@ mod tests {
     }
 
     impl Intents for &Outbox {
-        async fn pending(&self, limit: u32) -> Result<Vec<NotificationIntent>, OutboxError> {
+        fn pending(
+            &self,
+            limit: u32,
+        ) -> impl Future<Output = Result<Vec<NotificationIntent>, OutboxError>> + Send {
             let all = self.pending.lock().unwrap().clone();
-            Ok(all
+            std::future::ready(Ok(all
                 .into_iter()
                 .take(usize::try_from(limit).unwrap())
-                .collect())
+                .collect()))
         }
 
-        async fn settle(
+        fn settle(
             &self,
             key: &IdempotencyKey,
             settlement: Settlement,
-        ) -> Result<(), OutboxError> {
+        ) -> impl Future<Output = Result<(), OutboxError>> + Send {
             self.pending.lock().unwrap().retain(|i| i.key() != key);
             self.settled.lock().unwrap().push((key.clone(), settlement));
-            Ok(())
+            std::future::ready(Ok(()))
         }
     }
 

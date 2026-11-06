@@ -114,10 +114,15 @@ fn is_code(text: &str) -> bool {
 #[must_use]
 pub fn is_traceparent(text: &str) -> bool {
     let parts: Vec<&str> = text.split('-').collect();
-    let hexes = |s: &str, n: usize| {
-        s.len() == n && s.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
+    let hexes = |part: &str, len: usize| {
+        part.len() == len && part.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
     };
-    matches!(parts.as_slice(), [v, t, p, f] if *v == "00" && hexes(t, 32) && hexes(p, 16) && hexes(f, 2))
+    match parts.as_slice() {
+        [version, trace, parent, flags] => {
+            *version == "00" && hexes(trace, 32) && hexes(parent, 16) && hexes(flags, 2)
+        }
+        _ => false,
+    }
 }
 
 /// What an intent says, before it is checked.

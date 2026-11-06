@@ -188,25 +188,25 @@ impl Transport for &Https {
 struct Untraced;
 
 impl Credential for Untraced {
-    async fn bearer(&self) -> Result<String, RelayError> {
-        Ok("untraced".to_owned())
+    fn bearer(&self) -> impl Future<Output = Result<String, RelayError>> + Send {
+        std::future::ready(Ok("untraced".to_owned()))
     }
 }
 
 struct Directory;
 
 impl Recipients for Directory {
-    async fn subs(
+    fn subs(
         &self,
         _tenant: &TenantId,
         _realm: &str,
         _client_id: &str,
         parties: &[String],
-    ) -> Result<BTreeMap<String, Option<String>>, Unresolvable> {
-        Ok(parties
+    ) -> impl Future<Output = Result<BTreeMap<String, Option<String>>, Unresolvable>> + Send {
+        std::future::ready(Ok(parties
             .iter()
             .map(|p| (p.clone(), Some(format!("sub-{p}"))))
-            .collect())
+            .collect()))
     }
 }
 
@@ -217,18 +217,21 @@ struct Outbox {
 }
 
 impl Intents for &Outbox {
-    async fn pending(&self, _limit: u32) -> Result<Vec<NotificationIntent>, OutboxError> {
-        Ok(self.pending.lock().unwrap().clone())
+    fn pending(
+        &self,
+        _limit: u32,
+    ) -> impl Future<Output = Result<Vec<NotificationIntent>, OutboxError>> + Send {
+        std::future::ready(Ok(self.pending.lock().unwrap().clone()))
     }
 
-    async fn settle(
+    fn settle(
         &self,
         key: &IdempotencyKey,
         _settlement: Settlement,
-    ) -> Result<(), OutboxError> {
+    ) -> impl Future<Output = Result<(), OutboxError>> + Send {
         self.pending.lock().unwrap().retain(|i| i.key() != key);
         self.settled.lock().unwrap().push(key.clone());
-        Ok(())
+        std::future::ready(Ok(()))
     }
 }
 
