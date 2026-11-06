@@ -550,7 +550,8 @@ mod signed {
 
         let local = Local::open();
         let pep = local.pep();
-        let user = KernelId::parse(local.bootstrap["test_user"]["party"].as_str().unwrap()).unwrap();
+        let user =
+            KernelId::parse(local.bootstrap["test_user"]["party"].as_str().unwrap()).unwrap();
         let (root, _) = local.root();
         let stranger = KernelId([7; 16]);
         let domain = local.domain("acme");

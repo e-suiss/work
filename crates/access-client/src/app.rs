@@ -24,8 +24,8 @@ use crate::domain::exercise::{
     ExerciseId, Expected, Intent, VerifiedExercise, verify_agency, verify_exercise,
 };
 use crate::domain::keys::{
-    ACCEPT_COSE, ActorKind, AsOf, DomainId, EXCERPT_HEADER, KernelId, KeyAnswer, Kid, MAX_KIDS, batch_body,
-    etag_position, verify_answer,
+    ACCEPT_COSE, ActorKind, AsOf, DomainId, EXCERPT_HEADER, KernelId, KeyAnswer, Kid, MAX_KIDS,
+    batch_body, etag_position, verify_answer,
 };
 use crate::domain::metadata::{DomainMetadata, unverified_payload, verify_metadata};
 use crate::domain::parties::{
@@ -560,9 +560,9 @@ impl<T: Transport, C: Clock> Client<T, C> {
         let answer = self.transport.send(request).await?;
         let body = match answer.ok() {
             Ok(body) => body,
-            Err(AccessError::Refused { status: 404, code, .. })
-                if asked.len() == 1 && code == PARTY_UNKNOWN =>
-            {
+            Err(AccessError::Refused {
+                status: 404, code, ..
+            }) if asked.len() == 1 && code == PARTY_UNKNOWN => {
                 return Ok(None);
             }
             Err(e) => return Err(e),

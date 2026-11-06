@@ -128,8 +128,9 @@ pub fn verify_answer(
         return Err(answer("parties"));
     }
     for p in &out.parties {
-        let ordered =
-            p.since.pos <= out.pos && p.ended.is_none_or(|e| e.pos <= out.pos && e.pos >= p.since.pos);
+        let ordered = p.since.pos <= out.pos
+            && p.ended
+                .is_none_or(|e| e.pos <= out.pos && e.pos >= p.since.pos);
         if !ordered {
             return Err(answer("party_state"));
         }
