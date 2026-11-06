@@ -22,7 +22,9 @@ use rustls::{ClientConfig, RootCertStore};
 use serde_json::{Map, Value, json};
 use sha2::{Digest as _, Sha256};
 use suiss_crypto::secret::Secret;
-use work_access_client::adapters::{DEFAULT_TIMEOUT, HttpsTransport, PEP_LABEL, PepCredential};
+use work_access_client::adapters::{
+    DEFAULT_TIMEOUT, HttpsTransport, PEP_LABEL, PepCredential, public_config,
+};
 use work_access_client::app::{
     Client, DIRECTORY_MAX_AGE_MS, DISCOVERY_INTERVAL_MS, Looked, REALM_KEYS_MAX_AGE_MS,
 };
@@ -40,7 +42,7 @@ use work_access_client::ports::{Clock, Request, Response, Transport};
 use work_proto::id::TenantId;
 
 const ACCESS: &str = "https://access-server:8443";
-const REGION: &str = "local";
+const REGION: &str = "eu";
 const TOKEN: &str = "work-dev";
 const PIN: &str = "1234";
 const DAY_MS: u64 = 86_400_000;
@@ -915,4 +917,36 @@ async fn e_38_without_access_the_known_realms_last_only_their_bound() {
     now.fetch_add(DIRECTORY_MAX_AGE_MS, Ordering::SeqCst);
     let error = client.realm_of(acme.as_str()).await.unwrap_err();
     assert_eq!(error.code(), "authority_unverifiable");
+}
+
+// T-99 T-96 E-2
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs the local environment with Relay"]
+async fn t_99_relay_is_found_through_access_and_names_its_own_access_client() {
+    let local = Local::open();
+    let pep = local.pep();
+    let client = local.client(&pep, "platform");
+    let doc = client.discover().await.unwrap();
+    assert_eq!(doc.relay.as_str(), "https://relay");
+    let relay = HttpsTransport::new(public_config(local.roots()).unwrap(), DEFAULT_TIMEOUT);
+    let found = client.relay(&relay, "2026-11-01").await.unwrap();
+    assert_eq!(found.issuer, doc.relay);
+    assert_eq!(found.api_base, "https://relay/v1");
+    assert_eq!(found.events_endpoint, "https://relay/v1/events");
+    let client_of = |product: &str| {
+        local.bootstrap["clients"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|c| c["product"] == product)
+            .map(|c| c["client_id"].as_str().unwrap().to_owned())
+            .unwrap()
+    };
+    assert_eq!(found.access_client_id, client_of("relay"));
+    assert_ne!(found.access_client_id, client_of("work"));
+    assert!(found.capabilities.contains("urn:suiss:relay:events:1"));
+    assert_eq!(
+        client.relay(&relay, "2026-10-01").await.unwrap_err(),
+        AccessError::ContractVersion("2026-10-01".to_owned())
+    );
 }

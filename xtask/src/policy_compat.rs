@@ -254,9 +254,17 @@ fn repository(image: &str) -> &str {
 }
 
 /// Problems of one service that runs a Suiss product image.
-fn product_service(name: &str, service: &Node, product: &str, p: &Product) -> Vec<Violation> {
+fn product_service(
+    name: &str,
+    service: &Node,
+    product: &str,
+    p: &Product,
+    built_from: Option<&String>,
+) -> Vec<Violation> {
     let mut out = Vec::new();
-    let image = service_image(service);
+    let image = built_from
+        .cloned()
+        .unwrap_or_else(|| service_image(service));
     let profiles = service
         .get("profiles")
         .map(Node::scalars)
@@ -294,6 +302,17 @@ fn product_service(name: &str, service: &Node, product: &str, p: &Product) -> Ve
 /// Compose problems against `compat.toml`: the `access` and `relay` services and
 /// every other service whose image is the Access or Relay repository.
 pub(crate) fn compose_violations(c: &Compat, compose: &str) -> Vec<Violation> {
+    compose_violations_built(c, compose, &BTreeMap::new())
+}
+
+/// As [`compose_violations`], with `built` naming the base image of each service that builds a
+/// local image: such a service runs the product as pinned when its Dockerfile starts from the
+/// pinned image (T-51, T-56: the local Relay adds SoftHSM to the pinned image).
+pub(crate) fn compose_violations_built(
+    c: &Compat,
+    compose: &str,
+    built: &BTreeMap<String, String>,
+) -> Vec<Violation> {
     let doc = yaml::parse(compose);
     let services = doc
         .get("services")
@@ -310,7 +329,7 @@ pub(crate) fn compose_violations(c: &Compat, compose: &str) -> Vec<Violation> {
         for (name, service) in services.entries() {
             let image = service_image(service);
             if name == product || (!p.image.is_empty() && repository(&image) == p.image) {
-                out.extend(product_service(name, service, product, p));
+                out.extend(product_service(name, service, product, p, built.get(name)));
             }
         }
     }
@@ -352,11 +371,63 @@ pub(crate) fn check(root: &Path) -> Result<Vec<Violation>, String> {
         &read(&root.join("Cargo.lock"))?,
     )?);
     match read_optional(&root.join(COMPOSE_FILE))? {
-        Some(compose) => out.extend(compose_violations(&compat, &compose)),
+        Some(compose) => {
+            let built = built_from(root, &compose)?;
+            out.extend(compose_violations_built(&compat, &compose, &built));
+        }
         None => out.push(v(
             COMPOSE_FILE,
             "the local compose environment is missing (T-51)".to_owned(),
         )),
+    }
+    Ok(out)
+}
+
+/// The first `FROM` image of a Dockerfile.
+fn first_from(dockerfile: &str) -> Option<String> {
+    dockerfile.lines().find_map(|line| {
+        let mut words = line.split_whitespace();
+        if !words.next()?.eq_ignore_ascii_case("FROM") {
+            return None;
+        }
+        words.find(|w| !w.starts_with("--")).map(str::to_owned)
+    })
+}
+
+/// The base image of every compose service with a `build`, from its Dockerfile, which is read
+/// relative to the compose file.
+fn built_from(root: &Path, compose: &str) -> Result<BTreeMap<String, String>, String> {
+    let doc = yaml::parse(compose);
+    let base = root.join(COMPOSE_FILE);
+    let dir = base.parent().unwrap_or(root);
+    let mut out = BTreeMap::new();
+    if let Some(services) = doc.get("services") {
+        for (name, service) in services.entries() {
+            let Some(build) = service.get("build") else {
+                continue;
+            };
+            let (context, file) = match build.as_str() {
+                Some(context) => (context.to_owned(), "Dockerfile".to_owned()),
+                None => (
+                    build
+                        .get("context")
+                        .and_then(Node::as_str)
+                        .unwrap_or(".")
+                        .to_owned(),
+                    build
+                        .get("dockerfile")
+                        .and_then(Node::as_str)
+                        .unwrap_or("Dockerfile")
+                        .to_owned(),
+                ),
+            };
+            let path = dir.join(&context).join(&file);
+            if let Some(text) = read_optional(&path)?
+                && let Some(from) = first_from(&text)
+            {
+                out.insert(name.clone(), from);
+            }
+        }
     }
     Ok(out)
 }
@@ -394,6 +465,40 @@ mod tests {
 
     fn compat(text: &str) -> Compat {
         toml::from_str(text).unwrap()
+    }
+
+    // T-51 T-56
+    #[test]
+    fn t_51_a_local_build_runs_the_product_only_from_its_pinned_image() {
+        let pinned = UNPUBLISHED
+            .replace(
+                "[relay]\nstatus = \"unpublished\"\nversion = \"\"",
+                "[relay]\nstatus = \"build\"\nversion = \"sha-6b4a276\"",
+            )
+            .replace(
+                "image = \"ghcr.io/e-suiss/relay\"\ndigest = \"\"",
+                &format!("image = \"ghcr.io/e-suiss/relay\"\ndigest = \"{DIGEST}\""),
+            );
+        let c = compat(&pinned);
+        let mut text = String::from("services:\n");
+        for name in REQUIRED_SERVICES {
+            let _ = write!(text, "  {name}:\n    image: x/{name}@{DIGEST}\n");
+        }
+        text.push_str(
+            "  access:\n    image: ghcr.io/e-suiss/access:unpublished\n    profiles: [access]\n",
+        );
+        text.push_str("  relay:\n    build: ./relay\n    image: work-dev/relay:local\n");
+        let from = |image: &str| BTreeMap::from([("relay".to_owned(), image.to_owned())]);
+        let good = from(&format!("ghcr.io/e-suiss/relay@{DIGEST}"));
+        assert!(compose_violations_built(&c, &text, &good).is_empty());
+        let stale = from("ghcr.io/e-suiss/relay:main");
+        assert_eq!(compose_violations_built(&c, &text, &stale).len(), 1);
+        assert_eq!(compose_violations(&c, &text).len(), 1);
+        assert_eq!(
+            first_from("# x\nFROM --platform=linux/amd64 base@sha256:aa AS b\nFROM other\n")
+                .as_deref(),
+            Some("base@sha256:aa")
+        );
     }
 
     // T-51 T-40

@@ -49,7 +49,7 @@ use work_access_client::ports::Clock;
 use work_kernel::id::{Digest, LedgerId, WorkId};
 use work_proto::id::ExternalId as _;
 
-const REGION: &str = "local";
+const REGION: &str = "eu";
 const TOKEN: &str = "work-dev";
 const PIN: &str = "1234";
 const WORK: &str = "http://127.0.0.1:8190";

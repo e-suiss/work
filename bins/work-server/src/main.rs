@@ -17,7 +17,7 @@ use std::sync::Arc;
 
 use config::Config;
 use services::Services;
-use startup::{AccessLink, Infrastructure, TimeDriver};
+use startup::{AccessLink, Infrastructure, RelayLink, TimeDriver};
 use tokio::sync::watch;
 use work_http::common::TraceIds;
 use work_http::inbound::{self as entry, Receiver};
@@ -127,17 +127,32 @@ async fn run(config: &Config) -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    let services = match Services::start(config, &infrastructure, time.clock()) {
-        Ok(services) => services,
+    let relay = match RelayLink::start(config, &access.client).await {
+        Ok(relay) => relay,
         Err(error) => {
-            tracing::error!(event = "server.start_refused", %error, "services do not start");
+            tracing::error!(event = "server.start_refused", %error, "Relay refuses the start");
             access.stop();
             time.stop();
             infrastructure.close(config.startup_timeout()).await;
             return ExitCode::FAILURE;
         }
     };
-    let health = services.health(&infrastructure, Arc::clone(&access.up));
+    let services = match Services::start(config, &infrastructure, time.clock()) {
+        Ok(services) => services,
+        Err(error) => {
+            tracing::error!(event = "server.start_refused", %error, "services do not start");
+            relay.stop();
+            access.stop();
+            time.stop();
+            infrastructure.close(config.startup_timeout()).await;
+            return ExitCode::FAILURE;
+        }
+    };
+    let health = services.health(
+        &infrastructure,
+        Arc::clone(&access.up),
+        Arc::clone(&relay.up),
+    );
     let receiver: Arc<dyn Receiver> = Arc::new(AccessReceiver::new(
         Arc::clone(&access.client),
         services.pairer(),
@@ -157,6 +172,7 @@ async fn run(config: &Config) -> ExitCode {
     );
     let served = serve(config, routes, health::router(health), receiver).await;
     services.stop().await;
+    relay.stop();
     access.stop();
     time.stop();
     infrastructure.close(config.startup_timeout()).await;

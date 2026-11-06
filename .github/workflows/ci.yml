@@ -454,6 +454,7 @@ jobs:
             "$RUNNER_TEMP/softhsm/tokens" > "$RUNNER_TEMP/softhsm/softhsm2.conf"
           echo "SOFTHSM2_CONF=$RUNNER_TEMP/softhsm/softhsm2.conf" >> "$GITHUB_ENV"
           echo "127.0.0.1 access-server" | sudo tee -a /etc/hosts
+          echo "127.0.0.1 relay" | sudo tee -a /etc/hosts
       - name: Local environment starts (T-41, T-51, T-56, T-57)
         run: just dev
       - name: Free the image build cache
@@ -480,7 +481,7 @@ jobs:
         run: |
           for _ in $(seq 1 60); do curl -s -o /dev/null http://127.0.0.1:7072/ && break; sleep 1; done
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:7072/)" != "000"
-      - name: Access and Relay answer (T-51, E-2, MD-3)
+      - name: Access and Relay answer, Relay at the suiss_relay Access names with its own Access client (T-51, E-2, MD-3, T-99)
         run: |
           c() { docker compose -f deploy/compose/compose.yaml "$@"; }
           c exec -T access cat /var/lib/access/certs/ca.crt > "$RUNNER_TEMP/access-ca.crt"
@@ -489,6 +490,8 @@ jobs:
           c exec -T access cat /var/lib/access/bootstrap/bootstrap.json | grep -q '"product": *"work"'
           for _ in $(seq 1 60); do curl -fsS http://127.0.0.1:4010/readyz >/dev/null 2>&1 && break; sleep 1; done
           curl -fsS http://127.0.0.1:4010/readyz
+          relay_client="$(c exec -T access cat /var/lib/access/bootstrap/bootstrap.json | jq -er '.clients[] | select(.product == "relay") | .client_id')"
+          curl -fsS --cacert "$RUNNER_TEMP/access-ca.crt" https://relay/.well-known/relay-configuration | jq -e --arg id "$relay_client" '.issuer == "https://relay" and .access_client_id == $id and .region == "eu"'
       - name: Server is live and ready with the signer, reads Access's discovery over the access network and runs a Roughtime round (T-39, T-72, OP-43, T-96, E-2)
         run: |
           c() { docker compose -f deploy/compose/compose.yaml "$@"; }
@@ -498,6 +501,9 @@ jobs:
           curl -fsS http://127.0.0.1:8191/metrics | grep -qx 'work_ready 1'
           curl -fsS http://127.0.0.1:8191/metrics | grep -qx 'work_dependency_up{dependency="signer"} 1'
           curl -fsS http://127.0.0.1:8191/metrics | grep -qx 'work_dependency_up{dependency="access"} 1'
+          curl -fsS http://127.0.0.1:8191/metrics | grep -qx 'work_dependency_up{dependency="relay"} 1'
+          relay_client="$(c exec -T access cat /var/lib/access/bootstrap/bootstrap.json | jq -er '.clients[] | select(.product == "relay") | .client_id')"
+          c logs work-server | grep 'relay.discovered' | grep '"issuer":"https://relay"' | grep -q "\"access_client_id\":\"$relay_client\""
           c logs work-server | grep 'access.discovered' | grep -q 'https://access-server:8443/realms/platform'
           for _ in $(seq 1 60); do c logs work-server | grep -q 'ledger_time.roughtime_round' && break; sleep 1; done
           c logs work-server | grep 'ledger_time.roughtime_round' | grep -q '3'
@@ -679,7 +685,7 @@ jobs:
           if c logs work-server | grep -q 'access.event_refused'; then c logs work-server | grep 'access.event_refused'; exit 1; fi
       - name: Logs on failure
         if: failure()
-        run: docker compose -f deploy/compose/compose.yaml logs --no-color --tail 200 work-access-keys work-access-pep work-server-tls work-access-client-id work-migrate access-init access-migrate access-bootstrap access-signer access-identity-signer access relay relay-migrate nts-a nts-b roughtime-a roughtime-b roughtime-c s3 witness work-signer work-server
+        run: docker compose -f deploy/compose/compose.yaml logs --no-color --tail 200 work-access-keys work-access-pep work-server-tls work-access-client-id work-migrate access-init access-migrate access-bootstrap access-signer access-identity-signer access relay-keys relay-init relay nts-a nts-b roughtime-a roughtime-b roughtime-c s3 witness work-signer work-server
       - name: Stop
         if: always()
         run: just dev-down

@@ -182,7 +182,7 @@ dev:
     @echo "Jaeger         http://127.0.0.1:${WORK_DEV_JAEGER_UI_PORT:-16696}   Prometheus http://127.0.0.1:${WORK_DEV_PROMETHEUS_PORT:-9099}"
     @echo "OTLP           127.0.0.1:${WORK_DEV_OTLP_GRPC_PORT:-4327} (gRPC), 127.0.0.1:${WORK_DEV_OTLP_HTTP_PORT:-4328} (HTTP)"
     @echo "Access         https://access-server:8443 on 127.0.0.1:8443  (CA, PEP certificate and bootstrap.json: just dev-access <dir>)"
-    @echo "Relay          http://127.0.0.1:${WORK_DEV_RELAY_PORT:-4010}"
+    @echo "Relay          https://relay on 127.0.0.1:443, node http://127.0.0.1:${WORK_DEV_RELAY_PORT:-4010}"
     @echo "Witness        http://127.0.0.1:${WORK_DEV_WITNESS_PORT:-7390}  (litewitness, C2SP tlog-witness)"
     @echo "Work server    http://127.0.0.1:${WORK_DEV_SERVER_PORT:-8190}  (health http://127.0.0.1:${WORK_DEV_SERVER_INTERNAL_PORT:-8191}/readyz, signer socket in volume signer-socket)"
 
@@ -217,7 +217,7 @@ dev-migrate:
 
 # T-41
 db-reset:
-    {{compose}} rm --stop --force relay relay-migrate access work-postgres
+    {{compose}} rm --stop --force relay relay-init access work-postgres
     docker volume rm --force work-dev_pgdata
     just dev
     just dev-migrate

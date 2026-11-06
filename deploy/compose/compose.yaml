@@ -19,6 +19,58 @@ x-access-process: &access-process
   tmpfs:
     - /tmp:uid=65532,gid=65532
 
+# T-51, T-56
+x-relay-process: &relay-process
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  platform: linux/amd64
+  user: "65532:65532"
+  read_only: true
+  tmpfs:
+    - /tmp:uid=65532,gid=65532
+    - /app/tmp:uid=65532,gid=65532
+  secrets:
+    - source: relay_db_password
+      target: /run/secrets/relay-db-password
+    - source: relay_s3_secret
+      target: /run/secrets/relay-s3-secret
+    - source: relay_secret_key_base
+      target: /run/secrets/relay-secret-key-base
+    - source: relay_hsm_pin
+      target: /run/secrets/relay-hsm-pin
+
+# T-51, T-56, T-99, MD-3
+x-relay-env: &relay-env
+  RELAY_HOST: relay
+  RELAY_ROLES: api,worker,socket
+  RELAY_ACCESS_ISSUER: https://access-server:8443/realms/platform
+  LOCAL_ACCESS_CLIENT_FILE: /run/relay-access/client_id
+  PORT: "4000"
+  METRICS_PORT: "9568"
+  POOL_SIZE: "5"
+  DATABASE_URL: ecto://relay_worker@work-postgres:5432/relay
+  DATABASE_PASSWORD_FILE: /run/secrets/relay-db-password
+  QUEUE_DATABASE_URL: ecto://relay_queue@work-postgres:5432/relay
+  QUEUE_DATABASE_PASSWORD_FILE: /run/secrets/relay-db-password
+  MAINT_DATABASE_URL: ecto://relay_maint@work-postgres:5432/relay
+  MAINT_DATABASE_PASSWORD_FILE: /run/secrets/relay-db-password
+  VALKEY_URL: redis://valkey:6379
+  SECRET_KEY_BASE_FILE: /run/secrets/relay-secret-key-base
+  PKCS11_MODULE: /usr/lib/softhsm/libsofthsm2.so
+  PKCS11_TOKEN: relay-dev
+  PKCS11_PIN_FILE: /run/secrets/relay-hsm-pin
+  KEY_STORE_KEK_LABEL: relay-kek
+  KEY_STORE_FINGERPRINT_LABEL: relay-fingerprint
+  KEY_STORE_CURSOR_LABEL: relay-cursor
+  AUDIT_S3_ENDPOINT: http://s3:7070
+  AUDIT_S3_BUCKET: relay-audit
+  AUDIT_S3_REGION: us-east-1
+  AUDIT_S3_ACCESS_KEY_ID: work-dev
+  AUDIT_S3_SECRET_ACCESS_KEY_FILE: /run/secrets/relay-s3-secret
+
+# T-99, T-96, E-4
+x-access-suiss: &access-suiss '{region="eu", relay="https://relay", management_api="https://access-server:8443", products={work="https://work:8443"}}'
+
 
 services:
   # T-20, T-36, T-51
@@ -217,6 +269,8 @@ services:
       roughtime-c:
         condition: service_started
       witness:
+        condition: service_healthy
+      relay:
         condition: service_healthy
 
   # OP-33, OP-46, T-41
@@ -430,7 +484,7 @@ services:
     image: ghcr.io/e-suiss/access@sha256:1f3eb33a2daa04868e6199c8e69d77a8d287add47d5a926e5911b879ad153859
     command: ["access-local-init"]
     environment:
-      ACCESS_LOCAL_PRODUCT_HOSTS: work-server
+      ACCESS_LOCAL_PRODUCT_HOSTS: work-server relay
     depends_on:
       access-volume-owners:
         condition: service_completed_successfully
@@ -488,6 +542,7 @@ services:
     command: ["access-server", "migrate"]
     environment:
       ACCESS_CONFIG: /etc/access/local/access.toml
+      ACCESS_SUISS: *access-suiss
     volumes:
       - access-certs:/var/lib/access/certs:ro
       - access-secrets:/var/lib/access/secrets:ro
@@ -635,6 +690,7 @@ services:
       - "access-server bootstrap /etc/work-access/bootstrap-work.toml > /var/lib/access/bootstrap/bootstrap.json && cat /var/lib/access/bootstrap/bootstrap.json"
     environment:
       ACCESS_CONFIG: /etc/access/local/access.toml
+      ACCESS_SUISS: *access-suiss
       ACCESS_DELIVERY_TARGETS: '[{url="https://work-server:8443/v1/inbound/events", ca_file="/var/lib/access/certs/ca.crt"}]'
       BOOTSTRAP_TEST_PASSWORD: ${ACCESS_LOCAL_TEST_PASSWORD:-local-only-not-a-secret}
     volumes:
@@ -646,6 +702,7 @@ services:
       - access-products:/etc/access/products:ro
       - ./access/bootstrap-work.toml:/etc/work-access/bootstrap-work.toml:ro
       - ./access/bootstrap-work-beta.toml:/etc/work-access/bootstrap-work-beta.toml:ro
+      - relay-access-keys:/etc/relay-access:ro
     depends_on:
       access-migrate:
         condition: service_completed_successfully
@@ -654,6 +711,8 @@ services:
       access-identity-signer:
         condition: service_healthy
       work-access-pep:
+        condition: service_completed_successfully
+      relay-keys:
         condition: service_completed_successfully
     networks: [access]
 
@@ -665,6 +724,7 @@ services:
     restart: unless-stopped
     environment:
       ACCESS_CONFIG: /etc/access/local/access.toml
+      ACCESS_SUISS: *access-suiss
       ACCESS_DELIVERY_TARGETS: '[{url="https://work-server:8443/v1/inbound/events", ca_file="/var/lib/access/certs/ca.crt"}]'
     volumes:
       - access-certs:/var/lib/access/certs:ro
@@ -702,64 +762,86 @@ services:
       timeout: 3s
       retries: 30
 
-  # T-51, T-16, MD-3
-  relay-migrate:
-    cap_drop: [ALL]
-    security_opt: ["no-new-privileges:true"]
-    image: ghcr.io/e-suiss/relay@sha256:6706e46030ed51e55ee208c8ab8d59f1c58dd17a04c4ba054f74f43210d6c3a1
-    platform: linux/amd64
-    read_only: true
-    tmpfs:
-      - /tmp:uid=10001,gid=10001
-      - /app/tmp:uid=10001,gid=10001
-    secrets:
-      - source: relay_db_password
-        target: /run/secrets/db-password
-    restart: "no"
-    command: ["eval", "Relay.Release.migrate()"]
+  # T-56, T-41, T-99
+  relay-keys:
+    <<: *relay-process
+    build: ./relay
+    image: work-dev/relay:local
+    entrypoint: ["/usr/local/bin/relay-keys"]
     environment:
-      DATABASE_PASSWORD_FILE: /run/secrets/db-password
-      POOL_SIZE: "5"
-      RELAY_HOST: localhost
-      PORT: "4000"
-      SECRET_KEY_BASE: local-only-not-a-secret-local-only-not-a-secret-local-only-not-a-secret
-      DATABASE_URL: ecto://relay_owner@work-postgres:5432/relay
+      <<: *relay-env
+      SOFTHSM_SO_PIN: "12345678"
+      LOCAL_ACCESS_KEYS: /var/lib/relay-access
+    volumes:
+      - relay-softhsm:/var/lib/softhsm/tokens
+      - relay-access-keys:/var/lib/relay-access
+
+  # T-51, T-16, T-36, OP-28, MD-3, T-99
+  relay-init:
+    <<: *relay-process
+    build: ./relay
+    image: work-dev/relay:local
+    entrypoint: ["/usr/local/bin/relay-init"]
+    environment:
+      <<: *relay-env
       RELAY_ROLES: worker
+      RELAY_REGION: eu
+      ADMIN_DATABASE_URL: ecto://postgres@work-postgres:5432/relay
+      ADMIN_DATABASE_PASSWORD_FILE: /run/secrets/relay-db-password
+      LOCAL_MIGRATOR_DATABASE_URL: ecto://relay_migrator@work-postgres:5432/relay
+      LOCAL_BOOTSTRAP: /var/lib/access/bootstrap/bootstrap.json
+      LOCAL_ACCESS_CA: /var/lib/access/product-tls/ca.crt
+      LOCAL_TRUST: /run/relay-trust
+    volumes:
+      - access-bootstrap:/var/lib/access/bootstrap:ro
+      - access-product-tls:/var/lib/access/product-tls:ro
+      - relay-trust:/run/relay-trust
+      - relay-access-client:/run/relay-access
     depends_on:
       work-postgres:
         condition: service_healthy
+      s3:
+        condition: service_started
+      access-bootstrap:
+        condition: service_completed_successfully
+      relay-keys:
+        condition: service_completed_successfully
+    networks: [default, access]
 
+  # T-51, T-16, MD-3, E-2, T-99, T-41
   relay:
-    cap_drop: [ALL]
-    security_opt: ["no-new-privileges:true"]
-    image: ghcr.io/e-suiss/relay@sha256:6706e46030ed51e55ee208c8ab8d59f1c58dd17a04c4ba054f74f43210d6c3a1
-    platform: linux/amd64
-    read_only: true
-    tmpfs:
-      - /tmp:uid=10001,gid=10001
-      - /app/tmp:uid=10001,gid=10001
-    secrets:
-      - source: relay_db_password
-        target: /run/secrets/db-password
+    <<: *relay-process
+    build: ./relay
+    image: work-dev/relay:local
     restart: unless-stopped
     command: ["start"]
     environment:
-      DATABASE_PASSWORD_FILE: /run/secrets/db-password
-      POOL_SIZE: "5"
-      RELAY_HOST: localhost
-      PORT: "4000"
-      SECRET_KEY_BASE: local-only-not-a-secret-local-only-not-a-secret-local-only-not-a-secret
-      DATABASE_URL: ecto://relay_app@work-postgres:5432/relay
-      RELAY_ROLES: api,worker,socket
+      <<: *relay-env
+      LOCAL_TLS_CERT: /var/lib/access/product-tls/relay.crt
+      LOCAL_TLS_KEY: /var/lib/access/product-tls/relay.key
+    sysctls:
+      net.ipv4.ip_unprivileged_port_start: 0
+    volumes:
+      - relay-softhsm:/var/lib/softhsm/tokens
+      - relay-trust:/etc/ssl/certs:ro
+      - relay-access-client:/run/relay-access:ro
+      - access-product-tls:/var/lib/access/product-tls:ro
     ports:
       - "127.0.0.1:${WORK_DEV_RELAY_PORT:-4010}:4000"
+      - "127.0.0.1:443:443"
     depends_on:
-      relay-migrate:
+      relay-init:
         condition: service_completed_successfully
       nats:
         condition: service_healthy
       valkey:
         condition: service_healthy
+    networks: [default, access]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:4000/readyz"]
+      interval: 2s
+      timeout: 3s
+      retries: 120
 
   valkey:
     <<: *hardening
@@ -793,6 +875,10 @@ volumes:
   access-products:
   access-product-tls:
   work-access-client:
+  relay-softhsm:
+  relay-access-keys:
+  relay-access-client:
+  relay-trust:
 
 networks:
   default:
@@ -801,5 +887,11 @@ networks:
 secrets:
   relay_db_password:
     file: ./relay/db-password
+  relay_s3_secret:
+    file: ./relay/s3-secret
+  relay_secret_key_base:
+    file: ./relay/secret-key-base
+  relay_hsm_pin:
+    file: ./relay/hsm-pin
   work_access_pin:
     file: ./work/access-pin

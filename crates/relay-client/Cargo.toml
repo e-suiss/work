@@ -17,7 +17,14 @@ thiserror = { workspace = true, features = ["std"] }
 tracing = { workspace = true, features = ["std"] }
 
 [dev-dependencies]
-tokio = { workspace = true, features = ["macros", "rt"] }
+bytes = { workspace = true, features = ["std"] }
+http = { workspace = true, features = ["std"] }
+http-body-util = { workspace = true }
+hyper = { workspace = true, features = ["client", "http1"] }
+hyper-util = { workspace = true, features = ["tokio"] }
+rustls = { workspace = true, features = ["aws_lc_rs", "std"] }
+tokio = { workspace = true, features = ["macros", "net", "rt", "rt-multi-thread", "time"] }
+tokio-rustls = { workspace = true }
 
 [lints]
 workspace = true

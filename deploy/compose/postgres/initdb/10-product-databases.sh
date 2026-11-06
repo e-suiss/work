@@ -47,6 +47,17 @@ SQL
     psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname work_derived -f "$bootstrap/derived.sql"
 }
 
+create_relay_logins() {
+    for role in relay_migrator relay_worker relay_queue relay_maint; do
+        psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname postgres \
+            -v role="$role" -v password="$RELAY_APP_PASSWORD" <<'SQL'
+CREATE ROLE :"role" LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS
+    PASSWORD :'password';
+SQL
+    done
+}
+
 create_work
 create_product access "$ACCESS_OWNER_PASSWORD" "$ACCESS_APP_PASSWORD"
 create_product relay "$RELAY_OWNER_PASSWORD" "$RELAY_APP_PASSWORD"
+create_relay_logins

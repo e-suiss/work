@@ -28,11 +28,13 @@ use work_access_client::adapters::{
     DEFAULT_TIMEOUT, HttpsTransport, PEP_LABEL, PepCredential, public_config, roots, server_config,
 };
 use work_access_client::app::{Client, DISCOVERY_INTERVAL_MS};
+use work_access_client::domain::AccessError;
 use work_access_client::ports::Clock as AccessClockPort;
 use work_ledger::SystemRng;
 use work_ledger::time::{
     LedgerTime, NTS_EVENT_QUEUE, ProcessMonotonic, RoughtimeUdp, read_roots, spawn_nts,
 };
+use work_relay_client::RELAY_VERSION;
 use work_store::{
     AccessPool, CheckpointerPool, DeriverPool, Pool, PublisherPool, SequencerPool, StoreError,
 };
@@ -78,6 +80,8 @@ pub(crate) enum StartupError {
     Config(String),
     #[error("access: {0}")]
     Access(String),
+    #[error("relay: {0}")]
+    Relay(String),
 }
 
 /// Ledger time as the Access client reads it; while ledger time is unavailable the client is at
@@ -202,6 +206,113 @@ impl AccessLink {
     /// Stops the refresh.
     pub(crate) fn stop(self) {
         self.refresh.abort();
+    }
+}
+
+/// Whether a failed read of Relay's discovery document refuses start: Relay answered with a
+/// document that fails its checks (T-99 items 1, 3). An outage, or an Access whose discovery is
+/// not read yet, is a delay (T-28).
+pub(crate) const fn relay_refuses_start(error: &AccessError) -> bool {
+    matches!(
+        error,
+        AccessError::Document(_)
+            | AccessError::Issuer(_)
+            | AccessError::Region(_)
+            | AccessError::ContractVersion(_)
+            | AccessError::Capability(_)
+            | AccessError::Endpoint(_)
+    )
+}
+
+/// Whether Relay's discovery document last answered and passed its checks, and the task that
+/// reads it again every [`DISCOVERY_INTERVAL_MS`] (T-99 items 1-3, E-2, MD-3): Relay is found
+/// through the `suiss_relay` of Access's discovery, over the same roots and without a client
+/// certificate.
+#[derive(Debug)]
+pub(crate) struct RelayLink {
+    pub(crate) up: Arc<AtomicBool>,
+    refresh: JoinHandle<()>,
+}
+
+impl RelayLink {
+    /// Reads Relay's discovery once. A document that fails its checks stops the process; a
+    /// Relay that does not answer only lowers the `relay` gauge until a later read answers.
+    pub(crate) async fn start(
+        config: &Config,
+        access: &Arc<AccessClient>,
+    ) -> Result<Self, StartupError> {
+        let refused = |e: &dyn std::fmt::Display| StartupError::Relay(e.to_string());
+        let (_, _, pem) = config.access().map_err(|e| refused(&e))?;
+        let tls = public_config(roots(&pem).map_err(|e| refused(&e))?).map_err(|e| refused(&e))?;
+        let transport = HttpsTransport::new(tls, DEFAULT_TIMEOUT);
+        let up = Arc::new(AtomicBool::new(false));
+        if read_relay(access, &transport, &up).await? {
+            up.store(true, Ordering::Relaxed);
+        }
+        let refresh = tokio::spawn(rediscover_relay(
+            Arc::clone(access),
+            transport,
+            Arc::clone(&up),
+        ));
+        Ok(Self { up, refresh })
+    }
+
+    /// Stops the refresh.
+    pub(crate) fn stop(self) {
+        self.refresh.abort();
+    }
+}
+
+async fn read_relay(
+    access: &AccessClient,
+    transport: &HttpsTransport,
+    up: &AtomicBool,
+) -> Result<bool, StartupError> {
+    match access.relay(transport, RELAY_VERSION).await {
+        Ok(doc) => {
+            tracing::info!(
+                event = "relay.discovered",
+                issuer = doc.issuer.as_str(),
+                access_client_id = doc.access_client_id.as_str(),
+                events_endpoint = doc.events_endpoint.as_str(),
+                "Relay discovery read"
+            );
+            Ok(true)
+        }
+        Err(error) if relay_refuses_start(&error) => Err(StartupError::Relay(error.to_string())),
+        Err(error) => {
+            up.store(false, Ordering::Relaxed);
+            tracing::warn!(
+                event = "relay.unreachable",
+                %error,
+                "Relay's discovery is not read; intents wait in the outbox"
+            );
+            Ok(false)
+        }
+    }
+}
+
+async fn rediscover_relay(
+    access: Arc<AccessClient>,
+    transport: HttpsTransport,
+    up: Arc<AtomicBool>,
+) {
+    let mut ticks = tokio::time::interval(Duration::from_millis(DISCOVERY_INTERVAL_MS));
+    ticks.set_missed_tick_behavior(MissedTickBehavior::Delay);
+    ticks.tick().await;
+    loop {
+        ticks.tick().await;
+        match read_relay(&access, &transport, &up).await {
+            Ok(answered) => up.store(answered, Ordering::Relaxed),
+            Err(error) => {
+                up.store(false, Ordering::Relaxed);
+                tracing::error!(
+                    event = "relay.refused",
+                    %error,
+                    "Relay's discovery fails its checks; the last document is kept"
+                );
+            }
+        }
     }
 }
 
@@ -461,6 +572,29 @@ async fn nats(url: &str, limit: Duration) -> Result<async_nats::Client, StartupE
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // T-99 E-2 T-28
+    #[test]
+    fn t_99_a_relay_document_that_fails_its_checks_refuses_start_and_an_outage_does_not() {
+        for error in [
+            AccessError::Document("relay-configuration access_client_id"),
+            AccessError::Issuer("relay-configuration"),
+            AccessError::Region("relay-configuration"),
+            AccessError::ContractVersion(RELAY_VERSION.to_owned()),
+            AccessError::Capability("urn:suiss:relay:events:1".to_owned()),
+            AccessError::Endpoint("events_endpoint".to_owned()),
+        ] {
+            assert!(relay_refuses_start(&error), "{error}");
+        }
+        for error in [
+            AccessError::Timeout,
+            AccessError::Transport("connection refused".to_owned()),
+            AccessError::Unavailable { reason: None },
+            AccessError::Unserved(work_access_client::domain::discovery::Endpoint::Adp),
+        ] {
+            assert!(!relay_refuses_start(&error), "{error}");
+        }
+    }
 
     // T-20 MD-14 T-93
     #[test]

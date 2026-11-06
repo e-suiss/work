@@ -2,7 +2,7 @@
 
 [suiss]
 access = "https://access-server:8443/realms/platform"
-region = "local"
+region = "eu"
 tls_roots = "/var/lib/access/product-tls/ca.crt"
 
 [access]

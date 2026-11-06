@@ -2239,6 +2239,8 @@ title = ""
 tests = [
   "bins/work-server/src/config.rs::op_9_the_node_leads_in_the_configured_cell_under_a_ten_second_lease",
   "bins/work-server/src/health.rs::t_96_an_access_outage_raises_its_alarm_and_keeps_readiness",
+  "bins/work-server/src/health.rs::t_99_a_relay_outage_raises_its_alarm_and_keeps_readiness",
+  "bins/work-server/src/startup.rs::t_99_a_relay_document_that_fails_its_checks_refuses_start_and_an_outage_does_not",
   "crates/access-client/src/domain/discovery.rs::t_96_a_stale_discovery_refuses_consequential_actions",
   "crates/access-client/src/domain/token/tests.rs::e_7_a_token_signed_by_the_realm_key_names_the_pairwise_subject_of_its_client",
   "crates/access-client/src/ports.rs::t_101_a_signer_without_its_key_is_a_temporary_outage_not_a_refusal",

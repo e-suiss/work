@@ -249,7 +249,7 @@ impl<T: Transport, K: Credential, R: Recipients, I: Intents> Deliverer<T, K, R, 
                         event = "relay.waiting",
                         key = intent.key().as_str(),
                         code = wait.code(),
-                        detail = wait.detail().as_str(),
+                        detail = %wait.detail(),
                         "the intent stays in the outbox"
                     );
                     stopped = true;

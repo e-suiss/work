@@ -1344,6 +1344,7 @@ stage = 3
 title = ""
 tests = [
   "bins/work-server/src/config.rs::t_96_refuses_to_start_without_the_access_setting",
+  "bins/work-server/src/startup.rs::t_99_a_relay_document_that_fails_its_checks_refuses_start_and_an_outage_does_not",
 ]
 
 [[rule]]
@@ -1538,6 +1539,7 @@ status = "frozen-product"
 stage = 3
 title = ""
 tests = [
+  "bins/work-server/src/health.rs::t_99_a_relay_outage_raises_its_alarm_and_keeps_readiness",
   "crates/access-client/src/domain/discovery.rs::t_96_a_stale_discovery_refuses_consequential_actions",
   "crates/http/src/reads.rs::t_28_no_caller_is_401_with_the_dpop_challenge_and_an_unverifiable_one_503",
   "crates/query/src/app/caller.rs::e_38_when_access_does_not_answer_no_caller_is_named",
@@ -5311,6 +5313,7 @@ acceptance = "filled"
 title = "compat.toml pins Access, Relay and shared crates for one local compose file"
 tests = [
   "xtask/src/policy_compat.rs::t_40_malformed_compat_rows_are_rejected",
+  "xtask/src/policy_compat.rs::t_51_a_local_build_runs_the_product_only_from_its_pinned_image",
   "xtask/src/policy_compat.rs::t_51_every_service_running_a_product_image_matches_compat",
   "xtask/src/policy_compat.rs::t_51_main_builds_are_pinned_by_digest_with_a_commit_reference",
   "xtask/src/policy_compat.rs::t_51_published_access_image_must_match_the_compat_digest",
@@ -5398,6 +5401,7 @@ tests = [
   "crates/ledger/src/body/tests.rs::op_45_kek_labels_name_the_ledger_and_the_version",
   "crates/ledger/src/body/tests.rs::op_45_rotation_rewraps_a_class_dek_under_the_next_kek_version",
   "crates/ledger/src/body/tests.rs::op_45_the_ledger_kek_never_leaves_the_token",
+  "xtask/src/policy_compat.rs::t_51_a_local_build_runs_the_product_only_from_its_pinned_image",
   "xtask/src/policy_compat.rs::t_56_kms_emulator_bundle_and_missing_services_are_rejected",
 ]
 
@@ -6092,6 +6096,8 @@ status = "frozen-technical"
 acceptance = "filled"
 title = ""
 tests = [
+  "bins/work-server/src/health.rs::t_99_a_relay_outage_raises_its_alarm_and_keeps_readiness",
+  "bins/work-server/src/startup.rs::t_99_a_relay_document_that_fails_its_checks_refuses_start_and_an_outage_does_not",
   "crates/access-client/src/domain/relay.rs::t_99_a_relay_document_of_another_access_refuses_start",
   "crates/access-client/src/domain/relay.rs::t_99_a_relay_document_whose_issuer_is_not_suiss_relay_refuses_start",
   "crates/access-client/src/domain/relay.rs::t_99_a_relay_document_without_its_access_client_refuses_start",

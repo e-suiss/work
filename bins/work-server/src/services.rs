@@ -187,11 +187,13 @@ impl Services {
         self.pairer.clone()
     }
 
-    /// What the health endpoints look at, with whether Access's discovery last answered.
+    /// What the health endpoints look at, with whether Access's and Relay's discovery last
+    /// answered.
     pub(crate) fn health(
         &self,
         infrastructure: &Infrastructure,
         access: Arc<AtomicBool>,
+        relay: Arc<AtomicBool>,
     ) -> Health {
         Health {
             canonical: infrastructure.canonical.clone(),
@@ -201,6 +203,7 @@ impl Services {
             ledgers: Arc::clone(&self.ledgers),
             checkpoints: Arc::clone(&self.checkpoints),
             access,
+            relay,
             pairing: Arc::clone(&self.pairing),
         }
     }

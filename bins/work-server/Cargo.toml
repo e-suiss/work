@@ -20,6 +20,7 @@ work-parse = { workspace = true }
 work-proto = { workspace = true }
 work-query = { workspace = true }
 work-reconciler = { workspace = true }
+work-relay-client = { workspace = true }
 work-store = { workspace = true }
 work-telemetry = { workspace = true }
 async-nats = { workspace = true, features = ["jetstream"] }

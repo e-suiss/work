@@ -37,6 +37,8 @@ pub(crate) struct Health {
     pub(crate) checkpoints: Arc<CheckpointStats>,
     /// Whether the last Access discovery answered (T-96 item 2).
     pub(crate) access: Arc<AtomicBool>,
+    /// Whether the last Relay discovery answered (T-99 item 1).
+    pub(crate) relay: Arc<AtomicBool>,
     pub(crate) pairing: Arc<PairingStats>,
 }
 
@@ -52,6 +54,7 @@ pub(crate) struct Probes {
     pub(crate) signer: bool,
     pub(crate) nats: bool,
     pub(crate) access: bool,
+    pub(crate) relay: bool,
 }
 
 impl Probes {
@@ -108,6 +111,7 @@ pub(crate) fn exposition(probes: Probes, counts: Counts) -> String {
          work_dependency_up{{dependency=\"signer\"}} {}\n\
          work_dependency_up{{dependency=\"nats\"}} {}\n\
          work_dependency_up{{dependency=\"access\"}} {}\n\
+         work_dependency_up{{dependency=\"relay\"}} {}\n\
          # HELP work_ledgers_led Ledgers this process leads.\n\
          # TYPE work_ledgers_led gauge\n\
          work_ledgers_led {}\n\
@@ -138,6 +142,7 @@ pub(crate) fn exposition(probes: Probes, counts: Counts) -> String {
         gauge(probes.signer),
         gauge(probes.nats),
         gauge(probes.access),
+        gauge(probes.relay),
         counts.ledgers_led,
         counts.checkpoints_stored,
         counts.checkpoint_failures,
@@ -173,6 +178,7 @@ impl Health {
             signer,
             nats: self.nats.connection_state() == async_nats::connection::State::Connected,
             access: self.access.load(Ordering::Relaxed),
+            relay: self.relay.load(Ordering::Relaxed),
         }
     }
 
@@ -238,6 +244,7 @@ mod tests {
         signer: true,
         nats: true,
         access: true,
+        relay: true,
     };
 
     const NONE: Counts = Counts {
@@ -300,6 +307,24 @@ mod tests {
         );
         assert!(text.contains("\nwork_ready 1\n"), "{text}");
         assert!(exposition(ALL, NONE).contains("work_dependency_up{dependency=\"access\"} 1\n"));
+    }
+
+    // T-99 T-28 E-38
+    #[test]
+    fn t_99_a_relay_outage_raises_its_alarm_and_keeps_readiness() {
+        let down = Probes {
+            relay: false,
+            ..ALL
+        };
+        assert!(down.ready());
+        assert_eq!(down.missing(), [] as [&str; 0]);
+        let text = exposition(down, NONE);
+        assert!(
+            text.contains("work_dependency_up{dependency=\"relay\"} 0\n"),
+            "{text}"
+        );
+        assert!(text.contains("\nwork_ready 1\n"), "{text}");
+        assert!(exposition(ALL, NONE).contains("work_dependency_up{dependency=\"relay\"} 1\n"));
     }
 
     // T-39 OP-18 T-93 T-103

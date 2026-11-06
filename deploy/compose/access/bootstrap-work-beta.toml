@@ -29,3 +29,11 @@ client_key = "/etc/access/products/work-client.jwk"
 service_key = "/etc/access/products/work-service.jwk"
 redirect_uri = "https://work.localhost/v1/access/approval"
 event_receiver = "https://work-server:8443/v1/inbound/events"
+
+# T-99
+[[products]]
+product = "relay"
+display_name = "Suiss Relay"
+client_key = "/etc/relay-access/relay-client.jwk"
+service_key = "/etc/relay-access/relay-service.jwk"
+redirect_uri = "https://relay/v1/access/approval"
