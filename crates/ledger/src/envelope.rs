@@ -45,6 +45,8 @@ pub struct PendingRecord {
     pub(crate) effective_at: Option<u64>,
     /// The `kid` of a signed record (SEC-36).
     pub(crate) kid: Option<[u8; 32]>,
+    /// The device Instance the `auth_context` of an unsigned record names (SEC-36, P-116).
+    pub(crate) instance: Option<[u8; 16]>,
     /// The tenant the record is written for, which the SEC-36 lookup of a tenant's ledgers
     /// reads (WD-123).
     pub(crate) tenant: Option<String>,
@@ -78,7 +80,7 @@ impl PendingRecord {
     }
 
     /// Writes the record for `tenant`, so that the SEC-36 lookup of the tenant's ledgers finds
-    /// it by its `kid` or, unsigned, by its author (WD-123).
+    /// it by its `kid` or, unsigned, by its `auth_context` Instance or its author (WD-123).
     pub fn for_tenant(&mut self, tenant: &str) {
         self.tenant = Some(tenant.to_owned());
     }
@@ -95,6 +97,7 @@ impl PendingRecord {
             tenant,
             kid: self.kid,
             author,
+            instance: self.kid.map_or(self.instance, |_| None),
         })
     }
 
@@ -268,6 +271,7 @@ impl Entry for Activating<'_> {
             inbound: None,
             effective_at: None,
             kid: None,
+            instance: None,
             tenant: None,
         };
         Ok((
@@ -393,6 +397,7 @@ mod tests {
                 inbound: None,
                 effective_at: None,
                 kid: None,
+                instance: None,
                 tenant: None,
             };
             let (leaf, sealed) = Bound {
@@ -426,6 +431,7 @@ mod tests {
             inbound: None,
             effective_at: None,
             kid: None,
+            instance: None,
             tenant: None,
         };
         let expected = decode(

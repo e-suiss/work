@@ -1,4 +1,4 @@
-//! Which ledgers get a SEC-36 compromise window notice and what each says (WD-123): every ledger of the tenant that holds a record of the window, once per Access event; the notice names the first of the event's Instances whose key signed a record in that ledger, or the first Instance when only unsigned records of the Party fall in the window, with every compromised kid.
+//! Which ledgers get a SEC-36 compromise window notice and what each says (WD-123): every ledger of the tenant that holds a record of the window, once per Access event; the notice names the first of the event's Instances whose key signed a record in that ledger, else the first of them that wrote an unsigned record there under an `auth_context` naming it, else the first Instance when only unsigned records of the Party naming no Instance fall in the window, with every compromised kid.
 
 use std::collections::BTreeMap;
 
@@ -37,21 +37,24 @@ pub fn plan(
         .ok_or(Unplannable::Instances)?;
     let source = compromise.source.clone().ok_or(Unplannable::Source)?;
     let party = PartyRef::new(&compromise.party).ok_or(Unplannable::Party)?;
-    let mut ledgers: BTreeMap<[u8; 32], Vec<[u8; 32]>> = BTreeMap::new();
+    let mut ledgers: BTreeMap<[u8; 32], (Vec<[u8; 32]>, Vec<[u8; 16]>)> = BTreeMap::new();
     for hit in hits {
-        let kids = ledgers.entry(hit.ledger).or_default();
+        let (kids, instances) = ledgers.entry(hit.ledger).or_default();
         kids.extend(hit.kid);
+        instances.extend(hit.instance);
     }
     let kids: Vec<[u8; 32]> = compromise.kids.iter().map(|k| k.0).collect();
     Ok(ledgers
         .into_iter()
-        .map(|(ledger, signed)| {
+        .map(|(ledger, (signed, wrote))| {
             let instance = compromise
                 .instances
                 .iter()
                 .zip(&kids)
                 .find(|(_, k)| signed.contains(k))
-                .map_or(first, |(i, _)| i);
+                .map(|(i, _)| i)
+                .or_else(|| compromise.instances.iter().find(|i| wrote.contains(&i.0)))
+                .unwrap_or(first);
             NoticeInput {
                 author: author.clone(),
                 ledger: LedgerId(Digest::sha256(ledger)),
@@ -103,14 +106,17 @@ mod tests {
             WindowHit {
                 ledger: [0xb0; 32],
                 kid: Some([8; 32]),
+                instance: None,
             },
             WindowHit {
                 ledger: [0xa0; 32],
                 kid: None,
+                instance: None,
             },
             WindowHit {
                 ledger: [0xb0; 32],
                 kid: Some([7; 32]),
+                instance: None,
             },
         ];
         let notices = plan(&compromise(), &author(), &hits).unwrap();
@@ -126,6 +132,7 @@ mod tests {
         let only_second = [WindowHit {
             ledger: [0xc0; 32],
             kid: Some([8; 32]),
+            instance: None,
         }];
         assert_eq!(
             plan(&compromise(), &author(), &only_second).unwrap()[0]
@@ -136,6 +143,40 @@ mod tests {
         assert_eq!(
             plan(&compromise(), &author(), &[]).unwrap(),
             Vec::<NoticeInput>::new()
+        );
+    }
+
+    // SEC-36 P-116
+    #[test]
+    fn sec_36_an_unsigned_record_names_the_instance_of_its_auth_context() {
+        let hits = [
+            WindowHit {
+                ledger: [0xd0; 32],
+                kid: None,
+                instance: Some([5; 16]),
+            },
+            WindowHit {
+                ledger: [0xd0; 32],
+                kid: None,
+                instance: None,
+            },
+        ];
+        let notices = plan(&compromise(), &author(), &hits).unwrap();
+        assert_eq!(notices.len(), 1);
+        assert_eq!(notices[0].window.instance, [5; 16]);
+        let signed_too = [
+            WindowHit {
+                ledger: [0xd0; 32],
+                kid: Some([7; 32]),
+                instance: None,
+            },
+            hits[0].clone(),
+        ];
+        assert_eq!(
+            plan(&compromise(), &author(), &signed_too).unwrap()[0]
+                .window
+                .instance,
+            [4; 16]
         );
     }
 

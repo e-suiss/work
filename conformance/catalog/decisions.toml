@@ -3001,7 +3001,9 @@ tests = [
   "crates/kernel/src/compromise/tests.rs::sec_36_records_in_the_window_stay_and_are_marked",
   "crates/kernel/src/compromise/tests.rs::sec_36_the_notice_is_a_core_observation_claim_of_a_system_party",
   "crates/kernel/tests/compromise_window.rs::sec_36_the_notice_body_matches_its_vectors",
+  "crates/ledger/src/auth_context/tests.rs::p_116_the_device_instance_of_the_session_is_kept",
   "crates/query/src/domain/notices.rs::sec_36_an_event_without_instance_or_claim_writes_no_notice",
+  "crates/query/src/domain/notices.rs::sec_36_an_unsigned_record_names_the_instance_of_its_auth_context",
   "crates/query/src/domain/notices.rs::sec_36_one_notice_per_ledger_holding_a_record_of_the_window",
   "crates/query/src/domain/reads.rs::sec_36_the_evidence_view_marks_a_record_of_a_window",
 ]
@@ -4456,7 +4458,9 @@ tests = [
   "crates/ledger/src/auth_context/tests.rs::p_116_every_refusal_is_auth_context_invalid",
   "crates/ledger/src/auth_context/tests.rs::p_116_only_the_realm_token_key_signs_the_artifact",
   "crates/ledger/src/auth_context/tests.rs::p_116_the_access_vectors_are_refused_as_other_content",
+  "crates/ledger/src/auth_context/tests.rs::p_116_the_device_instance_of_the_session_is_kept",
   "crates/ledger/src/auth_context/tests.rs::p_116_the_reference_is_the_access_digest",
+  "crates/query/src/domain/notices.rs::sec_36_an_unsigned_record_names_the_instance_of_its_auth_context",
 ]
 
 [[rule]]

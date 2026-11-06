@@ -13,6 +13,17 @@
       "valid": true
     },
     {
+      "cbor": "a86176016361616c6461616c32657265616c6d781a68747470733a2f2f61636d652e73756973732e6578616d706c6568696e7374616e6365500303030303030303030303030303030369617574685f74696d651b0000019b76d180406a6169735f646967657374822f5820b3601a560d4bbf5eb99c5ffcd936bb4c7e33624d14a9e96a76f3aa4865a289cd6b73657373696f6e5f726566822f5820ad6c5f52d60fc51bf0f3481178dea7a741078202f5d3f92ba3b23ef02bf17bd86f6173737572616e63655f666c616773846e68756d616e5f70726573656e6365727068697368696e675f726573697374616e746673796e636564627576",
+      "edn": "{\"v\": 1, \"realm\": \"https://acme.suiss.example\", \"session_ref\": [-16, h'ad6c5f52d60fc51bf0f3481178dea7a741078202f5d3f92ba3b23ef02bf17bd8'], \"aal\": \"aal2\", \"assurance_flags\": [\"human_presence\", \"phishing_resistant\", \"synced\", \"uv\"], \"auth_time\": 1767225000000, \"ais_digest\": [-16, h'b3601a560d4bbf5eb99c5ffcd936bb4c7e33624d14a9e96a76f3aa4865a289cd'], \"instance\": h'03030303030303030303030303030303'}",
+      "id": "session-with-instance",
+      "valid": true
+    },
+    {
+      "edn": "{\"v\": 1, \"realm\": \"https://acme.suiss.example\", \"session_ref\": [-16, h'ad6c5f52d60fc51bf0f3481178dea7a741078202f5d3f92ba3b23ef02bf17bd8'], \"aal\": \"aal2\", \"assurance_flags\": [\"human_presence\", \"phishing_resistant\", \"synced\", \"uv\"], \"auth_time\": 1767225000000, \"ais_digest\": [-16, h'b3601a560d4bbf5eb99c5ffcd936bb4c7e33624d14a9e96a76f3aa4865a289cd'], \"instance\": \"AwMDAwMDAwMDAwMDAwMDAw\"}",
+      "id": "instance-as-text",
+      "valid": false
+    },
+    {
       "edn": "{\"v\": 1, \"realm\": \"https://acme.suiss.example\", \"session_ref\": [-16, h'ad6c5f52d60fc51bf0f3481178dea7a741078202f5d3f92ba3b23ef02bf17bd8'], \"aal\": \"aal2\", \"assurance_flags\": [\"human_presence\", \"phishing_resistant\", \"synced\", \"uv\"], \"auth_time\": 1767225000000}",
       "id": "missing-ais-digest",
       "valid": false

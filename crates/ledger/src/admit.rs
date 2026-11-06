@@ -434,6 +434,7 @@ pub(crate) fn auth_context_value(reference: &[u8; 32], step_up: bool, assurance:
 /// envelope binds its author.
 struct Arrived {
     kid: Option<[u8; 32]>,
+    instance: Option<[u8; 16]>,
     record_bytes: Vec<u8>,
     received: Vec<ReceivedRow>,
     binding: Binding,
@@ -463,6 +464,7 @@ fn arrive<V: SignatureVerifier + ?Sized>(
             }
             Ok(Arrived {
                 kid: auth_context::kid(cose),
+                instance: None,
                 record_bytes: payload,
                 received: vec![row],
                 binding: Binding {
@@ -486,6 +488,7 @@ fn arrive<V: SignatureVerifier + ?Sized>(
             let value = auth_context_value(&context.digest, context.step_up, context.aal);
             Ok(Arrived {
                 kid: None,
+                instance: context.instance,
                 record_bytes: record.to_vec(),
                 received: vec![row],
                 binding: Binding {
@@ -659,6 +662,7 @@ pub fn admit<V: SignatureVerifier + ?Sized>(
         inbound: s.inbound,
         effective_at: c.effective_at,
         kid: a.kid,
+        instance: a.instance,
         tenant: None,
     })
 }

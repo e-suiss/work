@@ -33,7 +33,7 @@ const FLAGS: [&str; 7] = [
     "uv",
 ];
 
-const FIELDS: [&str; 10] = [
+const FIELDS: [&str; 11] = [
     "v",
     "realm",
     "session_ref",
@@ -42,6 +42,7 @@ const FIELDS: [&str; 10] = [
     "auth_time",
     "step_up_time",
     "ais_digest",
+    "instance",
     "content_type",
     "content_digest",
 ];
@@ -90,6 +91,9 @@ pub struct Verified {
     pub step_up: bool,
     /// The session's latest authentication, Unix milliseconds.
     pub auth_time: u64,
+    /// The device Instance the session is bound to, when it registered one (Access OP-149
+    /// m.30 (c)).
+    pub instance: Option<[u8; 16]>,
 }
 
 /// Why an artifact is refused; every case is the `auth_context_invalid` problem (P-116 item 4).
@@ -150,6 +154,7 @@ struct Payload {
     aal: &'static str,
     auth_time: u64,
     step_up_time: Option<u64>,
+    instance: Option<[u8; 16]>,
     content: Option<(String, [u8; 32])>,
 }
 
@@ -185,6 +190,15 @@ fn digest(v: &Value) -> Result<[u8; 32], AuthContextInvalid> {
     Digest::from_value(v)
         .map(|d| d.0)
         .ok_or(AuthContextInvalid::Payload)
+}
+
+fn instance(v: &Value) -> Result<[u8; 16], AuthContextInvalid> {
+    match v {
+        Value::Bytes(b) => {
+            <[u8; 16]>::try_from(b.as_slice()).map_err(|_| AuthContextInvalid::Payload)
+        }
+        _ => Err(AuthContextInvalid::Payload),
+    }
 }
 
 fn flags(v: &Value) -> Result<(), AuthContextInvalid> {
@@ -237,6 +251,7 @@ fn payload(bytes: &[u8]) -> Result<Payload, AuthContextInvalid> {
     let auth_time = uint(req("auth_time")?)?;
     let step_up_time = v.get("step_up_time").map(uint).transpose()?;
     digest(req("ais_digest")?)?;
+    let instance = v.get("instance").map(instance).transpose()?;
     let content = match (v.get("content_type"), v.get("content_digest")) {
         (None, None) => None,
         (Some(Value::Text(t)), Some(d)) if media_type(t) => Some((t.clone(), digest(d)?)),
@@ -247,6 +262,7 @@ fn payload(bytes: &[u8]) -> Result<Payload, AuthContextInvalid> {
         aal,
         auth_time,
         step_up_time,
+        instance,
         content,
     })
 }
@@ -309,6 +325,7 @@ pub fn verify(
         aal: p.aal,
         step_up: p.step_up_time.is_some(),
         auth_time: p.auth_time,
+        instance: p.instance,
     })
 }
 

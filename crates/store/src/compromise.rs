@@ -1,15 +1,18 @@
-//! The SEC-36 compromise window rows (WD-123): the ledgers of a tenant that hold a record of a window, read from `work.record_signer` over the `work_access` pool, and, inside one ledger's scope, the notices already written and those whose window holds a record's ledger time.
+//! The SEC-36 compromise window rows (WD-123): the ledgers of a tenant that hold a record of a window, read from `work.record_signer` over the `work_access` pool, an unsigned record by the device Instance its `auth_context` names or, when it names none, by its author, and, inside one ledger's scope, the notices already written and those whose window holds a record's ledger time.
 
 use crate::{AccessPool, LedgerTx, StoreError};
 
-/// A record of a window: its ledger and the `kid` that signed it, or none for an unsigned
-/// record of the compromised Party.
+/// A record of a window: its ledger and the `kid` that signed it, or, for an unsigned record,
+/// the device Instance its `auth_context` names, or neither for an unsigned record of the
+/// compromised Party that names no Instance.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct WindowHit {
     /// The ledger.
     pub ledger: [u8; 32],
     /// The `kid` of a signed record.
     pub kid: Option<[u8; 32]>,
+    /// The Instance of an unsigned record.
+    pub instance: Option<[u8; 16]>,
 }
 
 /// A notice whose window holds a record's ledger time (C-4).
@@ -37,14 +40,15 @@ fn unsigned(v: i64) -> Result<u64, StoreError> {
     u64::try_from(v).map_err(|_| StoreError::Corrupt)
 }
 
-fn fixed(raw: &[u8]) -> Result<[u8; 32], StoreError> {
+fn fixed<const N: usize>(raw: &[u8]) -> Result<[u8; N], StoreError> {
     raw.try_into().map_err(|_| StoreError::Corrupt)
 }
 
 impl AccessPool {
-    /// The distinct ledgers and kids of `tenant`'s records recorded inside
-    /// `from_ms..=to_ms` that one of `kids` signed or that `party` wrote unsigned (SEC-36
-    /// item 3, WD-123 item 1).
+    /// The distinct ledgers, kids and Instances of `tenant`'s records recorded inside
+    /// `from_ms..=to_ms` that one of `kids` signed, that one of `instances` wrote unsigned, or
+    /// that `party` wrote unsigned from a session naming no Instance (SEC-36 item 3, WD-123
+    /// item 1).
     ///
     /// # Errors
     /// [`StoreError::Db`], or [`StoreError::Corrupt`] for a malformed row.
@@ -52,22 +56,27 @@ impl AccessPool {
         &self,
         tenant: &str,
         kids: &[[u8; 32]],
+        instances: &[[u8; 16]],
         party: &str,
         from_ms: u64,
         to_ms: u64,
     ) -> Result<Vec<WindowHit>, StoreError> {
         let kids: Vec<Vec<u8>> = kids.iter().map(|k| k.to_vec()).collect();
+        let instances: Vec<Vec<u8>> = instances.iter().map(|i| i.to_vec()).collect();
         let rows = sqlx::query!(
-            r#"SELECT DISTINCT ledger_id::bytea AS "ledger!", kid AS "kid?"
+            r#"SELECT DISTINCT ledger_id::bytea AS "ledger!", kid AS "kid?", instance AS "instance?"
                FROM work.record_signer
                WHERE tenant = $1
                  AND recorded_at BETWEEN
-                     pg_catalog.to_timestamp(0) + interval '1 millisecond' * $4::bigint::double precision
-                 AND pg_catalog.to_timestamp(0) + interval '1 millisecond' * $5::bigint::double precision
-                 AND (kid = ANY ($2::bytea[]) OR author::text = $3)
-               ORDER BY 1, 2"#,
+                     pg_catalog.to_timestamp(0) + interval '1 millisecond' * $5::bigint::double precision
+                 AND pg_catalog.to_timestamp(0) + interval '1 millisecond' * $6::bigint::double precision
+                 AND (kid = ANY ($2::bytea[])
+                      OR (kid IS NULL AND instance = ANY ($3::bytea[]))
+                      OR (kid IS NULL AND instance IS NULL AND author::text = $4))
+               ORDER BY 1, 2, 3"#,
             tenant,
             kids.as_slice(),
+            instances.as_slice(),
             party,
             signed(from_ms)?,
             signed(to_ms)?
@@ -79,6 +88,7 @@ impl AccessPool {
                 Ok(WindowHit {
                     ledger: fixed(&r.ledger)?,
                     kid: r.kid.as_deref().map(fixed).transpose()?,
+                    instance: r.instance.as_deref().map(fixed).transpose()?,
                 })
             })
             .collect()

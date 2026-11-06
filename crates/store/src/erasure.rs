@@ -25,7 +25,7 @@ pub const ERASURE_SCOPE: [ErasureScope; 12] = [
     ErasureScope {
         table: "work.record_header",
         erasure: "pseudonymous_skeleton",
-        columns: &["author"],
+        columns: &["author", "instance"],
     },
     ErasureScope {
         table: "work.received_bytes",

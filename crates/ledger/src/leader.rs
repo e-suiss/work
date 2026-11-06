@@ -340,6 +340,7 @@ mod tests {
             inbound: None,
             effective_at: None,
             kid: None,
+            instance: None,
             tenant: None,
         }
     }

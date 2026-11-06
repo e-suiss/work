@@ -249,6 +249,8 @@ pub struct SignerRow {
     pub kid: Option<[u8; 32]>,
     /// The author of an unsigned record, written with its `auth_context`.
     pub author: Option<String>,
+    /// The device Instance the `auth_context` of an unsigned record names (P-116).
+    pub instance: Option<[u8; 16]>,
 }
 
 /// An inbound event or federated record a record answers, deduplicated by `source` and `source_id` (OP-8, OP-38 item 5).
@@ -508,16 +510,17 @@ impl LedgerTx<'_> {
     ) -> Result<(), StoreError> {
         let ledger = *self.ledger().as_bytes();
         sqlx::query!(
-            "INSERT INTO work.record_signer (ledger_id, pos, tenant, recorded_at, kid, author)
+            "INSERT INTO work.record_signer (ledger_id, pos, tenant, recorded_at, kid, author, instance)
              VALUES ($1, $2, $3,
              pg_catalog.to_timestamp(0) + interval '1 millisecond' * $4::bigint::double precision,
-             $5, $6)",
+             $5, $6, $7)",
             ledger.as_slice(),
             signed(pos)?,
             row.tenant.as_str(),
             signed(recorded_at_ms)?,
             row.kid.as_ref().map(<[u8; 32]>::as_slice),
-            row.author.as_deref()
+            row.author.as_deref(),
+            row.instance.as_ref().map(<[u8; 16]>::as_slice)
         )
         .execute(self.conn())
         .await

@@ -269,6 +269,18 @@ fn outside_the_cddl_by_field(base: &Value) -> Vec<(&'static str, Value)> {
             with(base, "session_id", Some(Value::Bytes(vec![1; 16]))),
         ),
         ("version-2", with(base, "v", Some(Value::Unsigned(2)))),
+        (
+            "instance-as-text",
+            with(
+                base,
+                "instance",
+                Some(Value::text("AwMDAwMDAwMDAwMDAwMDAw")),
+            ),
+        ),
+        (
+            "short-instance",
+            with(base, "instance", Some(Value::Bytes(vec![3; 15]))),
+        ),
     ]
 }
 
@@ -344,13 +356,23 @@ fn p_116_the_access_vectors_are_refused_as_other_content() {
         assert!(case["valid"].as_bool().unwrap(), "{id}");
         let bytes = unhex(hex);
         let got = f.signed_bytes(&bytes);
-        let expected = if id == "session-only" {
+        let expected = if matches!(id, "session-only" | "session-with-instance") {
             AuthContextInvalid::Unbound
         } else {
             AuthContextInvalid::OtherContent
         };
         assert_eq!(got, Err(expected), "{id}");
     }
+}
+
+// P-116 SEC-36
+#[test]
+fn p_116_the_device_instance_of_the_session_is_kept() {
+    let f = Fixture::new("instance");
+    let plain = realm::record_payload(RECORD);
+    assert_eq!(f.verify_payload(&plain).unwrap().instance, None);
+    let bound = with(&plain, "instance", Some(Value::Bytes(vec![3; 16])));
+    assert_eq!(f.verify_payload(&bound).unwrap().instance, Some([3; 16]));
 }
 
 // P-116

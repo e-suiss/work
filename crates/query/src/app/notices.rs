@@ -118,11 +118,13 @@ impl<K: Signer + Send + Sync + 'static> Notices<K> {
             .and_then(|p| party_ref(&KernelId(p)))
             .ok_or(NoticeError::Unpaired)?;
         let kids: Vec<[u8; 32]> = compromise.kids.iter().map(|k| k.0).collect();
+        let instances: Vec<[u8; 16]> = compromise.instances.iter().map(|i| i.0).collect();
         let hits = self
             .realms
             .window_ledgers(
                 compromise.tenant.as_str(),
                 &kids,
+                &instances,
                 &compromise.party,
                 compromise.window.0,
                 compromise.window.1,

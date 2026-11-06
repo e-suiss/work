@@ -131,6 +131,7 @@ pub(crate) fn replayed(
         inbound: None,
         effective_at,
         kid: None,
+        instance: None,
         tenant: None,
     })
 }
