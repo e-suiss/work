@@ -33,7 +33,10 @@ family = "MD"
 status = "central-decision"
 stage = 3
 title = ""
-tests = []
+tests = [
+  "crates/access-client/src/domain/exercise/tests.rs::t_101_a_receipt_is_used_only_for_its_domain_exercise_audience_and_time",
+  "crates/query/src/domain/writes/tests.rs::e_45_the_exercise_is_the_work_commit_intent_of_this_ledger_and_valid_now",
+]
 
 [[rule]]
 id = "MD-5"
@@ -61,6 +64,7 @@ tests = [
   "bins/work-server/tests/actor_kinds.rs::p_12_every_access_actor_kind_is_the_work_actor_type_of_its_name",
   "crates/ledger/src/actors.rs::p_12_a_bound_party_takes_access_s_type_and_an_unbound_one_is_declared_unverified",
   "crates/ledger/src/admit/tests.rs::p_12_the_envelope_takes_each_party_s_type_from_its_access_binding_never_from_the_request",
+  "crates/query/src/domain/writes/tests.rs::p_12_the_author_s_actor_type_is_the_actor_kind_of_its_key_s_party",
 ]
 
 [[rule]]
@@ -1385,7 +1389,10 @@ family = "E"
 status = "central-decision"
 stage = 7
 title = ""
-tests = []
+tests = [
+  "crates/access-client/src/domain/exercise/tests.rs::t_101_an_allowed_exercise_with_its_receipt_is_the_authority_proof",
+  "crates/query/src/domain/writes/tests.rs::p_13_the_authority_names_exactly_the_verified_receipt",
+]
 
 [[rule]]
 id = "E-10"
@@ -1411,8 +1418,11 @@ stage = 3
 acceptance = "to-fill"
 title = ""
 tests = [
+  "crates/access-client/src/domain/exercise/tests.rs::e_13_the_capacity_and_chain_come_from_the_verified_receipt",
+  "crates/http/src/writes.rs::t_28_a_write_access_cannot_check_is_503_and_one_it_does_not_authorise_403",
   "crates/kernel/tests/records.rs::p_13_e_13_capacity_must_match_on_behalf_of",
   "crates/kernel/tests/records.rs::p_9_vector_examples_are_accepted",
+  "crates/query/src/domain/writes/tests.rs::e_13_the_record_s_capacity_is_the_exercise_s_and_its_chain_is_covered",
 ]
 
 [[rule]]
@@ -1423,6 +1433,7 @@ stage = 3
 title = ""
 tests = [
   "crates/access-client/src/domain/cache.rs::e_14_an_instance_termination_drops_its_cached_keys_at_once",
+  "crates/access-client/src/domain/exercise/tests.rs::t_101_a_receipt_is_used_only_for_its_domain_exercise_audience_and_time",
 ]
 
 [[rule]]
@@ -1481,7 +1492,9 @@ family = "E"
 status = "frozen-product"
 stage = 10
 title = ""
-tests = []
+tests = [
+  "crates/access-client/src/domain/approval.rs::e_17_work_only_sends_the_user_to_the_access_approval_surface",
+]
 
 [[rule]]
 id = "E-27"
@@ -1561,9 +1574,12 @@ status = "frozen-technical"
 acceptance = "to-fill"
 title = ""
 tests = [
+  "crates/http/src/writes.rs::p_54_a_declaration_carries_one_key_one_if_match_and_its_access_evidence",
   "crates/http/tests/openapi.rs::e_45_every_api_operation_names_exactly_one_action",
   "crates/proto/src/action.rs::e_45_effect_classes_and_params_follow_the_table",
   "crates/proto/src/action.rs::e_45_the_catalog_is_the_23_actions_of_the_work_namespace",
+  "crates/query/src/domain/writes/tests.rs::e_45_the_exercise_is_the_work_commit_intent_of_this_ledger_and_valid_now",
+  "crates/query/src/domain/writes/tests.rs::e_45_the_route_writes_only_operations_work_commit_covers",
   "xtask/src/contracts_openapi.rs::e_45_every_mutating_operation_names_one_action",
 ]
 
@@ -3017,6 +3033,7 @@ tests = [
   "crates/kernel/tests/records.rs::p_72_empty_optional_lists_are_rejected",
   "crates/kernel/tests/records.rs::p_72_set_lists_are_sorted_and_duplicate_free",
   "crates/kernel/tests/records.rs::p_80_param_text_is_a_code_uri_or_party_reference",
+  "crates/ledger/src/admit/tests.rs::p_13_the_authority_proof_is_kept_only_when_the_record_refers_to_it",
   "crates/ledger/src/admit/tests.rs::t_90_a_signed_record_keeps_its_cose_sign1_and_an_unsigned_one_its_context",
   "sdks/bindings/core/tests/bytes.rs::p_5_cbor_canonical_vectors_through_bindings_core",
   "sdks/bindings/core/tests/bytes.rs::p_79_digest_vectors_through_bindings_core",
@@ -3239,6 +3256,7 @@ tests = [
   "crates/ledger/src/admit/tests.rs::p_21_an_unsigned_record_of_an_unknown_protocol_is_refused",
   "crates/ledger/src/auth_context/tests.rs::p_116_assurance_and_step_up_come_from_the_payload",
   "crates/ledger/src/auth_context/tests.rs::p_116_the_reference_is_the_access_digest",
+  "crates/query/src/domain/writes/tests.rs::p_105_a_record_whose_author_is_not_the_key_s_party_is_kid_unknown",
   "sdks/bindings/core/tests/bytes.rs::t_10_stored_entries_verify_from_their_bytes_through_bindings_core",
   "sdks/bindings/uniffi/tests/swift/main.swift::t_10_swift_stored_entries_verify_from_their_bytes",
 ]
@@ -3522,6 +3540,7 @@ tests = [
   "crates/http/src/json.rs::p_54_large_integers_travel_as_canonical_decimal_strings",
   "crates/http/src/rate.rs::p_54_a_caller_past_its_quota_waits_for_the_next_window",
   "crates/http/src/reads.rs::p_57_a_changes_query_names_its_cursor_and_limit_once",
+  "crates/http/src/writes.rs::p_54_a_declaration_carries_one_key_one_if_match_and_its_access_evidence",
   "crates/store/src/idempotency.rs::p_97_a_key_that_is_not_a_uuidv7_does_not_parse",
   "crates/store/src/idempotency.rs::p_97_a_uuidv7_key_parses_round_trips_and_carries_its_time",
   "xtask/src/contracts_openapi.rs::p_54_pages_are_cursors_names_are_snake_case_and_large_integers_are_strings",
@@ -3909,6 +3928,7 @@ tests = [
   "crates/kernel/tests/records.rs::p_13_p_83_every_declaration_names_its_capacity",
   "crates/kernel/tests/records.rs::p_83_acts_and_claims_need_no_authority",
   "crates/kernel/tests/records.rs::p_83_every_declaration_is_consequential_including_practice_subtypes",
+  "crates/query/src/domain/writes/tests.rs::e_45_the_route_writes_only_operations_work_commit_covers",
 ]
 
 [[rule]]
@@ -4044,6 +4064,7 @@ stage = 1
 acceptance = "to-fill"
 title = ""
 tests = [
+  "crates/http/src/writes.rs::t_28_a_write_access_cannot_check_is_503_and_one_it_does_not_authorise_403",
   "crates/kernel/tests/records.rs::p_80_open_condition_gate_form_follows_the_condition_type",
 ]
 
@@ -4250,8 +4271,11 @@ stage = 1
 acceptance = "to-fill"
 title = ""
 tests = [
+  "crates/http/src/writes.rs::t_28_a_write_access_cannot_check_is_503_and_one_it_does_not_authorise_403",
   "crates/kernel/tests/cose.rs::p_105_a_record_whose_author_is_not_the_key_owner_is_kid_unknown",
   "crates/kernel/tests/signature_vectors.rs::p_32_cose_sign1_vectors_through_the_kernel_signature_port",
+  "crates/query/src/domain/writes/tests.rs::p_105_a_record_whose_author_is_not_the_key_s_party_is_kid_unknown",
+  "crates/query/src/domain/writes/tests.rs::sec_19_a_record_signed_after_a_compromise_or_with_an_ended_key_is_kid_unknown",
   "sdks/bindings/core/tests/bytes.rs::p_32_cose_sign1_and_key_vectors_through_bindings_core",
   "sdks/bindings/uniffi/tests/swift/main.swift::p_32_swift_signature_and_evidence_vectors_match",
 ]
@@ -5816,6 +5840,7 @@ title = ""
 tests = [
   "crates/ledger/src/admit/tests.rs::op_1_the_golden_ledger_replays_from_its_stored_bytes_to_the_admitted_records",
   "crates/ledger/src/admit/tests.rs::p_100_the_admission_path_seals_the_golden_ledger_byte_for_byte",
+  "crates/ledger/src/admit/tests.rs::p_13_the_authority_proof_is_kept_only_when_the_record_refers_to_it",
   "crates/ledger/src/admit/tests.rs::p_21_a_signed_agent_record_sent_unsigned_is_refused",
   "crates/ledger/src/admit/tests.rs::t_90_a_signed_record_keeps_its_cose_sign1_and_an_unsigned_one_its_context",
   "crates/ledger/src/admit/tests.rs::t_91_received_bytes_above_262_144_are_limit_exceeded_request",
@@ -6055,11 +6080,21 @@ tests = [
   "crates/access-client/src/adapters.rs::t_101_the_client_key_is_p256_and_the_service_key_ed25519",
   "crates/access-client/src/adapters.rs::t_101_the_pep_certificate_and_its_key_come_from_the_token",
   "crates/access-client/src/domain.rs::t_101_kernel_identifiers_are_canonical_unpadded_base64url",
+  "crates/access-client/src/domain/approval.rs::e_17_work_only_sends_the_user_to_the_access_approval_surface",
+  "crates/access-client/src/domain/approval.rs::t_101_a_pushed_request_is_named_by_its_request_uri_and_digest",
+  "crates/access-client/src/domain/approval.rs::t_101_the_return_names_the_exercise_only_for_the_state_work_sent",
   "crates/access-client/src/domain/assertion.rs::t_101_the_assertion_names_the_client_the_platform_issuer_and_lives_sixty_seconds",
   "crates/access-client/src/domain/cache.rs::t_101_a_compromised_key_is_never_cached_as_immutable",
   "crates/access-client/src/domain/cache.rs::t_101_cached_keys_follow_max_age_and_never_go_back_in_etag",
   "crates/access-client/src/domain/eligibility.rs::t_101_the_answer_carries_a_consistency_token",
   "crates/access-client/src/domain/eligibility.rs::t_101_the_eligibility_request_is_a_check_context_without_mode_or_nonce",
+  "crates/access-client/src/domain/exercise/tests.rs::t_101_a_receipt_is_used_only_for_its_domain_exercise_audience_and_time",
+  "crates/access-client/src/domain/exercise/tests.rs::t_101_a_receipt_signed_outside_the_receipt_key_or_changed_is_refused",
+  "crates/access-client/src/domain/exercise/tests.rs::t_101_a_receiptless_exercise_leaves_the_gate_waiting",
+  "crates/access-client/src/domain/exercise/tests.rs::t_101_an_allowed_exercise_with_its_receipt_is_the_authority_proof",
+  "crates/access-client/src/domain/exercise/tests.rs::t_101_an_exercise_for_another_intent_is_refused",
+  "crates/access-client/src/domain/exercise/tests.rs::t_101_an_exercise_id_is_the_domain_and_nonce_digest",
+  "crates/access-client/src/domain/exercise/tests.rs::t_101_the_intent_digest_is_recomputed_from_the_canonical_envelope",
   "crates/access-client/src/domain/keys.rs::p_12_every_looked_up_key_names_its_party_s_actor_kind",
   "crates/access-client/src/domain/keys.rs::t_101_an_excerpt_without_key_lookup_usage_or_signed_by_another_key_is_refused",
   "crates/access-client/src/domain/keys.rs::t_101_entries_must_state_their_key_consistently",
@@ -6074,6 +6109,9 @@ tests = [
   "crates/access-client/src/domain/x509.rs::t_101_the_certificate_expiry_and_key_are_read_from_its_der",
   "crates/access-client/src/ports.rs::t_101_a_refusal_carries_its_problem_code_reason_and_pointers",
   "crates/access-client/src/ports.rs::t_101_a_signer_without_its_key_is_a_temporary_outage_not_a_refusal",
+  "crates/query/src/domain/writes/tests.rs::e_45_the_exercise_is_the_work_commit_intent_of_this_ledger_and_valid_now",
+  "crates/query/src/domain/writes/tests.rs::p_105_a_record_whose_author_is_not_the_key_s_party_is_kid_unknown",
+  "crates/query/src/domain/writes/tests.rs::sec_19_a_record_signed_after_a_compromise_or_with_an_ended_key_is_kid_unknown",
   "xtask/src/rules_deps.rs::t_101_clients_verify_and_keep_keys_through_the_shared_crypto_crate",
 ]
 
@@ -6122,6 +6160,7 @@ tests = [
   "bins/work-server/src/pairing.rs::t_103_the_gauges_keep_the_last_values_the_store_gave",
   "crates/access-client/src/adapters.rs::t_103_a_tampered_access_digest_is_never_signed",
   "crates/access-client/src/adapters.rs::t_103_the_service_key_signs_statements_access_verifies",
+  "crates/access-client/src/domain/exercise/tests.rs::t_101_an_exercise_id_is_the_domain_and_nonce_digest",
   "crates/access-client/src/domain/pairing/tests.rs::t_103_a_challenge_whose_checks_hold_becomes_two_statements",
   "crates/access-client/src/domain/pairing/tests.rs::t_103_a_digest_that_does_not_match_is_not_signed",
   "crates/access-client/src/domain/pairing/tests.rs::t_103_a_new_active_tenant_is_paired_on_reconciliation",

@@ -137,6 +137,7 @@ tests = [
   "crates/ledger/src/actors.rs::p_12_a_bound_party_takes_access_s_type_and_an_unbound_one_is_declared_unverified",
   "crates/ledger/src/admit/tests.rs::ev_35_a_presenter_without_an_access_binding_is_declared_unverified_in_the_envelope",
   "crates/ledger/src/admit/tests.rs::p_12_the_envelope_takes_each_party_s_type_from_its_access_binding_never_from_the_request",
+  "crates/query/src/domain/writes/tests.rs::p_12_the_author_s_actor_type_is_the_actor_kind_of_its_key_s_party",
 ]
 
 [[rule]]
@@ -154,7 +155,9 @@ status = "canonical-invariant"
 stage = 1
 title = ""
 tests = [
+  "crates/access-client/src/domain/exercise/tests.rs::e_13_the_capacity_and_chain_come_from_the_verified_receipt",
   "crates/kernel/src/relation.rs::c_25_p_14_exactly_eight_relation_names",
+  "crates/query/src/domain/writes/tests.rs::e_13_the_record_s_capacity_is_the_exercise_s_and_its_chain_is_covered",
 ]
 
 [[rule]]
@@ -434,6 +437,7 @@ tests = [
   "crates/kernel/tests/codec_vectors.rs::p_100_envelope_vectors_decode_and_chain_from_the_genesis",
   "crates/kernel/tests/records.rs::ev_35_every_evidence_presenter_has_an_actor_type_in_evidence_order",
   "crates/kernel/tests/records.rs::inv_18_every_on_behalf_of_ring_has_an_actor_type",
+  "crates/query/src/domain/writes/tests.rs::p_12_the_author_s_actor_type_is_the_actor_kind_of_its_key_s_party",
 ]
 
 [[rule]]
@@ -646,7 +650,12 @@ family = "E"
 status = "canonical-invariant"
 stage = 3
 title = ""
-tests = []
+tests = [
+  "crates/access-client/src/domain/approval.rs::e_17_work_only_sends_the_user_to_the_access_approval_surface",
+  "crates/access-client/src/domain/approval.rs::t_101_a_pushed_request_is_named_by_its_request_uri_and_digest",
+  "crates/access-client/src/domain/approval.rs::t_101_the_return_names_the_exercise_only_for_the_state_work_sent",
+  "crates/access-client/src/domain/exercise/tests.rs::t_101_a_receiptless_exercise_leaves_the_gate_waiting",
+]
 
 [[rule]]
 id = "E-18"
@@ -1435,7 +1444,10 @@ family = "SEC"
 status = "canonical-invariant"
 stage = 3
 title = ""
-tests = []
+tests = [
+  "crates/access-client/src/domain/exercise/tests.rs::e_13_the_capacity_and_chain_come_from_the_verified_receipt",
+  "crates/query/src/domain/writes/tests.rs::e_13_the_record_s_capacity_is_the_exercise_s_and_its_chain_is_covered",
+]
 
 [[rule]]
 id = "SEC-5"
@@ -1563,6 +1575,7 @@ tests = [
   "crates/http/src/api.rs::p_33_the_gateway_refuses_a_large_body_before_any_route",
   "crates/http/src/gateway.rs::p_33_a_json_body_above_the_complexity_limit_is_refused",
   "crates/http/src/gateway.rs::p_33_a_request_above_256_kib_is_refused_before_any_handler",
+  "crates/http/src/writes.rs::p_54_a_declaration_carries_one_key_one_if_match_and_its_access_evidence",
   "crates/kernel/src/reason.rs::p_11_every_reason_round_trips_through_its_wire_string",
   "crates/kernel/tests/records.rs::p_33_sec_18_semantic_limits_accept_the_bound_and_reject_one_more",
   "crates/kernel/tests/records.rs::p_7_cddl_list_and_map_bounds_reject_one_more_than_256",
@@ -1580,7 +1593,9 @@ family = "SEC"
 status = "canonical-invariant"
 stage = 3
 title = ""
-tests = []
+tests = [
+  "crates/query/src/domain/writes/tests.rs::sec_19_a_record_signed_after_a_compromise_or_with_an_ended_key_is_kid_unknown",
+]
 
 [[rule]]
 id = "SEC-20"
@@ -1670,7 +1685,9 @@ status = "canonical-invariant"
 stage = 1
 title = ""
 tests = [
+  "crates/access-client/src/domain/exercise/tests.rs::t_101_a_receipt_signed_outside_the_receipt_key_or_changed_is_refused",
   "crates/kernel/tests/derivation.rs::inv_9_claims_and_acts_superseding_their_own_kind_form_lineage_only",
+  "crates/query/src/domain/writes/tests.rs::sec_19_a_record_signed_after_a_compromise_or_with_an_ended_key_is_kid_unknown",
 ]
 
 [[rule]]
@@ -1717,6 +1734,7 @@ tests = [
   "crates/ledger/src/admit/tests.rs::ev_35_a_presenter_without_an_access_binding_is_declared_unverified_in_the_envelope",
   "crates/ledger/src/admit/tests.rs::p_100_the_admission_path_seals_the_golden_ledger_byte_for_byte",
   "crates/ledger/src/admit/tests.rs::p_12_the_envelope_takes_each_party_s_type_from_its_access_binding_never_from_the_request",
+  "crates/query/src/domain/writes/tests.rs::p_12_the_author_s_actor_type_is_the_actor_kind_of_its_key_s_party",
 ]
 
 [[rule]]
@@ -1726,6 +1744,11 @@ status = "canonical-invariant"
 stage = 1
 title = ""
 tests = [
+  "crates/access-client/src/domain/exercise/tests.rs::t_101_an_allowed_exercise_with_its_receipt_is_the_authority_proof",
+  "crates/access-client/src/domain/exercise/tests.rs::t_101_an_exercise_for_another_intent_is_refused",
+  "crates/access-client/src/domain/exercise/tests.rs::t_101_the_intent_digest_is_recomputed_from_the_canonical_envelope",
+  "crates/http/src/writes.rs::p_54_a_declaration_carries_one_key_one_if_match_and_its_access_evidence",
+  "crates/http/src/writes.rs::t_28_a_write_access_cannot_check_is_503_and_one_it_does_not_authorise_403",
   "crates/kernel/tests/record_vectors.rs::p_11_accepted_record_vectors",
   "crates/kernel/tests/record_vectors.rs::p_72_rejected_record_vectors",
   "crates/kernel/tests/records.rs::p_13_c_32_consequential_record_without_authority_is_rejected",
@@ -1735,6 +1758,9 @@ tests = [
   "crates/kernel/tests/records.rs::p_83_acts_and_claims_need_no_authority",
   "crates/kernel/tests/records.rs::p_83_every_declaration_is_consequential_including_practice_subtypes",
   "crates/kernel/tests/records.rs::p_9_vector_examples_are_accepted",
+  "crates/ledger/src/admit/tests.rs::p_13_the_authority_proof_is_kept_only_when_the_record_refers_to_it",
+  "crates/query/src/domain/writes/tests.rs::e_13_the_record_s_capacity_is_the_exercise_s_and_its_chain_is_covered",
+  "crates/query/src/domain/writes/tests.rs::p_13_the_authority_names_exactly_the_verified_receipt",
 ]
 
 [[rule]]
@@ -2211,6 +2237,7 @@ tests = [
   "crates/access-client/src/ports.rs::t_101_a_signer_without_its_key_is_a_temporary_outage_not_a_refusal",
   "crates/http/src/problem.rs::inv_34_problem_titles_claim_no_more_than_their_guarantee",
   "crates/http/src/reads.rs::t_28_no_caller_is_401_with_the_dpop_challenge_and_an_unverifiable_one_503",
+  "crates/http/src/writes.rs::t_28_a_write_access_cannot_check_is_503_and_one_it_does_not_authorise_403",
   "crates/ledger/src/leader.rs::t_28_a_leader_whose_lease_is_lost_commits_nothing",
   "crates/query/src/app/caller.rs::e_38_when_access_does_not_answer_no_caller_is_named",
 ]
