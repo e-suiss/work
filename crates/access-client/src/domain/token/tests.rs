@@ -333,3 +333,49 @@ fn e_7_a_dpop_proof_binds_the_token_to_its_key_and_this_request() {
     );
     assert_eq!(target_uri("https://w.example/a?b#c"), "https://w.example/a");
 }
+
+// E-7 T-99 T-104
+#[test]
+fn e_7_a_service_token_names_its_caller_and_tenant_and_carries_no_authority() {
+    let k = keys("token-service");
+    let token = |claims: &Value| jws(&k.realm, &header(&k.realm), claims);
+    let verify = |claims: &Value| verify_access_token(&token(claims), &k.set, &rules());
+    let mut user = claims(&k.holder);
+    user["access_tenant"] = json!("tnt_acme");
+    let named = verify(&user).unwrap();
+    assert_eq!(named.kind, TokenKind::User);
+    assert_eq!(named.tenant.as_deref(), Some("tnt_acme"));
+    let service = json!({
+        "iss": REALM,
+        "sub": "9h0Jq3Ylq4dpXGqGw4Vwq3a3n9GQ3Z8vPm1hS7fXk2Q",
+        "aud": WORK,
+        "client_id": "cli_relay",
+        "access_tenant": "tnt_platform",
+        "iat": NOW / 1000 - 30,
+        "exp": NOW / 1000 + 270,
+        "jti": "st-1",
+        "cnf": {"jkt": b64url(&thumbprint(&k.holder.public_key()))},
+    });
+    let caller = verify(&service).unwrap();
+    assert_eq!(caller.kind, TokenKind::Service);
+    assert_eq!(caller.client_id, "cli_relay");
+    assert_eq!(caller.tenant.as_deref(), Some("tnt_platform"));
+    assert_eq!(caller.scope, "");
+    assert_eq!(caller.jkt, thumbprint(&k.holder.public_key()));
+    let mut untenanted = service.clone();
+    untenanted.as_object_mut().unwrap().remove("access_tenant");
+    assert_eq!(verify(&untenanted).unwrap().tenant, None);
+    for (name, value) in [
+        ("scope", json!("work")),
+        ("authorization_details", json!([{"type": "x"}])),
+        ("access_tenant", json!("")),
+        ("access_tenant", json!(7)),
+    ] {
+        let mut more = service.clone();
+        more[name] = value;
+        assert_eq!(verify(&more), Err(TokenRefusal::Claims), "{name}");
+    }
+    let mut elsewhere = service;
+    elsewhere["aud"] = json!("cli_other");
+    assert_eq!(verify(&elsewhere), Err(TokenRefusal::Audience));
+}

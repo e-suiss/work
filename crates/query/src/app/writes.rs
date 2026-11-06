@@ -428,7 +428,8 @@ where
         claim: Option<KeyClaim>,
     ) -> Result<PendingRecord, WriteRefusal> {
         let record = &at.carried.record;
-        if record.core().author != at.caller.party {
+        let named = at.caller.party().map_err(WriteRefusal::Denied)?;
+        if record.core().author != named.reference {
             return Err(WriteRefusal::Denied("author_not_caller"));
         }
         let issuer = Issuer::parse(&at.caller.issuer)
@@ -525,8 +526,14 @@ where
         let now_ms = self.access.now_ms();
         let carried = carried(request)?;
         let record = &carried.record;
-        let caller_ref = CallerRef::new(caller.party.as_str())
-            .ok_or(WriteRefusal::Unverifiable("access_answer"))?;
+        let caller_ref = CallerRef::new(
+            caller
+                .party()
+                .map_err(WriteRefusal::Denied)?
+                .reference
+                .as_str(),
+        )
+        .ok_or(WriteRefusal::Unverifiable("access_answer"))?;
         let claim = match self
             .precheck(&caller_ref, ledger, record, request, now_ms)
             .await?

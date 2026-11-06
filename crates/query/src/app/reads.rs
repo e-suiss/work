@@ -104,9 +104,10 @@ impl Reads {
         work: &WorkId,
         min: Option<&PositionToken>,
     ) -> Result<WorkView, ReadRefusal> {
+        let party = caller.party().map_err(|_| ReadRefusal::NotFound)?;
         let (mut tx, head) = self.snapshot(ledger).await?;
         let row = tx
-            .visible_work(work.as_bytes(), caller.party.as_str())
+            .visible_work(work.as_bytes(), party.reference.as_str())
             .await
             .map_err(ReadRefusal::from);
         let _closed = tx.rollback().await;
@@ -137,7 +138,11 @@ impl Reads {
         cursor: Option<&Cursor>,
         limit: u32,
     ) -> Result<Changes, ReadRefusal> {
-        let party = caller.party.as_str();
+        let party = caller
+            .party()
+            .map_err(|_| ReadRefusal::NotFound)?
+            .reference
+            .as_str();
         let ledger_bytes = *ledger.0.as_bytes();
         let opened = cursor
             .map(|c| self.keys.open_cursor(&caller.tenant, party, c))
@@ -225,10 +230,11 @@ impl Reads {
         ledger: &LedgerId,
         record: &RecordId,
     ) -> Result<Evidence, ReadRefusal> {
+        let party = caller.party().map_err(|_| ReadRefusal::NotFound)?;
         let (mut tx, head) = self.snapshot(ledger).await?;
         let read = async {
             let Some(row) = tx
-                .visible_record(record.0.as_bytes(), caller.party.as_str())
+                .visible_record(record.0.as_bytes(), party.reference.as_str())
                 .await?
             else {
                 return Ok(None);

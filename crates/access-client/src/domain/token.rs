@@ -94,15 +94,32 @@ impl TokenRefusal {
     }
 }
 
+/// What kind of token names the caller.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TokenKind {
+    /// A user's token of a sign-in session (`sid`): `sub` is the pairwise subject of
+    /// `client_id`.
+    User,
+    /// An identity-assertion service token of a platform product or a tenant realm's API client
+    /// (Access OP-149 m.31 (a), m.34 (b)): no session, no scope, no authority; `sub` is the
+    /// caller's pairwise subject in Work's own sector.
+    Service,
+}
+
 /// What a verified access token says.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AccessClaims {
     /// The realm issuer.
     pub issuer: String,
-    /// The pairwise subject of `client_id` (MD-10).
+    /// The pairwise subject: of `client_id` for a user's token, of Work for a service token
+    /// (MD-10).
     pub sub: String,
-    /// The client the token was issued to: the sector of `sub`.
+    /// The client the token was issued to.
     pub client_id: String,
+    /// The tenant the token names, `access_tenant` (Access OP-149 m.34 (a)).
+    pub tenant: Option<String>,
+    /// A user's token or a service token.
+    pub kind: TokenKind,
     /// The RFC 7638 thumbprint of the `DPoP` key the token is bound to.
     pub jkt: [u8; 32],
     /// The space-separated scopes, as issued.
@@ -261,7 +278,9 @@ fn audience_named(aud: Option<&Value>, audience: &str) -> bool {
 /// Verifies an access token under the realm `keys` and holds its claims to `rules`: `typ`
 /// `at+jwt`, the header exactly `alg`, `kid` and `typ`, `ES256` (low S, as Access signs) or
 /// `Ed25519`, `iss` the realm, `aud` naming Work, `exp` required with `now ≤ exp + skew`, `nbf`
-/// and `iat` not after `now + skew`, `sub` and `client_id` present and `cnf.jkt` 32 bytes.
+/// and `iat` not after `now + skew`, `sub` and `client_id` present and `cnf.jkt` 32 bytes. A
+/// token with a session (`sid`) is a user's; one without is a service token, which carries
+/// neither `scope` nor `authorization_details`.
 ///
 /// # Errors
 /// [`TokenRefusal`].
@@ -311,10 +330,28 @@ pub fn verify_access_token(
         None => String::new(),
         Some(_) => text(&claims, "scope")?,
     };
+    let tenant = match claims.get("access_tenant") {
+        None => None,
+        Some(_) => Some(text(&claims, "access_tenant")?),
+    };
+    let kind = if claims.contains_key("sid") {
+        TokenKind::User
+    } else {
+        TokenKind::Service
+    };
+    if kind == TokenKind::Service
+        && ["scope", "authorization_details"]
+            .iter()
+            .any(|k| claims.contains_key(*k))
+    {
+        return Err(TokenRefusal::Claims);
+    }
     Ok(AccessClaims {
         issuer: rules.issuer.to_owned(),
         sub: text(&claims, "sub")?,
         client_id: text(&claims, "client_id")?,
+        tenant,
+        kind,
         jkt,
         scope,
         exp_ms,

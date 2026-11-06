@@ -1,4 +1,4 @@
-//! Naming the caller of a request (C-9, E-7, SEC-18, T-28; Access OP-149 m.19 (g)): the `DPoP` access token's issuer must be a live realm of an active tenant of Work's region, the token verifies under that realm's token keys and names Work, the proof binds it to this request once, and Access resolves the token client's pairwise `sub` to the `PartyID`. Every call to Access runs under a bound; when Access does not answer, the request is `authority_unverifiable` and no caller is named.
+//! Naming the caller of a request (C-9, E-7, SEC-18, T-28; Access OP-149 m.19 (g), m.31 (a), m.34): the `DPoP` access token's issuer must be a live realm of an active tenant of Work's region, the token verifies under that realm's token keys and names Work, its `access_tenant` is that realm's tenant, the proof binds it to this request once, and Access resolves its pairwise `sub` to the `PartyID`: in the sector of the token's client for a user's token, in Work's own for a platform product's or a tenant API client's service token, which may also name an API client without a Party. Every call to Access runs under a bound; when Access does not answer, the request is `authority_unverifiable` and no caller is named.
 
 use std::future::Future;
 use std::sync::{Arc, Mutex};
@@ -8,16 +8,14 @@ use tokio::time::timeout;
 use work_access_client::app::Client;
 use work_access_client::domain::AccessError;
 use work_access_client::domain::discovery::Issuer;
-use work_access_client::domain::fixed_b64url;
-use work_access_client::domain::subjects::Direction;
 use work_access_client::domain::token::{
     ProofRules, TokenRules, unverified, verify_access_token, verify_proof,
 };
 use work_access_client::ports::{Clock, Transport};
-use work_kernel::id::PartyRef;
 
 use crate::domain::caller::{
-    Caller, CallerRefusal, Presented, REPLAY_ENTRIES, ReplayCache, dpop_token,
+    Caller, CallerRefusal, Presented, REPLAY_ENTRIES, ReplayCache, dpop_token, party_of,
+    same_tenant, sector,
 };
 use crate::ports::{Authenticate, Pending};
 
@@ -75,7 +73,8 @@ impl<T: Transport, C: Clock> Authenticator<T, C> {
     ///
     /// # Errors
     /// [`CallerRefusal::Unauthenticated`] for a missing, malformed, foreign, expired or unbound
-    /// token, a proof that does not fit, a replayed proof or a subject Access does not know;
+    /// token, one whose `access_tenant` is not its realm's tenant (`token_tenant`), a proof that
+    /// does not fit, a replayed proof or a subject Access does not know;
     /// [`CallerRefusal::Unverifiable`] when Access does not answer.
     pub async fn caller(&self, presented: Presented<'_>) -> Result<Caller, CallerRefusal> {
         let token = dpop_token(presented.authorization)?;
@@ -120,29 +119,22 @@ impl<T: Transport, C: Clock> Authenticator<T, C> {
             .lock()
             .map_err(|_| CallerRefusal::Unverifiable("replay_cache"))?
             .admit(claims.jkt, &proved.jti, proved.iat_ms, now_ms)?;
-        let subs = [claims.sub.clone()];
-        let resolved = bounded(self.access.resolve(
+        same_tenant(claims.tenant.as_deref(), &realm.tenant)?;
+        let subject = bounded(self.access.subject(
             &realm.tenant,
             &realm.realm,
-            &claims.client_id,
-            Direction::Subs,
-            &subs,
+            sector(claims.kind, &claims.client_id, audience),
+            &claims.sub,
         ))
         .await?;
-        let party = resolved
-            .get(&claims.sub)
-            .cloned()
-            .flatten()
-            .ok_or(CallerRefusal::Unauthenticated("subject_unknown"))?;
-        let party_id =
-            fixed_b64url::<16>(&party).map_err(|_| CallerRefusal::Unverifiable("access_answer"))?;
+        let party = party_of(subject, claims.kind, &claims.client_id)?;
         Ok(Caller {
             tenant: realm.tenant,
             realm: realm.realm,
             issuer,
             client_id: claims.client_id,
-            party: PartyRef::new(&party).ok_or(CallerRefusal::Unverifiable("access_answer"))?,
-            party_id,
+            kind: claims.kind,
+            party,
         })
     }
 }

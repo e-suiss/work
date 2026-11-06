@@ -1,4 +1,4 @@
-//! Between a realm's `PartyID`s and the pairwise `sub` one of its clients sees (T-101 item 2, Access OP-149 m.19 (g), MD-10): one direction per call and at most 100 values, every value asked answered once as a pair or as `unknown`, and a process cache, bounded and least recently used first out, keyed by tenant, realm, client and value. Neither direction expires, since an assigned pairwise `sub` never changes; `unknown` is never cached, and nothing of it is written to the database.
+//! Between a realm's `PartyID`s and the pairwise `sub` one of its clients sees (T-101 item 2, Access OP-149 m.19 (g), m.34 (b), MD-10): one direction per call and at most 100 values, every value asked answered once as a pair, as the `client_id` of an API client without a Party whose service token carries that `sub`, or as `unknown`, and a process cache, bounded and least recently used first out, keyed by tenant, realm, client and value. Neither direction expires, since an assigned pairwise `sub` never changes; `unknown` is never cached, and nothing of it is written to the database.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -86,7 +86,8 @@ pub fn body(
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct PairWire {
-    party: String,
+    party: Option<String>,
+    client_id: Option<String>,
     sub: String,
 }
 
@@ -100,11 +101,23 @@ struct ResolutionWire {
     consistency_token: String,
 }
 
+/// Who a pairwise `sub` names.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Subject {
+    /// A Party, its `PartyID` as unpadded base64url.
+    Party(String),
+    /// An API client without a Party, by its `client_id` (Access OP-149 m.34 (b)).
+    Client(String),
+}
+
 /// One answer: the pairs and what did not resolve.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Resolution {
-    /// `PartyID` and pairwise `sub` of every value that resolved.
+    /// `PartyID` and pairwise `sub` of every value that resolved to a Party.
     pub pairs: Vec<([u8; 16], String)>,
+    /// The `client_id` and pairwise `sub` of every `sub` that names an API client without a
+    /// Party (Access OP-149 m.34 (b)); only a call of [`Direction::Subs`] has any.
+    pub clients: Vec<(String, String)>,
     /// The values asked that did not resolve, as given.
     pub unknown: Vec<String>,
     /// Opaque; the governing domain's head before the read.
@@ -131,19 +144,30 @@ impl Resolution {
         }
         let mut open: BTreeSet<&str> = asked.iter().map(String::as_str).collect();
         let mut pairs = Vec::with_capacity(w.resolved.len());
+        let mut clients = Vec::new();
         for pair in w.resolved {
-            let party = fixed_b64url::<16>(&pair.party).map_err(|_| bad())?;
             if !is_sub(&pair.sub) {
                 return Err(bad());
             }
-            let value = match direction {
-                Direction::Parties => pair.party.as_str(),
-                Direction::Subs => pair.sub.as_str(),
-            };
-            if !open.remove(value) {
-                return Err(bad());
+            match (pair.party, pair.client_id, direction) {
+                (Some(text), None, _) => {
+                    let party = fixed_b64url::<16>(&text).map_err(|_| bad())?;
+                    let value = match direction {
+                        Direction::Parties => text.as_str(),
+                        Direction::Subs => pair.sub.as_str(),
+                    };
+                    if !open.remove(value) {
+                        return Err(bad());
+                    }
+                    pairs.push((party, pair.sub));
+                }
+                (None, Some(client), Direction::Subs)
+                    if !client.is_empty() && open.remove(pair.sub.as_str()) =>
+                {
+                    clients.push((client, pair.sub));
+                }
+                _ => return Err(bad()),
             }
-            pairs.push((party, pair.sub));
         }
         for value in &w.unknown {
             if !open.remove(value.as_str()) {
@@ -155,6 +179,7 @@ impl Resolution {
         }
         Ok(Self {
             pairs,
+            clients,
             unknown: w.unknown,
             consistency_token: w.consistency_token,
         })
@@ -342,8 +367,41 @@ mod tests {
             |body: &[u8]| Resolution::from_json(body, REALM, "cli_web", Direction::Subs, &asked);
         let ok = read(&answer(&[(party(7), sub(1))], &[sub(2)])).unwrap();
         assert_eq!(ok.pairs, vec![([7; 16], sub(1))]);
+        assert!(ok.clients.is_empty());
         assert_eq!(ok.unknown, vec![sub(2)]);
         assert_eq!(ok.consistency_token, "ct-1");
+        let client = |entries: serde_json::Value| {
+            serde_json::to_vec(&serde_json::json!({
+                "realm": REALM,
+                "client_id": "cli_web",
+                "resolved": entries,
+                "unknown": [sub(2)],
+                "consistency_token": "ct-1",
+            }))
+            .unwrap()
+        };
+        let api = read(&client(
+            serde_json::json!([{"client_id": "cli_backend", "sub": sub(1)}]),
+        ))
+        .unwrap();
+        assert_eq!(api.clients, vec![("cli_backend".to_owned(), sub(1))]);
+        assert!(api.pairs.is_empty());
+        for bad in [
+            serde_json::json!([{"client_id": "cli_backend", "party": party(7), "sub": sub(1)}]),
+            serde_json::json!([{"client_id": "", "sub": sub(1)}]),
+            serde_json::json!([{"sub": sub(1)}]),
+            serde_json::json!([{"client_id": "cli_backend", "sub": sub(3)}]),
+        ] {
+            assert_eq!(read(&client(bad)), Err(AccessError::Answer("subjects")));
+        }
+        let by_party = Resolution::from_json(
+            &client(serde_json::json!([{"client_id": "cli_backend", "sub": sub(1)}])),
+            REALM,
+            "cli_web",
+            Direction::Parties,
+            &[party(1)],
+        );
+        assert_eq!(by_party, Err(AccessError::Answer("subjects")));
         for bad in [
             answer(&[(party(7), sub(1))], &[]),
             answer(&[(party(7), sub(1)), (party(8), sub(1))], &[sub(2)]),
@@ -369,6 +427,7 @@ mod tests {
         let mut cache = SubjectCache::new(4);
         let resolution = |n: u8| Resolution {
             pairs: vec![([n; 16], sub(n))],
+            clients: Vec::new(),
             unknown: vec![sub(9)],
             consistency_token: "ct".to_owned(),
         };
