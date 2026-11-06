@@ -7,6 +7,7 @@
     clippy::indexing_slicing,
     clippy::arithmetic_side_effects,
     clippy::missing_panics_doc,
+    clippy::too_many_lines,
     reason = "test code"
 )]
 
@@ -467,7 +468,7 @@ impl Local {
         if !cookies.is_empty() {
             headers.push(("cookie", cookies.as_str()));
         }
-        let bytes = body.map(|b| b.to_string()).unwrap_or_default();
+        let bytes = body.as_ref().map_or_else(String::new, ToString::to_string);
         let answer = self
             .send(
                 "POST",
@@ -659,6 +660,7 @@ mod signed {
     use std::sync::Arc;
 
     use serde_json::{Value, json};
+    use suiss_crypto::signer::Signer as _;
     use work_access_client::domain::b64url;
     use work_access_client::domain::metadata::thumbprint;
     use work_access_client::domain::subjects::Direction;
