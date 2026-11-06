@@ -950,7 +950,7 @@ pub(crate) mod tests {
         assert_eq!(agent.keys[0].party, KernelId([3; 16]));
         let human = decoded(&vector("compromised-key-of-a-human")).unwrap();
         assert_eq!(human.keys[0].actor_kind, ActorKind::Human);
-        assert!(decoded(&vector("nothing-known")).unwrap().keys.is_empty());
+        assert_eq!(decoded(&vector("nothing-known")).unwrap().keys, Vec::new());
         let payload = vector("ended-key-of-an-agent");
         assert_eq!(
             decoded(&with_actor_kind(&payload, None)),
