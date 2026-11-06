@@ -1,0 +1,97 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT state, tenant, party, digest, ledger,\n                      (extract(epoch FROM issued_at) * 1000)::bigint AS \"issued_at_ms!\",\n                      (extract(epoch FROM expires_at) * 1000)::bigint AS \"expires_at_ms!\",\n                      (extract(epoch FROM used_at) * 1000)::bigint AS \"used_at_ms?\"\n               FROM work.approval_state WHERE state = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "state",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "work.approval_state",
+            "name": "state"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "tenant",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "work.approval_state",
+            "name": "tenant"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "party",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "work.approval_state",
+            "name": "party"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "digest",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "work.approval_state",
+            "name": "digest"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "ledger",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "work.approval_state",
+            "name": "ledger"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "issued_at_ms!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "expires_at_ms!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 7,
+        "name": "used_at_ms?",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "e57585ec21f93c356ecc986a1d32eee4493387605d43d679402143fd1acc52e8"
+}
