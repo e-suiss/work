@@ -149,12 +149,6 @@ impl<T: Transport, C: Clock> Client<T, C> {
         fresh(state.discovered, now)
     }
 
-    /// Now on the client's clock, Unix milliseconds.
-    #[must_use]
-    pub fn now_ms(&self) -> u64 {
-        self.clock.now_ms()
-    }
-
     /// Refuses every later consequential action: Access disabled Work's own client
     /// (`api_client.disabled`, T-102 item 5, T-28).
     ///
