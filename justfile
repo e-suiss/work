@@ -343,6 +343,15 @@ cddl:
       if [ "$got" != "$want" ]; then echo "$name: CDDL $got, expected $want"; grep -v 'Unused rule' <<< "$out" | head -20; bad=1; fi
     done < "$dir/cbor/manifest"
     [ "$bad" = 0 ] && echo "CDDL: $(wc -l < "$dir/cbor/manifest" | tr -d ' ') vectors match their cddl expectation"
+    cw="$dir/compromise-window"
+    mkdir -p "$cw"
+    { printf 'root = compromise-window\n'; cat conformance/cddl/work-compromise-window.cddl; } > "$cw.cddl"
+    python3 -I -c 'import json, pathlib, sys; v = json.loads(pathlib.Path(sys.argv[1]).read_text()); out = pathlib.Path(sys.argv[2]); [(out / (c["id"] + ".cbor")).write_bytes(bytes.fromhex(c["cbor"])) for c in v["cases"]]; (out / "manifest").write_text("".join(c["id"] + " " + ("pass" if c["valid"] else "fail") + "\n" for c in v["cases"]))' conformance/vectors/compromise-window/compromise-window.json "$cw"
+    while read -r name want; do
+      if out="$("${cddl[@]}" "$cw.cddl" validate "$cw/$name.cbor" < /dev/null 2>&1)"; then got=pass; else got=fail; fi
+      if [ "$got" != "$want" ]; then echo "compromise-window/$name: CDDL $got, expected $want"; grep -v 'Unused rule' <<< "$out" | head -20; bad=1; fi
+    done < "$cw/manifest"
+    [ "$bad" = 0 ] && echo "CDDL: $(wc -l < "$cw/manifest" | tr -d ' ') compromise-window vectors match their cddl expectation"
     exit "$bad"
 
 sqlx_db_port := "5499"
