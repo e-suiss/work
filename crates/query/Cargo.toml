@@ -21,7 +21,6 @@ thiserror = { workspace = true, features = ["std"] }
 tokio = { workspace = true, features = ["sync", "time"] }
 
 [dev-dependencies]
-access-kernel = { workspace = true }
 suiss-crypto = { workspace = true, features = ["pkcs11", "verify"] }
 base64 = { workspace = true, features = ["alloc"] }
 bytes = { workspace = true, features = ["std"] }

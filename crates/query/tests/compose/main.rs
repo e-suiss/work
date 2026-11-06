@@ -1014,14 +1014,10 @@ mod retired {
 /// Exercise of the test user over it, and `work-server` writes the Declaration only for the
 /// intent Access approved, verified online.
 mod commit {
-    use std::collections::BTreeMap;
     use std::time::Duration;
 
-    use access_kernel::codec::Canonical as _;
-    use access_kernel::digest::Digest as AccessDigest;
-    use access_kernel::intent::{ContextRefs, IntentEnvelope};
-    use access_kernel::model::{ActionRef, ResourceRef, Window};
     use serde_json::{Value, json};
+    use suiss_crypto::dcbor::{self, Limits, Value as Cbor};
     use work_access_client::domain::b64url;
     use work_kernel::id::{Digest, LedgerId};
     use work_kernel::rules::RuleSet;
@@ -1042,28 +1038,45 @@ mod commit {
             .to_owned()
     }
 
-    /// A canonical `work:commit` intent over `resource`, valid around Access's now.
-    fn intent(resource: ResourceRef, now_ms: u64) -> Vec<u8> {
-        IntentEnvelope {
-            action: ActionRef {
-                namespace: "work".to_owned(),
-                name: "commit".to_owned(),
-                major: 1,
-                schema: AccessDigest([0; 32]),
-            },
-            resources: vec![resource],
-            params: BTreeMap::new(),
-            opaque: BTreeMap::new(),
-            recipient: None,
-            purpose: None,
-            context: ContextRefs::default(),
-            validity: Window {
-                from: now_ms.saturating_sub(60_000),
-                until: now_ms.saturating_add(600_000),
-            },
-        }
-        .to_bytes()
-        .unwrap()
+    /// A deterministic CBOR map of `entries`, keys in encoded order.
+    fn map(entries: Vec<(&str, Cbor)>) -> Cbor {
+        let mut keyed: Vec<(Vec<u8>, (Cbor, Cbor))> = entries
+            .into_iter()
+            .map(|(k, v)| {
+                let key = Cbor::text(k);
+                (dcbor::encode(&key, Limits::CEILING).unwrap(), (key, v))
+            })
+            .collect();
+        keyed.sort_by(|x, y| x.0.cmp(&y.0));
+        Cbor::Map(keyed.into_iter().map(|(_, kv)| kv).collect())
+    }
+
+    /// The canonical `IntentEnvelope` of `work:commit` over the resource `namespace`/`id`, valid
+    /// around Access's now (Access `intent.cddl`).
+    fn intent(namespace: &str, id: &str, now_ms: u64) -> Vec<u8> {
+        let action = map(vec![
+            ("namespace", Cbor::text("work")),
+            ("name", Cbor::text("commit")),
+            ("major", Cbor::Unsigned(1)),
+            ("schema", suiss_crypto::digest::Digest([0; 32]).to_value()),
+        ]);
+        let resource = map(vec![
+            ("namespace", Cbor::text(namespace)),
+            ("path", Cbor::Array(vec![Cbor::text(id)])),
+            ("incarnation", Cbor::Unsigned(0)),
+        ]);
+        let envelope = map(vec![
+            ("action", action),
+            ("resources", Cbor::Array(vec![resource])),
+            (
+                "validity",
+                Cbor::Array(vec![
+                    Cbor::Unsigned(now_ms.saturating_sub(60_000)),
+                    Cbor::Unsigned(now_ms.saturating_add(600_000)),
+                ]),
+            ),
+        ]);
+        dcbor::encode(&envelope, Limits::CEILING).unwrap()
     }
 
     // P-100 OP-9 E-17
@@ -1105,22 +1118,8 @@ mod commit {
         let key = local.dpop();
         let token = local.token(&key).await;
         let url = format!("{WORK}/v1/ledgers/{led}/declarations");
-        let tampered = intent(
-            ResourceRef {
-                namespace: "work.ledger".to_owned(),
-                path: vec![led.clone()],
-                incarnation: 0,
-            },
-            now,
-        );
-        let outside = intent(
-            ResourceRef {
-                namespace: "work".to_owned(),
-                path: vec![led.clone()],
-                incarnation: 0,
-            },
-            now,
-        );
+        let tampered = intent("work.ledger", &led, now);
+        let outside = intent("work", &led, now);
         for (envelope, detail) in [(tampered, "exercise-intent"), (outside, "intent_resource")] {
             let body = serde_json::to_vec(&json!({
                 "record": super::signed::golden_promise(),
