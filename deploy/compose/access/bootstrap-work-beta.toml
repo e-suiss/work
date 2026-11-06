@@ -3,12 +3,14 @@ platform = "platform"
 tenants = ["acme", "beta"]
 issuer_style = "path"
 
-# T-101
+# T-101, E-45
 [sample]
 realm = "acme"
 namespace = "work"
 action = "approve"
 allowed = "commit"
+resource_namespace = "work.ledger"
+resource_path_prefix = "led_"
 
 # T-104, T-102
 [test_user]
