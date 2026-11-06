@@ -253,11 +253,11 @@ mod tests {
             departed.parties[0].ended,
             Some(LedgerPoint { pos: 9, at: 9000 })
         );
-        assert!(
+        assert_eq!(
             decode_lookup(&vector("nothing-known"), none())
                 .unwrap()
-                .parties
-                .is_empty()
+                .parties,
+            Vec::new()
         );
         for case in cases() {
             if case["valid"] == false {

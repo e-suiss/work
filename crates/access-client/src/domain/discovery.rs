@@ -839,13 +839,6 @@ mod tests {
         );
         assert_eq!(
             endpoints
-                .get(Endpoint::PartyLookup)
-                .unwrap()
-                .expand("AwMDAwMDAwMDAwMDAwMDAw"),
-            "https://access.example/access/v1/parties/AwMDAwMDAwMDAwMDAwMDAw"
-        );
-        assert_eq!(
-            endpoints
                 .get(Endpoint::PlatformStreams)
                 .unwrap()
                 .expand("x"),

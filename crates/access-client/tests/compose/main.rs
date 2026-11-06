@@ -563,7 +563,10 @@ mod signed {
         assert!(!both.contains_key(&stranger), "{both:?}");
         let alone = client.kinds(domain, &[user]).await.unwrap();
         assert_eq!(alone.get(&user), Some(&ActorKind::Human));
-        assert!(client.kinds(domain, &[stranger]).await.unwrap().is_empty());
+        assert_eq!(
+            client.kinds(domain, &[stranger]).await.unwrap(),
+            std::collections::BTreeMap::new()
+        );
         let entries = client.parties(domain, &[user], &AsOf::Head).await.unwrap();
         assert_eq!(entries.len(), 1);
         assert!(entries[0].ended.is_none());
