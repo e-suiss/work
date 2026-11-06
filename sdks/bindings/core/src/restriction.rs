@@ -62,8 +62,8 @@ fn deny(policies: &[String], attention: bool) -> Value {
     json!({ "outcome": "deny", "policies": policies, "attention": attention })
 }
 
-fn verdict(answer: Result<Outcome, InputRejected>, rules: &RuleSet<'_>) -> Value {
-    let (mut out, outcome) = match &answer {
+fn verdict(answer: &Result<Outcome, InputRejected>, rules: &RuleSet<'_>) -> Value {
+    let (mut out, outcome) = match answer {
         Ok(Outcome::NoObjection) => (
             json!({ "outcome": "no_objection" }),
             RuleOutcome::NoObjection,
@@ -122,7 +122,7 @@ pub fn evaluate_restriction(rule_set_json: &str, request_json: &str) -> String {
                     .all(|p| p.require.is_none_or(|r| rules.requirements.names(r)))
             });
             if named {
-                compact(verdict(engine.evaluate(&req), &rules))
+                compact(verdict(&engine.evaluate(&req), &rules))
             } else {
                 refused(REQUIRE_UNNAMED)
             }
