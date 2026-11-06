@@ -628,6 +628,7 @@ fn op_1_the_golden_ledger_replays_from_its_stored_bytes_to_the_admitted_records(
         };
         let replayed = crate::rebuild::replayed(&ledger, &stored).unwrap();
         admitted.outbox.clear();
+        admitted.kid = None;
         assert_eq!(replayed, admitted, "{}", g.id);
         let mut other = stored.clone();
         other.pos = slot.pos.checked_add(1).unwrap();

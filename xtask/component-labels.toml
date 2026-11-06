@@ -64,11 +64,13 @@ tables = [
   "ledger.head",
   "ledger.outbox",
   "ledger.version_activation",
+  "work.compromise_notice",
   "work.idempotency_key",
   "work.inbound_seen",
   "work.item_head",
   "work.ledger_profile",
   "work.one_time_flag",
+  "work.record_signer",
   "work.work_root",
 ]
 never = "only the sequencer writes the log and the head, the other writers write only what the T-79 list gives them, and the application role only reads"

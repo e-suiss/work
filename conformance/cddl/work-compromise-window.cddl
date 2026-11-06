@@ -1,7 +1,4 @@
 ; SEC-36
-; work/compromise-window/1: the body of the compromise window notice, deterministic CBOR,
-; carried as the extension "https://suiss.app/ns/work/compromise-window/1" of a core
-; observation Claim of the domain's Work service system Party.
 
 compromise-window = {
   instance: bstr .size 16,

@@ -9,7 +9,7 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio_rustls::TlsAcceptor;
 use tokio_rustls::rustls::ServerConfig;
 use tokio_rustls::server::TlsStream;
-use work_access_client::adapters::TokenSigner;
+use work_access_client::adapters::{AccessKeys, TokenSigner};
 use work_access_client::app::events::{Intake, Outcome};
 use work_access_client::app::platform::Scope;
 use work_access_client::domain::b64url;
@@ -19,10 +19,12 @@ use work_access_client::ports::Effects;
 use work_http::inbound::{Answer, Answering, Receiver};
 use work_proto::id::TenantId;
 use work_query::app::notices::{Noticed, Notices};
+use work_query::ports::Sequence;
 use work_reconciler::adapters::{PgInbound, PgPairing};
 
+use crate::config::Config;
 use crate::pairing::Pairer;
-use crate::startup::AccessClient;
+use crate::startup::{AccessClient, Infrastructure, read_pin};
 
 /// The longest TLS handshake the listener waits for.
 const HANDSHAKE: Duration = Duration::from_secs(5);
@@ -111,6 +113,35 @@ impl Effects for ProcessEffects {
                 ),
             }
         });
+    }
+}
+
+/// The SEC-36 notice writer over the `work-access-service` key of the `[access]` token; without
+/// the key no notice is written and every compromise is logged as such (WD-123).
+pub(crate) fn notices(
+    config: &Config,
+    infrastructure: &Infrastructure,
+    sequence: Arc<dyn Sequence>,
+) -> Option<Arc<Notices<TokenSigner>>> {
+    let keys = read_pin(&config.access.pin_file).and_then(|pin| {
+        AccessKeys::load(&config.access.module, &config.access.token, &pin)
+            .map_err(|e| e.to_string())
+    });
+    match keys {
+        Ok(keys) => Some(Arc::new(Notices::new(
+            infrastructure.canonical.clone(),
+            infrastructure.access.clone(),
+            sequence,
+            Arc::new(keys.service),
+        ))),
+        Err(error) => {
+            tracing::error!(
+                event = "access.compromise_notices_unserved",
+                %error,
+                "the service key does not open; no SEC-36 notice is written"
+            );
+            None
+        }
     }
 }
 
