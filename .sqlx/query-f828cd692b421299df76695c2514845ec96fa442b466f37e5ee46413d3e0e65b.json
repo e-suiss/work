@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT handle, tenant, party, digest, ledger,\n                      (extract(epoch FROM issued_at) * 1000)::bigint AS \"issued_at_ms!\",\n                      (extract(epoch FROM expires_at) * 1000)::bigint AS \"expires_at_ms!\",\n                      (extract(epoch FROM used_at) * 1000)::bigint AS \"used_at_ms?\"\n               FROM work.approval_return WHERE handle = $1",
+  "query": "SELECT handle, tenant, party, digest, ledger, contribution,\n                      (extract(epoch FROM issued_at) * 1000)::bigint AS \"issued_at_ms!\",\n                      (extract(epoch FROM expires_at) * 1000)::bigint AS \"expires_at_ms!\",\n                      (extract(epoch FROM used_at) * 1000)::bigint AS \"used_at_ms?\"\n               FROM work.approval_return WHERE handle = $1",
   "describe": {
     "columns": [
       {
@@ -60,18 +60,29 @@
       },
       {
         "ordinal": 5,
+        "name": "contribution",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "work.approval_return",
+            "name": "contribution"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
         "name": "issued_at_ms!",
         "type_info": "Int8",
         "origin": "Expression"
       },
       {
-        "ordinal": 6,
+        "ordinal": 7,
         "name": "expires_at_ms!",
         "type_info": "Int8",
         "origin": "Expression"
       },
       {
-        "ordinal": 7,
+        "ordinal": 8,
         "name": "used_at_ms?",
         "type_info": "Int8",
         "origin": "Expression"
@@ -88,10 +99,11 @@
       false,
       false,
       false,
+      true,
       null,
       null,
       null
     ]
   },
-  "hash": "cdd96339269d782b56da51d7bb11951c3696a6a6bcd2ff57853f7da4e14251d3"
+  "hash": "f828cd692b421299df76695c2514845ec96fa442b466f37e5ee46413d3e0e65b"
 }
