@@ -60,7 +60,7 @@ pub fn ath(token: &str) -> String {
 }
 
 /// What one proof says.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct Proof<'a> {
     /// The public key of `work-access-dpop`, SEC1 uncompressed P-256.
     pub key: &'a PublicKey,
@@ -76,6 +76,16 @@ pub struct Proof<'a> {
     pub nonce: Option<&'a str>,
     /// The access token the call presents; none at the token endpoint.
     pub token: Option<&'a str>,
+}
+
+impl std::fmt::Debug for Proof<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Proof")
+            .field("method", &self.method)
+            .field("url", &self.url)
+            .field("now_ms", &self.now_ms)
+            .finish_non_exhaustive()
+    }
 }
 
 impl Proof<'_> {

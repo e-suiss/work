@@ -202,9 +202,12 @@ impl<T: Transport, C: Clock, R: Random, K: Signer + Send + Sync, D: Signer + Sen
     /// [`AccessError`] of the token endpoint or the key store.
     pub async fn authorize(&self, method: &str, url: &str) -> Result<DpopHeaders, AccessError> {
         let token = self.token().await?;
+        let dpop = self.proof(method, url, None, Some(token.expose()))?;
+        let mut authorization = String::from("DPoP ");
+        authorization.push_str(token.expose());
         Ok(DpopHeaders {
-            authorization: format!("DPoP {}", token.expose()),
-            dpop: self.proof(method, url, None, Some(token.expose()))?,
+            authorization,
+            dpop,
         })
     }
 }

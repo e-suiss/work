@@ -7,8 +7,13 @@ use work_relay_client::domain::answer::RelayError;
 use work_relay_client::ports::{Authorization, Credential};
 
 /// The Relay credential over Work's service tokens for Relay.
-#[derive(Debug)]
 pub struct RelayCredential<T, C, R, K, D>(pub ServiceTokens<T, C, R, K, D>);
+
+impl<T, C, R, K, D> std::fmt::Debug for RelayCredential<T, C, R, K, D> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("RelayCredential").field(&self.0).finish()
+    }
+}
 
 impl<T, C, R, K, D> Credential for RelayCredential<T, C, R, K, D>
 where
