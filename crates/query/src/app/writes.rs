@@ -110,7 +110,7 @@ fn replayed(outcome: StoredOutcome) -> Result<Written, WriteRefusal> {
     }
 }
 
-fn submit_refusal(error: SubmitError) -> WriteRefusal {
+fn submit_refusal(error: &SubmitError) -> WriteRefusal {
     match error {
         SubmitError::Rejected(reason) => WriteRefusal::Rejected(reason.to_string()),
         SubmitError::AuthContext(invalid) => WriteRefusal::AuthContext(invalid.to_string()),
@@ -122,7 +122,7 @@ fn submit_refusal(error: SubmitError) -> WriteRefusal {
     }
 }
 
-fn admit_refusal(error: AdmitError) -> WriteRefusal {
+fn admit_refusal(error: &AdmitError) -> WriteRefusal {
     match error {
         AdmitError::Rejected(reason) => WriteRefusal::Rejected(reason.to_string()),
         AdmitError::AuthContext(invalid) => WriteRefusal::AuthContext(invalid.to_string()),
@@ -455,7 +455,7 @@ where
             author: &record.core().author,
             keys: &none,
         };
-        admit(&verifier, &store_ledger(at.ledger), submission).map_err(admit_refusal)
+        admit(&verifier, &store_ledger(at.ledger), submission).map_err(|e| admit_refusal(&e))
     }
 
     /// Admits a signed record against the key Access binds to its `kid` now, whose Party's
@@ -498,7 +498,7 @@ where
             idempotency: claim,
             inbound: None,
         };
-        admit(&verifier, &store_ledger(at.ledger), submission).map_err(admit_refusal)
+        admit(&verifier, &store_ledger(at.ledger), submission).map_err(|e| admit_refusal(&e))
     }
 
     async fn write(
@@ -548,7 +548,7 @@ where
             .sequence
             .submit(&store_ledger(ledger), pending)
             .await
-            .map_err(submit_refusal)?;
+            .map_err(|e| submit_refusal(&e))?;
         Ok(Written {
             record: record_id(&carried.bytes),
             pos: committed.pos,

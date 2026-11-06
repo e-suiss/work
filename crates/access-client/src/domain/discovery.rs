@@ -127,9 +127,11 @@ pub enum Endpoint {
     Approval,
     /// The Frontend API pushed approval requests (`approval_requests`, E-17).
     ApprovalRequests,
+    /// The realm's pushed authorization request endpoint (RFC 9126).
+    PushedAuthorizationRequest,
 }
 
-const ENDPOINTS: [(&str, Endpoint, Option<&str>); 17] = [
+const ENDPOINTS: [(&str, Endpoint, Option<&str>); 18] = [
     ("adp", Endpoint::Adp, None),
     ("key_lookup", Endpoint::KeyLookup, Some("kid")),
     ("key_batch", Endpoint::KeyBatch, None),
@@ -159,6 +161,11 @@ const ENDPOINTS: [(&str, Endpoint, Option<&str>); 17] = [
     ("status_list", Endpoint::StatusList, Some("list")),
     ("approval", Endpoint::Approval, None),
     ("approval_requests", Endpoint::ApprovalRequests, None),
+    (
+        "pushed_authorization_request",
+        Endpoint::PushedAuthorizationRequest,
+        None,
+    ),
 ];
 
 impl Endpoint {
@@ -750,6 +757,10 @@ mod tests {
                 "https://acme.id.example/v1/approve/requests",
             ),
             ("auth_context", "https://acme.id.example/v1/me/auth-context"),
+            (
+                "pushed_authorization_request",
+                "https://acme.id.example/par",
+            ),
             (
                 "claim_ingest",
                 "https://access.example/access/v1/claims:ingest",
