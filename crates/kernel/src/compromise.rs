@@ -17,8 +17,23 @@ use crate::uri::CORE_ROOT;
 /// The extension key the notice body is written under.
 pub const EXT_KEY: &str = "https://suiss.app/ns/work/compromise-window/1";
 
-/// The CDDL of the body; the notice's `versions.schema` is its SHA-256.
-pub const CDDL: &[u8] = include_bytes!("../../../conformance/cddl/work-compromise-window.cddl");
+/// The CDDL of the body, byte for byte `conformance/cddl/work-compromise-window.cddl`; the
+/// notice's `versions.schema` is its SHA-256.
+pub const CDDL: &str = r#"; SEC-36
+
+compromise-window = {
+  instance: bstr .size 16,
+  kids: [+ kid],
+  window_from: uint,
+  window_to: uint,
+  event_digest: digest,
+  domain: bstr .size 32,
+  source: tstr,
+}
+
+kid = tstr .size 43
+digest = [-16, bstr .size 32]
+"#;
 
 /// The external reference prefix of the Access event a notice answers.
 pub const EVENT_PREFIX: &str = "urn:suiss:access:event:";
@@ -348,7 +363,10 @@ pub fn notice_record(input: &NoticeInput) -> Result<Vec<u8>, WindowError> {
                         Value::Unsigned(PROTOCOL.1)
                     ]),
                 ),
-                (Value::text("schema"), digest_value(&sha256(CDDL))),
+                (
+                    Value::text("schema"),
+                    digest_value(&sha256(CDDL.as_bytes()))
+                ),
             ]),
         ),
         (

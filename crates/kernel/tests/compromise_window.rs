@@ -8,11 +8,16 @@
 )]
 
 use serde_json::Value;
-use work_kernel::compromise::{Window, WindowError};
+use work_kernel::compromise::{CDDL, Window, WindowError};
 
 const VECTORS: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/../../conformance/vectors/compromise-window/compromise-window.json"
+));
+
+const SCHEMA: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../conformance/cddl/work-compromise-window.cddl"
 ));
 
 fn unhex(s: &str) -> Vec<u8> {
@@ -27,6 +32,7 @@ fn unhex(s: &str) -> Vec<u8> {
 fn sec_36_the_notice_body_matches_its_vectors() {
     let v: Value = serde_json::from_str(VECTORS).unwrap();
     assert_eq!(v["contract"], "work/compromise-window/1");
+    assert_eq!(CDDL, SCHEMA);
     let cases = v["cases"].as_array().unwrap();
     assert!(cases.iter().any(|c| c["valid"] == true));
     assert!(cases.iter().any(|c| c["valid"] == false));
