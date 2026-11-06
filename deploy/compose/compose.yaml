@@ -272,6 +272,8 @@ services:
         condition: service_healthy
       relay:
         condition: service_healthy
+      relay-register:
+        condition: service_completed_successfully
 
   # OP-33, OP-46, T-41
   witness:
@@ -691,7 +693,7 @@ services:
     environment:
       ACCESS_CONFIG: /etc/access/local/access.toml
       ACCESS_SUISS: *access-suiss
-      ACCESS_DELIVERY_TARGETS: '[{url="https://work-server:8443/v1/inbound/events", ca_file="/var/lib/access/certs/ca.crt"}]'
+      ACCESS_DELIVERY_TARGETS: '[{url="https://work-server:8443/v1/inbound/events", ca_file="/var/lib/access/certs/ca.crt"}, {url="https://relay/v1/access/events", ca_file="/var/lib/access/certs/ca.crt"}]'
       BOOTSTRAP_TEST_PASSWORD: ${ACCESS_LOCAL_TEST_PASSWORD:-local-only-not-a-secret}
     volumes:
       - access-certs:/var/lib/access/certs:ro
@@ -725,7 +727,7 @@ services:
     environment:
       ACCESS_CONFIG: /etc/access/local/access.toml
       ACCESS_SUISS: *access-suiss
-      ACCESS_DELIVERY_TARGETS: '[{url="https://work-server:8443/v1/inbound/events", ca_file="/var/lib/access/certs/ca.crt"}]'
+      ACCESS_DELIVERY_TARGETS: '[{url="https://work-server:8443/v1/inbound/events", ca_file="/var/lib/access/certs/ca.crt"}, {url="https://relay/v1/access/events", ca_file="/var/lib/access/certs/ca.crt"}]'
     volumes:
       - access-certs:/var/lib/access/certs:ro
       - access-secrets:/var/lib/access/secrets:ro
@@ -808,7 +810,7 @@ services:
         condition: service_completed_successfully
     networks: [default, access]
 
-  # T-51, T-16, MD-3, E-2, T-99, T-41
+  # T-51, T-16, MD-3, E-2, T-99, T-41, E-91
   relay:
     <<: *relay-process
     build: ./relay
@@ -817,6 +819,7 @@ services:
     command: ["start"]
     environment:
       <<: *relay-env
+      RELAY_TRUSTED_PROXIES: 127.0.0.0/8,::1/128,::ffff:127.0.0.0/104
       LOCAL_TLS_CERT: /var/lib/access/product-tls/relay.crt
       LOCAL_TLS_KEY: /var/lib/access/product-tls/relay.key
     sysctls:
@@ -842,6 +845,29 @@ services:
       interval: 2s
       timeout: 3s
       retries: 120
+
+  # T-99, MD-3, E-93
+  relay-register:
+    <<: *relay-process
+    build: ./relay
+    image: work-dev/relay:local
+    entrypoint: ["/usr/local/bin/relay-register"]
+    environment:
+      <<: *relay-env
+      RELAY_ROLES: worker
+      RELAY_REGION: eu
+      LOCAL_BOOTSTRAP: /var/lib/access/bootstrap/bootstrap.json
+    volumes:
+      - relay-softhsm:/var/lib/relay-softhsm
+      - relay-trust:/var/lib/relay-trust:ro
+      - relay-access-client:/var/lib/relay-client:ro
+      - access-bootstrap:/var/lib/access/bootstrap:ro
+    depends_on:
+      relay:
+        condition: service_healthy
+      access:
+        condition: service_healthy
+    networks: [default, access]
 
   valkey:
     <<: *hardening

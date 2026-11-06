@@ -11,9 +11,9 @@ digest = "sha256:17a27ac7f1289dc5e8448de42fee161337beb703405db8e4e0bf38fcb555751
 
 [relay]
 status = "build"
-version = "sha-6b4a2761db11b59f60afaf396044d039698734c1"
+version = "sha-d95360ec67127c2f2ecefb38afd878a59ccd4180"
 image = "ghcr.io/e-suiss/relay"
-digest = "sha256:7022a7677b4ebc0b5d9017591303f02a3c73df441c812d87946b6b816118ccac"
+digest = "sha256:bf9fecbdf7296c456536e182e4403e3bb4bcce11b365671ff7823eb8dae58298"
 
 # T-54
 [shared-crates]

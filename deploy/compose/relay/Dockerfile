@@ -1,9 +1,9 @@
-# T-51, T-56, T-41, MD-3
-FROM ghcr.io/e-suiss/relay@sha256:7022a7677b4ebc0b5d9017591303f02a3c73df441c812d87946b6b816118ccac
+# T-51, T-56, T-41, MD-3, E-91
+FROM ghcr.io/e-suiss/relay@sha256:bf9fecbdf7296c456536e182e4403e3bb4bcce11b365671ff7823eb8dae58298
 
 USER root
 RUN apt-get update \
- && apt-get install -y --no-install-recommends softhsm2 opensc curl jq socat \
+ && apt-get install -y --no-install-recommends softhsm2 opensc curl jq haproxy \
  && rm -rf /var/lib/apt/lists/* \
  && printf 'directories.tokendir = /var/lib/relay-softhsm\nobjectstore.backend = file\nlog.level = ERROR\n' > /etc/relay-softhsm2.conf \
  && chmod 0644 /etc/relay-softhsm2.conf \
@@ -15,6 +15,9 @@ RUN apt-get update \
 COPY --chmod=0755 keys.sh /usr/local/bin/relay-keys
 COPY --chmod=0755 init.sh /usr/local/bin/relay-init
 COPY --chmod=0755 start.sh /usr/local/bin/relay-start
+COPY --chmod=0755 register.sh /usr/local/bin/relay-register
+COPY --chmod=0644 register.exs /usr/local/lib/relay-work/register.exs
+COPY --chmod=0644 proxy.cfg /etc/relay-proxy.cfg
 
 ENV SOFTHSM2_CONF=/etc/relay-softhsm2.conf
 USER 65532:65532
