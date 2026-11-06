@@ -1,4 +1,4 @@
-//! Work's decision explanation against Access's kernel (PR-11, PR-17; Access E43, A25 item 4): every valid example of Access's `explanation.json` passes Work's `explanation.cddl` check, and every one in Access's full (audit) form passes Access's `decision_from_value` too, which writes it back to the same deterministic CBOR; the requester's and the viewer's views, whose blockers drop the `position` or the `subcode` the full form carries, are the ones `decision_from_value` refuses; what Work refuses Access refuses.
+//! Work's decision explanation against Access's kernel (PR-11, PR-17; Access E43, A25 item 4, OP-149 m.33 (a)): every valid example of Access's `explanation.json`, in each of its scopes (requester, viewer, audit), passes Work's `explanation.cddl` check and Access's `explanation_from_value`, which writes it back to the same deterministic CBOR; the audit scope is also Access's `decision_from_value`; what Work refuses Access refuses.
 
 #![allow(
     clippy::unwrap_used,
@@ -8,7 +8,9 @@
     reason = "test code"
 )]
 
-use access_kernel::combinator::codec::{decision_from_value, decision_value};
+use access_kernel::combinator::codec::{
+    decision_from_value, decision_value, explanation_from_value, explanation_value,
+};
 use serde_json::Value as Json;
 use suiss_crypto::dcbor::{self, Limits, Value};
 use work_proto::explanation::{Explanation, from_json, to_json};
@@ -24,7 +26,7 @@ fn hex(s: &str) -> Vec<u8> {
 
 fn agree(id: &str, value: &Value) -> bool {
     let work = Explanation::from_value(value.clone()).is_ok();
-    let access = decision_from_value(value).is_ok();
+    let access = explanation_from_value(value).is_ok();
     assert_eq!(work, access, "{id}: work {work}, access {access}");
     work
 }
@@ -52,7 +54,7 @@ fn with(value: &Value, name: &str, member: Value) -> Value {
 fn pr_11_pr_17_work_and_the_access_kernel_agree_on_access_s_explanation_examples() {
     let file: Json = serde_json::from_str(VECTORS).unwrap();
     let mut valid = Vec::new();
-    let mut views = Vec::new();
+    let mut audit = Vec::new();
     for case in file["cases"].as_array().unwrap() {
         let id = case["id"].as_str().unwrap();
         if case["valid"] != true {
@@ -65,17 +67,23 @@ fn pr_11_pr_17_work_and_the_access_kernel_agree_on_access_s_explanation_examples
         assert_eq!(work.encode().unwrap(), cbor, "{id}");
         assert_eq!(from_json(&case["json"]).unwrap(), work, "{id}");
         assert_eq!(to_json(&work).unwrap(), case["json"], "{id}");
-        match decision_from_value(&value) {
-            Ok(decision) => {
-                let back = dcbor::encode(&decision_value(&decision), Limits::CEILING).unwrap();
-                assert_eq!(back, cbor, "{id}");
-            }
-            Err(_) => views.push(id),
+        let explanation = explanation_from_value(&value).unwrap();
+        let back = dcbor::encode(&explanation_value(&explanation), Limits::CEILING).unwrap();
+        assert_eq!(back, cbor, "{id}");
+        if let Some(decision) = explanation.decision()
+            && let Ok(full) = decision_from_value(&value)
+        {
+            assert_eq!(full, decision, "{id}");
+            let back = dcbor::encode(&decision_value(&full), Limits::CEILING).unwrap();
+            assert_eq!(back, cbor, "{id}");
+            audit.push(id);
         }
+        assert!(agree(id, &value), "{id}");
         valid.push(value);
     }
     assert_eq!(valid.len(), 7);
-    assert_eq!(views, ["deny-viewer", "deny-requester"]);
+    assert!(audit.contains(&"deny-audit"), "{audit:?}");
+    assert!(!audit.contains(&"deny-requester"), "{audit:?}");
     assert!(agree("deny-audit", &valid[2]));
     let bare = &valid[1];
     let deny = &valid[2];

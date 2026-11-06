@@ -4,12 +4,14 @@ use std::collections::BTreeMap;
 
 use access_kernel::ais::{SKEW_MS, Statement as Ais};
 use access_kernel::codec::Canonical as _;
+use access_kernel::combinator::codec::explanation_from_value;
 use access_kernel::combinator::{Capacity as AccessCapacity, Mode};
 use access_kernel::digest::Digest;
 use access_kernel::intent::{ContextRefs, IntentEnvelope, ParamValue, intent_digest};
 use access_kernel::meta::{ExerciseBasis, HoldingRef};
 use access_kernel::model::{ActionRef, EqValue, Id, PurposeRef, ResourceRef, Window};
 use serde_json::{Map, Value, json};
+use suiss_crypto::dcbor::{self, Limits};
 
 use crate::domain::exercise::{Capacity, ExerciseId};
 use crate::domain::keys::{DomainId, KernelId};
@@ -356,8 +358,29 @@ impl Statement<'_> {
     }
 }
 
+/// A proof an evaluation relies on (Access L1-ADP-12, OP-149 m.33 (c)).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Proof {
+    /// The contribution Exercise of an approval, `{"contribution": …}`.
+    Contribution(ExerciseId),
+    /// A Claim by its `ClaimID`, such as the approver's `authentication` Claim the Approval
+    /// Surface returned, `{"claim_ref": …}`.
+    Claim(KernelId),
+}
+
+impl Proof {
+    /// The ADP JSON form.
+    #[must_use]
+    pub fn json(&self) -> Value {
+        match self {
+            Self::Contribution(e) => json!({"contribution": e.text()}),
+            Self::Claim(c) => json!({"claim_ref": c.text()}),
+        }
+    }
+}
+
 /// One `AuthZEN` evaluation Work's PEP commits (Access L1-ADP-5): the actor's Party, the
-/// intent, the statement and its AIS, and the contributions it relies on.
+/// intent, the statement and its AIS, and the proofs it relies on.
 #[derive(Clone, Debug)]
 pub struct Evaluation<'a> {
     /// The actor Party, the caller Access named.
@@ -368,8 +391,8 @@ pub struct Evaluation<'a> {
     pub statement: Statement<'a>,
     /// The AIS, a tagged `COSE_Sign1` by the actor's device Instance key.
     pub ais: &'a [u8],
-    /// The contribution Exercises of the approvals it relies on (Access L1-ADP-12).
-    pub contributions: &'a [ExerciseId],
+    /// The contributions and Claims it relies on (Access L1-ADP-12).
+    pub proofs: &'a [Proof],
 }
 
 impl Evaluation<'_> {
@@ -397,15 +420,10 @@ impl Evaluation<'_> {
             capacity_json(self.statement.capacity),
         );
         context.insert("ais".to_owned(), Value::from(b64url(self.ais)));
-        if !self.contributions.is_empty() {
+        if !self.proofs.is_empty() {
             context.insert(
                 "proofs".to_owned(),
-                Value::Array(
-                    self.contributions
-                        .iter()
-                        .map(|c| json!({"contribution": c.text()}))
-                        .collect(),
-                ),
+                Value::Array(self.proofs.iter().map(Proof::json).collect()),
             );
         }
         let body = json!({
@@ -450,16 +468,40 @@ fn listed(context: &Value, name: &str) -> Vec<Value> {
         .unwrap_or_default()
 }
 
+/// The members of an ADP `context` that are its explanation (Access E43, `explanation.cddl`).
+pub const EXPLANATION_MEMBERS: [&str; 4] = ["outcome", "blockers", "unmet", "relied_on"];
+
+/// Whether the explanation members of an ADP `context` are an explanation in one of Access's
+/// scopes as Access's kernel reads it (`explanation_from_value`; Access OP-149 m.33 (a)): their
+/// JSON form mapped to its canonical CBOR and decoded by Access's own decoder.
+#[must_use]
+pub fn explained(context: &Value) -> bool {
+    let Some(members) = context.as_object() else {
+        return false;
+    };
+    let explanation: Map<String, Value> = members
+        .iter()
+        .filter(|(k, _)| EXPLANATION_MEMBERS.contains(&k.as_str()))
+        .map(|(k, v)| (k.clone(), v.clone()))
+        .collect();
+    work_proto::explanation::from_json(&Value::Object(explanation))
+        .ok()
+        .and_then(|e| e.encode().ok())
+        .and_then(|bytes| dcbor::decode(&bytes, Limits::CEILING).ok())
+        .is_some_and(|value| explanation_from_value(&value).is_ok())
+}
+
 impl Decision {
-    /// Reads the `200` answer.
+    /// Reads the `200` answer, whose `context` explains the decision in the requester's scope.
     ///
     /// # Errors
-    /// [`AccessError::Answer`] (`decision`) for an answer outside the contract.
+    /// [`AccessError::Answer`] (`decision`) for an answer outside the contract or a `context`
+    /// whose explanation [`explained`] refuses.
     pub fn from_json(body: &[u8]) -> Result<Self, AccessError> {
         let bad = || AccessError::Answer("decision");
         let v: Value = serde_json::from_slice(body).map_err(|_| bad())?;
         let allowed = v.get("decision").and_then(Value::as_bool).ok_or_else(bad)?;
-        let context = v.get("context").filter(|c| c.is_object()).ok_or_else(bad)?;
+        let context = v.get("context").filter(|c| explained(c)).ok_or_else(bad)?;
         let outcome = context.get("outcome").and_then(Value::as_str);
         match (allowed, outcome) {
             (true, Some("allow")) => {
@@ -492,20 +534,33 @@ impl Decision {
     }
 }
 
-fn proof_kind(unmet: &Value) -> Option<&str> {
+fn term_member<'a>(unmet: &'a Value, name: &str) -> Option<&'a str> {
     unmet
         .get("term")
-        .and_then(|t| t.get("proof_kind"))
+        .and_then(|t| t.get(name))
         .and_then(Value::as_str)
 }
 
+fn proof_kind(unmet: &Value) -> Option<&str> {
+    term_member(unmet, "proof_kind")
+}
+
+/// The proof kind, and the class of a `claim` term, of a step-up (Access OP-149 m.33 (c)).
+pub const AUTHENTICATION: &str = "authentication";
+
 /// The unmet authentication terms of a `REQUIRE_ACTION`, as Access wrote them: the step-up the
-/// actor meets at Access before it asks again (P-116 item 6, E-7). Work adds no threshold.
+/// actor meets at Access (P-116 item 6, E-7; Access OP-149 m.33 (c)), an `authentication` proof
+/// or an `authentication` Claim, which the approver's passkey assertion on the Approval Surface
+/// meets beside the approval. Work adds no threshold.
 #[must_use]
 pub fn step_up(unmet: &[Value]) -> Vec<Value> {
     unmet
         .iter()
-        .filter(|u| proof_kind(u) == Some("authentication"))
+        .filter(|u| match proof_kind(u) {
+            Some(AUTHENTICATION) => true,
+            Some("claim") => term_member(u, "class") == Some(AUTHENTICATION),
+            _ => false,
+        })
         .cloned()
         .collect()
 }

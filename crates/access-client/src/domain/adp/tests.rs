@@ -141,13 +141,16 @@ fn t_101_the_evaluation_names_the_caller_the_intent_and_the_approvals_it_relies_
     let bytes = intent();
     let digest = intent_digest_of(&bytes).unwrap();
     let ais = sign1(&statement(&digest).to_sign(NOW).unwrap());
-    let contributions = [ExerciseId([0xc1; 32])];
+    let proofs = [
+        Proof::Contribution(ExerciseId([0xc1; 32])),
+        Proof::Claim(KernelId([0xc2; 16])),
+    ];
     let e = Evaluation {
         party: "EREREREREREREREREREREQ",
         intent: &bytes,
         statement: statement(&digest),
         ais: &ais,
-        contributions: &contributions,
+        proofs: &proofs,
     };
     let body: Value = serde_json::from_slice(&e.body().unwrap()).unwrap();
     assert_eq!(
@@ -169,12 +172,12 @@ fn t_101_the_evaluation_names_the_caller_the_intent_and_the_approvals_it_relies_
     assert_eq!(c["ais"], b64url(&ais));
     assert_eq!(
         c["proofs"],
-        json!([{"contribution": ExerciseId([0xc1; 32]).text()}])
+        json!([
+            {"contribution": ExerciseId([0xc1; 32]).text()},
+            {"claim_ref": KernelId([0xc2; 16]).text()},
+        ])
     );
-    let first = Evaluation {
-        contributions: &[],
-        ..e
-    };
+    let first = Evaluation { proofs: &[], ..e };
     let body: Value = serde_json::from_slice(&first.body().unwrap()).unwrap();
     assert!(body["context"].get("proofs").is_none());
     assert_eq!(holding_from_json(&holding().json()).unwrap(), holding());
@@ -206,18 +209,20 @@ fn t_101_access_s_decision_reads_as_allow_deny_or_require_action() {
             receipt: None
         })
     );
-    let blocker = json!({"class": "no-covering-authority", "resolver": "root", "remediation": "route-to-coordinator"});
-    let deny = json!({"decision": false, "context": {"outcome": "deny", "blockers": [blocker]}});
+    let blocker = json!({"class": "no-covering-authority", "position": {"hop": 1}, "resolver": {"grantor_of_hop": 1}, "remediation": "route-to-coordinator"});
+    let requester = json!({"class": "restricted", "resolver": "restriction-owner", "remediation": "not-satisfiable-by-actor"});
+    let deny = json!({"decision": false, "context": {"outcome": "deny", "blockers": [blocker, requester]}});
     let Ok(Decision::Deny { blockers }) = Decision::from_json(deny.to_string().as_bytes()) else {
         panic!("a denial");
     };
     assert_eq!(denial_code(&blockers), "no-covering-authority");
     assert_eq!(denial_code(&[json!({"class": "made-up"})]), "denied");
     assert_eq!(denial_code(&[]), "denied");
-    let term = json!({"proof_kind": "contribution", "class": "approve", "count": 1});
+    let term =
+        json!({"proof_kind": "contribution", "class": "approve", "binding": "intent_digest"});
     let ask = json!({"decision": false, "context": {"outcome": "require_action", "unmet": [
-        {"term": term, "missing": 1, "satisfiable_by_actor": false},
-    ]}});
+        {"term": term, "missing": 1, "position": "anchor", "satisfiable_by_actor": true},
+    ], "versions": {"core": 1, "meta_schema": 1}}});
     let Ok(Decision::RequireAction { unmet, blockers }) =
         Decision::from_json(ask.to_string().as_bytes())
     else {
@@ -232,6 +237,9 @@ fn t_101_access_s_decision_reads_as_allow_deny_or_require_action() {
         json!({"decision": true, "context": {"outcome": "allow"}}),
         json!({"decision": true}),
         json!({"context": {"outcome": "allow"}}),
+        json!({"decision": false, "context": {"outcome": "deny", "blockers": []}}),
+        json!({"decision": false, "context": {"outcome": "require_action", "unmet": [{"term": term, "missing": 0, "position": "anchor", "satisfiable_by_actor": true}]}}),
+        json!({"decision": true, "context": {"outcome": "allow", "exercise": exercise.text(), "relied_on": ["ERERERERERE"]}}),
     ] {
         assert_eq!(
             Decision::from_json(bad.to_string().as_bytes()),
@@ -249,8 +257,25 @@ fn p_116_a_step_up_is_the_authentication_terms_access_names_and_work_adds_none()
     let unmet = vec![approve.clone(), aal2.clone()];
     assert_eq!(step_up(&unmet), vec![aal2.clone()]);
     assert!(needs_approval(&unmet));
-    assert!(!needs_approval(&[aal2]));
-    assert_eq!(step_up(&[approve]), Vec::<Value>::new());
+    assert!(!needs_approval(std::slice::from_ref(&aal2)));
+    assert_eq!(step_up(std::slice::from_ref(&approve)), Vec::<Value>::new());
+    let claim = json!({"term": {"proof_kind": "claim", "class": "authentication", "binding": "actor_instance", "freshness_ms": 900_000, "assurance": {"aal": 2, "phishing_resistant": 1}}, "missing": 1, "position": "anchor", "satisfiable_by_actor": true});
+    let other = json!({"term": {"proof_kind": "claim", "class": "manager_approval", "binding": "intent_digest"}, "missing": 1, "position": "anchor", "satisfiable_by_actor": false});
+    assert_eq!(
+        step_up(&[approve.clone(), claim.clone(), other.clone()]),
+        vec![claim.clone()]
+    );
+    let ask = json!({"decision": false, "context": {"outcome": "require_action", "unmet": [
+        {"term": {"proof_kind": "contribution", "class": "approve", "binding": "intent_digest"}, "missing": 1, "position": "anchor", "satisfiable_by_actor": true},
+        claim,
+    ]}});
+    let Ok(Decision::RequireAction { unmet, .. }) = Decision::from_json(ask.to_string().as_bytes())
+    else {
+        panic!("a require_action");
+    };
+    assert_eq!(step_up(&unmet).len(), 1);
+    assert!(needs_approval(&unmet));
+    assert!(step_up(&[other]).is_empty());
 }
 
 // E-17 T-101
