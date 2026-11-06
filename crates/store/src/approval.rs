@@ -1,4 +1,4 @@
-//! The approval `state`s Work sends to Access's Approval Surface (T-101 item 7, E-17): one OPERATIONAL row per pushed authority request in `work.approval_return`, keyed by the `state` and bound to the caller's tenant and Party, the pushed request's digest and the ledger it commits into. A `state` is issued once and used once: the row is inserted, then marked used, and never deleted (Access OP-73); only `work_access` reads and writes it.
+//! The approval `state`s Work sends to Access's Approval Surface (T-101 item 7, E-17): one OPERATIONAL row per pushed authority request in `work.approval_return`, keyed by the `state` and bound to the caller's tenant and Party, the pushed request's digest, the ledger it commits into and the `contribute` intent the approver's pre-signed contribution states. A `state` is issued once and used once: the row is inserted, then marked used, and never deleted (Access OP-73); only `work_access` reads and writes it.
 
 use crate::{AccessPool, StoreError};
 
@@ -15,6 +15,8 @@ pub struct NewApprovalState<'a> {
     pub digest: [u8; 32],
     /// The ledger the request commits into.
     pub ledger: [u8; 32],
+    /// The digest of the `contribute` intent the approver's contribution states.
+    pub contribution: [u8; 32],
     /// When it is issued, Unix milliseconds.
     pub issued_at_ms: u64,
     /// The last instant it is accepted, Unix milliseconds.
@@ -34,6 +36,9 @@ pub struct ApprovalStateRow {
     pub digest: [u8; 32],
     /// The ledger the request commits into.
     pub ledger: [u8; 32],
+    /// The digest of the `contribute` intent the approver's contribution states; absent for a
+    /// row issued before it was kept.
+    pub contribution: Option<[u8; 32]>,
     /// When it was issued, Unix milliseconds.
     pub issued_at_ms: u64,
     /// The last instant it is accepted, Unix milliseconds.
@@ -65,16 +70,17 @@ impl AccessPool {
     ) -> Result<bool, StoreError> {
         let done = sqlx::query!(
             "INSERT INTO work.approval_return
-                 (handle, tenant, party, digest, ledger, issued_at, expires_at)
-             VALUES ($1, $2, $3, $4, $5,
-                     pg_catalog.to_timestamp(0) + interval '1 millisecond' * $6::bigint::double precision,
-                     pg_catalog.to_timestamp(0) + interval '1 millisecond' * $7::bigint::double precision)
+                 (handle, tenant, party, digest, ledger, contribution, issued_at, expires_at)
+             VALUES ($1, $2, $3, $4, $5, $6,
+                     pg_catalog.to_timestamp(0) + interval '1 millisecond' * $7::bigint::double precision,
+                     pg_catalog.to_timestamp(0) + interval '1 millisecond' * $8::bigint::double precision)
              ON CONFLICT (handle) DO NOTHING",
             new.state,
             new.tenant,
             new.party.as_slice(),
             new.digest.as_slice(),
             new.ledger.as_slice(),
+            new.contribution.as_slice(),
             signed(new.issued_at_ms)?,
             signed(new.expires_at_ms)?
         )
@@ -92,7 +98,7 @@ impl AccessPool {
         state: &str,
     ) -> Result<Option<ApprovalStateRow>, StoreError> {
         let row = sqlx::query!(
-            r#"SELECT handle, tenant, party, digest, ledger,
+            r#"SELECT handle, tenant, party, digest, ledger, contribution,
                       (extract(epoch FROM issued_at) * 1000)::bigint AS "issued_at_ms!",
                       (extract(epoch FROM expires_at) * 1000)::bigint AS "expires_at_ms!",
                       (extract(epoch FROM used_at) * 1000)::bigint AS "used_at_ms?"
@@ -108,6 +114,7 @@ impl AccessPool {
                 party: fixed(&r.party)?,
                 digest: fixed(&r.digest)?,
                 ledger: fixed(&r.ledger)?,
+                contribution: r.contribution.as_deref().map(fixed).transpose()?,
                 issued_at_ms: unsigned(r.issued_at_ms)?,
                 expires_at_ms: unsigned(r.expires_at_ms)?,
                 used_at_ms: r.used_at_ms.map(unsigned).transpose()?,

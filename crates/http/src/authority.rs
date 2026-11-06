@@ -11,7 +11,9 @@ use serde_json::Value;
 use utoipa::ToSchema;
 use work_kernel::id::LedgerId;
 use work_proto::id::ExternalId as _;
-use work_query::domain::authority::{AuthorityAnswer, AuthorityAsk, base64url_text, holding};
+use work_query::domain::authority::{
+    AuthorityAnswer, AuthorityAsk, KernelId, Proof, base64url_text, holding,
+};
 use work_query::domain::writes::{ExerciseId, base64url};
 
 use crate::conditional::idempotency_key;
@@ -47,13 +49,28 @@ pub struct BasisInput {
     pub holding: HoldingInput,
 }
 
-/// An approval the commit relies on.
+/// A proof the commit relies on: exactly one of `contribution` and `claim_ref`.
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize, ToSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ProofInput {
-    /// The contribution `ExerciseID` the Approval Surface returned, unpadded base64url of 32
+    /// The contribution `ExerciseID` the approval return handed back, unpadded base64url of 32
     /// bytes.
-    pub contribution: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub contribution: Option<String>,
+    /// The approver's `authentication` Claim the approval return handed back as `claim`, its
+    /// `ClaimID` as unpadded base64url of 16 bytes, when Access asked for a step-up.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub claim_ref: Option<String>,
+}
+
+impl ProofInput {
+    fn proof(&self) -> Option<Proof> {
+        match (&self.contribution, &self.claim_ref) {
+            (Some(c), None) => ExerciseId::parse(c).ok().map(Proof::Contribution),
+            (None, Some(c)) => KernelId::parse(c).ok().map(Proof::Claim),
+            _ => None,
+        }
+    }
 }
 
 /// One authority request.
@@ -106,9 +123,11 @@ pub struct AuthorityDecision {
     /// record's `authority` digest is its SHA-256.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub receipt: Option<String>,
-    /// What the caller does next: `step_up` to authenticate at Access as the `step_up` terms
-    /// ask and send a new request, `approve` to have the request approved on the Approval
-    /// Surface and send a new request with the contribution as its proof.
+    /// What the caller does next: `step_up` when Access also asks for the approver's fresh
+    /// authentication, which the passkey assertion on the Approval Surface meets beside the
+    /// approval, so the new request sends the returned Claim as `claim_ref` beside the
+    /// contribution; `approve` to have the request approved on the Approval Surface and send a
+    /// new request with the contribution as its proof.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next: Option<String>,
     /// The unmet terms, as Access shows them to the requester.
@@ -143,8 +162,14 @@ pub struct ApprovalReturned {
     /// The digest of the render the approver approved, unpadded base64url of 32 bytes; the
     /// caller compares it with the render it computes itself.
     pub render_digest: String,
-    /// What the caller does next: `commit`, a new authority request with the contribution as
-    /// its proof, whose allowed Exercise the Declaration write then refers to.
+    /// The approver's `authentication` Claim Access put on the redirect, its `ClaimID` as
+    /// unpadded base64url of 16 bytes; the next authority request sends it as
+    /// `proofs[].claim_ref` when the first answer was `next: step_up`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub claim: Option<String>,
+    /// What the caller does next: `commit`, a new authority request with the contribution, and
+    /// the Claim when there is one, as its proofs, whose allowed Exercise the Declaration write
+    /// then refers to.
     pub next: String,
 }
 
@@ -155,6 +180,7 @@ pub fn returned(back: &work_query::domain::authority::ApprovalReturned) -> Appro
         ledger: back.ledger.to_external(),
         contribution: back.contribution.text(),
         render_digest: base64url_text(&back.render_digest),
+        claim: back.claim.map(|c| c.text()),
         next: COMMIT.to_owned(),
     }
 }
@@ -182,10 +208,10 @@ pub fn authority_request(
         .map_err(|_| Box::new(Problem::new(ProblemCode::InvalidId)))?;
     let h = &body.basis.holding;
     let basis = holding(&h.grant, &h.holder, h.since).ok_or_else(|| invalid("basis"))?;
-    let contributions = body
+    let proofs = body
         .proofs
         .iter()
-        .map(|p| ExerciseId::parse(&p.contribution).map_err(|_| invalid("proofs")))
+        .map(|p| p.proof().ok_or_else(|| invalid("proofs")))
         .collect::<Result<_, _>>()?;
     Ok((
         ledger,
@@ -194,7 +220,7 @@ pub fn authority_request(
             nonce: bytes(&body.nonce, "nonce")?,
             basis,
             ais: bytes(&body.ais, "ais")?,
-            contributions,
+            proofs,
             reason: body.reason,
             contribution: body.contribution,
             idempotency_key,
@@ -365,7 +391,8 @@ pub async fn create_authority_request(
     params(
         ("exercise" = String, Query, description = "The contribution `ExerciseID` Access put on the redirect, unpadded base64url of 32 bytes."),
         ("render_digest" = String, Query, description = "The digest of the render the approver approved, unpadded base64url of 32 bytes."),
-        ("state" = String, Query, description = "The `state` Work sent with the pushed request.")
+        ("state" = String, Query, description = "The `state` Work sent with the pushed request."),
+        ("claim" = Option<String>, Query, description = "The approver's `authentication` Claim Access put on the redirect, unpadded base64url of 16 bytes.")
     ),
     responses(
         (status = 200, description = "The contribution Access confirmed, for the next authority request.", body = ApprovalReturned, headers(
@@ -373,7 +400,7 @@ pub async fn create_authority_request(
             ("RateLimit-Policy" = String, description = "The quota policy."),
             ("RateLimit" = String, description = "What is left of the quota.")
         )),
-        (status = 400, description = "A query without exactly one exercise, render_digest and state.", body = Problem,
+        (status = 400, description = "A query without exactly one exercise, render_digest and state, or with more than one claim.", body = Problem,
             content_type = "application/problem+json", headers(
             ("Request-Id" = String, description = "The request, `<trace id>-<span id>`."),
             ("RateLimit-Policy" = String, description = "The quota policy."),
@@ -449,7 +476,10 @@ mod tests {
             "nonce": "BQUFBQUFBQUFBQUFBQUFBQ",
             "basis": {"holding": {"grant": "AQEBAQEBAQEBAQEBAQEBAQ", "holder": "AgICAgICAgICAgICAgICAg", "since": "4"}},
             "ais": "YWlz",
-            "proofs": [{"contribution": "wcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcE"}],
+            "proofs": [
+                {"contribution": "wcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcE"},
+                {"claim_ref": "wsLCwsLCwsLCwsLCwsLCwg"},
+            ],
             "reason": "Commit into the ledger",
         })
     }
@@ -470,7 +500,13 @@ mod tests {
         assert_eq!(ask.nonce, vec![5; 16]);
         assert_eq!(ask.ais, b"ais");
         assert_eq!(ask.basis.since, 4);
-        assert_eq!(ask.contributions, vec![ExerciseId([0xc1; 32])]);
+        assert_eq!(
+            ask.proofs,
+            vec![
+                Proof::Contribution(ExerciseId([0xc1; 32])),
+                Proof::Claim(KernelId([0xc2; 16])),
+            ]
+        );
         assert_eq!(ask.reason, "Commit into the ledger");
         assert_eq!(ask.idempotency_key, UUID7);
         assert!(ask.contribution.is_none());
@@ -495,6 +531,16 @@ mod tests {
         let mut ledger = body();
         ledger["ledger"] = json!("wrk_1");
         assert_eq!(code(&headers(), &ledger), ProblemCode::InvalidId);
+        for proofs in [
+            json!([{}]),
+            json!([{"contribution": "wcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcE", "claim_ref": "wsLCwsLCwsLCwsLCwsLCwg"}]),
+            json!([{"claim_ref": "wcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcE"}]),
+            json!([{"claim": "wsLCwsLCwsLCwsLCwsLCwg"}]),
+        ] {
+            let mut bad = body();
+            bad["proofs"] = proofs;
+            assert_eq!(code(&headers(), &bad), ProblemCode::InvalidRequest, "{bad}");
+        }
     }
 
     // T-101 P-116 E-17 E-7
@@ -540,6 +586,7 @@ mod tests {
             ledger: LedgerId::parse_external(LEDGER).unwrap(),
             contribution: ExerciseId([0xc1; 32]),
             render_digest: [7; 32],
+            claim: None,
         };
         let v = serde_json::to_value(returned(&back)).unwrap();
         assert_eq!(
@@ -551,6 +598,13 @@ mod tests {
                 "next": COMMIT,
             })
         );
+        let stepped = work_query::domain::authority::ApprovalReturned {
+            claim: Some(KernelId([0xc2; 16])),
+            ..back
+        };
+        let v = serde_json::to_value(returned(&stepped)).unwrap();
+        assert_eq!(v["claim"], "wsLCwsLCwsLCwsLCwsLCwg");
+        assert_eq!(v["next"], COMMIT);
         for code in [
             "state_unknown",
             "state_caller",

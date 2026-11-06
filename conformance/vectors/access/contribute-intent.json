@@ -1,0 +1,28 @@
+{
+  "cases": [
+    {
+      "cbor": "a466616374696f6ea4646e616d656a636f6e74726962757465656d616a6f720166736368656d61822f58202e48d5c95b171ecdd347f320753583443d69cc6543a8d5514c51a94dcdbde8f9696e616d65737061636566616363657373666f7061717565a1677061796c6f6164822f5820fd16e62757963a73471ea45cb15116893dcc19535c493fdcca8d63887d0783a06876616c6964697479821b0000019b76d9bda01b0000019b76e3cfc0697265736f757263657381a364706174688167617070726f7665696e616d657370616365736163636573732e636f6e747269627574696f6e6b696e6361726e6174696f6e00",
+      "class": "approve",
+      "edn": "{\"action\": {\"namespace\": \"access\", \"name\": \"contribute\", \"major\": 1, \"schema\": [-16, h'2e48d5c95b171ecdd347f320753583443d69cc6543a8d5514c51a94dcdbde8f9']}, \"resources\": [{\"namespace\": \"access.contribution\", \"path\": [\"approve\"], \"incarnation\": 0}], \"opaque\": {\"payload\": [-16, h'fd16e62757963a73471ea45cb15116893dcc19535c493fdcca8d63887d0783a0']}, \"validity\": [1767225540000, 1767226200000]}",
+      "id": "approve-of-target",
+      "intent_digest": "3cdaa13541fda810d9a72f819364bb3ac4beb655c610dae623853346c4cbfc83",
+      "target": "4444444444444444444444444444444444444444444444444444444444444444",
+      "valid": true
+    },
+    {
+      "cbor": "a366616374696f6ea4646e616d656a636f6e74726962757465656d616a6f720166736368656d61822f58202e48d5c95b171ecdd347f320753583443d69cc6543a8d5514c51a94dcdbde8f9696e616d657370616365666163636573736876616c6964697479821b0000019b76d9bda01b0000019b76e3cfc0697265736f757263657381a364706174688167617070726f7665696e616d657370616365736163636573732e636f6e747269627574696f6e6b696e6361726e6174696f6e00",
+      "edn": "{\"action\": {\"namespace\": \"access\", \"name\": \"contribute\", \"major\": 1, \"schema\": [-16, h'2e48d5c95b171ecdd347f320753583443d69cc6543a8d5514c51a94dcdbde8f9']}, \"resources\": [{\"namespace\": \"access.contribution\", \"path\": [\"approve\"], \"incarnation\": 0}], \"validity\": [1767225540000, 1767226200000]}",
+      "id": "no-payload-digest-is-no-contribution",
+      "valid": true
+    },
+    {
+      "edn": "{\"action\": {\"namespace\": \"access\", \"name\": \"contribute\", \"major\": 1, \"schema\": [-16, h'2e48d5c95b171ecdd347f320753583443d69cc6543a8d5514c51a94dcdbde8f9']}, \"resources\": [], \"validity\": [1767225540000, 1767226200000]}",
+      "id": "no-resource",
+      "valid": false
+    }
+  ],
+  "cddl": [
+    "kernel.cddl"
+  ],
+  "contract": "intent-envelope"
+}

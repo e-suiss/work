@@ -2,11 +2,11 @@
 
 use serde_json::Value;
 use suiss_crypto::digest::sha256;
-pub use work_access_client::domain::adp::Holding;
+pub use work_access_client::domain::adp::{Holding, Proof};
 use work_access_client::domain::b64url;
 use work_access_client::domain::exercise::ExerciseId;
 pub use work_access_client::domain::exercise::VerifiedExercise;
-use work_access_client::domain::keys::KernelId;
+pub use work_access_client::domain::keys::KernelId;
 
 /// How long a pushed authority request waits on the Approval Surface at most, Unix
 /// milliseconds (PD); never past the intent's validity.
@@ -23,8 +23,9 @@ pub struct AuthorityAsk {
     pub basis: Holding,
     /// The Actor Intent Statement, a tagged `COSE_Sign1` by the caller's device Instance key.
     pub ais: Vec<u8>,
-    /// The contribution Exercises of the approvals the commit relies on.
-    pub contributions: Vec<ExerciseId>,
+    /// The contribution Exercises of the approvals and the Claims, such as the approver's
+    /// `authentication` Claim of a step-up, the commit relies on.
+    pub proofs: Vec<Proof>,
     /// Why, as the Approval Surface shows it.
     pub reason: String,
     /// The approver's pre-signed contribution, to push the request with.
@@ -109,6 +110,9 @@ pub struct ApprovalReturned {
     pub contribution: ExerciseId,
     /// The digest of the render the approver approved.
     pub render_digest: [u8; 32],
+    /// The approver's `authentication` Claim the Approval Surface returned, which the next
+    /// authority request names as `claim_ref` when Access asked for a step-up.
+    pub claim: Option<KernelId>,
 }
 
 /// A stored `state` as the approval return reads it.

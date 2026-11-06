@@ -414,6 +414,7 @@ fn e_17_a_contribution_is_an_allowed_exercise_of_its_domain_under_its_signed_rec
             body.to_string().as_bytes(),
             &EXERCISE,
             &d.id,
+            &i.digest,
             now_ms,
         )
     };
@@ -468,10 +469,21 @@ fn e_17_a_contribution_is_an_allowed_exercise_of_its_domain_under_its_signed_rec
         check(&other, IAT),
         Err(AccessError::Answer("exercise-mismatch"))
     );
-    let mut bare = body;
+    let mut bare = body.clone();
     bare.as_object_mut().unwrap().remove("receipt");
     assert_eq!(
         check(&bare, IAT),
         Err(AccessError::Answer("receipt-missing"))
+    );
+    assert_eq!(
+        verify_contribution(
+            &d.read(),
+            body.to_string().as_bytes(),
+            &EXERCISE,
+            &d.id,
+            &[7; 32],
+            IAT,
+        ),
+        Err(AccessError::Answer("exercise-intent"))
     );
 }

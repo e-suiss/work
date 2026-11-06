@@ -37,7 +37,7 @@ use crate::domain::parties::{
 use crate::domain::realm::{OPENID_CONFIGURATION, jwks_uri, realm_keys};
 use crate::domain::relay::{RelayConfiguration, version_refused};
 use crate::domain::subjects::{
-    self, CACHE_ENTRIES, Direction, MAX_SUBJECTS, Resolution, SubjectCache,
+    self, CACHE_ENTRIES, Direction, MAX_SUBJECTS, Resolution, Subject, SubjectCache,
 };
 use crate::domain::tenants::{MAX_PAGES, TenantChange, TenantPage, TenantSnapshot, list_url, plan};
 use crate::domain::{AccessError, b64url, from_b64url};
@@ -638,8 +638,9 @@ impl<T: Transport, C: Clock> Client<T, C> {
     }
 
     /// The contribution Exercise `exercise` of `domain` an approver made on Access's Approval
-    /// Surface, asked of Access every time and never cached, used only when it is allowed and
-    /// its decision receipt verifies under the domain's receipt key (T-101 item 7, E-17).
+    /// Surface, asked of Access every time and never cached, used only when it is allowed for
+    /// the `contribute` intent `intent` and its decision receipt verifies under the domain's
+    /// receipt key (T-101 item 7, E-17).
     ///
     /// # Errors
     /// [`AccessError::Refused`] with `404` for an Exercise Access never allowed,
@@ -649,12 +650,20 @@ impl<T: Transport, C: Clock> Client<T, C> {
         &self,
         domain: DomainId,
         exercise: &ExerciseId,
+        intent: &[u8; 32],
     ) -> Result<VerifiedContribution, AccessError> {
         let body = self
             .exercise_answer(domain, exercise, Endpoint::Exercise)
             .await?;
         let (metadata, _) = self.metadata(domain).await?;
-        verify_contribution(&metadata, &body, exercise, &domain, self.clock.now_ms())
+        verify_contribution(
+            &metadata,
+            &body,
+            exercise,
+            &domain,
+            intent,
+            self.clock.now_ms(),
+        )
     }
 
     /// The agency chain of the Exercise `exercise` of `domain`, asked and verified as
@@ -972,11 +981,56 @@ impl<T: Transport, C: Clock> Client<T, C> {
                 };
                 out.insert(asked, Some(counterpart));
             }
+            for (_, sub) in resolution.clients {
+                out.insert(sub, None);
+            }
             for unknown in resolution.unknown {
                 out.insert(unknown, None);
             }
         }
         Ok(out)
+    }
+
+    /// Who the pairwise `sub` of the sector `client_id` in `realm` of `tenant` is (T-104;
+    /// Access OP-149 m.19 (g), m.34 (b)): a Party, cached as [`Client::resolve`] caches it, or
+    /// an API client without a Party, asked every time; `None` when Access does not know it.
+    ///
+    /// # Errors
+    /// [`AccessError`]; nothing is resolved.
+    pub async fn subject(
+        &self,
+        tenant: &TenantId,
+        realm: &str,
+        client_id: &str,
+        sub: &str,
+    ) -> Result<Option<Subject>, AccessError> {
+        let cached = self
+            .state()?
+            .subjects
+            .get(tenant, realm, client_id, Direction::Subs, sub);
+        if let Some(party) = cached {
+            return Ok(Some(Subject::Party(party)));
+        }
+        let url = self
+            .endpoints()?
+            .get(Endpoint::SubjectResolution)?
+            .expand(tenant.as_str());
+        let asked = [sub.to_owned()];
+        let body = subjects::body(realm, client_id, Direction::Subs, &asked)?;
+        let answer = self.transport.send(Request::post(url, JSON, body)).await?;
+        let resolution =
+            Resolution::from_json(answer.ok()?, realm, client_id, Direction::Subs, &asked)?;
+        self.state()?
+            .subjects
+            .keep(tenant, realm, client_id, &resolution);
+        if let Some((party, _)) = resolution.pairs.first() {
+            return Ok(Some(Subject::Party(b64url(party))));
+        }
+        Ok(resolution
+            .clients
+            .into_iter()
+            .next()
+            .map(|(client, _)| Subject::Client(client)))
     }
 
     /// One tenant's snapshot.

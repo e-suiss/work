@@ -9,11 +9,12 @@ use work_access_client::domain::adp::{
     valid_reason,
 };
 use work_access_client::domain::approval::{
-    ApprovalRequest, ApprovalReturn, State as ApprovalState,
+    ApprovalRequest, ApprovalReturn, State as ApprovalState, presigned_intent,
 };
 use work_access_client::domain::b64url;
 use work_access_client::domain::discovery::Issuer;
 use work_access_client::domain::exercise::{Capacity, Intent};
+use work_access_client::domain::keys::DomainId;
 use work_access_client::ports::{Clock, Transport};
 use work_kernel::id::{Digest, LedgerId};
 use work_store::{AccessPool, LedgerTx, NewApprovalState, Pool};
@@ -115,6 +116,11 @@ where
         if !contribution.is_object() {
             return Err(WriteRefusal::Invalid("contribution"));
         }
+        let contribution_intent = presigned_intent(contribution, pushing.intent, pushing.domain)
+            .map_err(|e| match e {
+                AccessError::Answer(code) => WriteRefusal::Invalid(code),
+                _ => WriteRefusal::Invalid("contribution"),
+            })?;
         let pushed = bounded(self.access.push_approval(
             &realm,
             request,
@@ -130,9 +136,10 @@ where
             .issue_approval_state(&NewApprovalState {
                 state: &text,
                 tenant: caller.tenant.as_str(),
-                party: caller.party_id,
+                party: caller.party().map_err(WriteRefusal::Denied)?.id,
                 digest: pushed.digest,
                 ledger: *pushing.ledger.0.as_bytes(),
+                contribution: contribution_intent,
                 issued_at_ms: pushing.now_ms,
                 expires_at_ms: pushing.expires_at_ms,
             })
@@ -188,13 +195,13 @@ where
             AccessError::Answer(code) => WriteRefusal::Invalid(code),
             _ => WriteRefusal::Invalid("ais"),
         })?;
-        let party = b64url(&caller.party_id);
+        let party = b64url(&caller.party().map_err(WriteRefusal::Denied)?.id);
         let body = Evaluation {
             party: &party,
             intent: &ask.intent,
             statement: statement.clone(),
             ais: &ask.ais,
-            contributions: &ask.contributions,
+            proofs: &ask.proofs,
         }
         .body()
         .map_err(|_| WriteRefusal::Invalid("intent"))?;
@@ -236,6 +243,8 @@ where
                             party: &party,
                             key: &ask.idempotency_key,
                             ledger,
+                            domain: &domain,
+                            intent: &intent.digest,
                             now_ms,
                             expires_at_ms: request_expires_at_ms,
                         };
@@ -280,11 +289,15 @@ where
             expires_at_ms: row.expires_at_ms,
             used: row.used_at_ms.is_some(),
         };
-        if let Some(code) = state_refusal(&issued, caller.party_id, self.access.now_ms()) {
+        let party = caller.party().map_err(WriteRefusal::Denied)?.id;
+        if let Some(code) = state_refusal(&issued, party, self.access.now_ms()) {
             return Err(WriteRefusal::Denied(code));
         }
+        let expected = row
+            .contribution
+            .ok_or(WriteRefusal::Denied("state_binding"))?;
         let (domain, _) = caller_realm(&self.realms, caller).await?;
-        let contribution = bounded(self.access.contribution(domain, &back.exercise))
+        let contribution = bounded(self.access.contribution(domain, &back.exercise, &expected))
             .await
             .map_err(|e| exercise_refusal(&e))?;
         let used = self
@@ -299,15 +312,19 @@ where
             ledger: LedgerId(Digest::sha256(row.ledger)),
             contribution: contribution.exercise,
             render_digest: back.render_digest,
+            claim: back.claim,
         })
     }
 }
 
-/// What a push records with the `state` it issues.
+/// What a push records with the `state` it issues, and what the approver's contribution must
+/// state.
 struct Pushing<'a> {
     party: &'a str,
     key: &'a str,
     ledger: &'a LedgerId,
+    domain: &'a DomainId,
+    intent: &'a [u8; 32],
     now_ms: u64,
     expires_at_ms: u64,
 }

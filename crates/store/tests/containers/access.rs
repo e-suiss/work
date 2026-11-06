@@ -312,6 +312,7 @@ async fn e_17_an_approval_state_is_issued_once_used_once_and_never_deleted() {
         party: [1; 16],
         digest: [2; 32],
         ledger: [3; 32],
+        contribution: [4; 32],
         issued_at_ms: T0,
         expires_at_ms: at(100),
     };
@@ -334,6 +335,7 @@ async fn e_17_an_approval_state_is_issued_once_used_once_and_never_deleted() {
             party: [1; 16],
             digest: [2; 32],
             ledger: [3; 32],
+            contribution: Some([4; 32]),
             issued_at_ms: T0,
             expires_at_ms: at(100),
             used_at_ms: None,
@@ -365,6 +367,16 @@ async fn e_17_an_approval_state_is_issued_once_used_once_and_never_deleted() {
         (
             "UPDATE work.approval_return SET party = decode(repeat('09', 16), 'hex')",
             Some("42501"),
+        ),
+        (
+            "UPDATE work.approval_return SET contribution = decode(repeat('09', 32), 'hex')",
+            Some("42501"),
+        ),
+        (
+            "INSERT INTO work.approval_return (handle, tenant, party, digest, ledger, contribution, issued_at, expires_at) \
+             VALUES (repeat('c', 43), 'tnt_01HZ', decode(repeat('01', 16), 'hex'), decode(repeat('02', 32), 'hex'), \
+                     decode(repeat('03', 32), 'hex'), decode(repeat('04', 16), 'hex'), now(), now())",
+            Some("23514"),
         ),
         ("DELETE FROM work.approval_return", Some("42501")),
         ("TRUNCATE work.approval_return", Some("42501")),

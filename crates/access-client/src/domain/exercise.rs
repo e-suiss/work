@@ -354,22 +354,25 @@ pub struct VerifiedContribution {
 }
 
 /// Verifies an `exercise` answer for a contribution Exercise (T-101 item 7, E-17; Access
-/// §9.14.1 step 4): it names the asked Exercise and domain, is `allowed`, and carries its
-/// decision receipt signed under the domain's receipt key for the same Exercise, domain, intent
-/// and Instance and not after `now_ms`. The surface commits a contribution over Access's own
-/// PEP, so its receipt is not addressed to Work's; Work does not act on a contribution, it only
-/// hands it back to Access's decision point as the proof of the next commit, and Access decides
-/// what it proves.
+/// §9.14.1 step 4): it names the asked Exercise and domain, is `allowed` for `intent`, the
+/// `contribute` intent the approver's pre-signed contribution stated for Work's pushed request,
+/// and carries its decision receipt signed under the domain's receipt key for the same
+/// Exercise, domain, intent and Instance and not after `now_ms`. The surface commits a
+/// contribution over Access's own PEP, so its receipt is not addressed to Work's; Work does not
+/// act on a contribution, it only hands it back to Access's decision point as the proof of the
+/// next commit, and Access decides what it proves.
 ///
 /// # Errors
 /// [`AccessError::Answer`]: `exercise` for a body outside the schema, `exercise-mismatch`,
-/// `exercise-domain`, `exercise-status`, `receipt-missing`, `receipt-intent`,
-/// `receipt-instance`, and the `receipt-*` code of the receipt check that fails.
+/// `exercise-domain`, `exercise-status`, `exercise-intent` for a contribution to another
+/// request, `receipt-missing`, `receipt-intent`, `receipt-instance`, and the `receipt-*` code
+/// of the receipt check that fails.
 pub fn verify_contribution(
     metadata: &DomainMetadata,
     body: &[u8],
     exercise: &ExerciseId,
     domain: &DomainId,
+    expected: &[u8; 32],
     now_ms: u64,
 ) -> Result<VerifiedContribution, AccessError> {
     let wire: ExerciseWire = serde_json::from_slice(body).map_err(|_| answer("exercise"))?;
@@ -378,6 +381,9 @@ pub fn verify_contribution(
         return Err(answer("exercise-status"));
     }
     let intent = fixed_b64url::<32>(&wire.intent).map_err(|_| answer("exercise"))?;
+    if intent != *expected {
+        return Err(answer("exercise-intent"));
+    }
     let position = wire.position.parse().map_err(|_| answer("exercise"))?;
     let instance = wire
         .instance
