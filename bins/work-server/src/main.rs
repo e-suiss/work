@@ -166,6 +166,7 @@ async fn run(config: &Config) -> ExitCode {
             canonical: &infrastructure.canonical,
             realms: &infrastructure.access,
             access: &access.client,
+            pep: access.pep.as_deref(),
             sequence: services.sequence(),
         },
         Arc::new(SystemTraceIds),

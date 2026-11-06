@@ -292,8 +292,9 @@ where
     C: Clock + 'static,
     P: PartyKinds + 'static,
 {
-    /// Writes over `access`, whose receipts name `audience`, Work's Access `client_id`; with
-    /// none, every write is `authority_unverifiable`.
+    /// Writes over `access`, whose receipts name `audience`, the `x5t#S256` of Work's PEP
+    /// certificate, the PEP that commits Work's Exercises (Access OP-149 m.11); with none, every
+    /// write is `authority_unverifiable`.
     #[must_use]
     pub fn new(
         access: Arc<Client<T, C>>,

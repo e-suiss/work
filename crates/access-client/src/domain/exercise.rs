@@ -1,4 +1,4 @@
-//! The Exercise a consequential record refers to (T-101 item 7 and its note, P-13, E-13; Access OP-149 m.9, m.11, CR-58 m.1, `kernel.cddl` `receipt`): the `ExerciseID` of a nonce in a domain, the intent envelope the client was approved for with the digest Work recomputes itself, and the `exercise` and `exercise_agency` answers. An answer is used only when it names the asked Exercise and domain, is `allowed` for exactly that intent, and carries its decision receipt, whose `COSE_Sign1` verifies with usage `receipt` under the domain key its `key_excerpt` binds to Domain Metadata and whose payload names the same domain, Exercise and intent, Work's own client as audience and a time not after Work's; the capacity and the agency chain are read from that verified receipt only. An answer without a receipt is no authority proof.
+//! The Exercise a consequential record refers to (T-101 item 7 and its note, P-13, E-13; Access OP-149 m.9, m.11, CR-58 m.1, `kernel.cddl` `receipt`): the `ExerciseID` of a nonce in a domain, the intent envelope the client was approved for with the digest Work recomputes itself, and the `exercise` and `exercise_agency` answers. An answer is used only when it names the asked Exercise and domain, is `allowed` for exactly that intent, and carries its decision receipt, whose `COSE_Sign1` verifies with usage `receipt` under the domain key its `key_excerpt` binds to Domain Metadata and whose payload names the same domain, Exercise and intent, Work's own PEP as audience and a time not after Work's; the capacity and the agency chain are read from that verified receipt only. An answer without a receipt is no authority proof.
 
 use access_kernel::ais::SKEW_MS;
 use access_kernel::codec::Canonical as _;
@@ -177,7 +177,8 @@ pub struct Expected<'a> {
     pub domain: &'a DomainId,
     /// The intent the client was approved for.
     pub intent: &'a Intent,
-    /// Work's own Access `client_id`, the receipt's audience (T-101 item 3).
+    /// The PEP the receipt is addressed to, the `x5t#S256` of Work's PEP certificate (T-101
+    /// item 3, Access OP-149 m.11).
     pub audience: &'a str,
     /// Work's time, Unix milliseconds.
     pub now_ms: u64,

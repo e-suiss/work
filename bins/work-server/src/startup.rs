@@ -106,6 +106,9 @@ pub(crate) type AccessClient = Client<HttpsTransport, AccessClock>;
 pub(crate) struct AccessLink {
     pub(crate) up: Arc<AtomicBool>,
     pub(crate) client: Arc<AccessClient>,
+    /// The `x5t#S256` of the PEP certificate, the audience of Access's decision receipts for
+    /// Work's Exercises (Access OP-149 m.11).
+    pub(crate) pep: Option<String>,
     refresh: JoinHandle<()>,
 }
 
@@ -149,7 +152,7 @@ impl AccessLink {
         let refused = |e: &dyn std::fmt::Display| StartupError::Access(e.to_string());
         let (issuer, region, pem) = config.access().map_err(|e| refused(&e))?;
         let trusted = roots(&pem).map_err(|e| refused(&e))?;
-        let (tls, not_after) = match pep(config) {
+        let (tls, not_after, x5t) = match pep(config) {
             Ok(pep) => {
                 let x5t = pep.x5t_s256();
                 tracing::info!(
@@ -159,7 +162,7 @@ impl AccessLink {
                     "PEP certificate loaded from the token"
                 );
                 let tls = pep.client_config(trusted).map_err(|e| refused(&e))?;
-                (tls, pep.not_after_ms())
+                (tls, pep.not_after_ms(), Some(x5t))
             }
             Err(error) => {
                 tracing::warn!(
@@ -167,7 +170,7 @@ impl AccessLink {
                     %error,
                     "no PEP certificate; consequential actions are refused"
                 );
-                (public_config(trusted).map_err(|e| refused(&e))?, 0)
+                (public_config(trusted).map_err(|e| refused(&e))?, 0, None)
             }
         };
         let client = Arc::new(Client::new(
@@ -199,6 +202,7 @@ impl AccessLink {
         Ok(Self {
             up,
             client,
+            pep: x5t,
             refresh,
         })
     }

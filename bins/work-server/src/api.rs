@@ -1,4 +1,4 @@
-//! The REST routes of the process (P-53, P-56, T-97, WD-115): the public ones always, and those that act for a caller once `[api] origin` is set and the read position keys open in the `[access]` token (T-56). The caller is named over the process's Access client with Work's `client_id` as `aud`, and a commitment Declaration is written through the same client, Work's pairing rows and the ledgers this process leads (P-13); while those routes cannot be served this is logged, and the public ones keep answering.
+//! The REST routes of the process (P-53, P-56, T-97, WD-115): the public ones always, and those that act for a caller once `[api] origin` is set and the read position keys open in the `[access]` token (T-56). The caller is named over the process's Access client with Work's `client_id` as `aud`, and a commitment Declaration is written through the same client, Work's pairing rows and the ledgers this process leads, under a decision receipt addressed to the process's PEP certificate (P-13); while those routes cannot be served this is logged, and the public ones keep answering.
 
 use std::sync::Arc;
 
@@ -24,6 +24,8 @@ pub(crate) struct Backing<'a> {
     pub(crate) realms: &'a AccessPool,
     /// The process's Access client.
     pub(crate) access: &'a Arc<AccessClient>,
+    /// The `x5t#S256` of the PEP certificate, the audience of Access's decision receipts.
+    pub(crate) pep: Option<&'a str>,
     /// The ledgers this process leads.
     pub(crate) sequence: Arc<dyn Sequence>,
 }
@@ -49,7 +51,7 @@ fn services(config: &Config, backing: &Backing<'_>) -> Result<ApiServices, Strin
         reads: Arc::new(Reads::new(backing.canonical.clone(), Arc::new(keys))),
         writes: Arc::new(Writes::new(
             Arc::clone(backing.access),
-            Some(config.client_id()),
+            backing.pep.map(str::to_owned),
             backing.canonical.clone(),
             backing.realms.clone(),
             Arc::clone(&backing.sequence),
