@@ -113,7 +113,7 @@ pub struct Resolution {
 
 impl Resolution {
     /// Reads an answer to a call for `asked` of `direction`: it must name the realm and client
-    /// asked, and answer every value asked exactly once, as a pair or as `unknown`.
+    /// asked, and answer every value asked as a pair or as `unknown`, none left out or repeated.
     ///
     /// # Errors
     /// [`AccessError::Answer`].

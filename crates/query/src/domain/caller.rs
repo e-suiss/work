@@ -59,7 +59,7 @@ impl From<TokenRefusal> for CallerRefusal {
     }
 }
 
-/// What a request presents: its `Authorization` and `DPoP` headers, each when sent exactly once,
+/// What a request presents: its `Authorization` and `DPoP` headers, each only when sent a single time,
 /// its method and its target URI.
 #[derive(Clone, Copy, Debug)]
 pub struct Presented<'a> {
