@@ -224,8 +224,8 @@ fn t_101_access_s_decision_reads_as_allow_deny_or_require_action() {
         panic!("a require_action");
     };
     assert!(needs_approval(&unmet));
-    assert!(step_up(&unmet).is_empty());
-    assert!(blockers.is_empty());
+    assert_eq!(step_up(&unmet), Vec::<Value>::new());
+    assert_eq!(blockers, Vec::<Value>::new());
     for bad in [
         json!({"decision": true, "context": {"outcome": "deny"}}),
         json!({"decision": false, "context": {"outcome": "allow", "exercise": exercise.text()}}),
@@ -250,7 +250,7 @@ fn p_116_a_step_up_is_the_authentication_terms_access_names_and_work_adds_none()
     assert_eq!(step_up(&unmet), vec![aal2.clone()]);
     assert!(needs_approval(&unmet));
     assert!(!needs_approval(&[aal2]));
-    assert!(step_up(&[approve]).is_empty());
+    assert_eq!(step_up(&[approve]), Vec::<Value>::new());
 }
 
 // E-17 T-101
