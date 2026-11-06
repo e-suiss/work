@@ -773,7 +773,7 @@ services:
       SOFTHSM_SO_PIN: "12345678"
       LOCAL_ACCESS_KEYS: /var/lib/relay-access
     volumes:
-      - relay-softhsm:/var/lib/softhsm/tokens
+      - relay-softhsm:/var/lib/relay-softhsm
       - relay-access-keys:/var/lib/relay-access
 
   # T-51, T-16, T-36, OP-28, MD-3, T-99
@@ -822,7 +822,7 @@ services:
     sysctls:
       net.ipv4.ip_unprivileged_port_start: 0
     volumes:
-      - relay-softhsm:/var/lib/softhsm/tokens
+      - relay-softhsm:/var/lib/relay-softhsm
       - relay-trust:/etc/ssl/certs:ro
       - relay-access-client:/run/relay-access:ro
       - access-product-tls:/var/lib/access/product-tls:ro
