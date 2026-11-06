@@ -740,6 +740,10 @@ mod tests {
             ),
             ("auth_context", "https://acme.id.example/v1/me/auth-context"),
             (
+                "claim_ingest",
+                "https://access.example/access/v1/claims:ingest",
+            ),
+            (
                 "eligibility",
                 "https://access.example/access/v1/eligibility:check",
             ),
@@ -757,6 +761,10 @@ mod tests {
                 "https://access.example/access/v1/keys:batchGet",
             ),
             ("key_lookup", "https://access.example/access/v1/keys/{kid}"),
+            (
+                "status_list",
+                "https://access.example/access/v1/status-lists/{list}",
+            ),
             (
                 "pairing",
                 "https://access.example/access/v1/tenants/{tenant}/pairing",

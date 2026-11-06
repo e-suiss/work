@@ -42,6 +42,7 @@ use work_access_client::adapters::{
 use work_access_client::app::Client;
 use work_access_client::domain::discovery::{Issuer, SUISS_CONFIGURATION};
 use work_access_client::domain::metadata::thumbprint;
+use work_access_client::domain::subjects::Direction;
 use work_access_client::domain::token::token_hash;
 use work_access_client::domain::{b64url, from_b64url};
 use work_access_client::ports::Clock;
@@ -343,6 +344,30 @@ impl Local {
         );
         client.discover().await.unwrap();
         Arc::new(client)
+    }
+
+    /// The Party Access resolves `token`'s pairwise `sub` to, asked directly (T-104): none while
+    /// the subject has no Party binding.
+    async fn party_of(&self, token: &str) -> Option<String> {
+        let claims = payload(token);
+        let access = self.client().await;
+        let realm = access
+            .realm_of(claims["iss"].as_str().unwrap())
+            .await
+            .unwrap()
+            .unwrap();
+        let sub = claims["sub"].as_str().unwrap().to_owned();
+        let found = access
+            .resolve(
+                &realm.tenant,
+                &realm.realm,
+                claims["client_id"].as_str().unwrap(),
+                Direction::Subs,
+                std::slice::from_ref(&sub),
+            )
+            .await
+            .unwrap();
+        found.get(&sub).cloned().flatten()
     }
 
     /// The test user's sign-in (RFC 6749 section 4.1, RFC 7636, RFC 9449, RFC 8707): `/authorize`
@@ -647,6 +672,15 @@ impl Jar {
     }
 }
 
+/// What `work-server` answers a read of nothing for a caller: `404 not_found` once the token's
+/// subject resolves to a Party, `401 unauthenticated` while Access resolves it to none (T-104).
+fn unseen(party: Option<&String>) -> (u16, &'static str) {
+    match party {
+        Some(_) => (404, "https://suiss.app/ns/work/problems/not_found"),
+        None => (401, "https://suiss.app/ns/work/problems/unauthenticated"),
+    }
+}
+
 fn ledger_path() -> (String, String) {
     let ledger = LedgerId(Digest::sha256([0x4c; 32])).to_external();
     let work = WorkId::from_bytes([0x57; 16]).to_external();
@@ -669,7 +703,7 @@ mod signed {
     use work_query::app::caller::Authenticator;
     use work_query::domain::caller::{CallerRefusal, Presented};
 
-    use super::{Local, POLL, WORK, ledger_path, names, payload};
+    use super::{Local, POLL, WORK, ledger_path, names, payload, unseen};
 
     fn wait_s() -> u64 {
         std::env::var("WORK_ACCESS_SIGNED_WAIT_S")
@@ -721,6 +755,13 @@ mod signed {
             method: "GET",
             url: &url,
         };
+        let Some(party) = local.party_of(&token).await else {
+            assert_eq!(
+                auth.caller(presented).await,
+                Err(CallerRefusal::Unauthenticated("subject_unknown"))
+            );
+            return;
+        };
         let caller = auth.caller(presented).await.unwrap();
         let acme = local.realm("acme");
         assert_eq!(
@@ -730,7 +771,7 @@ mod signed {
         assert_eq!(caller.realm, acme["realm"].as_str().unwrap());
         assert_eq!(caller.issuer, local.issuer("acme"));
         assert_eq!(caller.client_id, local.user("client_id"));
-        let party = b64url(&caller.party_id);
+        assert_eq!(b64url(&caller.party_id), party);
         assert_eq!(caller.party.as_str(), party);
         let back = access
             .resolve(
@@ -760,6 +801,8 @@ mod signed {
         let local = Local::open();
         let key = local.dpop();
         let token = local.token(&key).await;
+        let party = local.party_of(&token).await;
+        let (status, problem) = unseen(party.as_ref());
         let (work, changes) = ledger_path();
         let anonymous = local.send("GET", &format!("{WORK}{work}"), &[], None).await;
         assert_eq!(anonymous.status, 401, "{anonymous:?}");
@@ -780,17 +823,13 @@ mod signed {
         assert_eq!(unproved.status, 401, "{unproved:?}");
         for path in [&work, &changes] {
             let named = local.read(&key, path, &token).await;
-            assert_eq!(named.status, 404, "{path}: {named:?}");
-            assert_eq!(
-                named.json()["type"],
-                "https://suiss.app/ns/work/problems/not_found",
-                "{named:?}"
-            );
+            assert_eq!(named.status, status, "{path}: {named:?}");
+            assert_eq!(named.json()["type"], problem, "{named:?}");
         }
         let url = format!("{WORK}{work}");
         let proof = local.proof(&key, "GET", &url, None, Some(&token)).await;
         let headers = [("authorization", authorization.as_str()), ("dpop", &proof)];
-        assert_eq!(local.send("GET", &url, &headers, None).await.status, 404);
+        assert_eq!(local.send("GET", &url, &headers, None).await.status, status);
         let replayed = local.send("GET", &url, &headers, None).await;
         assert_eq!(replayed.status, 401, "{replayed:?}");
     }
@@ -819,9 +858,10 @@ mod signed {
 }
 
 /// Around retiring Work's platform client, the last step of the CI compose job (T-102 item 5,
-/// T-28): before it the test user is named, and once `api_client.disabled` arrived no caller is.
+/// T-28): before it the test user is named as far as Access binds it to a Party, and once
+/// `api_client.disabled` arrived no caller is.
 mod retired {
-    use super::{Local, RETIRED_TOKEN, ledger_path};
+    use super::{Local, RETIRED_TOKEN, ledger_path, unseen};
 
     // T-102 T-97
     #[tokio::test(flavor = "multi_thread")]
@@ -830,8 +870,9 @@ mod retired {
         let local = Local::open();
         let key = local.dpop();
         let token = local.token(&key).await;
+        let party = local.party_of(&token).await;
         let named = local.read(&key, &ledger_path().0, &token).await;
-        assert_eq!(named.status, 404, "{named:?}");
+        assert_eq!(named.status, unseen(party.as_ref()).0, "{named:?}");
         std::fs::write(local.dir.join(RETIRED_TOKEN), &token).unwrap();
     }
 
