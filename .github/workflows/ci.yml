@@ -659,8 +659,8 @@ jobs:
             --cert /var/lib/access/certs/pep.crt --key /var/lib/access/certs/pep.key \
             --domain "$(jq -er '.compromise.domain' "$b")" --issuer-party "$(jq -er '.compromise.issuer' "$b")" \
             --party "$user"
-          for _ in $(seq 1 180); do c logs work-server | grep 'access.party_compromised' | grep -q "$user" && break; sleep 1; done
-          c logs work-server | grep 'access.party_compromised' | grep "$user" | grep -q 'compromised from'
+          for _ in $(seq 1 180); do c logs work-server | grep 'access.party_compromised' | grep -qF -e "$user" && break; sleep 1; done
+          c logs work-server | grep 'access.party_compromised' | grep -F -e "$user" | grep -q 'compromised from'
           if c logs work-server | grep -q 'access.compromise_notice_failed\|access.compromise_notices_unserved'; then c logs work-server | grep 'access.compromise_notice'; exit 1; fi
           change() {
             for _ in $(seq 1 30); do
