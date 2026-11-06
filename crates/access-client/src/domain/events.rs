@@ -408,11 +408,11 @@ fn audience_ok(aud: Option<&Value>, audience: &str) -> bool {
     }
 }
 
-/// Reads verified claims (T-102 item 3 and its WD-105 note).
+/// Reads verified claims (T-102 item 3, Access OP-149 m.26 (d)).
 ///
-/// The tenant is the signed `access_tenant`. Access leaves it out of the events of the
-/// platform tenant itself, so an `api_client` event without it takes the signed payload's
-/// `tenant`; any other SET without it is `invalid_request`.
+/// The tenant is the signed `access_tenant`, which every SET of Work's platform stream carries;
+/// a SET without it is `invalid_request`, and so is an `api_client` event whose payload
+/// `tenant` names another tenant.
 ///
 /// # Errors
 /// [`Refusal`].
@@ -454,14 +454,17 @@ pub fn claims(payload: &[u8], expected: &Expected<'_>) -> Result<Set, Refusal> {
         .as_object()
         .ok_or(Refusal::InvalidRequest("events"))?;
     let event = event(name, member)?;
-    let tenant = match (c.get("access_tenant"), &event) {
-        (Some(t), _) => t.as_str(),
-        (None, Event::ApiClient { .. }) => member.get("tenant").and_then(Value::as_str),
-        (None, _) => None,
+    let tenant = c
+        .get("access_tenant")
+        .and_then(Value::as_str)
+        .filter(|t| t.starts_with("tnt_"))
+        .and_then(TenantId::new)
+        .ok_or(Refusal::InvalidRequest("access_tenant"))?;
+    if matches!(event, Event::ApiClient { .. })
+        && member.get("tenant").and_then(Value::as_str) != Some(tenant.as_str())
+    {
+        return Err(Refusal::InvalidRequest("tenant"));
     }
-    .filter(|t| t.starts_with("tnt_"))
-    .and_then(TenantId::new)
-    .ok_or(Refusal::InvalidRequest("access_tenant"))?;
     Ok(Set {
         iss: expected.issuer.to_owned(),
         jti: jti.to_owned(),

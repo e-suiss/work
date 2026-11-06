@@ -352,7 +352,10 @@ async fn t_102_only_works_own_disabled_client_fails_closed() {
     {
         let jti = u8::try_from(n).unwrap() + 40;
         let pushed = w
-            .push(SET_CONTENT_TYPE, &w.set(name, &client(id), None, jti))
+            .push(
+                SET_CONTENT_TYPE,
+                &w.set(name, &client(id), Some(TENANT), jti),
+            )
             .await;
         assert!(
             matches!(pushed, Outcome::Accepted { .. }),

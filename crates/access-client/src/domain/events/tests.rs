@@ -239,7 +239,7 @@ fn t_102_a_platform_set_takes_its_tenant_from_access_tenant() {
         &signed(
             &keys.es256,
             "ES256",
-            &claims_of("api_client.disabled", &client, None, 5),
+            &claims_of("api_client.disabled", &client, Some(other), 5),
         ),
         &keys.set,
     )
@@ -256,6 +256,35 @@ fn t_102_a_platform_set_takes_its_tenant_from_access_tenant() {
 
 // T-102
 #[test]
+fn t_102_an_api_client_set_names_the_same_tenant_in_its_payload() {
+    let keys = realm_keys("t102-client-tenant");
+    let other = "tnt_zzzzzzzzzzzzzzzzzzzzzzzzzz";
+    let realm = "019a0000-0000-7000-8000-0000000000a1";
+    for (n, payload) in [
+        json!({"tenant": other, "realm": realm, "client_id": CLIENT, "exercise": DOMAIN, "at": NOW}),
+        json!({"realm": realm, "client_id": CLIENT, "exercise": DOMAIN, "at": NOW}),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let jti = u8::try_from(n).unwrap() + 30;
+        assert_eq!(
+            read(
+                &signed(
+                    &keys.es256,
+                    "ES256",
+                    &claims_of("api_client.updated", &payload, Some(TENANT), jti),
+                ),
+                &keys.set,
+            ),
+            Err(Refusal::InvalidRequest("tenant")),
+            "{payload}"
+        );
+    }
+}
+
+// T-102
+#[test]
 fn t_102_a_set_without_access_tenant_is_invalid_request() {
     let keys = realm_keys("t102-no-tenant");
     for (name, payload) in [
@@ -264,6 +293,10 @@ fn t_102_a_set_without_access_tenant_is_invalid_request() {
         (
             "tenant.created",
             json!({"tenant": TENANT, "placement": "pool-default", "at": NOW}),
+        ),
+        (
+            "api_client.disabled",
+            json!({"tenant": TENANT, "realm": "019a0000-0000-7000-8000-0000000000a1", "client_id": CLIENT, "exercise": DOMAIN, "at": NOW}),
         ),
     ] {
         let refused = read(
