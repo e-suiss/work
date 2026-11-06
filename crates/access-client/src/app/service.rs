@@ -267,13 +267,18 @@ mod tests {
     }
 
     impl Transport for &Endpoint {
-        async fn send(&self, request: Request) -> Result<Response, AccessError> {
+        fn send(
+            &self,
+            request: Request,
+        ) -> impl Future<Output = Result<Response, AccessError>> + Send {
             self.sent.lock().unwrap().push(request);
-            self.answers
-                .lock()
-                .unwrap()
-                .pop_front()
-                .ok_or_else(|| AccessError::Transport("closed".to_owned()))
+            std::future::ready(
+                self.answers
+                    .lock()
+                    .unwrap()
+                    .pop_front()
+                    .ok_or_else(|| AccessError::Transport("closed".to_owned())),
+            )
         }
     }
 
