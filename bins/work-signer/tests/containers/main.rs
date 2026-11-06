@@ -37,19 +37,20 @@ use suiss_crypto::note::Verifier;
 use suiss_crypto::pkcs11::{HsmSigner, KeyStore};
 use suiss_crypto::secret::Secret;
 use suiss_crypto::signer::{Signer as _, cosign};
+use work_kernel::id::PartyRef;
 use work_kernel::limits::SemanticLimits;
 use work_kernel::proof::{Accepted, TimeSources, WitnessProfile, verify_checkpoint};
 use work_kernel::reason::{Reason, Schema};
 use work_kernel::rules::RuleSet;
-use work_kernel::validate::{ActorType, ActorTypeEntry, ActorTypeSource, ActorTypes, Origin};
+use work_kernel::validate::{ActorType, Origin};
 use work_kernel::verify::{SignatureCheck, SignatureVerifier};
 use work_ledger::time::WitnessRound;
 use work_ledger::{
-    Arrival, AuthContext, Cadence, CheckpointSetup, CheckpointStats, Checkpointer, Clock,
-    ClockError, Comparison, DEFAULT_WITNESS_TIMEOUT, Declaration, Deployment, DirectoryReplica,
-    GenesisInput, GroupConfig, Leader, Ledgers, Node, PendingRecord, Rng, RngError, SignerClient,
-    Submission, Witness, WitnessClient, WitnessEndpoint, WitnessError, WitnessPass, WitnessRole,
-    WitnessStates, admit, genesis, run_checkpoints,
+    ActorBindings, Arrival, AuthContext, Cadence, CheckpointSetup, CheckpointStats, Checkpointer,
+    Clock, ClockError, Comparison, DEFAULT_WITNESS_TIMEOUT, Declaration, Declared, DeclaredActors,
+    Deployment, DirectoryReplica, GenesisInput, GroupConfig, Leader, Ledgers, Node, PendingRecord,
+    Rng, RngError, SignerClient, Submission, Witness, WitnessClient, WitnessEndpoint, WitnessError,
+    WitnessPass, WitnessRole, WitnessStates, admit, genesis, run_checkpoints,
 };
 use work_store::{
     CellId, CheckpointerPool, Cluster, Durability, Genesis, LedgerId, LedgerTx, Pool,
@@ -155,6 +156,24 @@ fn unhex(s: &str) -> Vec<u8> {
         .collect()
 }
 
+/// The golden comment's author, bound in Access as a human (P-12).
+fn alice() -> (DeclaredActors, ActorBindings) {
+    let alice = PartyRef::new("party:acme:alice").unwrap();
+    let mut bindings = ActorBindings::new();
+    bindings.bind(alice.clone(), ActorType::Human).unwrap();
+    (
+        DeclaredActors {
+            author: Declared {
+                party: alice,
+                actor_type: ActorType::Human,
+            },
+            on_behalf_of: vec![],
+            evidence: vec![],
+        },
+        bindings,
+    )
+}
+
 /// The golden unsigned human comment Claim, declared in `ledger`.
 fn comment(ledger: &LedgerId) -> Vec<u8> {
     let records: Json = serde_json::from_str(RECORDS).unwrap();
@@ -228,14 +247,7 @@ fn context(record: &[u8]) -> AuthContext<'static> {
 
 /// The golden human comment admitted into `ledger`.
 fn admitted_comment(ledger: &LedgerId) -> PendingRecord {
-    let actors = ActorTypes {
-        author: ActorTypeEntry {
-            actor_type: ActorType::Human,
-            source: ActorTypeSource::AccessBinding,
-        },
-        on_behalf_of: vec![],
-        evidence: vec![],
-    };
+    let actors = alice();
     let record = comment(ledger);
     admit(
         &Unsigned,
@@ -245,7 +257,8 @@ fn admitted_comment(ledger: &LedgerId) -> PendingRecord {
                 record: &record,
                 auth_context: context(&record),
             },
-            actor_types: &actors,
+            declared: &actors.0,
+            bindings: &actors.1,
             origin: Origin::Direct,
             understood_extensions: &[],
             limits: SemanticLimits::default(),
@@ -509,14 +522,7 @@ async fn op_33_a_led_ledger_is_checkpointed_on_its_cadence_and_mirrored() {
         clock,
         GroupConfig::default(),
     ));
-    let actors = ActorTypes {
-        author: ActorTypeEntry {
-            actor_type: ActorType::Human,
-            source: ActorTypeSource::AccessBinding,
-        },
-        on_behalf_of: vec![],
-        evidence: vec![],
-    };
+    let actors = alice();
     let record = comment(&ledger);
     let pending = admit(
         &Unsigned,
@@ -526,7 +532,8 @@ async fn op_33_a_led_ledger_is_checkpointed_on_its_cadence_and_mirrored() {
                 record: &record,
                 auth_context: context(&record),
             },
-            actor_types: &actors,
+            declared: &actors.0,
+            bindings: &actors.1,
             origin: Origin::Direct,
             understood_extensions: &[],
             limits: SemanticLimits::default(),

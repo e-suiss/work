@@ -30,6 +30,7 @@
 //! before the archive role drops them (OP-35). Random bytes, the log key's signatures and the log
 //! itself are reached through the `Rng`, `Signer` and `Store` ports (T-32 rule 2).
 
+mod actors;
 mod adapters;
 mod admit;
 #[cfg(feature = "s3")]
@@ -56,6 +57,7 @@ mod witness;
 #[cfg(feature = "s3")]
 mod worm;
 
+pub use actors::{ActorBindings, BindingConflict, Declared, DeclaredActors};
 pub use adapters::SystemRng;
 pub use admit::{AdmitError, Arrival, MAX_RECEIVED, Submission, admit};
 #[cfg(feature = "s3")]

@@ -57,7 +57,11 @@ id = "MD-7"
 family = "MD"
 status = "central-decision"
 title = ""
-tests = []
+tests = [
+  "bins/work-server/tests/actor_kinds.rs::p_12_every_access_actor_kind_is_the_work_actor_type_of_its_name",
+  "crates/ledger/src/actors.rs::p_12_a_bound_party_takes_access_s_type_and_an_unbound_one_is_declared_unverified",
+  "crates/ledger/src/admit/tests.rs::p_12_the_envelope_takes_each_party_s_type_from_its_access_binding_never_from_the_request",
+]
 
 [[rule]]
 id = "MD-8"
@@ -2769,7 +2773,7 @@ tests = [
   "crates/kernel/tests/codec_vectors.rs::p_100_envelope_vectors_decode_and_chain_from_the_genesis",
   "crates/kernel/tests/ledger_vectors.rs::ev_35_a_stored_presenter_annotation_must_match_the_record_evidence",
   "crates/kernel/tests/records.rs::ev_35_every_evidence_presenter_has_an_actor_type_in_evidence_order",
-  "crates/ledger/src/admit/tests.rs::ev_35_the_envelope_carries_the_presenter_actor_types_the_caller_resolved",
+  "crates/ledger/src/admit/tests.rs::ev_35_a_presenter_without_an_access_binding_is_declared_unverified_in_the_envelope",
   "crates/ledger/src/admit/tests.rs::p_100_the_admission_path_seals_the_golden_ledger_byte_for_byte",
   "sdks/bindings/core/tests/bytes.rs::t_10_stored_entries_verify_from_their_bytes_through_bindings_core",
   "sdks/bindings/uniffi/tests/swift/main.swift::t_10_swift_stored_entries_verify_from_their_bytes",
@@ -5821,7 +5825,7 @@ stage = 2
 acceptance = "to-fill"
 title = ""
 tests = [
-  "crates/ledger/src/admit/tests.rs::ev_35_the_envelope_carries_the_presenter_actor_types_the_caller_resolved",
+  "crates/ledger/src/admit/tests.rs::ev_35_a_presenter_without_an_access_binding_is_declared_unverified_in_the_envelope",
   "crates/ledger/src/admit/tests.rs::op_9_a_record_declaring_another_ledger_is_refused",
   "crates/ledger/src/admit/tests.rs::p_100_the_admission_path_seals_the_golden_ledger_byte_for_byte",
   "crates/ledger/src/admit/tests.rs::p_116_an_unsigned_record_is_refused_with_the_artifact_of_another_record",
@@ -6050,6 +6054,7 @@ tests = [
   "crates/access-client/src/domain/cache.rs::t_101_cached_keys_follow_max_age_and_never_go_back_in_etag",
   "crates/access-client/src/domain/eligibility.rs::t_101_the_answer_carries_a_consistency_token",
   "crates/access-client/src/domain/eligibility.rs::t_101_the_eligibility_request_is_a_check_context_without_mode_or_nonce",
+  "crates/access-client/src/domain/keys.rs::p_12_every_looked_up_key_names_its_party_s_actor_kind",
   "crates/access-client/src/domain/keys.rs::t_101_an_excerpt_without_key_lookup_usage_or_signed_by_another_key_is_refused",
   "crates/access-client/src/domain/keys.rs::t_101_entries_must_state_their_key_consistently",
   "crates/access-client/src/domain/keys.rs::t_101_identifiers_and_the_batch_body_are_in_access_wire_form",

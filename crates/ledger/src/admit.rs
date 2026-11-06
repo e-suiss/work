@@ -2,8 +2,10 @@
 //! outside the sequencer's critical section, the kernel verifies the bytes exactly as received,
 //! decodes and validates the record, checks the ledger it declares and names the items it
 //! touches; the result is the [`PendingRecord`] the group commit appends with its envelope,
-//! received bytes, skeleton, item heads and outbox pointers in one transaction. Nothing here
-//! takes a record id, an item or a version from the caller.
+//! received bytes, skeleton, item heads and outbox pointers in one transaction. The envelope's
+//! actor types come from Access's identity bindings of the record's Parties, a declared type
+//! only as `declared_unverified` (P-12, C-17). Nothing here takes a record id, an item, a
+//! version or the source of an actor type from the caller.
 
 use std::fmt::Write as _;
 
@@ -32,6 +34,7 @@ use work_store::{
     ReceivedRole, ReceivedRow, RelationRow, Skeleton,
 };
 
+use crate::actors::{ActorBindings, DeclaredActors};
 use crate::auth_context::{self, AuthContext, AuthContextInvalid};
 use crate::{
     BodyError, BodyOpening, BodyWriter, Committed, EventPointer, GroupCommit, Inbound, ItemTouch,
@@ -102,9 +105,13 @@ impl std::fmt::Debug for Arrival<'_> {
 pub struct Submission<'a> {
     /// The record as it arrived.
     pub arrival: Arrival<'a>,
-    /// Actor types of the author, every `on_behalf_of` ring and every evidence presenter from
-    /// the Access identity binding, `declared_unverified` without one (P-12, EV-35).
-    pub actor_types: &'a ActorTypes,
+    /// The Parties of the author, every `on_behalf_of` ring and every evidence presenter, with
+    /// the type the request declares for each (P-12, EV-35).
+    pub declared: &'a DeclaredActors,
+    /// The actor types Access's identity bindings name; the envelope takes a Party's type from
+    /// here, `access_binding`, and its declared type, `declared_unverified`, only without one
+    /// (P-12, C-17).
+    pub bindings: &'a ActorBindings,
     /// The origin the Work service supplies (T-66).
     pub origin: Origin,
     /// Extension keys this verifier implements (P-19).
@@ -485,7 +492,12 @@ struct Checked {
 }
 
 /// Decodes and validates the record of `a` against `ledger` (P-11, P-19, P-21, P-87, C-34).
-fn check(ledger: &LedgerId, s: &Submission<'_>, a: &Arrived) -> Result<Checked, Reason> {
+fn check(
+    ledger: &LedgerId,
+    s: &Submission<'_>,
+    actors: &ActorTypes,
+    a: &Arrived,
+) -> Result<Checked, Reason> {
     if a.record_bytes.len() > MAX_RECEIVED {
         return Err(Reason::LimitExceeded(Limit::Request));
     }
@@ -509,7 +521,7 @@ fn check(ledger: &LedgerId, s: &Submission<'_>, a: &Arrived) -> Result<Checked, 
         let unsigned = UnsignedRecord {
             record: record_id(&a.record_bytes),
             author: core.author.clone(),
-            actor_type: s.actor_types.author.actor_type,
+            actor_type: actors.author.actor_type,
             auth_context: true,
         };
         if let VerifyOutcome::Rejected(reason) = verify_unsigned(unsigned, None) {
@@ -519,9 +531,12 @@ fn check(ledger: &LedgerId, s: &Submission<'_>, a: &Arrived) -> Result<Checked, 
     if core.ledger.0.as_bytes() != ledger.as_bytes() {
         return Err(Reason::EnvelopeMismatch(EnvelopeField::Ledger));
     }
+    if !s.declared.names(core) {
+        return Err(Reason::EnvelopeMismatch(EnvelopeField::ActorType));
+    }
     let ctx = ValidationContext {
         origin: s.origin,
-        actor_types: s.actor_types,
+        actor_types: actors,
         understood_extensions: s.understood_extensions,
         limits: s.limits,
         recorded_at: None,
@@ -536,12 +551,7 @@ fn check(ledger: &LedgerId, s: &Submission<'_>, a: &Arrived) -> Result<Checked, 
         .map(touch)
         .collect::<Result<Vec<_>, _>>()?;
     Ok(Checked {
-        skeleton: Some(skeleton(
-            &record,
-            s.actor_types,
-            quarantine.clone(),
-            a.binding,
-        )),
+        skeleton: Some(skeleton(&record, actors, quarantine.clone(), a.binding)),
         quarantine,
         touches,
         effective_at: record.effective_at().map(|t| t.0),
@@ -603,7 +613,8 @@ pub fn admit<V: SignatureVerifier + ?Sized>(
     s: Submission<'_>,
 ) -> Result<PendingRecord, AdmitError> {
     let a = arrive(verifier, s.arrival)?;
-    let c = check(ledger, &s, &a)?;
+    let actors = s.declared.derive(s.bindings);
+    let c = check(ledger, &s, &actors, &a)?;
     let record_hex = hex(&sha256(&a.record_bytes));
     let types = pointer_types(c.primary, s.event_type, &c.touches);
     let outbox = c
@@ -618,7 +629,7 @@ pub fn admit<V: SignatureVerifier + ?Sized>(
         })
         .collect();
     Ok(PendingRecord {
-        actor_type: actor_types(s.actor_types),
+        actor_type: actor_types(&actors),
         proof_commit: a.binding.proof_commit,
         auth_context: a.auth_context,
         ingest: ingest(c.quarantine.as_deref()),

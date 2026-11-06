@@ -26,14 +26,15 @@ use serde_json::Value as Json;
 use suiss_crypto::dcbor::{self, Limits, Value};
 use suiss_crypto::digest::{Digest, sha256};
 use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
+use work_kernel::id::PartyRef;
 use work_kernel::limits::SemanticLimits;
 use work_kernel::reason::{Reason, Schema};
 use work_kernel::rules::RuleSet;
-use work_kernel::validate::{ActorType, ActorTypeEntry, ActorTypeSource, ActorTypes, Origin};
+use work_kernel::validate::{ActorType, Origin};
 use work_kernel::verify::{SignatureCheck, SignatureVerifier};
 use work_ledger::{
-    Arrival, AuthContext, GenesisInput, Leader, Node, PendingRecord, Rng, RngError, Submission,
-    admit, genesis,
+    ActorBindings, Arrival, AuthContext, Declared, DeclaredActors, GenesisInput, Leader, Node,
+    PendingRecord, Rng, RngError, Submission, admit, genesis,
 };
 use work_store::{CellId, Cluster, Durability, LedgerId, LedgerTx, Pool, SequencerPool};
 use work_testkit::realm::{self, ADMITTED_AT, ISSUER, Realm};
@@ -460,6 +461,24 @@ fn unhex(s: &str) -> Vec<u8> {
         .collect()
 }
 
+/// The golden comment's author, bound in Access as a human (P-12).
+fn alice() -> (DeclaredActors, ActorBindings) {
+    let alice = PartyRef::new("party:acme:alice").unwrap();
+    let mut bindings = ActorBindings::new();
+    bindings.bind(alice.clone(), ActorType::Human).unwrap();
+    (
+        DeclaredActors {
+            author: Declared {
+                party: alice,
+                actor_type: ActorType::Human,
+            },
+            on_behalf_of: vec![],
+            evidence: vec![],
+        },
+        bindings,
+    )
+}
+
 /// The golden unsigned human comment Claim, declared in `ledger` and concerning one Work.
 fn comment(ledger: &LedgerId) -> Vec<u8> {
     let records: Json = serde_json::from_str(RECORDS).unwrap();
@@ -481,7 +500,11 @@ fn comment(ledger: &LedgerId) -> Vec<u8> {
     dcbor::encode(&v, Limits::CEILING).unwrap()
 }
 
-fn pending(ledger: &LedgerId, record: &[u8], actors: &ActorTypes) -> PendingRecord {
+fn pending(
+    ledger: &LedgerId,
+    record: &[u8],
+    actors: &(DeclaredActors, ActorBindings),
+) -> PendingRecord {
     let realm = Realm::open("server").unwrap();
     let artifact = realm.for_record(sha256(record)).unwrap();
     let paired = realm::paired();
@@ -500,7 +523,8 @@ fn pending(ledger: &LedgerId, record: &[u8], actors: &ActorTypes) -> PendingReco
                     now_ms: ADMITTED_AT,
                 },
             },
-            actor_types: actors,
+            declared: &actors.0,
+            bindings: &actors.1,
             origin: Origin::Direct,
             understood_extensions: &[],
             limits: SemanticLimits::default(),
@@ -562,14 +586,7 @@ async fn t_17_a_committed_record_reaches_jetstream_through_the_server() {
     let ledger = opened.ledger;
     Leader::open(&sequencer, &opened, &cell()).await.unwrap();
     let mut leader = Leader::acquire(sequencer, ledger, &node()).await.unwrap();
-    let actors = ActorTypes {
-        author: ActorTypeEntry {
-            actor_type: ActorType::Human,
-            source: ActorTypeSource::AccessBinding,
-        },
-        on_behalf_of: vec![],
-        evidence: vec![],
-    };
+    let actors = alice();
     let record = pending(&ledger, &comment(&ledger), &actors);
     assert_eq!(record.outbox().len(), 1);
     let event_id = record.outbox()[0].event_id.clone();

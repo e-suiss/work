@@ -29,14 +29,15 @@ use work_kernel::reason::{Reason, Schema};
 use work_kernel::record::ProtocolVersion;
 use work_kernel::rules::RuleSet;
 use work_kernel::uri::TypeUri;
-use work_kernel::validate::{ActorType, ActorTypeEntry, ActorTypeSource, ActorTypes, Origin};
+use work_kernel::validate::{ActorType, ActorTypeSource, Origin};
 use work_kernel::verify::{
     ChainPoint, SignatureCheck, SignatureVerifier, StoredEntry, verify_entry,
 };
 use work_ledger::{
-    ActivationRequest, Arrival, AuthContext, Clock, ClockError, GenesisInput, GroupCommit,
-    GroupConfig, Leader, LedgerError, Ledgers, Node, PendingRecord, RebuildError, Rng, RngError,
-    Submission, SubmitError, admit, genesis, rebuild_diff,
+    ActivationRequest, ActorBindings, Arrival, AuthContext, Clock, ClockError, Declared,
+    DeclaredActors, GenesisInput, GroupCommit, GroupConfig, Leader, LedgerError, Ledgers, Node,
+    PendingRecord, RebuildError, Rng, RngError, Submission, SubmitError, admit, genesis,
+    rebuild_diff,
 };
 use work_store::{
     CellId, Cluster, Durability, Genesis, ItemRef, LedgerId, LedgerTx, Pool, SequencerPool,
@@ -233,21 +234,78 @@ impl SignatureVerifier for Directory {
     }
 }
 
-fn human() -> ActorTypes {
-    ActorTypes {
-        author: ActorTypeEntry {
-            actor_type: ActorType::Human,
-            source: ActorTypeSource::AccessBinding,
+/// What a request declares for a record's Parties and the types Access binds them to.
+type Actors = (DeclaredActors, ActorBindings);
+
+/// The golden comments' author, bound in Access as a human.
+fn human() -> Actors {
+    let alice = PartyRef::new("party:acme:alice").unwrap();
+    let mut bindings = ActorBindings::new();
+    bindings.bind(alice.clone(), ActorType::Human).unwrap();
+    (
+        DeclaredActors {
+            author: Declared {
+                party: alice,
+                actor_type: ActorType::Human,
+            },
+            on_behalf_of: vec![],
+            evidence: vec![],
         },
-        on_behalf_of: vec![],
-        evidence: vec![],
-    }
+        bindings,
+    )
 }
 
-fn submission<'a>(arrival: Arrival<'a>, actors: &'a ActorTypes) -> Submission<'a> {
+/// The Parties `record` names and the vector's actor types `ctx` as a declaration with the
+/// Access bindings of the `access_binding` entries.
+fn actor_inputs(record: &[u8], ctx: &Json) -> Actors {
+    let v = dcbor::decode(record, Limits::CEILING).unwrap();
+    let party = |p: &Value| match p {
+        Value::Text(t) => PartyRef::new(t).unwrap(),
+        _ => panic!("a Party"),
+    };
+    let list = |key: &str| match v.get(key) {
+        Some(Value::Array(items)) => items.clone(),
+        _ => Vec::new(),
+    };
+    let mut bindings = ActorBindings::new();
+    let mut declare = |party: PartyRef, e: &Json| {
+        let actor_type = ActorType::from_wire_name(e[0].as_str().unwrap()).unwrap();
+        if ActorTypeSource::from_wire_name(e[1].as_str().unwrap())
+            == Some(ActorTypeSource::AccessBinding)
+        {
+            bindings.bind(party.clone(), actor_type).unwrap();
+        }
+        Declared { party, actor_type }
+    };
+    let entries = |key: &str| ctx[key].as_array().cloned().unwrap_or_default();
+    let author = declare(party(v.get("author").unwrap()), &ctx["author"]);
+    let on_behalf_of = list("on_behalf_of")
+        .iter()
+        .map(party)
+        .zip(entries("on_behalf_of"))
+        .map(|(p, e)| declare(p, &e))
+        .collect();
+    let evidence = list("evidence")
+        .iter()
+        .map(|e| party(e.get("presenter").unwrap()))
+        .zip(entries("evidence"))
+        .map(|(p, e)| declare(p, &e))
+        .collect();
+    (
+        DeclaredActors {
+            author,
+            on_behalf_of,
+            evidence,
+        },
+        bindings,
+    )
+}
+
+fn submission<'a>(arrival: Arrival<'a>, actors: &'a Actors) -> Submission<'a> {
     Submission {
         arrival,
-        actor_types: actors,
+        declared: &actors.0,
+        bindings: &actors.1,
         origin: Origin::Direct,
         understood_extensions: &[],
         limits: SemanticLimits::default(),
@@ -678,16 +736,9 @@ struct Golden {
     record: Vec<u8>,
     envelope: Vec<u8>,
     cose: Option<Vec<u8>>,
-    actors: ActorTypes,
+    actors: Actors,
     origin: Origin,
     understood: Vec<TypeUri>,
-}
-
-fn actor(v: &Json) -> ActorTypeEntry {
-    ActorTypeEntry {
-        actor_type: ActorType::from_wire_name(v[0].as_str().unwrap()).unwrap(),
-        source: ActorTypeSource::from_wire_name(v[1].as_str().unwrap()).unwrap(),
-    }
 }
 
 /// The golden ledger: its genesis and the entries at positions 1 to 14.
@@ -721,21 +772,12 @@ fn golden() -> (Vec<u8>, Vec<Golden>) {
         .into_iter()
         .map(|(r, e, name)| {
             let ctx = &r["context"];
+            let record = unhex(r["hex"].as_str().unwrap());
             Golden {
-                record: unhex(r["hex"].as_str().unwrap()),
+                actors: actor_inputs(&record, &ctx["actor_type"]),
+                record,
                 envelope: unhex(e["hex"].as_str().unwrap()),
                 cose: cose.get(&name).cloned(),
-                actors: ActorTypes {
-                    author: actor(&ctx["actor_type"]["author"]),
-                    on_behalf_of: ctx["actor_type"]["on_behalf_of"]
-                        .as_array()
-                        .map(|rings| rings.iter().map(actor).collect())
-                        .unwrap_or_default(),
-                    evidence: ctx["actor_type"]["evidence"]
-                        .as_array()
-                        .map(|presenters| presenters.iter().map(actor).collect())
-                        .unwrap_or_default(),
-                },
                 origin: Origin::from_wire_name(ctx["origin"].as_str().unwrap()).unwrap(),
                 understood: ctx["understood_extensions"]
                     .as_array()

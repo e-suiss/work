@@ -18,6 +18,7 @@ use work_kernel::verify::SignatureCheck;
 use work_testkit::realm::{self, ADMITTED_AT, Artifact, ISSUER, Realm};
 
 use super::*;
+use crate::actors::Declared;
 use crate::envelope::Bound;
 
 const COSE: &str = include_str!("../../../../conformance/vectors/records/cose-sign1.json");
@@ -90,16 +91,68 @@ struct Golden {
     record: Vec<u8>,
     envelope: Vec<u8>,
     cose: Option<Vec<u8>>,
-    actors: ActorTypes,
+    declared: DeclaredActors,
+    bindings: ActorBindings,
     origin: Origin,
     understood: Vec<ExtKey>,
 }
 
-fn actor(v: &Json) -> ActorTypeEntry {
-    ActorTypeEntry {
-        actor_type: ActorType::from_wire_name(v[0].as_str().unwrap()).unwrap(),
-        source: ActorTypeSource::from_wire_name(v[1].as_str().unwrap()).unwrap(),
-    }
+/// The author, `on_behalf_of` and evidence presenter Parties `record` names, read from its
+/// CBOR map, so a record of an unknown protocol names them too.
+fn parties(record: &[u8]) -> (PartyRef, Vec<PartyRef>, Vec<PartyRef>) {
+    let v = decode(record, Limits::CEILING).unwrap();
+    let party = |p: &Value| match p {
+        Value::Text(t) => PartyRef::new(t).unwrap(),
+        _ => panic!("a Party"),
+    };
+    let list = |key: &str| match v.get(key) {
+        Some(Value::Array(items)) => items.clone(),
+        _ => Vec::new(),
+    };
+    (
+        party(v.get("author").unwrap()),
+        list("on_behalf_of").iter().map(party).collect(),
+        list("evidence")
+            .iter()
+            .map(|e| party(e.get("presenter").unwrap()))
+            .collect(),
+    )
+}
+
+/// The declaration and Access bindings that give `record` the vector's actor types `ctx`: a
+/// Party with `access_binding` is bound to its type, every Party declares its type.
+fn actor_inputs(record: &[u8], ctx: &Json) -> (DeclaredActors, ActorBindings) {
+    let (author, rings, presenters) = parties(record);
+    let mut bindings = ActorBindings::new();
+    let mut declare = |party: PartyRef, v: &Json| {
+        let actor_type = ActorType::from_wire_name(v[0].as_str().unwrap()).unwrap();
+        if ActorTypeSource::from_wire_name(v[1].as_str().unwrap())
+            == Some(ActorTypeSource::AccessBinding)
+        {
+            bindings.bind(party.clone(), actor_type).unwrap();
+        }
+        Declared { party, actor_type }
+    };
+    let entries = |key: &str| ctx[key].as_array().cloned().unwrap_or_default();
+    let author = declare(author, &ctx["author"]);
+    let on_behalf_of = rings
+        .into_iter()
+        .zip(entries("on_behalf_of"))
+        .map(|(p, v)| declare(p, &v))
+        .collect();
+    let evidence = presenters
+        .into_iter()
+        .zip(entries("evidence"))
+        .map(|(p, v)| declare(p, &v))
+        .collect();
+    (
+        DeclaredActors {
+            author,
+            on_behalf_of,
+            evidence,
+        },
+        bindings,
+    )
 }
 
 /// The entries at positions 1 to 14 of the golden ledger, in order.
@@ -129,22 +182,15 @@ fn golden() -> Vec<Golden> {
         }));
     for (r, e, name) in pairs {
         let ctx = &r["context"];
+        let record = unhex(r["hex"].as_str().unwrap());
+        let (declared, bindings) = actor_inputs(&record, &ctx["actor_type"]);
         out.push(Golden {
             id: r["id"].as_str().unwrap().to_owned(),
-            record: unhex(r["hex"].as_str().unwrap()),
+            record,
             envelope: unhex(e["hex"].as_str().unwrap()),
             cose: cose.get(&name).cloned(),
-            actors: ActorTypes {
-                author: actor(&ctx["actor_type"]["author"]),
-                on_behalf_of: ctx["actor_type"]["on_behalf_of"]
-                    .as_array()
-                    .map(|rings| rings.iter().map(actor).collect())
-                    .unwrap_or_default(),
-                evidence: ctx["actor_type"]["evidence"]
-                    .as_array()
-                    .map(|presenters| presenters.iter().map(actor).collect())
-                    .unwrap_or_default(),
-            },
+            declared,
+            bindings,
             origin: Origin::from_wire_name(ctx["origin"].as_str().unwrap()).unwrap(),
             understood: ctx["understood_extensions"]
                 .as_array()
@@ -213,7 +259,8 @@ fn submit(
         ledger,
         Submission {
             arrival,
-            actor_types: &g.actors,
+            declared: &g.declared,
+            bindings: &g.bindings,
             origin: g.origin,
             understood_extensions: &g.understood,
             limits: SemanticLimits::default(),
@@ -403,16 +450,18 @@ fn op_9_a_record_declaring_another_ledger_is_refused() {
 fn p_21_an_unsigned_record_of_an_unknown_protocol_is_refused() {
     let quarantine = json(QUARANTINE);
     let case = &quarantine["cases"][3];
+    let record = unhex(case["hex"].as_str().unwrap());
+    let (declared, bindings) = actor_inputs(
+        &record,
+        &serde_json::json!({"author": ["human", "access_binding"]}),
+    );
     let g = Golden {
         id: case["id"].as_str().unwrap().to_owned(),
-        record: unhex(case["hex"].as_str().unwrap()),
+        record,
         envelope: unhex(case["envelope"]["hex"].as_str().unwrap()),
         cose: None,
-        actors: ActorTypes {
-            author: actor(&serde_json::json!(["human", "access_binding"])),
-            on_behalf_of: vec![],
-            evidence: vec![],
-        },
+        declared,
+        bindings,
         origin: Origin::Direct,
         understood: vec![],
     };
@@ -432,7 +481,8 @@ fn p_21_a_signed_agent_record_sent_unsigned_is_refused() {
         record: g.record.clone(),
         envelope: g.envelope.clone(),
         cose: None,
-        actors: g.actors.clone(),
+        declared: g.declared.clone(),
+        bindings: g.bindings.clone(),
         origin: g.origin,
         understood: g.understood.clone(),
     };
@@ -453,7 +503,8 @@ fn t_91_received_bytes_above_262_144_are_limit_exceeded_request() {
         record: g.record.clone(),
         envelope: g.envelope.clone(),
         cose: Some(vec![0; 262_145]),
-        actors: g.actors.clone(),
+        declared: g.declared.clone(),
+        bindings: g.bindings.clone(),
         origin: g.origin,
         understood: g.understood.clone(),
     };
@@ -463,48 +514,101 @@ fn t_91_received_bytes_above_262_144_are_limit_exceeded_request() {
     );
 }
 
-// EV-35 P-12 T-91
+fn sealed_actors(g: &Golden, ledger: &LedgerId, slot: &Slot) -> (ActorTypes, Vec<u8>) {
+    let record = pending(g, ledger).unwrap_or_else(|r| panic!("{}: {r}", g.id));
+    let (_, sealed) = Bound {
+        ledger,
+        record: &record,
+    }
+    .seal(slot)
+    .unwrap();
+    let Ok(Envelope::Ledger(e)) = decode_envelope(&sealed.envelope) else {
+        panic!("{}", g.id);
+    };
+    (e.actor_types, sealed.envelope)
+}
+
+fn entry(actor_type: ActorType, source: ActorTypeSource) -> ActorTypeEntry {
+    ActorTypeEntry { actor_type, source }
+}
+
+// EV-35 P-12 C-17 T-91
 #[test]
-fn ev_35_the_envelope_carries_the_presenter_actor_types_the_caller_resolved() {
+fn ev_35_a_presenter_without_an_access_binding_is_declared_unverified_in_the_envelope() {
     let entries = golden();
     let act = entries
         .iter()
         .find(|g| g.id == "record/act-action-fulfills")
         .unwrap();
     let (ledger, slot) = slot_of(&act.envelope);
-    let with = |actors: ActorTypes| Golden {
+    let unbound = Golden {
         id: act.id.clone(),
         record: act.record.clone(),
         envelope: act.envelope.clone(),
         cose: act.cose.clone(),
-        actors,
+        declared: act.declared.clone(),
+        bindings: ActorBindings::new(),
         origin: act.origin,
         understood: act.understood.clone(),
     };
-    let mut unbound = act.actors.clone();
-    unbound.evidence = vec![ActorTypeEntry {
-        actor_type: ActorType::Organization,
-        source: ActorTypeSource::DeclaredUnverified,
-    }];
-    let record = pending(&with(unbound.clone()), &ledger).unwrap();
-    let (_, sealed) = Bound {
-        ledger: &ledger,
-        record: &record,
-    }
-    .seal(&slot)
-    .unwrap();
-    let Ok(Envelope::Ledger(e)) = decode_envelope(&sealed.envelope) else {
-        panic!("{}", act.id);
-    };
-    assert_eq!(e.actor_types, unbound);
-    assert_ne!(sealed.envelope, act.envelope);
-    let mut missing = act.actors.clone();
-    missing.evidence.clear();
+    let (actors, envelope) = sealed_actors(&unbound, &ledger, &slot);
+    let declared = entry(ActorType::Organization, ActorTypeSource::DeclaredUnverified);
+    assert_eq!(actors.author, declared);
+    assert_eq!(actors.evidence, [declared]);
+    assert_ne!(envelope, act.envelope);
+    let mut missing = unbound;
+    missing.declared.evidence.clear();
     assert_eq!(
-        pending(&with(missing), &ledger)
-            .err()
-            .as_ref()
-            .map(rejected),
+        pending(&missing, &ledger).err().as_ref().map(rejected),
+        Some(Reason::EnvelopeMismatch(EnvelopeField::ActorType))
+    );
+}
+
+// P-12 C-17 MD-7
+#[test]
+fn p_12_the_envelope_takes_each_party_s_type_from_its_access_binding_never_from_the_request() {
+    let entries = golden();
+    let promise = &entries[0];
+    assert_eq!(promise.id, "record/declaration-promise-for-principal");
+    let (ledger, slot) = slot_of(&promise.envelope);
+    let mut claimed = Golden {
+        id: promise.id.clone(),
+        record: promise.record.clone(),
+        envelope: promise.envelope.clone(),
+        cose: promise.cose.clone(),
+        declared: promise.declared.clone(),
+        bindings: promise.bindings.clone(),
+        origin: promise.origin,
+        understood: promise.understood.clone(),
+    };
+    claimed.declared.author.actor_type = ActorType::Human;
+    claimed.declared.on_behalf_of[0].actor_type = ActorType::Human;
+    let (actors, envelope) = sealed_actors(&claimed, &ledger, &slot);
+    assert_eq!(
+        actors.author,
+        entry(ActorType::Agent, ActorTypeSource::AccessBinding)
+    );
+    assert_eq!(
+        actors.on_behalf_of,
+        [entry(
+            ActorType::Organization,
+            ActorTypeSource::AccessBinding
+        )]
+    );
+    assert_eq!(envelope, promise.envelope);
+    let mut author_only = ActorBindings::new();
+    author_only
+        .bind(claimed.declared.author.party.clone(), ActorType::Agent)
+        .unwrap();
+    claimed.bindings = author_only;
+    let (actors, _) = sealed_actors(&claimed, &ledger, &slot);
+    assert_eq!(
+        actors.on_behalf_of,
+        [entry(ActorType::Human, ActorTypeSource::DeclaredUnverified)]
+    );
+    claimed.declared.on_behalf_of[0].party = claimed.declared.author.party.clone();
+    assert_eq!(
+        pending(&claimed, &ledger).err().as_ref().map(rejected),
         Some(Reason::EnvelopeMismatch(EnvelopeField::ActorType))
     );
 }
