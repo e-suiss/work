@@ -1054,6 +1054,7 @@ mod signed {
             serde_json::from_slice(&std::fs::read(local.dir.join("tool-login.json")).unwrap())
                 .unwrap();
         assert_eq!(tool["token_type"], "DPoP", "{tool}");
+        assert_eq!(tool["instance"], json!(local.user("instance")), "{tool}");
         let token = tool["access_token"].as_str().unwrap();
         let claims = payload(token);
         assert!(names(&claims["aud"], &local.work_client()), "{claims}");
@@ -1119,6 +1120,7 @@ mod commit {
     use std::time::Duration;
 
     use serde_json::{Value, json};
+    use suiss_crypto::cose::PublicKey;
     use suiss_crypto::dcbor::{self, Limits, Value as Cbor};
     use suiss_crypto::digest::sha256;
     use suiss_crypto::pkcs11::{HsmSigner, KeyStore};
@@ -1137,7 +1139,11 @@ mod commit {
     use work_kernel::rules::RuleSet;
     use work_ledger::{GenesisInput, SystemRng, genesis};
     use work_proto::id::ExternalId as _;
-    use work_store::{CellId, Durability, ExportLog, ReceivedRole, SequencerPool};
+    use work_query::domain::authority::approval_state;
+    use work_store::{
+        AccessPool, CellId, Durability, ExportLog, NewApprovalState, ReceivedRole, SequencerPool,
+        WindowHit,
+    };
 
     use super::{ACCESS_PIN_FILE, ACCESS_TOKEN, Answer, Jar, Local, WORK, module};
 
@@ -1149,6 +1155,9 @@ mod commit {
     const WRITTEN_FILE: &str = "commit-written.json";
     const SEQUENCER: &str = "postgres://work_sequencer:local-only-not-a-secret@127.0.0.1:5442/work";
     const APP: &str = "postgres://work_app:local-only-not-a-secret@127.0.0.1:5442/work";
+    const ACCESS_DB: &str = "postgres://work_access:local-only-not-a-secret@127.0.0.1:5442/work";
+    const POP_TYPE: &str = "application/access-instance-pop";
+    const RETURN: &str = "/v1/access/approval";
     const DEVICE_LABEL: &str = "access/bootstrap/test-user-device";
     const RECORD_TYPE: &str = "application/work-record+cbor";
     const AIS_TYPE: &str = "application/access-ais+cbor";
@@ -1282,6 +1291,90 @@ mod commit {
             .unwrap()
             .signer(DEVICE_LABEL)
             .unwrap()
+    }
+
+    /// The `COSE_Key` of `key` as Access registers a device key (RFC 9052 section 7).
+    fn cose_key(key: &PublicKey) -> Vec<u8> {
+        let entries = match key {
+            PublicKey::Ed25519(x) => vec![
+                (Cbor::Unsigned(1), Cbor::Unsigned(1)),
+                (Cbor::int(-1), Cbor::Unsigned(6)),
+                (Cbor::int(-2), Cbor::Bytes(x.to_vec())),
+            ],
+            PublicKey::P256(sec1) => {
+                let (x, y) = sec1[1..].split_at(32);
+                vec![
+                    (Cbor::Unsigned(1), Cbor::Unsigned(2)),
+                    (Cbor::int(-1), Cbor::Unsigned(1)),
+                    (Cbor::int(-2), Cbor::Bytes(x.to_vec())),
+                    (Cbor::int(-3), Cbor::Bytes(y.to_vec())),
+                ]
+            }
+            PublicKey::MlDsa(..) => panic!("a device key is Ed25519 or P-256"),
+        };
+        dcbor::encode(&Cbor::Map(entries), Limits::CEILING).unwrap()
+    }
+
+    /// Binds the realm session in `jar` to the test user's device Instance, as a known device
+    /// signs in (Access OP-149 m.32, INV-13): a challenge from `POST /v1/me/instances/challenges`
+    /// and the device key's `COSE_Sign1` over it at `POST /v1/me/instances/bindings`; the
+    /// session's `auth_context` then names `test_user.instance`.
+    async fn bind_device(local: &Local, jar: &mut Jar) {
+        let issuer = local.issuer("acme");
+        let challenge = local
+            .post_json(&format!("{issuer}/v1/me/instances/challenges"), jar, None)
+            .await;
+        assert_eq!(challenge.status, 201, "{challenge:?}");
+        let bytes = from_b64url(text(&challenge.json(), "challenge")).unwrap();
+        assert_eq!(bytes.len(), 32);
+        let device = device(local);
+        let key = device.public_key();
+        let pop = sign_sign1(&device, thumbprint(&key), POP_TYPE, &bytes).unwrap();
+        let bound = local
+            .post_json(
+                &format!("{issuer}/v1/me/instances/bindings"),
+                jar,
+                Some(json!({
+                    "challenge": b64url(&bytes),
+                    "key": b64url(&cose_key(&key)),
+                    "pop": b64url(&pop),
+                })),
+            )
+            .await;
+        assert_eq!(bound.status, 201, "{bound:?}");
+        let bound = bound.json();
+        assert_eq!(text(&bound, "instance"), local.user("instance"), "{bound}");
+        assert_eq!(text(&bound, "party"), local.user("party"), "{bound}");
+    }
+
+    async fn access_pool() -> AccessPool {
+        let pool = work_store::connect(ACCESS_DB, "work-compose-test", Duration::from_secs(30))
+            .await
+            .unwrap();
+        AccessPool::new(pool).await.unwrap()
+    }
+
+    fn tenant(local: &Local) -> String {
+        text(local.realm("acme"), "tenant").to_owned()
+    }
+
+    /// `GET /v1/access/approval?<query>` on `work-server` as the test user; the `DPoP` proof
+    /// names the route without its query (RFC 9449 section 4.2).
+    async fn approval_return(local: &Local, key: &HsmSigner, token: &str, query: &str) -> Answer {
+        let url = format!("{WORK}{RETURN}");
+        let proof = local.proof(key, "GET", &url, None, Some(token)).await;
+        let authorization = format!("DPoP {token}");
+        local
+            .send(
+                "GET",
+                &format!("{url}?{query}"),
+                &[
+                    ("authorization", authorization.as_str()),
+                    ("dpop", proof.as_str()),
+                ],
+                None,
+            )
+            .await
     }
 
     /// The test user's request at `work-server`'s `POST /v1/authority-requests` that Work's PEP
@@ -1473,8 +1566,9 @@ mod commit {
             let exercise = text(&read(local, EXERCISE_FILE), "exercise").to_owned();
             let receipt = verified(local, &exercise, &commit).await.receipt;
             let key = local.dpop();
-            let (tokens, jar) = local.session(&key, true).await.unwrap();
+            let (tokens, mut jar) = local.session(&key, true).await.unwrap();
             assert_eq!(tokens["token_type"], "DPoP", "{tokens}");
+            bind_device(local, &mut jar).await;
             Self {
                 key,
                 token: tokens["access_token"].as_str().unwrap().to_owned(),
@@ -1817,5 +1911,83 @@ mod commit {
             windows[0]["notice"],
             record_id(&notice.record_bytes).to_external()
         );
+        let instance = fixed_b64url::<16>(&local.user("instance")).unwrap();
+        let ledger = *LedgerId::parse_external(&led).unwrap().0.as_bytes();
+        let until = local.access_now_s().await * 1000 + 86_400_000;
+        let by_instance = access_pool()
+            .await
+            .window_ledgers(
+                &tenant(&local),
+                &[],
+                &[instance],
+                &b64url(&[0; 16]),
+                0,
+                until,
+            )
+            .await
+            .unwrap();
+        assert!(
+            by_instance.contains(&WindowHit {
+                ledger,
+                kid: None,
+                instance: Some(instance),
+            }),
+            "{by_instance:?}"
+        );
+    }
+
+    // T-101 E-17
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore = "needs the local environment with the test user's approval of Work's request"]
+    async fn e_17_the_approval_return_hands_back_the_contribution_access_confirmed_once() {
+        let local = Local::open();
+        let approved = read(&local, APPROVED_FILE);
+        let contribution = text(&approved, "contribution").to_owned();
+        let render = text(&approved, "render_digest").to_owned();
+        let digest = sha256(&std::fs::read(local.dir.join(REQUEST_FILE)).unwrap());
+        let party = local.user("party");
+        let state = approval_state(&party, &digest);
+        let led = ledger(&local);
+        let now = local.access_now_s().await * 1000;
+        let access = access_pool().await;
+        let tenant = tenant(&local);
+        let issued = NewApprovalState {
+            state: &state,
+            tenant: &tenant,
+            party: fixed_b64url(&party).unwrap(),
+            digest,
+            ledger: *LedgerId::parse_external(&led).unwrap().0.as_bytes(),
+            issued_at_ms: now,
+            expires_at_ms: now + 3_600_000,
+        };
+        assert!(access.issue_approval_state(&issued).await.unwrap());
+        assert!(!access.issue_approval_state(&issued).await.unwrap());
+        let key = local.dpop();
+        let token = local.token(&key).await;
+        let query = format!("exercise={contribution}&render_digest={render}&state={state}");
+        let back = approval_return(&local, &key, &token, &query).await;
+        assert_eq!(back.status, 200, "{back:?}");
+        assert_eq!(
+            back.json(),
+            json!({
+                "ledger": led,
+                "contribution": contribution,
+                "render_digest": render,
+                "next": "commit",
+            })
+        );
+        let row = access.approval_state(&state).await.unwrap().unwrap();
+        assert!(row.used_at_ms.is_some(), "{row:?}");
+        let again = approval_return(&local, &key, &token, &query).await;
+        assert_eq!(denied(&again)["code_detail"], "state_used");
+        let unknown = format!(
+            "exercise={contribution}&render_digest={render}&state={}",
+            local.random()
+        );
+        let unknown = approval_return(&local, &key, &token, &unknown).await;
+        assert_eq!(denied(&unknown)["code_detail"], "state_unknown");
+        let unsent =
+            approval_return(&local, &key, &token, &format!("exercise={contribution}")).await;
+        assert_eq!(unsent.status, 400, "{unsent:?}");
     }
 }

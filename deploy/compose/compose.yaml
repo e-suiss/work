@@ -457,7 +457,7 @@ services:
   # T-51, T-41
   access-volume-owners:
     <<: *access-hardening
-    image: ghcr.io/e-suiss/access@sha256:e478ee5cd5fd58f17224615bc1a9d47f097b783f8b9d038bf2092aab9ed4fda2
+    image: ghcr.io/e-suiss/access@sha256:17a27ac7f1289dc5e8448de42fee161337beb703405db8e4e0bf38fcb5557512
     platform: linux/amd64
     user: "0:0"
     cap_add: [CHOWN, FOWNER]
@@ -481,7 +481,7 @@ services:
   # T-51, T-41, T-101
   access-init:
     <<: *access-process
-    image: ghcr.io/e-suiss/access@sha256:e478ee5cd5fd58f17224615bc1a9d47f097b783f8b9d038bf2092aab9ed4fda2
+    image: ghcr.io/e-suiss/access@sha256:17a27ac7f1289dc5e8448de42fee161337beb703405db8e4e0bf38fcb5557512
     command: ["access-local-init"]
     environment:
       ACCESS_LOCAL_PRODUCT_HOSTS: work-server relay
@@ -538,7 +538,7 @@ services:
   # T-51, T-36
   access-migrate:
     <<: *access-process
-    image: ghcr.io/e-suiss/access@sha256:e478ee5cd5fd58f17224615bc1a9d47f097b783f8b9d038bf2092aab9ed4fda2
+    image: ghcr.io/e-suiss/access@sha256:17a27ac7f1289dc5e8448de42fee161337beb703405db8e4e0bf38fcb5557512
     command: ["access-server", "migrate"]
     environment:
       ACCESS_CONFIG: /etc/access/local/access.toml
@@ -554,7 +554,7 @@ services:
   # T-51, T-56
   access-signer:
     <<: *access-process
-    image: ghcr.io/e-suiss/access@sha256:e478ee5cd5fd58f17224615bc1a9d47f097b783f8b9d038bf2092aab9ed4fda2
+    image: ghcr.io/e-suiss/access@sha256:17a27ac7f1289dc5e8448de42fee161337beb703405db8e4e0bf38fcb5557512
     command: ["access-signer"]
     restart: unless-stopped
     environment:
@@ -577,7 +577,7 @@ services:
   # T-51, T-56
   access-identity-signer:
     <<: *access-process
-    image: ghcr.io/e-suiss/access@sha256:e478ee5cd5fd58f17224615bc1a9d47f097b783f8b9d038bf2092aab9ed4fda2
+    image: ghcr.io/e-suiss/access@sha256:17a27ac7f1289dc5e8448de42fee161337beb703405db8e4e0bf38fcb5557512
     command: ["access-identity-signer"]
     restart: unless-stopped
     environment:
@@ -684,7 +684,7 @@ services:
   # T-96, T-101, T-103, T-51, T-102, T-104
   access-bootstrap:
     <<: *access-process
-    image: ghcr.io/e-suiss/access@sha256:e478ee5cd5fd58f17224615bc1a9d47f097b783f8b9d038bf2092aab9ed4fda2
+    image: ghcr.io/e-suiss/access@sha256:17a27ac7f1289dc5e8448de42fee161337beb703405db8e4e0bf38fcb5557512
     entrypoint: ["sh", "-c"]
     command:
       - "access-server bootstrap /etc/work-access/bootstrap-work.toml > /var/lib/access/bootstrap/bootstrap.json && cat /var/lib/access/bootstrap/bootstrap.json"
@@ -719,7 +719,7 @@ services:
   # T-51, E-2, MD-3, T-96, T-101
   access:
     <<: *access-process
-    image: ghcr.io/e-suiss/access@sha256:e478ee5cd5fd58f17224615bc1a9d47f097b783f8b9d038bf2092aab9ed4fda2
+    image: ghcr.io/e-suiss/access@sha256:17a27ac7f1289dc5e8448de42fee161337beb703405db8e4e0bf38fcb5557512
     command: ["access-server"]
     restart: unless-stopped
     environment:
