@@ -246,8 +246,8 @@ impl Local {
             .unwrap()
     }
 
-    /// The WebAuthn assertion of the passkey over the challenge of the login `step`'s
-    /// `passkey_get` node, as the realm's software authenticator answers it (W3C WebAuthn
+    /// The `WebAuthn` assertion of the passkey over the challenge of the login `step`'s
+    /// `passkey_get` node, as the realm's software authenticator answers it (W3C `WebAuthn`
     /// Level 3 sections 6.1, 7.2): user present and verified, no counter.
     fn passkey_assertion(&self, issuer: &str, step: &Value) -> Value {
         let options = step["nodes"]
