@@ -385,14 +385,14 @@ mod tests {
         assert_eq!(body["data"], serde_json::json!({"reason": "gate_waiting"}));
         assert_eq!(body["dedup_key"], i.key().as_str());
         let text = String::from_utf8(request.body().unwrap()).unwrap();
-        for secret in [
+        for fact in [
             hex(&i.committed().record_id),
             hex(&i.committed().ledger),
             i.spec().parties[0].clone(),
             i.spec().tenant.as_str().to_owned(),
             i.committed().traceparent.clone(),
         ] {
-            assert!(!text.contains(&secret), "{secret} in {text}");
+            assert!(!text.contains(&fact));
         }
         assert!(!text.contains("correlation_id") && !text.contains("\"item\""));
         let row = request.clone().row();
