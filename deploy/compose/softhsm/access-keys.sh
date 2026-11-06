@@ -1,5 +1,5 @@
 #!/bin/sh
-# T-56, T-101, T-103
+# T-56, T-101, T-103, T-97
 set -eu
 
 : "${SOFTHSM_TOKEN_LABEL:?}" "${SOFTHSM_USER_PIN:?}" "${WORK_ACCESS_KEYS:?}"
@@ -16,6 +16,12 @@ b64url() {
 key() {
     if ! token --list-objects --type pubkey | grep -q "label:[[:space:]]*$1[[:space:]]*$"; then
         token --keypairgen --key-type "$2" --label "$1" --usage-sign ${3:+--id "$3"} >/dev/null
+    fi
+}
+
+secret() {
+    if ! token --list-objects --type secrkey | grep -q "label:[[:space:]]*$1[[:space:]]*$"; then
+        token --keygen --key-type GENERIC:32 --label "$1" --sensitive --usage-sign >/dev/null
     fi
 }
 
@@ -37,6 +43,8 @@ key work-access-client EC:prime256v1
 key work-access-dpop EC:prime256v1
 key work-access-service EC:edwards25519
 key work-access-pep EC:prime256v1 706570
+# T-97
+secret work-read-position-1
 
 spki work-access-client 91
 x="$(tail -c 64 /tmp/work-access-client.der | head -c 32 | b64url)"

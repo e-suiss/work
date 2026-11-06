@@ -1,4 +1,4 @@
-# OP-32, OP-42, OP-43, T-41, T-20, T-39, OP-33, T-76, OP-46, SEC-32, T-96, E-2, T-101, T-102, T-103
+# OP-32, OP-42, OP-43, T-41, T-20, T-39, OP-33, T-76, OP-46, SEC-32, T-96, E-2, T-101, T-102, T-103, T-97
 
 [suiss]
 access = "https://access-server:8443/realms/platform"
@@ -12,6 +12,9 @@ client_id_file = "/run/work-access/client_id"
 [inbound]
 listen = "0.0.0.0:8443"
 certificate = "/var/lib/access/product-tls/work-server.crt"
+
+[api]
+origin = "http://127.0.0.1:8190"
 
 [postgres]
 canonical = "postgres://work_app@work-postgres:5432/work"

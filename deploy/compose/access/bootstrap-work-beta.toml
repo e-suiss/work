@@ -9,6 +9,18 @@ realm = "acme"
 namespace = "work"
 action = "approve"
 
+# T-104, T-102
+[test_user]
+realm = "acme"
+identifier = "test@acme.example"
+password_env = "BOOTSTRAP_TEST_PASSWORD"
+client_display_name = "Local test client"
+redirect_uri = "http://127.0.0.1/cb"
+
+# T-102
+[compromise]
+realm = "acme"
+
 [[products]]
 product = "work"
 display_name = "Suiss Work"
