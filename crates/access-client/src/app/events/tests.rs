@@ -11,12 +11,12 @@ use super::*;
 use crate::domain::b64url;
 use crate::domain::discovery::Issuer;
 use crate::domain::events::tests::{
-    CLIENT, DOMAIN, ISSUER, NOW, RealmKeys, TENANT, claims_of, compromised, realm_keys, revoked,
-    signed,
+    CLIENT, DOMAIN, ISSUER, NOW, RealmKeys, TENANT, claims_of, compromised, keys_in, realm_keys,
+    revoked, signed,
 };
 use crate::domain::events::{CLOUDEVENTS_CONTENT_TYPE, SET_CONTENT_TYPE};
 use crate::domain::fixed_b64url;
-use crate::domain::keys::tests::{domain, token};
+use crate::domain::keys::tests::domain_named;
 use crate::domain::keys::{AsOf, DomainId, verify_answer};
 use crate::domain::pairing::{RealmChange, RealmId, StoredRealm};
 use crate::domain::streams::StreamStatus;
@@ -220,8 +220,7 @@ async fn t_102_a_repeated_jti_is_accepted_once() {
 #[tokio::test]
 async fn t_102_a_revocation_drops_the_cache_at_once() {
     let w = World::new("t102-revoke");
-    let (_, store) = token("t102-revoke-domain");
-    let d = domain(&store);
+    let d = domain_named(&w.keys.store, "revoke-");
     let sign1 = d.answer(vec![d.entry("active", false)], &[], 3);
     let answer = verify_answer(
         &d.read(),
@@ -410,10 +409,10 @@ async fn t_102_the_answer_follows_rfc_8935_and_relay_is_asked_to_deliver_again()
         .push(CLOUDEVENTS_CONTENT_TYPE, br#"{"specversion":"1.0"}"#)
         .await;
     assert_eq!((relay.clone(), relay.status()), (Outcome::RelayNotYet, 503));
-    let unknown = realm_keys("t102-answer-other");
+    let (unknown, _, _) = keys_in(&w.keys.store, "other");
     let c = claims_of("authority-revoked", &revoked(), Some(TENANT), 62);
     let unreadable = w
-        .push(SET_CONTENT_TYPE, &signed(&unknown.es256, "ES256", &c))
+        .push(SET_CONTENT_TYPE, &signed(&unknown, "ES256", &c))
         .await;
     assert!(
         matches!(unreadable, Outcome::Unavailable(_)),

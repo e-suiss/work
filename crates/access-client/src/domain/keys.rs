@@ -523,15 +523,8 @@ pub(crate) mod tests {
             "{}",
             String::from_utf8_lossy(&init.stderr)
         );
-        let mut opened = KeyStore::open(&module(), &label, &Secret::new(PIN.to_owned()));
-        for _ in 0..50 {
-            if opened.is_ok() {
-                break;
-            }
-            std::thread::sleep(std::time::Duration::from_millis(100));
-            opened = KeyStore::open(&module(), &label, &Secret::new(PIN.to_owned()));
-        }
-        (label, opened.unwrap())
+        let store = KeyStore::open(&module(), &label, &Secret::new(PIN.to_owned())).unwrap();
+        (label, store)
     }
 
     pub(crate) fn pin() -> Secret<String> {

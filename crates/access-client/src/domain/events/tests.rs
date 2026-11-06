@@ -2,7 +2,7 @@
 
 use serde_json::{Map, Value, json};
 use suiss_crypto::cose::KeySet;
-use suiss_crypto::pkcs11::HsmSigner;
+use suiss_crypto::pkcs11::{HsmSigner, KeyStore};
 use suiss_crypto::signer::Signer as _;
 
 use super::*;
@@ -17,27 +17,35 @@ pub(crate) const TENANT: &str = "tnt_0123456789abcdefghjkmnpqrs";
 pub(crate) const DOMAIN: &str = "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc";
 const KID: &str = "-Y4E9TMm6RHXdEMV2FRRKJiFNF_gobJnrL4wNhDQHX8";
 
-/// The platform realm's two signing keys, born in a token of the test's own, and the key set
-/// its JWKS reads as.
+/// The platform realm's two signing keys, born in a token of the test's own, the key set its
+/// JWKS reads as, and the token, for further keys of the same test.
 pub(crate) struct RealmKeys {
     pub(crate) es256: HsmSigner,
     pub(crate) ed25519: HsmSigner,
     pub(crate) set: KeySet,
+    pub(crate) store: KeyStore,
 }
 
 pub(crate) fn realm_keys(test: &str) -> RealmKeys {
     let (_, store) = token(test);
-    let es256 = store.generate_p256("realm-es256").unwrap();
-    let ed25519 = store.generate_ed25519("realm-ed25519").unwrap();
-    let mut set = KeySet::default();
-    for key in [es256.public_key(), ed25519.public_key()] {
-        set.insert(thumbprint(&key), key).unwrap();
-    }
+    let (es256, ed25519, set) = keys_in(&store, "realm");
     RealmKeys {
         es256,
         ed25519,
         set,
+        store,
     }
+}
+
+/// Another pair of signing keys in `store` under `prefix`, with the key set of that pair alone.
+pub(crate) fn keys_in(store: &KeyStore, prefix: &str) -> (HsmSigner, HsmSigner, KeySet) {
+    let es256 = store.generate_p256(&format!("{prefix}-es256")).unwrap();
+    let ed25519 = store.generate_ed25519(&format!("{prefix}-ed25519")).unwrap();
+    let mut set = KeySet::default();
+    for key in [es256.public_key(), ed25519.public_key()] {
+        set.insert(thumbprint(&key), key).unwrap();
+    }
+    (es256, ed25519, set)
 }
 
 /// The claims of one event as Access writes them for the platform stream.
@@ -139,9 +147,9 @@ fn t_102_a_set_signed_by_the_realm_key_is_accepted() {
         read(&tampered, &keys.set),
         Err(Refusal::AuthenticationFailed)
     );
-    let stranger = realm_keys("t102-stranger");
+    let (stranger, _, _) = keys_in(&keys.store, "stranger");
     assert_eq!(
-        read(&signed(&stranger.es256, "ES256", &c), &keys.set),
+        read(&signed(&stranger, "ES256", &c), &keys.set),
         Err(Refusal::InvalidKey("unknown kid"))
     );
     let wrong_alg = json!({"alg": "ES256", "kid": b64url(&thumbprint(&keys.ed25519.public_key())), "typ": SET_TYPE});
