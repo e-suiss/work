@@ -1,0 +1,64 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT l.record_id::bytea AS \"record!\", n.pos::bigint AS \"pos!\",\n                      (extract(epoch FROM n.window_from) * 1000)::bigint AS \"window_from_ms!\",\n                      (extract(epoch FROM n.window_to) * 1000)::bigint AS \"window_to_ms!\",\n                      n.kids AS \"kids!\", n.party::text AS \"party?\"\n               FROM work.compromise_notice n\n               JOIN ledger.log l ON l.ledger_id = n.ledger_id AND l.pos = n.pos\n               WHERE n.ledger_id = $1\n                 AND n.window_from <= pg_catalog.to_timestamp(0)\n                     + interval '1 millisecond' * $2::bigint::double precision\n                 AND n.window_to >= pg_catalog.to_timestamp(0)\n                     + interval '1 millisecond' * $2::bigint::double precision\n               ORDER BY n.pos",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "record!",
+        "type_info": "Bytea",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "pos!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "window_from_ms!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "window_to_ms!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "kids!",
+        "type_info": "ByteaArray",
+        "origin": {
+          "Table": {
+            "table": "work.compromise_notice",
+            "name": "kids"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "party?",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      false,
+      null
+    ]
+  },
+  "hash": "d998f2a3cd4cd8a2a944046966c8bce43ef6296d93210c8ab60b2e537b6c2fb5"
+}

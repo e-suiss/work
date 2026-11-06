@@ -1,0 +1,48 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO work.compromise_notice\n             (ledger_id, event_digest, pos, window_from, window_to, kids, party)\n             VALUES ($1, $2, $3,\n             pg_catalog.to_timestamp(0) + interval '1 millisecond' * $4::bigint::double precision,\n             pg_catalog.to_timestamp(0) + interval '1 millisecond' * $5::bigint::double precision,\n             $6, $7)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "ledger.digest32",
+            "kind": {
+              "Domain": "Bytea"
+            }
+          }
+        },
+        {
+          "Custom": {
+            "name": "ledger.digest32",
+            "kind": {
+              "Domain": "Bytea"
+            }
+          }
+        },
+        {
+          "Custom": {
+            "name": "ledger.log_pos",
+            "kind": {
+              "Domain": "Int8"
+            }
+          }
+        },
+        "Int8",
+        "Int8",
+        "ByteaArray",
+        {
+          "Custom": {
+            "name": "work.party_ref",
+            "kind": {
+              "Domain": "Text"
+            }
+          }
+        }
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "7f33139fd970b8b0f64efdcb468e8e47708c539308acbb3a9b6b678dcd43f385"
+}

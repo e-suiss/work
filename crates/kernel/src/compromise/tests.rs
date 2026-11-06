@@ -98,7 +98,13 @@ fn sec_36_records_in_the_window_stay_and_are_marked() {
     let w = window();
     let kid = [7; 32];
     let party = Some("AgICAgICAgICAgICAgICAg");
-    for (at, marked) in [(999, false), (1_000, true), (3_000, true), (5_000, true), (5_001, false)] {
+    for (at, marked) in [
+        (999, false),
+        (1_000, true),
+        (3_000, true),
+        (5_000, true),
+        (5_001, false),
+    ] {
         assert_eq!(w.marks(at, Some(&kid), None, party), marked, "{at}");
         assert_eq!(w.marks(at, None, party, party), marked, "{at}");
     }

@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "-- T-10 OP-1 SEC-36\nSELECT ROW(event_digest, pos, (extract(epoch FROM window_from) * 1000)::bigint,\n           (extract(epoch FROM window_to) * 1000)::bigint, kids, party)::text AS \"row!\"\nFROM work.compromise_notice WHERE ledger_id = $1\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "row!",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "b0d49112f2b26c5a6e685b26accca941ecd3fa682917a8eb4bf58f7140084b42"
+}

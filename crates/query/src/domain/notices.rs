@@ -142,10 +142,7 @@ mod tests {
         let mut bare = compromise();
         bare.instances.clear();
         bare.kids.clear();
-        assert_eq!(
-            plan(&bare, &author(), &[]),
-            Err(Unplannable::Instances)
-        );
+        assert_eq!(plan(&bare, &author(), &[]), Err(Unplannable::Instances));
         let mut exercised = compromise();
         exercised.source = None;
         assert_eq!(plan(&exercised, &author(), &[]), Err(Unplannable::Source));

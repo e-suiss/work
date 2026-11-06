@@ -128,14 +128,23 @@ impl Window {
         kids.sort_unstable();
         kids.dedup();
         Value::Map(alloc::vec![
-            (Value::text("instance"), Value::Bytes(self.instance.to_vec())),
+            (
+                Value::text("instance"),
+                Value::Bytes(self.instance.to_vec())
+            ),
             (
                 Value::text("kids"),
                 Value::Array(kids.iter().map(|k| Value::Text(b64url(k))).collect()),
             ),
-            (Value::text("window_from"), Value::Unsigned(self.window_from)),
+            (
+                Value::text("window_from"),
+                Value::Unsigned(self.window_from)
+            ),
             (Value::text("window_to"), Value::Unsigned(self.window_to)),
-            (Value::text("event_digest"), digest_value(&self.event_digest)),
+            (
+                Value::text("event_digest"),
+                digest_value(&self.event_digest)
+            ),
             (Value::text("domain"), Value::Bytes(self.domain.to_vec())),
             (Value::text("source"), Value::text(&self.source)),
         ])
