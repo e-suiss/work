@@ -54,6 +54,9 @@ const TOKEN: &str = "work-dev";
 const PIN: &str = "1234";
 const WORK: &str = "http://127.0.0.1:8190";
 const DPOP_LABEL: &str = "work-test-user-dpop";
+const ACCESS_TOKEN: &str = "access-server";
+const ACCESS_PIN_FILE: &str = "access-hsm-pin";
+const PASSKEY_LABEL: &str = "access/bootstrap/test-user-passkey";
 const RETIRED_TOKEN: &str = "retired-token";
 const POLL: Duration = Duration::from_secs(30);
 
@@ -231,6 +234,62 @@ impl Local {
 
     fn pep(&self) -> PepCredential {
         PepCredential::load(&module(), TOKEN, &Secret::new(PIN.to_owned()), PEP_LABEL).unwrap()
+    }
+
+    /// The test user's software passkey (Access A23): the Ed25519 key the bootstrap registered,
+    /// in the copy of Access's token `just dev-access` made (T-56).
+    fn passkey(&self) -> HsmSigner {
+        let pin = std::fs::read_to_string(self.dir.join(ACCESS_PIN_FILE)).unwrap();
+        KeyStore::open(&module(), ACCESS_TOKEN, &Secret::new(pin.trim().to_owned()))
+            .unwrap()
+            .signer(PASSKEY_LABEL)
+            .unwrap()
+    }
+
+    /// The WebAuthn assertion of the passkey over the challenge of the login `step`'s
+    /// `passkey_get` node, as the realm's software authenticator answers it (W3C WebAuthn
+    /// Level 3 sections 6.1, 7.2): user present and verified, no counter.
+    fn passkey_assertion(&self, issuer: &str, step: &Value) -> Value {
+        let options = step["nodes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|n| n["type"] == "passkey_get")
+            .unwrap_or_else(|| panic!("{step}"))["options"]
+            .clone();
+        let challenge = options["challenge"].as_str().unwrap();
+        let authority = issuer
+            .strip_prefix("https://")
+            .unwrap()
+            .split('/')
+            .next()
+            .unwrap();
+        let host = authority.split(':').next().unwrap();
+        let key = self.passkey();
+        let client_data = json!({
+            "type": "webauthn.get",
+            "challenge": challenge,
+            "origin": format!("https://{authority}"),
+            "crossOrigin": false,
+        })
+        .to_string()
+        .into_bytes();
+        let mut authenticator_data = Sha256::digest(host.as_bytes()).to_vec();
+        authenticator_data.push(0x05);
+        authenticator_data.extend_from_slice(&0_u32.to_be_bytes());
+        let mut message = authenticator_data.clone();
+        message.extend_from_slice(&Sha256::digest(&client_data));
+        let signature = key.sign(&message).unwrap();
+        let id = b64url(&thumbprint(&key.public_key()));
+        json!({
+            "id": id, "rawId": id, "type": "public-key",
+            "response": {
+                "clientDataJSON": b64url(&client_data),
+                "authenticatorData": b64url(&authenticator_data),
+                "signature": b64url(&signature),
+            },
+            "clientExtensionResults": {},
+        })
     }
 
     /// The test's `DPoP` key, born in the token copy the first time and kept there (T-56).
@@ -447,7 +506,7 @@ impl Local {
         }
         let password = std::env::var("ACCESS_LOCAL_TEST_PASSWORD")
             .unwrap_or_else(|_| "local-only-not-a-secret".to_owned());
-        let signed_in = self
+        let mut signed_in = self
             .post_json(
                 &format!(
                     "{issuer}{}",
@@ -457,6 +516,20 @@ impl Local {
                 Some(json!({"method": "password", "fields": {"password": password}})),
             )
             .await;
+        if signed_in.status == 200 && signed_in.json()["step"] == "second_factor" {
+            let step = signed_in.json();
+            let assertion = self.passkey_assertion(&issuer, &step);
+            signed_in = self
+                .post_json(
+                    &format!("{issuer}{}", step["action"].as_str().unwrap_or_default()),
+                    &mut jar,
+                    Some(json!({
+                        "method": "passkey",
+                        "fields": {"passkey_credential": assertion.to_string()},
+                    })),
+                )
+                .await;
+        }
         if signed_in.status != 200 || signed_in.json()["step"] != "complete" {
             return Err(signed_in);
         }
