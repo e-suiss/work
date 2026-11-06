@@ -1177,6 +1177,61 @@ mod commit {
         std::fs::write(local.dir.join(LEDGER_FILE), &id).unwrap();
     }
 
+    /// The problem `work-server` answers the test user's write of the golden promise into the
+    /// opened ledger under `exercise` and `envelope`.
+    async fn refused(local: &Local, exercise: &str, envelope: &[u8], now: u64) -> Value {
+        let led = ledger(local);
+        let key = local.dpop();
+        let token = local.token(&key).await;
+        let url = format!("{WORK}/v1/ledgers/{led}/declarations");
+        let body = serde_json::to_vec(&json!({
+            "record": super::signed::golden_promise(),
+            "authority": {"exercise": exercise, "intent": b64url(envelope)},
+            "actor_types": {"author": "agent", "on_behalf_of": ["organization"]},
+        }))
+        .unwrap();
+        let proof = local.proof(&key, "POST", &url, None, Some(&token)).await;
+        let authorization = format!("DPoP {token}");
+        let idempotency = local.uuid7(now);
+        let answer = local
+            .send(
+                "POST",
+                &url,
+                &[
+                    ("idempotency-key", idempotency.as_str()),
+                    ("if-match", "\"0\""),
+                    ("authorization", authorization.as_str()),
+                    ("dpop", proof.as_str()),
+                ],
+                Some(("application/json", body)),
+            )
+            .await;
+        assert_eq!(answer.status, 403, "{answer:?}");
+        let problem = answer.json();
+        assert_eq!(
+            problem["type"], "https://suiss.app/ns/work/problems/access_denied",
+            "{problem}"
+        );
+        problem
+    }
+
+    // E-17 E-45 P-13 T-28
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore = "needs the local environment with the commit ledger opened"]
+    async fn e_45_an_intent_that_names_no_work_ledger_writes_nothing() {
+        let local = Local::open();
+        let now = local.access_now_s().await * 1000;
+        let led = ledger(&local);
+        let problem = refused(
+            &local,
+            &b64url(&[0x5e; 32]),
+            &intent("work", &led, now),
+            now,
+        )
+        .await;
+        assert_eq!(problem["code_detail"], "intent_resource", "{problem}");
+    }
+
     // E-17 P-13 T-101 T-28
     #[tokio::test(flavor = "multi_thread")]
     #[ignore = "needs the local environment with an Exercise the approve tool got"]
@@ -1186,43 +1241,9 @@ mod commit {
             serde_json::from_slice(&std::fs::read(local.dir.join(APPROVED_FILE)).unwrap()).unwrap();
         assert_eq!(approved["receipt"]["verified"], true, "{approved}");
         let exercise = approved["exercise"].as_str().unwrap();
-        let led = ledger(&local);
         let now = local.access_now_s().await * 1000;
-        let key = local.dpop();
-        let token = local.token(&key).await;
-        let url = format!("{WORK}/v1/ledgers/{led}/declarations");
-        let tampered = intent("work.ledger", &led, now);
-        let outside = intent("work", &led, now);
-        for (envelope, detail) in [(tampered, "exercise-intent"), (outside, "intent_resource")] {
-            let body = serde_json::to_vec(&json!({
-                "record": super::signed::golden_promise(),
-                "authority": {"exercise": exercise, "intent": b64url(&envelope)},
-                "actor_types": {"author": "agent", "on_behalf_of": ["organization"]},
-            }))
-            .unwrap();
-            let proof = local.proof(&key, "POST", &url, None, Some(&token)).await;
-            let authorization = format!("DPoP {token}");
-            let idempotency = local.uuid7(now);
-            let answer = local
-                .send(
-                    "POST",
-                    &url,
-                    &[
-                        ("idempotency-key", idempotency.as_str()),
-                        ("if-match", "\"0\""),
-                        ("authorization", authorization.as_str()),
-                        ("dpop", proof.as_str()),
-                    ],
-                    Some(("application/json", body)),
-                )
-                .await;
-            assert_eq!(answer.status, 403, "{detail}: {answer:?}");
-            let problem = answer.json();
-            assert_eq!(
-                problem["type"], "https://suiss.app/ns/work/problems/access_denied",
-                "{problem}"
-            );
-            assert_eq!(problem["code_detail"], detail, "{problem}");
-        }
+        let led = ledger(&local);
+        let problem = refused(&local, exercise, &intent("work.ledger", &led, now), now).await;
+        assert_eq!(problem["code_detail"], "exercise-intent", "{problem}");
     }
 }

@@ -527,36 +527,12 @@ jobs:
         env:
           NEXTEST_PROFILE: ci
         run: just test-compose-signed "$RUNNER_TEMP/access-local" 600
-      - name: Access's approve tool gets the test user an allowed work:commit Exercise over a ledger work-server leads, and work-server writes nothing for an intent Access did not approve (E-17, P-13, T-101)
+      - name: A ledger opens in work-server's cell, and work-server writes nothing into it for an intent that names no Work ledger (E-17, E-45, P-13)
         env:
           NEXTEST_PROFILE: ci
         run: |
-          c() { docker compose -f deploy/compose/compose.yaml "$@"; }
-          dir="$RUNNER_TEMP/access-local"
-          b="$dir/bootstrap.json"
-          just test-compose-only "$dir" commit::p_100_a_ledger_opens_in_work_server_s_cell_for_the_test_user_s_commit
-          led="$(cat "$dir/commit-ledger")"
-          now="$(date +%s)000"
-          intent="$(jq -c --argjson now "$now" --arg led "$led" '.test_user.allowed | {
-            action: .action, resources: [.resource],
-            params: { ledger: { eq: $led }, declaration: { eq: { bytes: "0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dE" } } },
-            validity: { from: ($now - 60000), until: ($now + 600000) } }' "$b")"
-          read -r issuer domain party instance grant since cgrant csince < <(jq -r '.test_user as $u | [
-            (.realms[] | select(.slug == "acme") | .issuer), $u.allowed.domain, $u.party, $u.instance,
-            $u.allowed.basis.holding.grant, $u.allowed.basis.holding.since,
-            $u.allowed.contribution.basis.holding.grant, $u.allowed.contribution.basis.holding.since] | @tsv' "$b")
-          c run --rm --no-deps -T --entrypoint access-local-client access-bootstrap approve \
-            --issuer "$issuer" --api https://access-server:8443 --ca /var/lib/access/certs/ca.crt \
-            --cert /var/lib/access/certs/pep.crt --key /var/lib/access/certs/pep.key \
-            --redirect-uri "$(jq -er '.test_user.redirect_uri' "$b")" --identifier "$(jq -er '.test_user.identifier' "$b")" \
-            --hsm-module /usr/lib/softhsm/libsofthsm2.so --hsm-token access-server \
-            --hsm-pin-file /var/lib/access/secrets/hsm-access-server \
-            --device-key access/bootstrap/test-user-device --passkey access/bootstrap/test-user-passkey \
-            --domain "$domain" --party "$party" --instance "$instance" \
-            --grant "$grant" --grant-since "$since" --contribute-grant "$cgrant" --contribute-since "$csince" \
-            --intent-json "$intent" > "$dir/approved.json"
-          jq -e '.receipt.verified == true and .render_digest_verified == true and (.exercise | length > 0)' "$dir/approved.json"
-          just test-compose-only "$dir" commit::e_17_work_server_writes_nothing_for_an_intent_access_did_not_approve
+          just test-compose-only "$RUNNER_TEMP/access-local" commit::p_100_a_ledger_opens_in_work_server_s_cell_for_the_test_user_s_commit
+          just test-compose-only "$RUNNER_TEMP/access-local" commit::e_45_an_intent_that_names_no_work_ledger_writes_nothing
       - name: The routes that act for a caller, the declaration write among them, are mounted and ask for a DPoP token first (T-97, P-56, C-9, SEC-18, P-13)
         run: |
           c() { docker compose -f deploy/compose/compose.yaml "$@"; }
