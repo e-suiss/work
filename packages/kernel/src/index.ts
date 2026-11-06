@@ -401,6 +401,51 @@ export type MappingAnswer = Accepted<RecordMapping> | Rejected | UnknownProtocol
 export interface RestrictionRuleSet {
   readonly schema: string;
   readonly policies: string;
+  /** The rule set's 16-byte reference, unpadded base64url; its `DENY` explanation names it. */
+  readonly ref?: string;
+  /** The requirement terms each `@require` reference names (PR-11, PR-17). */
+  readonly requirements?: Readonly<Record<string, readonly RequirementTerm[]>>;
+}
+
+/** One requirement term in Access's JSON form (`urn:suiss:access:schema:explanation:1`). */
+export interface RequirementTerm {
+  readonly proof_kind: "claim" | "contribution" | "authentication" | "foreign_authority";
+  readonly class: string;
+  readonly count?: number;
+  readonly binding?: "actor_instance" | "intent_digest" | "resource";
+  readonly freshness_ms?: number;
+  readonly independence?: { readonly distinct: "party" | "instance" | "issuer" };
+  readonly consumption?: "single_use";
+  readonly source?: JsonValue;
+  readonly assurance?: Readonly<Record<string, number>>;
+}
+
+/** Where a blocker or an unmet term sits. */
+export type ExplanationPosition =
+  | "instance"
+  | "anchor"
+  | "domain-policy"
+  | "foreign"
+  | "actor-side"
+  | { readonly hop: number };
+
+/** The decision explanation shared with Access (`urn:suiss:access:schema:explanation:1`; PR-11, PR-17). */
+export interface Explanation {
+  readonly outcome: "allow" | "deny" | "require_action";
+  readonly blockers?: readonly {
+    readonly class: string;
+    readonly subcode?: string;
+    readonly position?: ExplanationPosition;
+    readonly resolver: string | { readonly grantor_of_hop: number };
+    readonly remediation: string | { readonly wait_until: number };
+  }[];
+  readonly unmet?: readonly {
+    readonly term: RequirementTerm;
+    readonly missing: number;
+    readonly position: ExplanationPosition;
+    readonly satisfiable_by_actor: boolean;
+  }[];
+  readonly relied_on?: readonly string[];
 }
 
 /** One request to a restriction rule set: Cedar entity UIDs, and the context object and entity array as JSON text the engine reads unchanged (T-23). */
@@ -412,14 +457,19 @@ export interface RestrictionRequest {
   readonly entities: string;
 }
 
-/** What one rule set says about a request; `no_objection` is not a permission, and `attention` marks a denial from an input over a limit or an evaluation error (PR-17, PR-23). */
+/** What one rule set says about a request; `no_objection` is not a permission, `attention` marks a denial from an input over a limit or an evaluation error, and `explanation` says why in the format shared with Access (PR-11, PR-17, PR-23). */
 export type RestrictionVerdict =
   | { readonly outcome: "no_objection" }
-  | { readonly outcome: "require"; readonly requirements: readonly string[] }
+  | {
+      readonly outcome: "require";
+      readonly requirements: readonly string[];
+      readonly explanation: Explanation;
+    }
   | {
       readonly outcome: "deny";
       readonly policies: readonly string[];
       readonly attention: boolean;
+      readonly explanation: Explanation;
     };
 
 /** Input the kernel bindings could not map, or a ledger order the kernel refuses; never a decision about a record. */

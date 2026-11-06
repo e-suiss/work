@@ -1,4 +1,4 @@
-//! Restriction rule evaluation of the bindings' front end natively against `conformance/vectors/restriction/restriction.json`, which the server's engine, WebAssembly and Swift answer the same way: each answer is the JSON the vector states, byte for byte (T-23, PR-17, PR-23, T-5, T-37).
+//! Restriction rule evaluation of the bindings' front end, with its explanation in the format shared with Access (PR-11), natively against `conformance/vectors/restriction/restriction.json`, which the server's engine, WebAssembly and Swift answer the same way: each answer is the JSON the vector states, byte for byte (T-23, PR-17, PR-23, T-5, T-37).
 
 #![allow(
     clippy::unwrap_used,
@@ -39,7 +39,7 @@ fn vectors() -> Value {
     serde_json::from_str(RESTRICTION).unwrap()
 }
 
-// T-23 PR-17 PR-23 T-5 T-37
+// T-23 PR-11 PR-17 PR-23 T-5 T-37
 #[test]
 fn t_23_pr_17_restriction_vectors_through_bindings_core() {
     let file = vectors();
@@ -51,12 +51,17 @@ fn t_23_pr_17_restriction_vectors_through_bindings_core() {
         let got = evaluate_restriction(&rule_set.to_string(), &case["request"].to_string());
         same(id, &got, &case["expect"]);
     }
-    assert_eq!(cases.len(), 24);
+    assert_eq!(cases.len(), 25);
     for outcome in ["no_objection", "require", "deny"] {
         assert!(
             cases.iter().any(|c| c["expect"]["outcome"] == outcome),
             "{outcome}"
         );
+    }
+    for case in cases {
+        let has = case["expect"].get("explanation").is_some();
+        let explains = matches!(case["expect"]["outcome"].as_str(), Some("require" | "deny"));
+        assert_eq!(has, explains, "{}", case["id"]);
     }
     assert!(
         cases
@@ -87,6 +92,9 @@ fn t_23_input_that_does_not_fit_is_an_input_error() {
         json!({ "schema": "" }),
         json!({ "schema": "", "policies": 1 }),
         json!({ "schema": "", "policies": "", "limits": {} }),
+        json!({ "schema": "", "policies": "", "ref": "MzMz" }),
+        json!({ "schema": "", "policies": "", "requirements": { "rs": [] } }),
+        json!({ "schema": "", "policies": "", "requirements": { "rs": [{ "class": "kyc" }] } }),
         json!([]),
     ] {
         let text = bad.to_string();

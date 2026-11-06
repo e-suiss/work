@@ -1994,7 +1994,16 @@ family = "PR"
 status = "canonical-invariant"
 stage = 8
 title = ""
-tests = []
+tests = [
+  "crates/kernel/src/explanation.rs::pr_11_pr_17_a_rule_set_deny_is_a_restricted_blocker_at_domain_policy",
+  "crates/kernel/src/explanation.rs::pr_11_pr_17_a_rule_set_require_is_one_unmet_term_per_requirement_in_canonical_order",
+  "crates/kernel/src/explanation.rs::pr_11_what_explanation_cddl_refuses_is_refused",
+  "crates/proto/src/explanation.rs::pr_11_pr_17_a_rule_set_result_is_explained_as_access_explains_a_restriction",
+  "crates/proto/src/explanation.rs::pr_11_pr_17_the_access_explanation_examples_round_trip",
+  "crates/query/src/domain/restriction.rs::pr_11_pr_17_a_require_reference_without_terms_is_refused_and_a_verdict_explains_itself",
+  "crates/query/tests/restriction_vectors.rs::t_23_pr_17_the_server_engine_answers_the_shared_restriction_vectors",
+  "sdks/bindings/core/tests/restriction.rs::t_23_pr_17_restriction_vectors_through_bindings_core",
+]
 
 [[rule]]
 id = "PR-14"

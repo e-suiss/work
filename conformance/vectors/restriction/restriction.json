@@ -2,14 +2,40 @@
   "file": "restriction.json",
   "notes": [
     "T-23 PR-17 PR-23: one restriction rule set evaluated against one request by the shared esuiss-restriction engine; the expect of a case is the answer every path gives: the server's limits and verdict, work-bindings-core natively, WebAssembly in Node and browsers, and uniffi in Swift",
-    "a rule set is {schema, policies} as Cedar text; a request carries Cedar entity UIDs and the context object and entity array as JSON text handed to the engine unchanged",
+    "a rule set is {schema, policies} as Cedar text, with an optional ref (unpadded base64url of 16 bytes) and requirements ({<@require reference>: [<requirement term>...]}); a request carries Cedar entity UIDs and the context object and entity array as JSON text handed to the engine unchanged",
     "rule sets compile under the esuiss-restriction default limits narrowed to 64 policies (PR-23 item 2 (a)); a rule set that does not compile is restriction_compile_refused with the crate code as code_detail (PR-23 item 3)",
-    "deny names the matching forbid policies; an input over a limit or outside the schema and an evaluation error deny with no policy and attention true (PR-17 item 3, PR-23 item 4); no_objection is not a permission (PR-17 item 2)"
+    "deny names the matching forbid policies; an input over a limit or outside the schema and an evaluation error deny with no policy and attention true (PR-17 item 3, PR-23 item 4); no_objection is not a permission (PR-17 item 2)",
+    "every deny and require carries its explanation in the format shared with Access (urn:suiss:access:schema:explanation:1, PR-11, PR-17): a restricted blocker at domain-policy, subcoded restricted/policy:<ref> when the rule set has a 16-byte ref, or one unmet term per requirement term at domain-policy; every @require reference names its terms in the rule set's requirements, else the rule set is restriction_compile_refused with policy-require"
   ],
   "rule_sets": {
     "main": {
       "schema": "entity Actor { tenant: String, assurance: Long };\nentity Resource { tenant: String, kind: String, owner?: Actor };\ntype Ctx = { amount: Long, lineage_depth: Long, cited_claims: Set<String>, risk: Long, new_device: Bool, now: Long };\naction transfer, read appliesTo { principal: [Actor], resource: [Resource], context: Ctx };\n",
-      "policies": "@id(\"cross-tenant\") forbid(principal, action, resource) when { principal.tenant != resource.tenant };\n@id(\"big-transfer\") @require(\"rs-step-up\")\nforbid(principal, action == Action::\"transfer\", resource) when { context.amount > 10000 };\n@id(\"risky\") @require(\"rs-fresh-auth\") forbid(principal, action, resource) when { context.risk >= 70 };\n@id(\"no-kyc\") @require(\"rs-claim-kyc\")\nforbid(principal, action == Action::\"transfer\", resource) unless { context.cited_claims.contains(\"kyc\") };\n"
+      "policies": "@id(\"cross-tenant\") forbid(principal, action, resource) when { principal.tenant != resource.tenant };\n@id(\"big-transfer\") @require(\"rs-step-up\")\nforbid(principal, action == Action::\"transfer\", resource) when { context.amount > 10000 };\n@id(\"risky\") @require(\"rs-fresh-auth\") forbid(principal, action, resource) when { context.risk >= 70 };\n@id(\"no-kyc\") @require(\"rs-claim-kyc\")\nforbid(principal, action == Action::\"transfer\", resource) unless { context.cited_claims.contains(\"kyc\") };\n",
+      "ref": "WlpaWlpaWlpaWlpaWlpaWg",
+      "requirements": {
+        "rs-step-up": [
+          {
+            "proof_kind": "authentication",
+            "class": "step_up",
+            "assurance": {
+              "aal": 2
+            }
+          }
+        ],
+        "rs-fresh-auth": [
+          {
+            "proof_kind": "authentication",
+            "class": "fresh_auth",
+            "freshness_ms": 300000
+          }
+        ],
+        "rs-claim-kyc": [
+          {
+            "proof_kind": "claim",
+            "class": "kyc"
+          }
+        ]
+      }
     },
     "errors": {
       "schema": "entity Actor { tenant: String, assurance: Long };\nentity Resource { tenant: String, kind: String, owner?: Actor };\ntype Ctx = { amount: Long, lineage_depth: Long, cited_claims: Set<String>, risk: Long, new_device: Bool, now: Long };\naction transfer, read appliesTo { principal: [Actor], resource: [Resource], context: Ctx };\n",
@@ -50,6 +76,10 @@
     "expensive": {
       "schema": "entity Actor { tenant: String, assurance: Long };\nentity Resource { tenant: String, kind: String, owner?: Actor };\ntype Ctx = { amount: Long, lineage_depth: Long, cited_claims: Set<String>, risk: Long, new_device: Bool, now: Long };\naction transfer, read appliesTo { principal: [Actor], resource: [Resource], context: Ctx };\n",
       "policies": "@id(\"e\") forbid(principal, action, resource) when { context.cited_claims.containsAll([\"a\"]) };\n"
+    },
+    "unnamed-require": {
+      "schema": "entity Actor { tenant: String, assurance: Long };\nentity Resource { tenant: String, kind: String, owner?: Actor };\ntype Ctx = { amount: Long, lineage_depth: Long, cited_claims: Set<String>, risk: Long, new_device: Bool, now: Long };\naction transfer, read appliesTo { principal: [Actor], resource: [Resource], context: Ctx };\n",
+      "policies": "@id(\"u\") @require(\"rs-missing\") forbid(principal, action, resource) when { context.amount > 10000 };\n"
     }
   },
   "cases": [
@@ -81,7 +111,24 @@
         "outcome": "require",
         "requirements": [
           "rs-step-up"
-        ]
+        ],
+        "explanation": {
+          "outcome": "require_action",
+          "unmet": [
+            {
+              "term": {
+                "proof_kind": "authentication",
+                "class": "step_up",
+                "assurance": {
+                  "aal": 2
+                }
+              },
+              "missing": 1,
+              "position": "domain-policy",
+              "satisfiable_by_actor": true
+            }
+          ]
+        }
       }
     },
     {
@@ -99,7 +146,34 @@
         "requirements": [
           "rs-fresh-auth",
           "rs-step-up"
-        ]
+        ],
+        "explanation": {
+          "outcome": "require_action",
+          "unmet": [
+            {
+              "term": {
+                "proof_kind": "authentication",
+                "class": "step_up",
+                "assurance": {
+                  "aal": 2
+                }
+              },
+              "missing": 1,
+              "position": "domain-policy",
+              "satisfiable_by_actor": true
+            },
+            {
+              "term": {
+                "proof_kind": "authentication",
+                "class": "fresh_auth",
+                "freshness_ms": 300000
+              },
+              "missing": 1,
+              "position": "domain-policy",
+              "satisfiable_by_actor": true
+            }
+          ]
+        }
       }
     },
     {
@@ -116,7 +190,21 @@
         "outcome": "require",
         "requirements": [
           "rs-claim-kyc"
-        ]
+        ],
+        "explanation": {
+          "outcome": "require_action",
+          "unmet": [
+            {
+              "term": {
+                "proof_kind": "claim",
+                "class": "kyc"
+              },
+              "missing": 1,
+              "position": "domain-policy",
+              "satisfiable_by_actor": true
+            }
+          ]
+        }
       }
     },
     {
@@ -148,7 +236,19 @@
         "policies": [
           "cross-tenant"
         ],
-        "attention": false
+        "attention": false,
+        "explanation": {
+          "outcome": "deny",
+          "blockers": [
+            {
+              "class": "restricted",
+              "position": "domain-policy",
+              "resolver": "restriction-owner",
+              "remediation": "not-satisfiable-by-actor",
+              "subcode": "restricted/policy:WlpaWlpaWlpaWlpaWlpaWg"
+            }
+          ]
+        }
       }
     },
     {
@@ -164,7 +264,18 @@
       "expect": {
         "outcome": "deny",
         "policies": [],
-        "attention": true
+        "attention": true,
+        "explanation": {
+          "outcome": "deny",
+          "blockers": [
+            {
+              "class": "restricted",
+              "position": "domain-policy",
+              "resolver": "restriction-owner",
+              "remediation": "not-satisfiable-by-actor"
+            }
+          ]
+        }
       }
     },
     {
@@ -182,7 +293,18 @@
         "policies": [
           "owner-assurance"
         ],
-        "attention": false
+        "attention": false,
+        "explanation": {
+          "outcome": "deny",
+          "blockers": [
+            {
+              "class": "restricted",
+              "position": "domain-policy",
+              "resolver": "restriction-owner",
+              "remediation": "not-satisfiable-by-actor"
+            }
+          ]
+        }
       }
     },
     {
@@ -212,7 +334,19 @@
       "expect": {
         "outcome": "deny",
         "policies": [],
-        "attention": true
+        "attention": true,
+        "explanation": {
+          "outcome": "deny",
+          "blockers": [
+            {
+              "class": "restricted",
+              "position": "domain-policy",
+              "resolver": "restriction-owner",
+              "remediation": "not-satisfiable-by-actor",
+              "subcode": "restricted/policy:WlpaWlpaWlpaWlpaWlpaWg"
+            }
+          ]
+        }
       }
     },
     {
@@ -228,7 +362,19 @@
       "expect": {
         "outcome": "deny",
         "policies": [],
-        "attention": true
+        "attention": true,
+        "explanation": {
+          "outcome": "deny",
+          "blockers": [
+            {
+              "class": "restricted",
+              "position": "domain-policy",
+              "resolver": "restriction-owner",
+              "remediation": "not-satisfiable-by-actor",
+              "subcode": "restricted/policy:WlpaWlpaWlpaWlpaWlpaWg"
+            }
+          ]
+        }
       }
     },
     {
@@ -244,7 +390,19 @@
       "expect": {
         "outcome": "deny",
         "policies": [],
-        "attention": true
+        "attention": true,
+        "explanation": {
+          "outcome": "deny",
+          "blockers": [
+            {
+              "class": "restricted",
+              "position": "domain-policy",
+              "resolver": "restriction-owner",
+              "remediation": "not-satisfiable-by-actor",
+              "subcode": "restricted/policy:WlpaWlpaWlpaWlpaWlpaWg"
+            }
+          ]
+        }
       }
     },
     {
@@ -260,7 +418,19 @@
       "expect": {
         "outcome": "deny",
         "policies": [],
-        "attention": true
+        "attention": true,
+        "explanation": {
+          "outcome": "deny",
+          "blockers": [
+            {
+              "class": "restricted",
+              "position": "domain-policy",
+              "resolver": "restriction-owner",
+              "remediation": "not-satisfiable-by-actor",
+              "subcode": "restricted/policy:WlpaWlpaWlpaWlpaWlpaWg"
+            }
+          ]
+        }
       }
     },
     {
@@ -276,7 +446,19 @@
       "expect": {
         "outcome": "deny",
         "policies": [],
-        "attention": true
+        "attention": true,
+        "explanation": {
+          "outcome": "deny",
+          "blockers": [
+            {
+              "class": "restricted",
+              "position": "domain-policy",
+              "resolver": "restriction-owner",
+              "remediation": "not-satisfiable-by-actor",
+              "subcode": "restricted/policy:WlpaWlpaWlpaWlpaWlpaWg"
+            }
+          ]
+        }
       }
     },
     {
@@ -292,7 +474,19 @@
       "expect": {
         "outcome": "deny",
         "policies": [],
-        "attention": true
+        "attention": true,
+        "explanation": {
+          "outcome": "deny",
+          "blockers": [
+            {
+              "class": "restricted",
+              "position": "domain-policy",
+              "resolver": "restriction-owner",
+              "remediation": "not-satisfiable-by-actor",
+              "subcode": "restricted/policy:WlpaWlpaWlpaWlpaWlpaWg"
+            }
+          ]
+        }
       }
     },
     {
@@ -442,6 +636,23 @@
         "error": {
           "code": "restriction_compile_refused",
           "code_detail": "policy-cost-too-high"
+        }
+      }
+    },
+    {
+      "id": "unnamed-require-refused",
+      "rule_set": "unnamed-require",
+      "request": {
+        "principal": "Actor::\"a1\"",
+        "action": "Action::\"transfer\"",
+        "resource": "Resource::\"r1\"",
+        "context": "{\"amount\":100,\"lineage_depth\":1,\"cited_claims\":[\"kyc\"],\"risk\":0,\"new_device\":false,\"now\":1790000000}",
+        "entities": "[{\"uid\":{\"type\":\"Actor\",\"id\":\"a1\"},\"attrs\":{\"tenant\":\"t1\",\"assurance\":2},\"parents\":[]},{\"uid\":{\"type\":\"Actor\",\"id\":\"o1\"},\"attrs\":{\"tenant\":\"t1\",\"assurance\":0},\"parents\":[]},{\"uid\":{\"type\":\"Resource\",\"id\":\"r1\"},\"attrs\":{\"tenant\":\"t1\",\"kind\":\"order\"},\"parents\":[]}]"
+      },
+      "expect": {
+        "error": {
+          "code": "restriction_compile_refused",
+          "code_detail": "policy-require"
         }
       }
     }

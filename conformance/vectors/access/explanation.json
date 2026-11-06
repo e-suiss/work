@@ -1,0 +1,261 @@
+{
+  "cases": [
+    {
+      "cbor": "a2676f7574636f6d6565616c6c6f776972656c6965645f6f6e8250111111111111111111111111111111115022222222222222222222222222222222",
+      "edn": "{\"outcome\": \"allow\", \"relied_on\": [h'11111111111111111111111111111111', h'22222222222222222222222222222222']}",
+      "id": "allow-with-proofs",
+      "json": {
+        "outcome": "allow",
+        "relied_on": [
+          "EREREREREREREREREREREQ",
+          "IiIiIiIiIiIiIiIiIiIiIg"
+        ]
+      },
+      "valid": true
+    },
+    {
+      "cbor": "a1676f7574636f6d6565616c6c6f77",
+      "edn": "{\"outcome\": \"allow\"}",
+      "id": "allow-bare",
+      "json": {
+        "outcome": "allow"
+      },
+      "valid": true
+    },
+    {
+      "cbor": "a2676f7574636f6d656464656e7968626c6f636b65727383a465636c617373756e6f2d636f766572696e672d617574686f7269747968706f736974696f6ea163686f7001687265736f6c766572a16e6772616e746f725f6f665f686f70016b72656d6564696174696f6e74726f7574652d746f2d636f6f7264696e61746f72a565636c6173736a7265737472696374656467737562636f64657828726573747269637465642f706f6c6963793a4d7a4d7a4d7a4d7a4d7a4d7a4d7a4d7a4d7a4d7a4d7768706f736974696f6e6d646f6d61696e2d706f6c696379687265736f6c766572717265737472696374696f6e2d6f776e65726b72656d6564696174696f6e78186e6f742d7361746973666961626c652d62792d6163746f72a565636c617373706275646765742d65786861757374656467737562636f64656d6275646765742f77696e646f7768706f736974696f6e68696e7374616e6365687265736f6c7665726474696d656b72656d6564696174696f6ea16a776169745f756e74696c1b0000019b76daa800",
+      "edn": "{\"outcome\": \"deny\", \"blockers\": [{\"class\": \"no-covering-authority\", \"position\": {\"hop\": 1}, \"resolver\": {\"grantor_of_hop\": 1}, \"remediation\": \"route-to-coordinator\"}, {\"class\": \"restricted\", \"subcode\": \"restricted/policy:MzMzMzMzMzMzMzMzMzMzMw\", \"position\": \"domain-policy\", \"resolver\": \"restriction-owner\", \"remediation\": \"not-satisfiable-by-actor\"}, {\"class\": \"budget-exhausted\", \"subcode\": \"budget/window\", \"position\": \"instance\", \"resolver\": \"time\", \"remediation\": {\"wait_until\": 1767225600000}}]}",
+      "id": "deny-audit",
+      "json": {
+        "blockers": [
+          {
+            "class": "no-covering-authority",
+            "position": {
+              "hop": 1
+            },
+            "remediation": "route-to-coordinator",
+            "resolver": {
+              "grantor_of_hop": 1
+            }
+          },
+          {
+            "class": "restricted",
+            "position": "domain-policy",
+            "remediation": "not-satisfiable-by-actor",
+            "resolver": "restriction-owner",
+            "subcode": "restricted/policy:MzMzMzMzMzMzMzMzMzMzMw"
+          },
+          {
+            "class": "budget-exhausted",
+            "position": "instance",
+            "remediation": {
+              "wait_until": 1767225600000
+            },
+            "resolver": "time",
+            "subcode": "budget/window"
+          }
+        ],
+        "outcome": "deny"
+      },
+      "valid": true
+    },
+    {
+      "cbor": "a2676f7574636f6d656464656e7968626c6f636b65727383a465636c617373756e6f2d636f766572696e672d617574686f7269747968706f736974696f6ea163686f7001687265736f6c766572a16e6772616e746f725f6f665f686f70016b72656d6564696174696f6e74726f7574652d746f2d636f6f7264696e61746f72a465636c6173736a7265737472696374656468706f736974696f6e6d646f6d61696e2d706f6c696379687265736f6c766572717265737472696374696f6e2d6f776e65726b72656d6564696174696f6e78186e6f742d7361746973666961626c652d62792d6163746f72a565636c617373706275646765742d65786861757374656467737562636f64656d6275646765742f77696e646f7768706f736974696f6e68696e7374616e6365687265736f6c7665726474696d656b72656d6564696174696f6ea16a776169745f756e74696c1b0000019b76daa800",
+      "edn": "{\"outcome\": \"deny\", \"blockers\": [{\"class\": \"no-covering-authority\", \"position\": {\"hop\": 1}, \"resolver\": {\"grantor_of_hop\": 1}, \"remediation\": \"route-to-coordinator\"}, {\"class\": \"restricted\", \"position\": \"domain-policy\", \"resolver\": \"restriction-owner\", \"remediation\": \"not-satisfiable-by-actor\"}, {\"class\": \"budget-exhausted\", \"subcode\": \"budget/window\", \"position\": \"instance\", \"resolver\": \"time\", \"remediation\": {\"wait_until\": 1767225600000}}]}",
+      "id": "deny-viewer",
+      "json": {
+        "blockers": [
+          {
+            "class": "no-covering-authority",
+            "position": {
+              "hop": 1
+            },
+            "remediation": "route-to-coordinator",
+            "resolver": {
+              "grantor_of_hop": 1
+            }
+          },
+          {
+            "class": "restricted",
+            "position": "domain-policy",
+            "remediation": "not-satisfiable-by-actor",
+            "resolver": "restriction-owner"
+          },
+          {
+            "class": "budget-exhausted",
+            "position": "instance",
+            "remediation": {
+              "wait_until": 1767225600000
+            },
+            "resolver": "time",
+            "subcode": "budget/window"
+          }
+        ],
+        "outcome": "deny"
+      },
+      "valid": true
+    },
+    {
+      "cbor": "a2676f7574636f6d656464656e7968626c6f636b65727383a465636c617373756e6f2d636f766572696e672d617574686f7269747968706f736974696f6ea163686f7001687265736f6c766572a16e6772616e746f725f6f665f686f70016b72656d6564696174696f6e74726f7574652d746f2d636f6f7264696e61746f72a365636c6173736a72657374726963746564687265736f6c766572717265737472696374696f6e2d6f776e65726b72656d6564696174696f6e78186e6f742d7361746973666961626c652d62792d6163746f72a365636c617373706275646765742d657868617573746564687265736f6c7665726474696d656b72656d6564696174696f6ea16a776169745f756e74696c1b0000019b76daa800",
+      "edn": "{\"outcome\": \"deny\", \"blockers\": [{\"class\": \"no-covering-authority\", \"position\": {\"hop\": 1}, \"resolver\": {\"grantor_of_hop\": 1}, \"remediation\": \"route-to-coordinator\"}, {\"class\": \"restricted\", \"resolver\": \"restriction-owner\", \"remediation\": \"not-satisfiable-by-actor\"}, {\"class\": \"budget-exhausted\", \"resolver\": \"time\", \"remediation\": {\"wait_until\": 1767225600000}}]}",
+      "id": "deny-requester",
+      "json": {
+        "blockers": [
+          {
+            "class": "no-covering-authority",
+            "position": {
+              "hop": 1
+            },
+            "remediation": "route-to-coordinator",
+            "resolver": {
+              "grantor_of_hop": 1
+            }
+          },
+          {
+            "class": "restricted",
+            "remediation": "not-satisfiable-by-actor",
+            "resolver": "restriction-owner"
+          },
+          {
+            "class": "budget-exhausted",
+            "remediation": {
+              "wait_until": 1767225600000
+            },
+            "resolver": "time"
+          }
+        ],
+        "outcome": "deny"
+      },
+      "valid": true
+    },
+    {
+      "cbor": "a265756e6d657482a4647465726da565636c61737367737465705f757066736f75726365a16570617274795044444444444444444444444444444444696173737572616e6365a26361616c02727068697368696e675f726573697374616e74016a70726f6f665f6b696e646e61757468656e7469636174696f6e6c66726573686e6573735f6d731a000493e0676d697373696e670168706f736974696f6e68696e7374616e6365747361746973666961626c655f62795f6163746f72f5a4647465726da565636c617373706d616e616765725f617070726f76616c65636f756e74026762696e64696e676d696e74656e745f6469676573746a70726f6f665f6b696e6465636c61696d6c696e646570656e64656e6365a16864697374696e6374657061727479676d697373696e670268706f736974696f6e6d646f6d61696e2d706f6c696379747361746973666961626c655f62795f6163746f72f4676f7574636f6d656e726571756972655f616374696f6e",
+      "edn": "{\"outcome\": \"require_action\", \"unmet\": [{\"term\": {\"proof_kind\": \"authentication\", \"class\": \"step_up\", \"freshness_ms\": 300000, \"assurance\": {\"aal\": 2, \"phishing_resistant\": 1}, \"source\": {\"party\": h'44444444444444444444444444444444'}}, \"missing\": 1, \"position\": \"instance\", \"satisfiable_by_actor\": true}, {\"term\": {\"proof_kind\": \"claim\", \"class\": \"manager_approval\", \"count\": 2, \"independence\": {\"distinct\": \"party\"}, \"binding\": \"intent_digest\"}, \"missing\": 2, \"position\": \"domain-policy\", \"satisfiable_by_actor\": false}]}",
+      "id": "require-action",
+      "json": {
+        "outcome": "require_action",
+        "unmet": [
+          {
+            "missing": 1,
+            "position": "instance",
+            "satisfiable_by_actor": true,
+            "term": {
+              "assurance": {
+                "aal": 2,
+                "phishing_resistant": 1
+              },
+              "class": "step_up",
+              "freshness_ms": 300000,
+              "proof_kind": "authentication",
+              "source": {
+                "party": "RERERERERERERERERERERA"
+              }
+            }
+          },
+          {
+            "missing": 2,
+            "position": "domain-policy",
+            "satisfiable_by_actor": false,
+            "term": {
+              "binding": "intent_digest",
+              "class": "manager_approval",
+              "count": 2,
+              "independence": {
+                "distinct": "party"
+              },
+              "proof_kind": "claim"
+            }
+          }
+        ]
+      },
+      "valid": true
+    },
+    {
+      "edn": "{\"outcome\": \"no_objection\"}",
+      "id": "no-objection-is-not-an-outcome",
+      "json": {
+        "outcome": "no_objection"
+      },
+      "valid": false
+    },
+    {
+      "edn": "{\"outcome\": \"deny\", \"blockers\": []}",
+      "id": "empty-blockers",
+      "json": {
+        "blockers": [],
+        "outcome": "deny"
+      },
+      "valid": false
+    },
+    {
+      "edn": "{\"outcome\": \"allow\", \"reason\": \"because\"}",
+      "id": "unknown-member",
+      "json": {
+        "outcome": "allow",
+        "reason": "because"
+      },
+      "valid": false
+    },
+    {
+      "edn": "{\"outcome\": \"deny\", \"blockers\": [{\"class\": \"forbidden\", \"position\": {\"hop\": 1}, \"resolver\": {\"grantor_of_hop\": 1}, \"remediation\": \"route-to-coordinator\"}]}",
+      "id": "unknown-class",
+      "json": {
+        "blockers": [
+          {
+            "class": "forbidden",
+            "position": {
+              "hop": 1
+            },
+            "remediation": "route-to-coordinator",
+            "resolver": {
+              "grantor_of_hop": 1
+            }
+          }
+        ],
+        "outcome": "deny"
+      },
+      "valid": false
+    },
+    {
+      "edn": "{\"outcome\": \"require_action\", \"unmet\": [{\"term\": {\"proof_kind\": \"claim\", \"class\": \"manager_approval\", \"count\": 2, \"independence\": {\"distinct\": \"party\"}, \"binding\": \"intent_digest\"}, \"missing\": 0, \"position\": \"domain-policy\", \"satisfiable_by_actor\": false}]}",
+      "id": "nothing-missing",
+      "json": {
+        "outcome": "require_action",
+        "unmet": [
+          {
+            "missing": 0,
+            "position": "domain-policy",
+            "satisfiable_by_actor": false,
+            "term": {
+              "binding": "intent_digest",
+              "class": "manager_approval",
+              "count": 2,
+              "independence": {
+                "distinct": "party"
+              },
+              "proof_kind": "claim"
+            }
+          }
+        ]
+      },
+      "valid": false
+    },
+    {
+      "edn": "{\"outcome\": \"allow\", \"relied_on\": [h'1111111111111111']}",
+      "id": "short-proof-id",
+      "json": {
+        "outcome": "allow",
+        "relied_on": [
+          "ERERERERERE"
+        ]
+      },
+      "valid": false
+    }
+  ],
+  "cddl": [
+    "kernel.cddl",
+    "explanation.cddl"
+  ],
+  "contract": "explanation",
+  "schema": "explanation.schema.json"
+}

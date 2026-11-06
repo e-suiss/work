@@ -1,7 +1,9 @@
-//! The cost limits of restriction rules (PR-23): the `esuiss-restriction` defaults, which are the Access OP-104 values, narrowed in two places only: one rule set carries at most 64 policies and one transition evaluates at most 16 rule sets. Configuration can lower both and widens nothing; a rule set that does not compile is `restriction_compile_refused` with the crate's code, and an input over a limit, an evaluation error or more rule sets than the limit are `DENY` with an attention signal.
+//! The cost limits of restriction rules (PR-23): the `esuiss-restriction` defaults, which are the Access OP-104 values, narrowed in two places only: one rule set carries at most 64 policies and one transition evaluates at most 16 rule sets. Configuration can lower both and widens nothing; a rule set that does not compile is `restriction_compile_refused` with the crate's code, and an input over a limit, an evaluation error or more rule sets than the limit are `DENY` with an attention signal. A verdict explains itself in the format shared with Access (PR-11, PR-17): every `@require` reference of a rule set names its requirement terms, or the rule set is `restriction_compile_refused` with `policy-require`, as Access refuses it.
 
 use serde::Deserialize;
 use suiss_restriction::{CompileError, Denial, Engine, InputRejected, Limits, Narrow, Outcome};
+use work_kernel::explanation::{Explanation, ExplanationError};
+use work_proto::explanation::{Requirements, RuleOutcome, explain};
 
 /// The most policies one rule set carries (PR-23 item 2 (a)).
 pub const RULE_SET_POLICIES: usize = 64;
@@ -11,6 +13,20 @@ pub const TRANSITION_RULE_SETS: usize = 16;
 
 /// The problem code of a rule set that does not compile (PR-23 item 3).
 pub const COMPILE_REFUSED: &str = "restriction_compile_refused";
+
+/// The `code_detail` of a rule set with an `@require` reference that names no requirement terms
+/// (Access `policy-require`).
+pub const REQUIRE_UNNAMED: &str = "policy-require";
+
+/// Whether every `@require` reference of `engine` names terms in `requirements` (PR-11, PR-17).
+#[must_use]
+pub fn requirements_named(engine: &Engine, requirements: &Requirements) -> bool {
+    engine.policies().is_some_and(|policies| {
+        policies
+            .iter()
+            .all(|p| p.require.is_none_or(|r| requirements.names(r)))
+    })
+}
 
 /// The `[restriction]` configuration section; both values can only be lowered.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
@@ -135,6 +151,26 @@ impl RuleVerdict {
                 }
             }
         }
+    }
+
+    /// The explanation of this verdict in the format shared with Access (PR-11, PR-17, Access
+    /// E43): none for no objection, the `restricted` blocker of the rule set named by `reference`
+    /// for `DENY`, and the terms its references name in `requirements` for `REQUIRE`.
+    ///
+    /// # Errors
+    /// [`ExplanationError`] for a reference `requirements` does not name, which
+    /// [`requirements_named`] refuses at adoption.
+    pub fn explanation(
+        &self,
+        reference: Option<&[u8; 16]>,
+        requirements: &Requirements,
+    ) -> Result<Option<Explanation>, ExplanationError> {
+        let outcome = match self {
+            Self::NoObjection => RuleOutcome::NoObjection,
+            Self::Require(refs) => RuleOutcome::Require(refs),
+            Self::Deny { .. } => RuleOutcome::Deny,
+        };
+        explain(outcome, reference, requirements)
     }
 
     /// The verdict of a transition refused for its rule set count.
@@ -291,6 +327,35 @@ action write appliesTo { principal: [Actor], resource: [Resource], context: Ctx 
                 attention: true
             }
         );
+    }
+
+    // PR-11 PR-17
+    #[test]
+    fn pr_11_pr_17_a_require_reference_without_terms_is_refused_and_a_verdict_explains_itself() {
+        let limits = RestrictionLimits::default();
+        let source = r#"@id("p") @require("rs-a") forbid(principal, action, resource) when { principal.tenant != resource.tenant };"#;
+        let engine = limits.compile(SCHEMA, source).unwrap();
+        assert!(!requirements_named(&engine, &Requirements::default()));
+        let named = Requirements::from_json(&serde_json::json!({
+            "rs-a": [{"proof_kind": "claim", "class": "kyc"}]
+        }))
+        .unwrap();
+        assert!(requirements_named(&engine, &named));
+        let plain = limits.compile(SCHEMA, &rule_set(1)).unwrap();
+        assert!(requirements_named(&plain, &Requirements::default()));
+        let verdict =
+            RuleVerdict::of(engine.evaluate(&request(r#"{"note":"ok"}"#, &entities("t2"))));
+        assert_eq!(verdict, RuleVerdict::Require(vec!["rs-a".to_owned()]));
+        let explained = verdict.explanation(None, &named).unwrap().unwrap();
+        assert_eq!(explained.outcome(), "require_action");
+        assert!(verdict.explanation(None, &Requirements::default()).is_err());
+        assert_eq!(RuleVerdict::NoObjection.explanation(None, &named), Ok(None));
+        let denied = RuleVerdict::too_many_rule_sets()
+            .explanation(Some(&[1; 16]), &named)
+            .unwrap()
+            .unwrap();
+        assert_eq!(denied, Explanation::restricted(Some(&[1; 16])));
+        assert_eq!(REQUIRE_UNNAMED, "policy-require");
     }
 
     // PR-23 T-33
