@@ -211,16 +211,13 @@ async fn serve(
         .with_graceful_shutdown(stopped(stopping.clone()))
         .into_future();
     let events = async move {
-        match events {
-            Some(listener) => {
-                axum::serve(listener, entry::router(receiver))
-                    .with_graceful_shutdown(stopped(stopping))
-                    .await
-            }
-            None => {
-                stopped(stopping).await;
-                Ok(())
-            }
+        if let Some(listener) = events {
+            axum::serve(listener, entry::router(receiver))
+                .with_graceful_shutdown(stopped(stopping))
+                .await
+        } else {
+            stopped(stopping).await;
+            Ok(())
         }
     };
     let signal = tokio::spawn(async move {
