@@ -544,6 +544,7 @@ title = ""
 tests = [
   "crates/access-client/src/domain.rs::e_5_access_is_reached_only_through_the_endpoints_its_discovery_publishes",
   "crates/query/src/app/caller.rs::e_5_no_client_or_product_has_a_path_of_its_own_to_a_caller",
+  "crates/relay-client/src/app.rs::inv_30_work_reaches_relay_only_through_the_events_endpoint_its_discovery_names",
 ]
 
 [[rule]]
@@ -605,6 +606,7 @@ title = ""
 tests = [
   "crates/access-client/src/domain.rs::e_5_access_is_reached_only_through_the_endpoints_its_discovery_publishes",
   "crates/query/src/app/caller.rs::e_5_no_client_or_product_has_a_path_of_its_own_to_a_caller",
+  "crates/relay-client/src/app.rs::inv_30_work_reaches_relay_only_through_the_events_endpoint_its_discovery_names",
 ]
 
 [[rule]]
@@ -642,6 +644,7 @@ stage = 3
 title = ""
 tests = [
   "crates/access-client/src/domain/eligibility.rs::e_15_access_receives_only_opaque_references_and_the_typed_set",
+  "crates/relay-client/src/domain/request.rs::e_15_the_event_carries_no_record_content_and_no_field_relay_does_not_serve",
 ]
 
 [[rule]]
@@ -663,7 +666,9 @@ family = "E"
 status = "canonical-invariant"
 stage = 3
 title = ""
-tests = []
+tests = [
+  "crates/relay-client/src/domain/intent.rs::t_99_an_intent_names_a_work_item_a_code_and_one_to_a_hundred_parties",
+]
 
 [[rule]]
 id = "E-22"
@@ -2242,6 +2247,10 @@ tests = [
   "crates/http/src/writes.rs::t_28_a_write_access_cannot_check_is_503_and_one_it_does_not_authorise_403",
   "crates/ledger/src/leader.rs::t_28_a_leader_whose_lease_is_lost_commits_nothing",
   "crates/query/src/app/caller.rs::e_38_when_access_does_not_answer_no_caller_is_named",
+  "crates/relay-client/src/app.rs::t_28_an_access_outage_or_a_refused_token_keeps_the_intent",
+  "crates/relay-client/src/app.rs::t_28_an_unreachable_relay_keeps_the_intent_and_a_later_pass_sends_it_with_the_same_key",
+  "crates/relay-client/src/app.rs::t_99_a_refused_event_leaves_the_outbox_with_its_code",
+  "crates/relay-client/src/domain/answer.rs::t_28_an_outage_is_temporary_and_a_refusal_is_permanent",
 ]
 
 [[rule]]

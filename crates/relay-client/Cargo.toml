@@ -1,12 +1,23 @@
 [package]
 name = "work-relay-client"
-description = "Relay public API client: wait points and notification requests."
+description = "Relay public API client: notification intents, the event request mapping and their delivery from the outbox (T-17, T-28, T-99)."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 publish = false
+
+[dependencies]
+work-proto = { workspace = true }
+serde = { workspace = true, features = ["derive", "std"] }
+serde_json = { workspace = true, features = ["std"] }
+sha2 = { workspace = true }
+thiserror = { workspace = true, features = ["std"] }
+tracing = { workspace = true, features = ["std"] }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt"] }
 
 [lints]
 workspace = true

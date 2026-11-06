@@ -13,7 +13,9 @@ family = "MD"
 status = "central-decision"
 stage = 7
 title = ""
-tests = []
+tests = [
+  "crates/relay-client/src/app.rs::inv_30_work_reaches_relay_only_through_the_events_endpoint_its_discovery_names",
+]
 
 [[rule]]
 id = "MD-3"
@@ -25,6 +27,7 @@ tests = [
   "bins/work-server/src/config.rs::t_96_refuses_to_start_without_the_access_setting",
   "crates/http/src/reads.rs::t_28_no_caller_is_401_with_the_dpop_challenge_and_an_unverifiable_one_503",
   "crates/query/src/app/caller.rs::e_38_when_access_does_not_answer_no_caller_is_named",
+  "crates/relay-client/src/app.rs::t_28_an_unreachable_relay_keeps_the_intent_and_a_later_pass_sends_it_with_the_same_key",
 ]
 
 [[rule]]
@@ -1495,6 +1498,7 @@ stage = 10
 title = ""
 tests = [
   "crates/access-client/src/domain/approval.rs::e_17_work_only_sends_the_user_to_the_access_approval_surface",
+  "crates/relay-client/src/domain/request.rs::t_99_a_link_that_is_not_absolute_https_is_never_sent",
 ]
 
 [[rule]]
@@ -1537,6 +1541,8 @@ tests = [
   "crates/access-client/src/domain/discovery.rs::t_96_a_stale_discovery_refuses_consequential_actions",
   "crates/http/src/reads.rs::t_28_no_caller_is_401_with_the_dpop_challenge_and_an_unverifiable_one_503",
   "crates/query/src/app/caller.rs::e_38_when_access_does_not_answer_no_caller_is_named",
+  "crates/relay-client/src/app.rs::t_28_an_access_outage_or_a_refused_token_keeps_the_intent",
+  "crates/relay-client/src/app.rs::t_28_an_unreachable_relay_keeps_the_intent_and_a_later_pass_sends_it_with_the_same_key",
 ]
 
 [[rule]]
@@ -1673,7 +1679,9 @@ family = "X"
 status = "frozen-product"
 stage = 7
 title = ""
-tests = []
+tests = [
+  "crates/relay-client/src/domain/request.rs::t_99_every_notification_carries_the_primary_link_to_the_item_page",
+]
 
 [[rule]]
 id = "X-19"
@@ -2568,7 +2576,9 @@ id = "ST-40"
 family = "ST"
 status = "frozen-product"
 title = ""
-tests = []
+tests = [
+  "crates/relay-client/src/domain/request.rs::t_99_blocking_is_time_sensitive_and_information_is_passive",
+]
 
 [[rule]]
 id = "ST-43"
@@ -3446,6 +3456,7 @@ tests = [
   "crates/dispatch/src/domain.rs::p_42_event_carries_the_pointer_traceparent",
   "crates/http/src/api.rs::p_42_an_incoming_trace_is_continued_by_the_request_span",
   "crates/http/src/api.rs::p_42_the_request_id_is_bound_to_the_trace_context",
+  "crates/relay-client/src/app.rs::t_99_an_event_carries_the_version_the_token_the_key_and_the_trace",
   "crates/telemetry/tests/trace_export.rs::p_42_continued_traces_follow_the_caller_sampling_decision",
   "crates/telemetry/tests/trace_export.rs::p_42_traceparent_accepts_what_the_ledger_domain_accepts",
   "crates/telemetry/tests/trace_export.rs::p_42_traceparent_round_trips_through_the_outbox",
@@ -4688,7 +4699,10 @@ stage = 7
 acceptance = "to-fill"
 pd = "unset"
 title = ""
-tests = []
+tests = [
+  "crates/relay-client/src/app.rs::t_99_an_event_carries_the_version_the_token_the_key_and_the_trace",
+  "crates/relay-client/src/domain/intent.rs::t_12_the_key_is_the_transition_at_its_ledger_position_and_never_content",
+]
 
 [[rule]]
 id = "T-14"
@@ -6083,6 +6097,19 @@ tests = [
   "crates/access-client/src/domain/relay.rs::t_99_a_relay_document_without_its_access_client_refuses_start",
   "crates/access-client/src/domain/relay.rs::t_99_region_version_and_events_capability_are_needed_at_start",
   "crates/access-client/src/domain/relay.rs::t_99_relay_is_found_from_access_discovery",
+  "crates/relay-client/src/app.rs::t_99_a_batch_goes_to_the_batch_endpoint_under_one_key",
+  "crates/relay-client/src/app.rs::t_99_a_refused_event_leaves_the_outbox_with_its_code",
+  "crates/relay-client/src/app.rs::t_99_an_event_carries_the_version_the_token_the_key_and_the_trace",
+  "crates/relay-client/src/app.rs::t_99_an_unresolved_party_gets_no_notification",
+  "crates/relay-client/src/domain/answer.rs::t_28_an_outage_is_temporary_and_a_refusal_is_permanent",
+  "crates/relay-client/src/domain/answer.rs::t_99_an_accepted_event_and_a_batch_answer_every_row",
+  "crates/relay-client/src/domain/intent.rs::t_12_the_key_is_the_transition_at_its_ledger_position_and_never_content",
+  "crates/relay-client/src/domain/intent.rs::t_99_an_intent_names_a_work_item_a_code_and_one_to_a_hundred_parties",
+  "crates/relay-client/src/domain/request.rs::e_15_the_event_carries_no_record_content_and_no_field_relay_does_not_serve",
+  "crates/relay-client/src/domain/request.rs::t_99_a_link_that_is_not_absolute_https_is_never_sent",
+  "crates/relay-client/src/domain/request.rs::t_99_blocking_is_time_sensitive_and_information_is_passive",
+  "crates/relay-client/src/domain/request.rs::t_99_every_notification_carries_the_primary_link_to_the_item_page",
+  "crates/relay-client/src/domain/request.rs::t_99_recipients_are_access_subjects",
 ]
 
 [[rule]]
