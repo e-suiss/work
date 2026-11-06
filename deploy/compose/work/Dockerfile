@@ -39,6 +39,7 @@ RUN apt-get update \
         *) dir="/out$(dirname "$(readlink -f "$lib")")"; mkdir -p "$dir"; cp -L "$lib" "$dir/$(basename "$lib")" ;; \
       esac; \
     done \
+ && install -D -m 0644 "$(readlink -f /usr/lib/softhsm/libsofthsm2.so)" /out/usr/lib/softhsm/libsofthsm2.so \
  && install -D -m 0644 /etc/softhsm/softhsm2.conf /out/etc/softhsm/softhsm2.conf
 
 # T-36, OP-28
