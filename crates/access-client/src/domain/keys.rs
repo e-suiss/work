@@ -1,4 +1,4 @@
-//! Instance key lookup (T-101 item 4; Access OP-149 m.5, m.15 (b)–(e), `key-lookup.cddl`): the identifiers Access writes on the wire, the batch request, and the canonical `COSE_Sign1` answer verified under the domain's operational key with usage `key-lookup` and checked entry by entry before any key is used.
+//! Instance key lookup (T-101 item 4; Access OP-149 m.5, m.15 (b)–(e), `key-lookup.cddl`): the identifiers Access writes on the wire, the batch request, and the canonical `COSE_Sign1` answer verified under the domain's operational key with usage `key-lookup` and checked entry by entry before any key is used; each entry names its Party's actor kind, which a record's actor types are derived from (Access OP-149 m.8, Work P-12).
 
 use std::collections::BTreeSet;
 use std::sync::Arc;
@@ -143,6 +143,52 @@ pub enum KeyState {
     Compromised,
 }
 
+/// What kind of actor a Party is: what its `party_register` recorded, which nothing changes
+/// (Access OP-149 m.8, `actor-kind`); a product ledger derives its records' actor types from it
+/// (Work P-12, C-17).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum ActorKind {
+    /// A person.
+    Human,
+    /// An AI agent.
+    Agent,
+    /// A system.
+    System,
+    /// A machine.
+    Machine,
+    /// An organization.
+    Organization,
+}
+
+impl ActorKind {
+    /// Every kind, in `actor-kind` order.
+    pub const ALL: [Self; 5] = [
+        Self::Human,
+        Self::Agent,
+        Self::System,
+        Self::Machine,
+        Self::Organization,
+    ];
+
+    /// The wire name.
+    #[must_use]
+    pub const fn wire_name(self) -> &'static str {
+        match self {
+            Self::Human => "human",
+            Self::Agent => "agent",
+            Self::System => "system",
+            Self::Machine => "machine",
+            Self::Organization => "organization",
+        }
+    }
+
+    /// The kind a wire name names.
+    #[must_use]
+    pub fn from_wire_name(name: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|k| k.wire_name() == name)
+    }
+}
+
 /// A ledger position and its trusted time.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct LedgerPoint {
@@ -176,6 +222,8 @@ pub struct InstanceKey {
     pub key: PublicKey,
     /// The Party.
     pub party: KernelId,
+    /// The Party's actor kind.
+    pub actor_kind: ActorKind,
     /// The Instance.
     pub instance: KernelId,
     /// From when the Instance holds it.
@@ -398,6 +446,11 @@ fn entry(v: &Value) -> Result<InstanceKey, AccessError> {
         Value::Text(t) if t == "compromised" => KeyState::Compromised,
         _ => return Err(answer("key_state")),
     };
+    let actor_kind = match f.opt("actor_kind") {
+        Some(Value::Text(t)) => ActorKind::from_wire_name(t),
+        _ => None,
+    }
+    .ok_or_else(|| answer("actor_kind"))?;
     let compromise = match f.opt("compromise") {
         None => None,
         Some(c) => {
@@ -417,6 +470,7 @@ fn entry(v: &Value) -> Result<InstanceKey, AccessError> {
         alg,
         key,
         party: KernelId(bytes(req("party")?)?),
+        actor_kind,
         instance: KernelId(bytes(req("instance")?)?),
         since: point(req("since")?)?,
         ended: f.opt("ended").map(point).transpose()?,
@@ -432,6 +486,7 @@ fn entry(v: &Value) -> Result<InstanceKey, AccessError> {
         "alg",
         "public_key",
         "party",
+        "actor_kind",
         "instance",
         "since",
         "ended",
@@ -665,6 +720,7 @@ pub(crate) mod tests {
                     ]),
                 ),
                 ("party", Value::Bytes(vec![2; 16])),
+                ("actor_kind", text("agent")),
                 ("instance", Value::Bytes(vec![3; 16])),
                 (
                     "since",
@@ -822,6 +878,98 @@ pub(crate) mod tests {
         let got = verify_answer(&m, &d.id, &[d.kid()], &sign1, &excerpt, Some(3)).unwrap();
         let c = got.keys[0].compromise.unwrap();
         assert_eq!((c.from, c.declared_at), (4, 7));
+    }
+
+    const VECTORS: &str = include_str!("../../../../conformance/vectors/access/key-lookup.json");
+
+    fn unhex(s: &str) -> Vec<u8> {
+        s.as_bytes()
+            .chunks(2)
+            .map(|c| u8::from_str_radix(std::str::from_utf8(c).unwrap(), 16).unwrap())
+            .collect()
+    }
+
+    fn vector(id: &str) -> Vec<u8> {
+        let v: serde_json::Value = serde_json::from_str(VECTORS).unwrap();
+        let case = v["cases"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|c| c["id"] == id)
+            .unwrap();
+        unhex(case["cbor"].as_str().unwrap())
+    }
+
+    fn decoded(payload: &[u8]) -> Result<KeyAnswer, AccessError> {
+        decode_lookup(
+            payload,
+            Arc::new(Evidence {
+                sign1: Vec::new(),
+                excerpt: Vec::new(),
+            }),
+        )
+    }
+
+    fn with_actor_kind(payload: &[u8], kind: Option<&str>) -> Vec<u8> {
+        let mut v = dcbor::decode(payload, Limits::CEILING).unwrap();
+        let Value::Map(top) = &mut v else {
+            panic!("a map");
+        };
+        for (k, keys) in top {
+            let (Value::Text(name), Value::Array(entries)) = (k, keys) else {
+                continue;
+            };
+            if *name != "keys" {
+                continue;
+            }
+            for e in entries {
+                let Value::Map(fields) = e else {
+                    panic!("an entry");
+                };
+                match kind {
+                    None => fields.retain(|(f, _)| *f != text("actor_kind")),
+                    Some(kind) => {
+                        for (f, value) in fields {
+                            if *f == text("actor_kind") {
+                                *value = text(kind);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        enc(&v)
+    }
+
+    // P-12 C-17 T-101
+    #[test]
+    fn p_12_every_looked_up_key_names_its_party_s_actor_kind() {
+        let agent = decoded(&vector("ended-key-of-an-agent")).unwrap();
+        assert_eq!(agent.keys.len(), 1);
+        assert_eq!(agent.keys[0].actor_kind, ActorKind::Agent);
+        assert_eq!(agent.keys[0].party, KernelId([3; 16]));
+        let human = decoded(&vector("compromised-key-of-a-human")).unwrap();
+        assert_eq!(human.keys[0].actor_kind, ActorKind::Human);
+        assert!(decoded(&vector("nothing-known")).unwrap().keys.is_empty());
+        let payload = vector("ended-key-of-an-agent");
+        assert_eq!(
+            decoded(&with_actor_kind(&payload, None)),
+            Err(AccessError::Answer("actor_kind"))
+        );
+        assert_eq!(
+            decoded(&with_actor_kind(&payload, Some("robot"))),
+            Err(AccessError::Answer("actor_kind"))
+        );
+        assert_eq!(
+            decoded(&with_actor_kind(&payload, Some("organization")))
+                .unwrap()
+                .keys[0]
+                .actor_kind,
+            ActorKind::Organization
+        );
+        for kind in ActorKind::ALL {
+            assert_eq!(ActorKind::from_wire_name(kind.wire_name()), Some(kind));
+        }
     }
 
     // T-101
