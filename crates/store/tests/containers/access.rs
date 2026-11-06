@@ -355,27 +355,27 @@ async fn e_17_an_approval_state_is_issued_once_used_once_and_never_deleted() {
     let writer = env.canonical("work_access");
     for (sql, code) in [
         (
-            "UPDATE work.approval_state SET used_at = NULL",
+            "UPDATE work.approval_return SET used_at = NULL",
             Some("23514"),
         ),
         (
-            "UPDATE work.approval_state SET used_at = now()",
+            "UPDATE work.approval_return SET used_at = now()",
             Some("23514"),
         ),
         (
-            "UPDATE work.approval_state SET party = decode(repeat('09', 16), 'hex')",
+            "UPDATE work.approval_return SET party = decode(repeat('09', 16), 'hex')",
             Some("42501"),
         ),
-        ("DELETE FROM work.approval_state", Some("42501")),
-        ("TRUNCATE work.approval_state", Some("42501")),
+        ("DELETE FROM work.approval_return", Some("42501")),
+        ("TRUNCATE work.approval_return", Some("42501")),
         (
-            "INSERT INTO work.approval_state (state, tenant, party, digest, ledger, issued_at, expires_at, used_at) \
+            "INSERT INTO work.approval_return (handle, tenant, party, digest, ledger, issued_at, expires_at, used_at) \
              VALUES (repeat('t', 43), 'tnt_01HZ', decode(repeat('01', 16), 'hex'), decode(repeat('02', 32), 'hex'), \
                      decode(repeat('03', 32), 'hex'), now(), now(), now())",
             Some("23514"),
         ),
         (
-            "INSERT INTO work.approval_state (state, tenant, party, digest, ledger, issued_at, expires_at) \
+            "INSERT INTO work.approval_return (handle, tenant, party, digest, ledger, issued_at, expires_at) \
              VALUES ('short', 'tnt_01HZ', decode(repeat('01', 16), 'hex'), decode(repeat('02', 32), 'hex'), \
                      decode(repeat('03', 32), 'hex'), now(), now())",
             Some("23514"),
@@ -387,7 +387,7 @@ async fn e_17_an_approval_state_is_issued_once_used_once_and_never_deleted() {
         fails(
             &env.canonical(role),
             "",
-            &["SELECT count(*) FROM work.approval_state"],
+            &["SELECT count(*) FROM work.approval_return"],
             Some("42501"),
         )
         .await;

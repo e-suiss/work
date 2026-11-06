@@ -149,7 +149,7 @@ fn unpercent(text: &str) -> Option<String> {
 }
 
 impl ApprovalReturn {
-    /// The `state` the query of the redirect carries, exactly once, to look up the one Work sent.
+    /// The one `state` the query of the redirect carries, to look up the one Work sent.
     ///
     /// # Errors
     /// [`AccessError::Answer`]: `state` for a missing, repeated or malformed `state`, `query`

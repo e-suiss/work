@@ -4,6 +4,7 @@
 name = "api-gateway"
 label = "OPERATIONAL"
 crates = ["crates/agents", "crates/http"]
+tables = ["work.approval_return"]
 never = "makes no normative decision and never turns a transport identity into a Party identity"
 open = "the platform API, federation, Executor contract and ingest endpoints are not written yet"
 

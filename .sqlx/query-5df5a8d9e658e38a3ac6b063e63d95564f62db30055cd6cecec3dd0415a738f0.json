@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE work.approval_return\n                SET used_at = pg_catalog.to_timestamp(0) + interval '1 millisecond' * $2::bigint::double precision\n              WHERE handle = $1 AND used_at IS NULL\n                AND expires_at >= pg_catalog.to_timestamp(0) + interval '1 millisecond' * $2::bigint::double precision",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "5df5a8d9e658e38a3ac6b063e63d95564f62db30055cd6cecec3dd0415a738f0"
+}

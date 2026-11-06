@@ -1,4 +1,4 @@
-//! The approval `state`s Work sends to Access's Approval Surface (T-101 item 7, E-17): one OPERATIONAL row per pushed authority request in `work.approval_state`, keyed by the `state` and bound to the caller's tenant and Party, the pushed request's digest and the ledger it commits into. A `state` is issued once and used once: the row is inserted, then marked used, and never deleted (Access OP-73); only `work_access` reads and writes it.
+//! The approval `state`s Work sends to Access's Approval Surface (T-101 item 7, E-17): one OPERATIONAL row per pushed authority request in `work.approval_return`, keyed by the `state` and bound to the caller's tenant and Party, the pushed request's digest and the ledger it commits into. A `state` is issued once and used once: the row is inserted, then marked used, and never deleted (Access OP-73); only `work_access` reads and writes it.
 
 use crate::{AccessPool, StoreError};
 
@@ -64,12 +64,12 @@ impl AccessPool {
         new: &NewApprovalState<'_>,
     ) -> Result<bool, StoreError> {
         let done = sqlx::query!(
-            "INSERT INTO work.approval_state
-                 (state, tenant, party, digest, ledger, issued_at, expires_at)
+            "INSERT INTO work.approval_return
+                 (handle, tenant, party, digest, ledger, issued_at, expires_at)
              VALUES ($1, $2, $3, $4, $5,
                      pg_catalog.to_timestamp(0) + interval '1 millisecond' * $6::bigint::double precision,
                      pg_catalog.to_timestamp(0) + interval '1 millisecond' * $7::bigint::double precision)
-             ON CONFLICT (state) DO NOTHING",
+             ON CONFLICT (handle) DO NOTHING",
             new.state,
             new.tenant,
             new.party.as_slice(),
@@ -92,18 +92,18 @@ impl AccessPool {
         state: &str,
     ) -> Result<Option<ApprovalStateRow>, StoreError> {
         let row = sqlx::query!(
-            r#"SELECT state, tenant, party, digest, ledger,
+            r#"SELECT handle, tenant, party, digest, ledger,
                       (extract(epoch FROM issued_at) * 1000)::bigint AS "issued_at_ms!",
                       (extract(epoch FROM expires_at) * 1000)::bigint AS "expires_at_ms!",
                       (extract(epoch FROM used_at) * 1000)::bigint AS "used_at_ms?"
-               FROM work.approval_state WHERE state = $1"#,
+               FROM work.approval_return WHERE handle = $1"#,
             state
         )
         .fetch_optional(self.pool())
         .await?;
         row.map(|r| {
             Ok(ApprovalStateRow {
-                state: r.state,
+                state: r.handle,
                 tenant: r.tenant,
                 party: fixed(&r.party)?,
                 digest: fixed(&r.digest)?,
@@ -123,9 +123,9 @@ impl AccessPool {
     /// [`StoreError::Db`].
     pub async fn use_approval_state(&self, state: &str, at_ms: u64) -> Result<bool, StoreError> {
         let done = sqlx::query!(
-            "UPDATE work.approval_state
+            "UPDATE work.approval_return
                 SET used_at = pg_catalog.to_timestamp(0) + interval '1 millisecond' * $2::bigint::double precision
-              WHERE state = $1 AND used_at IS NULL
+              WHERE handle = $1 AND used_at IS NULL
                 AND expires_at >= pg_catalog.to_timestamp(0) + interval '1 millisecond' * $2::bigint::double precision",
             state,
             signed(at_ms)?

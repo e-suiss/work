@@ -1,4 +1,3 @@
-// T-34 P-53
 import { createServer } from "node:http";
 import type { IncomingHttpHeaders, Server } from "node:http";
 import type { AddressInfo } from "node:net";
@@ -65,7 +64,8 @@ afterAll(async () => {
   });
 });
 
-describe("t_34 p_53 the generated Work API client", () => {
+describe("createWorkClient", () => {
+  // T-34
   it("t_34 reads a public operation typed as the OpenAPI document states it", async () => {
     const client = createWorkClient({ baseUrl });
     const { data, error } = await client.GET("/v1/problems/{code}", {
@@ -78,6 +78,7 @@ describe("t_34 p_53 the generated Work API client", () => {
     expect(seen.at(-1)?.headers.authorization).toBeUndefined();
   });
 
+  // T-34
   it("t_34 proves every request that acts for a caller with its DPoP token and proof", async () => {
     const proven: string[] = [];
     const client = createWorkClient({
@@ -100,6 +101,7 @@ describe("t_34 p_53 the generated Work API client", () => {
     expect(proven).toEqual([`GET ${baseUrl}/v1/ledgers/${LEDGER}/works/${WORK}`]);
   });
 
+  // T-34
   it("t_34 keeps 64-bit positions as strings", () => {
     expectTypeOf<Schema<"WorkAnswer">["first_pos"]>().toEqualTypeOf<string>();
     expectTypeOf<Schema<"ProblemType">["code"]>().toEqualTypeOf<Schema<"ProblemCode">>();

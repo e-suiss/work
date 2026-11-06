@@ -1,16 +1,16 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT state, tenant, party, digest, ledger,\n                      (extract(epoch FROM issued_at) * 1000)::bigint AS \"issued_at_ms!\",\n                      (extract(epoch FROM expires_at) * 1000)::bigint AS \"expires_at_ms!\",\n                      (extract(epoch FROM used_at) * 1000)::bigint AS \"used_at_ms?\"\n               FROM work.approval_state WHERE state = $1",
+  "query": "SELECT handle, tenant, party, digest, ledger,\n                      (extract(epoch FROM issued_at) * 1000)::bigint AS \"issued_at_ms!\",\n                      (extract(epoch FROM expires_at) * 1000)::bigint AS \"expires_at_ms!\",\n                      (extract(epoch FROM used_at) * 1000)::bigint AS \"used_at_ms?\"\n               FROM work.approval_return WHERE handle = $1",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "state",
+        "name": "handle",
         "type_info": "Text",
         "origin": {
           "Table": {
-            "table": "work.approval_state",
-            "name": "state"
+            "table": "work.approval_return",
+            "name": "handle"
           }
         }
       },
@@ -20,7 +20,7 @@
         "type_info": "Text",
         "origin": {
           "Table": {
-            "table": "work.approval_state",
+            "table": "work.approval_return",
             "name": "tenant"
           }
         }
@@ -31,7 +31,7 @@
         "type_info": "Bytea",
         "origin": {
           "Table": {
-            "table": "work.approval_state",
+            "table": "work.approval_return",
             "name": "party"
           }
         }
@@ -42,7 +42,7 @@
         "type_info": "Bytea",
         "origin": {
           "Table": {
-            "table": "work.approval_state",
+            "table": "work.approval_return",
             "name": "digest"
           }
         }
@@ -53,7 +53,7 @@
         "type_info": "Bytea",
         "origin": {
           "Table": {
-            "table": "work.approval_state",
+            "table": "work.approval_return",
             "name": "ledger"
           }
         }
@@ -93,5 +93,5 @@
       null
     ]
   },
-  "hash": "e57585ec21f93c356ecc986a1d32eee4493387605d43d679402143fd1acc52e8"
+  "hash": "cdd96339269d782b56da51d7bb11951c3696a6a6bcd2ff57853f7da4e14251d3"
 }
