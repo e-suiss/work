@@ -126,6 +126,8 @@ services:
     depends_on:
       softhsm:
         condition: service_healthy
+      work-server-tls:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "test", "-S", "/run/work-signer/signer.sock"]
       interval: 2s
@@ -605,6 +607,8 @@ services:
         condition: service_completed_successfully
       softhsm:
         condition: service_healthy
+      work-access-pep:
+        condition: service_completed_successfully
 
   # T-96, T-103
   work-access-client-id:
