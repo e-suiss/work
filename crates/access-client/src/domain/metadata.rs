@@ -34,9 +34,11 @@ pub enum KeyUsage {
     StatusList,
     /// Instance key lookup answers (Access OP-149 m.5).
     KeyLookup,
+    /// Party status lookup answers (Access OP-149 m.28 (c)).
+    PartyLookup,
 }
 
-const USAGES: [(&str, KeyUsage); 7] = [
+const USAGES: [(&str, KeyUsage); 8] = [
     ("receipt", KeyUsage::Receipt),
     ("pap", KeyUsage::Pap),
     ("token", KeyUsage::Token),
@@ -44,6 +46,7 @@ const USAGES: [(&str, KeyUsage); 7] = [
     ("set", KeyUsage::Set),
     ("status-list", KeyUsage::StatusList),
     ("key-lookup", KeyUsage::KeyLookup),
+    ("party-lookup", KeyUsage::PartyLookup),
 ];
 
 impl KeyUsage {

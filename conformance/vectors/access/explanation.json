@@ -171,6 +171,127 @@
       "valid": true
     },
     {
+      "cbor": "a265756e6d657481a4647465726da365636c61737367737465705f7570696173737572616e6365a9627576016361616c036673796e63656400696c6f615f6569646173016d6e6f6e5f637573746f6469616c006e68617264776172655f626f756e64016e68756d616e5f70726573656e636500727068697368696e675f726573697374616e7401756170705f636f6e74726f6c6c65645f666163746f72016a70726f6f665f6b696e646e61757468656e7469636174696f6e676d697373696e670168706f736974696f6e68696e7374616e6365747361746973666961626c655f62795f6163746f72f5676f7574636f6d656e726571756972655f616374696f6e",
+      "edn": "{\"outcome\": \"require_action\", \"unmet\": [{\"term\": {\"proof_kind\": \"authentication\", \"class\": \"step_up\", \"assurance\": {\"aal\": 3, \"loa_eidas\": 1, \"phishing_resistant\": 1, \"hardware_bound\": 1, \"non_custodial\": 0, \"uv\": 1, \"human_presence\": 0, \"app_controlled_factor\": 1, \"synced\": 0}}, \"missing\": 1, \"position\": \"instance\", \"satisfiable_by_actor\": true}]}",
+      "id": "assurance-at-its-bounds",
+      "json": {
+        "outcome": "require_action",
+        "unmet": [
+          {
+            "missing": 1,
+            "position": "instance",
+            "satisfiable_by_actor": true,
+            "term": {
+              "assurance": {
+                "aal": 3,
+                "app_controlled_factor": 1,
+                "hardware_bound": 1,
+                "human_presence": 0,
+                "loa_eidas": 1,
+                "non_custodial": 0,
+                "phishing_resistant": 1,
+                "synced": 0,
+                "uv": 1
+              },
+              "class": "step_up",
+              "proof_kind": "authentication"
+            }
+          }
+        ]
+      },
+      "valid": true
+    },
+    {
+      "edn": "{\"outcome\": \"require_action\", \"unmet\": [{\"term\": {\"proof_kind\": \"authentication\", \"class\": \"step_up\", \"assurance\": {\"aal\": 2, \"phishing_resistant\": 2}}, \"missing\": 1, \"position\": \"instance\", \"satisfiable_by_actor\": true}]}",
+      "id": "assurance-flag-over-one",
+      "json": {
+        "outcome": "require_action",
+        "unmet": [
+          {
+            "missing": 1,
+            "position": "instance",
+            "satisfiable_by_actor": true,
+            "term": {
+              "assurance": {
+                "aal": 2,
+                "phishing_resistant": 2
+              },
+              "class": "step_up",
+              "proof_kind": "authentication"
+            }
+          }
+        ]
+      },
+      "valid": false
+    },
+    {
+      "edn": "{\"outcome\": \"require_action\", \"unmet\": [{\"term\": {\"proof_kind\": \"authentication\", \"class\": \"step_up\", \"assurance\": {\"aal\": 0}}, \"missing\": 1, \"position\": \"instance\", \"satisfiable_by_actor\": true}]}",
+      "id": "assurance-level-under-one",
+      "json": {
+        "outcome": "require_action",
+        "unmet": [
+          {
+            "missing": 1,
+            "position": "instance",
+            "satisfiable_by_actor": true,
+            "term": {
+              "assurance": {
+                "aal": 0
+              },
+              "class": "step_up",
+              "proof_kind": "authentication"
+            }
+          }
+        ]
+      },
+      "valid": false
+    },
+    {
+      "edn": "{\"outcome\": \"require_action\", \"unmet\": [{\"term\": {\"proof_kind\": \"authentication\", \"class\": \"step_up\", \"assurance\": {\"aal\": 4}}, \"missing\": 1, \"position\": \"instance\", \"satisfiable_by_actor\": true}]}",
+      "id": "assurance-level-over-three",
+      "json": {
+        "outcome": "require_action",
+        "unmet": [
+          {
+            "missing": 1,
+            "position": "instance",
+            "satisfiable_by_actor": true,
+            "term": {
+              "assurance": {
+                "aal": 4
+              },
+              "class": "step_up",
+              "proof_kind": "authentication"
+            }
+          }
+        ]
+      },
+      "valid": false
+    },
+    {
+      "edn": "{\"outcome\": \"require_action\", \"unmet\": [{\"term\": {\"proof_kind\": \"authentication\", \"class\": \"step_up\", \"assurance\": {\"aal\": 2, \"strength\": 1}}, \"missing\": 1, \"position\": \"instance\", \"satisfiable_by_actor\": true}]}",
+      "id": "assurance-dimension-unknown",
+      "json": {
+        "outcome": "require_action",
+        "unmet": [
+          {
+            "missing": 1,
+            "position": "instance",
+            "satisfiable_by_actor": true,
+            "term": {
+              "assurance": {
+                "aal": 2,
+                "strength": 1
+              },
+              "class": "step_up",
+              "proof_kind": "authentication"
+            }
+          }
+        ]
+      },
+      "valid": false
+    },
+    {
       "edn": "{\"outcome\": \"no_objection\"}",
       "id": "no-objection-is-not-an-outcome",
       "json": {

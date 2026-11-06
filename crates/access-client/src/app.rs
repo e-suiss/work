@@ -24,10 +24,13 @@ use crate::domain::exercise::{
     ExerciseId, Expected, Intent, VerifiedExercise, verify_agency, verify_exercise,
 };
 use crate::domain::keys::{
-    ACCEPT_COSE, AsOf, DomainId, EXCERPT_HEADER, KeyAnswer, Kid, MAX_KIDS, batch_body,
+    ACCEPT_COSE, ActorKind, AsOf, DomainId, EXCERPT_HEADER, KernelId, KeyAnswer, Kid, MAX_KIDS, batch_body,
     etag_position, verify_answer,
 };
 use crate::domain::metadata::{DomainMetadata, unverified_payload, verify_metadata};
+use crate::domain::parties::{
+    self as parties, MAX_PARTIES, PARTY_UNKNOWN, PartyAnswer, PartyEntry,
+};
 use crate::domain::realm::{OPENID_CONFIGURATION, jwks_uri, realm_keys};
 use crate::domain::relay::RelayConfiguration;
 use crate::domain::subjects::{
@@ -35,7 +38,7 @@ use crate::domain::subjects::{
 };
 use crate::domain::tenants::{MAX_PAGES, TenantChange, TenantPage, TenantSnapshot, list_url, plan};
 use crate::domain::{AccessError, b64url, from_b64url};
-use crate::ports::{Clock, Request, Response, TenantMap, Transport};
+use crate::ports::{Clock, PartyKinds, Request, Response, TenantMap, Transport};
 
 /// How often discovery is read again (T-96 item 2).
 pub const DISCOVERY_INTERVAL_MS: u64 = 5 * 60 * 1000;
@@ -90,6 +93,24 @@ pub struct Client<T, C> {
     region: String,
     pep_not_after_ms: u64,
     state: Mutex<State>,
+}
+
+impl<T: Transport, C: Clock> PartyKinds for Client<T, C> {
+    fn kinds(
+        &self,
+        domain: DomainId,
+        parties: &[KernelId],
+    ) -> impl std::future::Future<Output = Result<BTreeMap<KernelId, ActorKind>, AccessError>> + Send
+    {
+        async move {
+            Ok(self
+                .parties(domain, parties, &AsOf::Head)
+                .await?
+                .into_iter()
+                .map(|p| (p.party, p.actor_kind))
+                .collect())
+        }
+    }
 }
 
 impl<T, C> std::fmt::Debug for Client<T, C> {
@@ -479,6 +500,94 @@ impl<T: Transport, C: Clock> Client<T, C> {
             etag_position(answer.header("etag")),
         )?;
         Ok((verified, CachePolicy::parse(answer.header("cache-control"))))
+    }
+
+    /// The Parties `asked` of `domain` at `as_of` that Access admitted, from its signed Party
+    /// lookup in batches of at most [`MAX_PARTIES`], each answer verified before use; a Party
+    /// Access does not know is left out (Access OP-149 m.28 (c), P-12).
+    ///
+    /// # Errors
+    /// [`AccessError`]; the action that needs the Parties is refused.
+    pub async fn parties(
+        &self,
+        domain: DomainId,
+        asked: &[KernelId],
+        as_of: &AsOf,
+    ) -> Result<Vec<PartyEntry>, AccessError> {
+        self.consequential()?;
+        let unique: Vec<KernelId> = asked
+            .iter()
+            .copied()
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect();
+        let mut found = Vec::new();
+        for chunk in unique.chunks(MAX_PARTIES) {
+            if let Some(answer) = self.party_lookup(domain, chunk, as_of).await? {
+                found.extend(answer.parties);
+            }
+        }
+        Ok(found)
+    }
+
+    async fn party_lookup(
+        &self,
+        domain: DomainId,
+        asked: &[KernelId],
+        as_of: &AsOf,
+    ) -> Result<Option<PartyAnswer>, AccessError> {
+        let (metadata, signed) = self.metadata(domain).await?;
+        let endpoints = self.endpoints()?;
+        let request = if let [party] = asked {
+            let template = endpoints.agreed(Endpoint::PartyLookup, signed.as_ref())?;
+            let mut url = format!(
+                "{}?domain={}",
+                template.expand(&party.text()),
+                percent(&domain.text())
+            );
+            if let Some(t) = as_of.text() {
+                url = format!("{url}&as_of={}", percent(&t));
+            }
+            Request::get(url, ACCEPT_COSE)
+        } else {
+            let template = endpoints.agreed(Endpoint::PartyBatch, signed.as_ref())?;
+            Request::post(
+                template.expand(""),
+                ACCEPT_COSE,
+                parties::batch_body(&domain, asked, as_of)?,
+            )
+        };
+        let answer = self.transport.send(request).await?;
+        let body = match answer.ok() {
+            Ok(body) => body,
+            Err(AccessError::Refused { status: 404, code, .. })
+                if asked.len() == 1 && code == PARTY_UNKNOWN =>
+            {
+                return Ok(None);
+            }
+            Err(e) => return Err(e),
+        };
+        if !answer
+            .header("content-type")
+            .is_some_and(|c| c.to_ascii_lowercase().starts_with(ACCEPT_COSE))
+        {
+            return Err(AccessError::Answer("content-type"));
+        }
+        let excerpt = from_b64url(
+            answer
+                .header(EXCERPT_HEADER)
+                .ok_or(AccessError::Answer("excerpt"))?,
+        )
+        .map_err(|_| AccessError::Answer("excerpt"))?;
+        parties::verify_answer(
+            &metadata,
+            &domain,
+            asked,
+            body,
+            &excerpt,
+            etag_position(answer.header("etag")),
+        )
+        .map(Some)
     }
 
     /// Asks whether a subject is in a set at the moment of approval; Access records nothing and

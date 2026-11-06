@@ -3,7 +3,6 @@
 use std::sync::Arc;
 
 use suiss_crypto::pkcs11::KeyStore;
-use work_access_client::ports::Unpublished;
 use work_http::api::{ApiConfig, router, router_with};
 use work_http::common::TraceIds;
 use work_http::reads::ApiServices;
@@ -54,7 +53,7 @@ fn services(config: &Config, backing: &Backing<'_>) -> Result<ApiServices, Strin
             backing.canonical.clone(),
             backing.realms.clone(),
             Arc::clone(&backing.sequence),
-            Unpublished,
+            Arc::clone(backing.access),
         )),
         origin: config.api.origin.clone(),
     })

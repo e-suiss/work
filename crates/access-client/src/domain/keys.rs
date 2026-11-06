@@ -342,7 +342,7 @@ fn check_entry(k: &InstanceKey, pos: u64) -> Result<(), AccessError> {
     Ok(())
 }
 
-fn iat_of(payload: &[u8]) -> Result<u64, AccessError> {
+pub(crate) fn iat_of(payload: &[u8]) -> Result<u64, AccessError> {
     let v = dcbor::decode(payload, Limits::CEILING).map_err(|_| answer("payload"))?;
     match v.get("iat") {
         Some(Value::Unsigned(t)) => Ok(*t),
@@ -350,25 +350,25 @@ fn iat_of(payload: &[u8]) -> Result<u64, AccessError> {
     }
 }
 
-fn payload_error(_: KeyScopeError) -> AccessError {
+pub(crate) fn payload_error(_: KeyScopeError) -> AccessError {
     answer("payload")
 }
 
-fn uint(v: &Value) -> Result<u64, AccessError> {
+pub(crate) fn uint(v: &Value) -> Result<u64, AccessError> {
     match v {
         Value::Unsigned(u) => Ok(*u),
         _ => Err(answer("payload")),
     }
 }
 
-fn bytes<const N: usize>(v: &Value) -> Result<[u8; N], AccessError> {
+pub(crate) fn bytes<const N: usize>(v: &Value) -> Result<[u8; N], AccessError> {
     match v {
         Value::Bytes(b) => <[u8; N]>::try_from(b.as_slice()).map_err(|_| answer("payload")),
         _ => Err(answer("payload")),
     }
 }
 
-fn point(v: &Value) -> Result<LedgerPoint, AccessError> {
+pub(crate) fn point(v: &Value) -> Result<LedgerPoint, AccessError> {
     let f = Fields::of(v).map_err(payload_error)?;
     let p = LedgerPoint {
         pos: uint(f.req("pos").map_err(payload_error)?)?,

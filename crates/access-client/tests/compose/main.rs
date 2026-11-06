@@ -541,6 +541,33 @@ mod signed {
         }
     }
 
+    // P-12 MD-7 T-101
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore = "needs the local environment and its domains signing"]
+    async fn p_12_the_signed_party_lookup_binds_the_test_user_and_leaves_a_stranger_out() {
+        use work_access_client::domain::keys::{ActorKind, KernelId};
+        use work_access_client::ports::PartyKinds as _;
+
+        let local = Local::open();
+        let pep = local.pep();
+        let user = KernelId::parse(local.bootstrap["test_user"]["party"].as_str().unwrap()).unwrap();
+        let (root, _) = local.root();
+        let stranger = KernelId([7; 16]);
+        let domain = local.domain("acme");
+        let client = local.client(&pep, "acme");
+        client.discover().await.unwrap();
+        let both = client.kinds(domain, &[user, stranger, root]).await.unwrap();
+        assert_eq!(both.get(&user), Some(&ActorKind::Human), "{both:?}");
+        assert!(both.contains_key(&root), "{both:?}");
+        assert!(!both.contains_key(&stranger), "{both:?}");
+        let alone = client.kinds(domain, &[user]).await.unwrap();
+        assert_eq!(alone.get(&user), Some(&ActorKind::Human));
+        assert!(client.kinds(domain, &[stranger]).await.unwrap().is_empty());
+        let entries = client.parties(domain, &[user], &AsOf::Head).await.unwrap();
+        assert_eq!(entries.len(), 1);
+        assert!(entries[0].ended.is_none());
+    }
+
     // T-101 E-17 P-13
     #[tokio::test(flavor = "multi_thread")]
     #[ignore = "needs the local environment and its domains signing"]

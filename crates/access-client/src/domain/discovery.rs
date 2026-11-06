@@ -99,6 +99,10 @@ pub enum Endpoint {
     KeyLookup,
     /// `POST /access/v1/keys:batchGet`.
     KeyBatch,
+    /// `GET /access/v1/parties/{party}` (Access OP-149 m.28 (c)).
+    PartyLookup,
+    /// `POST /access/v1/parties:batchGet` (Access OP-149 m.28 (c)).
+    PartyBatch,
     /// `POST /access/v1/eligibility:check`.
     Eligibility,
     /// `GET /access/v1/tenants/{tenant}/snapshot`.
@@ -131,10 +135,12 @@ pub enum Endpoint {
     PushedAuthorizationRequest,
 }
 
-const ENDPOINTS: [(&str, Endpoint, Option<&str>); 18] = [
+const ENDPOINTS: [(&str, Endpoint, Option<&str>); 20] = [
     ("adp", Endpoint::Adp, None),
     ("key_lookup", Endpoint::KeyLookup, Some("kid")),
     ("key_batch", Endpoint::KeyBatch, None),
+    ("party_lookup", Endpoint::PartyLookup, Some("party")),
+    ("party_batch", Endpoint::PartyBatch, None),
     ("eligibility", Endpoint::Eligibility, None),
     ("tenant_snapshot", Endpoint::TenantSnapshot, Some("tenant")),
     ("auth_context", Endpoint::AuthContext, None),
@@ -784,6 +790,14 @@ mod tests {
             ),
             ("key_lookup", "https://access.example/access/v1/keys/{kid}"),
             (
+                "party_batch",
+                "https://access.example/access/v1/parties:batchGet",
+            ),
+            (
+                "party_lookup",
+                "https://access.example/access/v1/parties/{party}",
+            ),
+            (
                 "status_list",
                 "https://access.example/access/v1/status-lists/{list}",
             ),
@@ -822,6 +836,13 @@ mod tests {
                 .unwrap()
                 .expand("e/1"),
             "https://access.example/access/v1/exercises/e%2F1/agency"
+        );
+        assert_eq!(
+            endpoints
+                .get(Endpoint::PartyLookup)
+                .unwrap()
+                .expand("AwMDAwMDAwMDAwMDAwMDAw"),
+            "https://access.example/access/v1/parties/AwMDAwMDAwMDAwMDAwMDAw"
         );
         assert_eq!(
             endpoints

@@ -267,18 +267,13 @@ pub trait PartyKinds: Send + Sync {
     ) -> impl Future<Output = Result<BTreeMap<KernelId, ActorKind>, AccessError>> + Send;
 }
 
-/// The Party lookup while Access serves no signed Party status lookup: it binds no Party, so
-/// every principal and presenter stays `declared_unverified` (P-12).
-#[derive(Clone, Copy, Debug, Default)]
-pub struct Unpublished;
-
-impl PartyKinds for Unpublished {
+impl<P: PartyKinds + ?Sized> PartyKinds for std::sync::Arc<P> {
     fn kinds(
         &self,
-        _domain: DomainId,
-        _parties: &[KernelId],
+        domain: DomainId,
+        parties: &[KernelId],
     ) -> impl Future<Output = Result<BTreeMap<KernelId, ActorKind>, AccessError>> + Send {
-        std::future::ready(Ok(BTreeMap::new()))
+        (**self).kinds(domain, parties)
     }
 }
 

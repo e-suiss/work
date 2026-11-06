@@ -11,6 +11,7 @@ pub mod exercise;
 pub mod keys;
 pub mod metadata;
 pub mod pairing;
+pub mod parties;
 pub mod realm;
 pub mod relay;
 pub mod streams;

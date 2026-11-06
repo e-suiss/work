@@ -1723,6 +1723,8 @@ title = ""
 tests = [
   "bins/work-server/tests/actor_kinds.rs::p_12_every_access_actor_kind_is_the_work_actor_type_of_its_name",
   "crates/access-client/src/domain/keys.rs::p_12_every_looked_up_key_names_its_party_s_actor_kind",
+  "crates/access-client/src/domain/parties.rs::p_12_a_party_lookup_answer_verifies_under_the_party_lookup_usage_only",
+  "crates/access-client/src/domain/parties.rs::p_12_the_party_lookup_vectors_name_each_party_s_actor_kind",
   "crates/kernel/src/envelope.rs::ev_35_presenter_actor_types_are_one_to_256_entries",
   "crates/kernel/tests/codec_vectors.rs::p_100_envelope_vectors_decode_and_chain_from_the_genesis",
   "crates/kernel/tests/ledger_vectors.rs::ev_35_a_stored_presenter_annotation_must_match_the_record_evidence",

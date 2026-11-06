@@ -242,6 +242,31 @@ impl Local {
             .unwrap()
     }
 
+    /// An RFC 9562 version 7 UUID no other call of this process sees, for an `Idempotency-Key`.
+    fn uuid7(&self) -> String {
+        let ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis();
+        let mut b = [0_u8; 16];
+        b[..6].copy_from_slice(&ms.to_be_bytes()[10..]);
+        b[6..].copy_from_slice(&from_b64url(&self.random()).unwrap()[..10]);
+        b[6] = (b[6] & 0x0f) | 0x70;
+        b[8] = (b[8] & 0x3f) | 0x80;
+        let hex: String = b.iter().fold(String::new(), |mut out, x| {
+            let _ = write!(out, "{x:02x}");
+            out
+        });
+        format!(
+            "{}-{}-{}-{}-{}",
+            &hex[..8],
+            &hex[8..12],
+            &hex[12..16],
+            &hex[16..20],
+            &hex[20..]
+        )
+    }
+
     /// 32 bytes no other call of this process sees, base64url.
     fn random(&self) -> String {
         let n = self.fresh.fetch_add(1, Ordering::SeqCst);
@@ -346,9 +371,9 @@ impl Local {
         Arc::new(client)
     }
 
-    /// The Party Access resolves `token`'s pairwise `sub` to, asked directly (T-104): none while
-    /// the subject has no Party binding.
-    async fn party_of(&self, token: &str) -> Option<String> {
+    /// The Party Access resolves `token`'s pairwise `sub` to, asked directly (T-104): the test
+    /// user's, `test_user.party`.
+    async fn party_of(&self, token: &str) -> String {
         let claims = payload(token);
         let access = self.client().await;
         let realm = access
@@ -367,7 +392,13 @@ impl Local {
             )
             .await
             .unwrap();
-        found.get(&sub).cloned().flatten()
+        let party = found
+            .get(&sub)
+            .cloned()
+            .flatten()
+            .expect("Access binds the test user to a Party");
+        assert_eq!(party, self.user("party"));
+        party
     }
 
     /// The test user's sign-in (RFC 6749 section 4.1, RFC 7636, RFC 9449, RFC 8707): `/authorize`
@@ -672,14 +703,9 @@ impl Jar {
     }
 }
 
-/// What `work-server` answers a read of nothing for a caller: `404 not_found` once the token's
-/// subject resolves to a Party, `401 unauthenticated` while Access resolves it to none (T-104).
-fn unseen(party: Option<&String>) -> (u16, &'static str) {
-    match party {
-        Some(_) => (404, "https://suiss.app/ns/work/problems/not_found"),
-        None => (401, "https://suiss.app/ns/work/problems/unauthenticated"),
-    }
-}
+/// What `work-server` answers a named caller's read or write of a ledger it does not hold
+/// (T-104): `404 not_found`.
+const UNSEEN: (u16, &str) = (404, "https://suiss.app/ns/work/problems/not_found");
 
 fn ledger_path() -> (String, String) {
     let ledger = LedgerId(Digest::sha256([0x4c; 32])).to_external();
@@ -706,7 +732,7 @@ mod signed {
     use work_query::domain::caller::{CallerRefusal, Presented};
     use work_query::domain::writes::{actor_type, signer};
 
-    use super::{Local, POLL, WORK, ledger_path, names, payload, unseen};
+    use super::{Local, POLL, UNSEEN, WORK, ledger_path, names, payload};
 
     fn wait_s() -> u64 {
         std::env::var("WORK_ACCESS_SIGNED_WAIT_S")
@@ -758,13 +784,7 @@ mod signed {
             method: "GET",
             url: &url,
         };
-        let Some(party) = local.party_of(&token).await else {
-            assert_eq!(
-                auth.caller(presented).await,
-                Err(CallerRefusal::Unauthenticated("subject_unknown"))
-            );
-            return;
-        };
+        let party = local.party_of(&token).await;
         let caller = auth.caller(presented).await.unwrap();
         let acme = local.realm("acme");
         assert_eq!(
@@ -804,8 +824,8 @@ mod signed {
         let local = Local::open();
         let key = local.dpop();
         let token = local.token(&key).await;
-        let party = local.party_of(&token).await;
-        let (status, problem) = unseen(party.as_ref());
+        local.party_of(&token).await;
+        let (status, problem) = UNSEEN;
         let (work, changes) = ledger_path();
         let anonymous = local.send("GET", &format!("{WORK}{work}"), &[], None).await;
         assert_eq!(anonymous.status, 401, "{anonymous:?}");
@@ -839,7 +859,7 @@ mod signed {
 
     /// The golden promise's tagged `COSE_Sign1`: a record the write path decodes, so a named
     /// caller reaches the ledger check.
-    fn golden_promise() -> String {
+    pub(super) fn golden_promise() -> String {
         const COSE: &str = include_str!("../../../../conformance/vectors/records/cose-sign1.json");
         let cose: Value = serde_json::from_str(COSE).unwrap();
         let hex = cose["cases"]
@@ -865,7 +885,7 @@ mod signed {
         let local = Local::open();
         let key = local.dpop();
         let token = local.token(&key).await;
-        let party = local.party_of(&token).await;
+        local.party_of(&token).await;
         let path = format!(
             "{}/declarations",
             ledger_path().1.trim_end_matches("/changes")
@@ -901,10 +921,7 @@ mod signed {
         let answer = local
             .send("POST", &url, &named, Some(("application/json", body)))
             .await;
-        let (status, problem) = match party {
-            Some(_) => (404, "https://suiss.app/ns/work/problems/not_found"),
-            None => (401, "https://suiss.app/ns/work/problems/unauthenticated"),
-        };
+        let (status, problem) = UNSEEN;
         assert_eq!(answer.status, status, "{answer:?}");
         assert_eq!(answer.json()["type"], problem, "{answer:?}");
     }
@@ -960,10 +977,10 @@ mod signed {
 }
 
 /// Around retiring Work's platform client, the last step of the CI compose job (T-102 item 5,
-/// T-28): before it the test user is named as far as Access binds it to a Party, and once
+/// T-28): before it the test user is named by its Party, and once
 /// `api_client.disabled` arrived no caller is.
 mod retired {
-    use super::{Local, RETIRED_TOKEN, ledger_path, unseen};
+    use super::{Local, RETIRED_TOKEN, UNSEEN, ledger_path};
 
     // T-102 T-97
     #[tokio::test(flavor = "multi_thread")]
@@ -972,9 +989,9 @@ mod retired {
         let local = Local::open();
         let key = local.dpop();
         let token = local.token(&key).await;
-        let party = local.party_of(&token).await;
+        local.party_of(&token).await;
         let named = local.read(&key, &ledger_path().0, &token).await;
-        assert_eq!(named.status, unseen(party.as_ref()).0, "{named:?}");
+        assert_eq!(named.status, UNSEEN.0, "{named:?}");
         std::fs::write(local.dir.join(RETIRED_TOKEN), &token).unwrap();
     }
 
@@ -992,5 +1009,150 @@ mod retired {
             "https://suiss.app/ns/work/problems/authority_unverifiable",
             "{refused:?}"
         );
+    }
+}
+
+/// The commitment write against the real Access (E-17, P-13, WD-124, WD-125): a ledger opens in
+/// `work-server`'s cell, the CI job asks Access's `approve` tool for an allowed `work:commit`
+/// Exercise of the test user over it, and `work-server` writes the Declaration only for the
+/// intent Access approved, verified online.
+mod commit {
+    use std::collections::BTreeMap;
+    use std::time::Duration;
+
+    use access_kernel::digest::Digest as AccessDigest;
+    use access_kernel::intent::{ContextRefs, IntentEnvelope};
+    use access_kernel::model::{ActionRef, ResourceRef, Window};
+    use serde_json::{Value, json};
+    use work_access_client::domain::b64url;
+    use work_kernel::id::{Digest, LedgerId};
+    use work_kernel::rules::RuleSet;
+    use work_ledger::{GenesisInput, SystemRng, genesis};
+    use work_proto::id::ExternalId as _;
+    use work_store::{CellId, Durability, SequencerPool};
+
+    use super::{Local, WORK};
+
+    const LEDGER_FILE: &str = "commit-ledger";
+    const APPROVED_FILE: &str = "approved.json";
+    const SEQUENCER: &str = "postgres://work_sequencer:local-only-not-a-secret@127.0.0.1:5442/work";
+
+    fn ledger(local: &Local) -> String {
+        std::fs::read_to_string(local.dir.join(LEDGER_FILE))
+            .unwrap()
+            .trim()
+            .to_owned()
+    }
+
+    /// A canonical `work:commit` intent over `resource`, valid around Access's now.
+    fn intent(resource: ResourceRef, now_ms: u64) -> Vec<u8> {
+        IntentEnvelope {
+            action: ActionRef {
+                namespace: "work".to_owned(),
+                name: "commit".to_owned(),
+                major: 1,
+                schema: AccessDigest([0; 32]),
+            },
+            resources: vec![resource],
+            params: BTreeMap::new(),
+            opaque: BTreeMap::new(),
+            recipient: None,
+            purpose: None,
+            context: ContextRefs::default(),
+            validity: Window {
+                from: now_ms.saturating_sub(60_000),
+                until: now_ms.saturating_add(600_000),
+            },
+        }
+        .to_bytes()
+        .unwrap()
+    }
+
+    // P-100 OP-9 E-17
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore = "needs the local environment"]
+    async fn p_100_a_ledger_opens_in_work_server_s_cell_for_the_test_user_s_commit() {
+        let local = Local::open();
+        let pool = work_store::connect(SEQUENCER, "work-compose-test", Duration::from_secs(30))
+            .await
+            .unwrap();
+        let sequencer = SequencerPool::new(pool).await.unwrap();
+        let input = GenesisInput::fresh(
+            &SystemRng,
+            local.access_now_s().await * 1000,
+            (1, 0),
+            *RuleSet::V1_0.schema().as_bytes(),
+        )
+        .unwrap();
+        let opened = genesis(&input, Durability::SingleNode).unwrap();
+        sequencer
+            .open_ledger(&opened, &CellId::new("local").unwrap())
+            .await
+            .unwrap();
+        let id = LedgerId(Digest::sha256(*opened.ledger.as_bytes())).to_external();
+        std::fs::write(local.dir.join(LEDGER_FILE), &id).unwrap();
+    }
+
+    // E-17 P-13 T-101 T-28
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore = "needs the local environment with an Exercise the approve tool got"]
+    async fn e_17_work_server_writes_nothing_for_an_intent_access_did_not_approve() {
+        let local = Local::open();
+        let approved: Value =
+            serde_json::from_slice(&std::fs::read(local.dir.join(APPROVED_FILE)).unwrap()).unwrap();
+        assert_eq!(approved["receipt"]["verified"], true, "{approved}");
+        let exercise = approved["exercise"].as_str().unwrap();
+        let led = ledger(&local);
+        let now = local.access_now_s().await * 1000;
+        let key = local.dpop();
+        let token = local.token(&key).await;
+        let url = format!("{WORK}/v1/ledgers/{led}/declarations");
+        let tampered = intent(
+            ResourceRef {
+                namespace: "work.ledger".to_owned(),
+                path: vec![led.clone()],
+                incarnation: 0,
+            },
+            now,
+        );
+        let outside = intent(
+            ResourceRef {
+                namespace: "work".to_owned(),
+                path: vec![led.clone()],
+                incarnation: 0,
+            },
+            now,
+        );
+        for (envelope, detail) in [(tampered, "exercise-intent"), (outside, "intent_resource")] {
+            let body = serde_json::to_vec(&json!({
+                "record": super::signed::golden_promise(),
+                "authority": {"exercise": exercise, "intent": b64url(&envelope)},
+                "actor_types": {"author": "agent", "on_behalf_of": ["organization"]},
+            }))
+            .unwrap();
+            let proof = local.proof(&key, "POST", &url, None, Some(&token)).await;
+            let authorization = format!("DPoP {token}");
+            let idempotency = local.uuid7();
+            let answer = local
+                .send(
+                    "POST",
+                    &url,
+                    &[
+                        ("idempotency-key", idempotency.as_str()),
+                        ("if-match", "\"0\""),
+                        ("authorization", authorization.as_str()),
+                        ("dpop", proof.as_str()),
+                    ],
+                    Some(("application/json", body)),
+                )
+                .await;
+            assert_eq!(answer.status, 403, "{detail}: {answer:?}");
+            let problem = answer.json();
+            assert_eq!(
+                problem["type"], "https://suiss.app/ns/work/problems/access_denied",
+                "{problem}"
+            );
+            assert_eq!(problem["code_detail"], detail, "{problem}");
+        }
     }
 }

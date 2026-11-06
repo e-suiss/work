@@ -8,6 +8,7 @@ issuer_style = "path"
 realm = "acme"
 namespace = "work"
 action = "approve"
+allowed = "commit"
 
 # T-104, T-102
 [test_user]
