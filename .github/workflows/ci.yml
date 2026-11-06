@@ -538,6 +538,35 @@ jobs:
         run: |
           just test-compose-only "$RUNNER_TEMP/access-local" commit::p_100_a_ledger_opens_in_work_server_s_cell_for_the_test_user_s_commit
           just test-compose-only "$RUNNER_TEMP/access-local" commit::e_45_an_intent_that_names_no_work_ledger_writes_nothing
+      - name: Work's PEP commits the test user's work:commit intent, Access's approve tool approves Work's request with the passkey, and work-server refuses a tampered intent and a foreign capacity, then writes the AAL2 user's Declaration and keeps its receipt (E-17, E-45, P-13, P-21, P-116, T-101)
+        env:
+          NEXTEST_PROFILE: ci
+        run: |
+          c() { docker compose -f deploy/compose/compose.yaml "$@"; }
+          dir="$RUNNER_TEMP/access-local"
+          b="$dir/bootstrap.json"
+          just test-compose-only "$dir" commit::t_101_work_s_pep_commits_the_test_user_s_intent_and_access_asks_for_approval
+          read -r issuer domain party instance grant since cgrant csince < <(jq -r '.test_user as $u | [
+            (.realms[] | select(.slug == "acme") | .issuer), $u.allowed.domain, $u.party, $u.instance,
+            $u.allowed.basis.holding.grant, $u.allowed.basis.holding.since,
+            $u.allowed.contribution.basis.holding.grant, $u.allowed.contribution.basis.holding.since] | @tsv' "$b")
+          c run --rm --no-deps -T -v "$dir/commit-request.json:/tmp/commit-request.json:ro" \
+            --entrypoint access-local-client access-bootstrap approve \
+            --issuer "$issuer" --api https://access-server:8443 --ca /var/lib/access/certs/ca.crt \
+            --cert /var/lib/access/certs/pep.crt --key /var/lib/access/certs/pep.key \
+            --redirect-uri "$(jq -er '.test_user.redirect_uri' "$b")" --identifier "$(jq -er '.test_user.identifier' "$b")" \
+            --hsm-module /usr/lib/softhsm/libsofthsm2.so --hsm-token access-server \
+            --hsm-pin-file /var/lib/access/secrets/hsm-access-server \
+            --device-key access/bootstrap/test-user-device --passkey access/bootstrap/test-user-passkey \
+            --domain "$domain" --party "$party" --instance "$instance" \
+            --grant "$grant" --grant-since "$since" --contribute-grant "$cgrant" --contribute-since "$csince" \
+            --intent-json "$(jq -c '.intent' "$dir/commit-state.json")" \
+            --request /tmp/commit-request.json > "$dir/approved.json"
+          jq -e '.render_digest_verified == true and (.contribution | length > 0)' "$dir/approved.json"
+          just test-compose-only "$dir" commit::t_101_with_the_contribution_work_s_pep_gets_the_exercise_and_its_receipt
+          just test-compose-only "$dir" commit::e_17_work_server_writes_nothing_for_an_intent_access_did_not_approve
+          just test-compose-only "$dir" commit::p_13_work_server_writes_nothing_for_a_capacity_the_exercise_does_not_carry
+          just test-compose-only "$dir" commit::e_17_work_server_writes_the_declaration_access_approved_and_keeps_its_receipt
       - name: The routes that act for a caller, the declaration write among them, are mounted and ask for a DPoP token first (T-97, P-56, C-9, SEC-18, P-13)
         run: |
           c() { docker compose -f deploy/compose/compose.yaml "$@"; }
@@ -651,7 +680,7 @@ jobs:
           c restart s3
           for _ in $(seq 1 60); do lock >/dev/null 2>&1 && break; sleep 1; done
           lock | grep -q '<ObjectLockEnabled>Enabled</ObjectLockEnabled>'
-      - name: The test user's Party compromised reaches work-server, which writes no notice where no record falls in the window; once Access retires Work's client, api_client.disabled fails every caller closed; the last step, since it ends the client (T-102, T-28, SEC-36)
+      - name: The test user's Party compromised reaches work-server, which writes the notice once into the ledger of the user's record and shows its window on the record's evidence; once Access retires Work's client, api_client.disabled fails every caller closed; the last step, since it ends the client (T-102, T-28, SEC-36)
         env:
           NEXTEST_PROFILE: ci
         run: |
@@ -667,6 +696,9 @@ jobs:
           for _ in $(seq 1 180); do c logs work-server | grep 'access.party_compromised' | grep -qF -e "$user" && break; sleep 1; done
           c logs work-server | grep 'access.party_compromised' | grep -F -e "$user" | grep -q 'compromised from'
           if c logs work-server | grep -q 'access.compromise_notice_failed\|access.compromise_notices_unserved'; then c logs work-server | grep 'access.compromise_notice'; exit 1; fi
+          just test-compose-only "$RUNNER_TEMP/access-local" commit::sec_36_the_test_user_s_record_shows_the_compromise_window_of_its_party
+          c logs work-server | grep 'access.compromise_notice'
+          test "$(c logs work-server | grep -c 'access.compromise_notice_written')" = 1
           change() {
             for _ in $(seq 1 30); do
               if c run --rm --no-deps -T --entrypoint access-server access-bootstrap "$@" > "$RUNNER_TEMP/change.err" 2>&1; then return 0; fi
