@@ -40,7 +40,9 @@ pub(crate) fn realm_keys(test: &str) -> RealmKeys {
 /// Another pair of signing keys in `store` under `prefix`, with the key set of that pair alone.
 pub(crate) fn keys_in(store: &KeyStore, prefix: &str) -> (HsmSigner, HsmSigner, KeySet) {
     let es256 = store.generate_p256(&format!("{prefix}-es256")).unwrap();
-    let ed25519 = store.generate_ed25519(&format!("{prefix}-ed25519")).unwrap();
+    let ed25519 = store
+        .generate_ed25519(&format!("{prefix}-ed25519"))
+        .unwrap();
     let mut set = KeySet::default();
     for key in [es256.public_key(), ed25519.public_key()] {
         set.insert(thumbprint(&key), key).unwrap();
