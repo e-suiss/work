@@ -400,3 +400,78 @@ fn t_101_an_exercise_id_is_the_domain_and_nonce_digest() {
     assert_eq!(ExerciseId::parse(&id.text()).unwrap(), id);
     assert!(ExerciseId::parse(&b64url(&[7; 16])).is_err());
 }
+
+// T-101 E-17
+#[test]
+fn e_17_a_contribution_is_an_allowed_exercise_of_its_domain_under_its_signed_receipt() {
+    let (_, store) = token("contribution");
+    let d = domain(&store);
+    let i = intent();
+    let excerpt = d.excerpt("receipt");
+    let check = |body: &serde_json::Value, now_ms: u64| {
+        verify_contribution(
+            &d.read(),
+            body.to_string().as_bytes(),
+            &EXERCISE,
+            &d.id,
+            now_ms,
+        )
+    };
+    let surface = receipt(&d, &i, |r| r.audience = "access-identity".to_owned());
+    let got = check(&answer_json(&d, &i, &surface, &excerpt), IAT).unwrap();
+    assert_eq!(got.exercise, EXERCISE);
+    assert_eq!(got.domain, d.id);
+    assert_eq!(got.position, 12);
+    assert_eq!(got.intent, i.digest);
+    assert_eq!(got.instance, Some(KernelId([3; 16])));
+    assert_eq!(got.iat, IAT);
+    let cases: [(&str, Edit); 4] = [
+        (
+            "receipt-domain",
+            Box::new(|r: &mut Receipt| r.domain = Digest([7; 32])),
+        ),
+        (
+            "receipt-exercise",
+            Box::new(|r: &mut Receipt| r.exercise = Digest([7; 32])),
+        ),
+        (
+            "receipt-intent",
+            Box::new(|r: &mut Receipt| r.intent = Digest([7; 32])),
+        ),
+        (
+            "receipt-instance",
+            Box::new(|r: &mut Receipt| r.instance = Some(Id([4; 16]))),
+        ),
+    ];
+    for (code, edit) in cases {
+        let payload = receipt(&d, &i, |r| edit(r));
+        assert_eq!(
+            check(&answer_json(&d, &i, &payload, &excerpt), IAT),
+            Err(AccessError::Answer(code)),
+            "{code}"
+        );
+    }
+    let body = answer_json(&d, &i, &surface, &excerpt);
+    assert_eq!(
+        check(&body, IAT.saturating_sub(SKEW_MS).saturating_sub(1)),
+        Err(AccessError::Answer("receipt-future"))
+    );
+    let mut denied = body.clone();
+    denied["status"] = json!("denied");
+    assert_eq!(
+        check(&denied, IAT),
+        Err(AccessError::Answer("exercise-status"))
+    );
+    let mut other = body.clone();
+    other["exercise"] = json!(ExerciseId([7; 32]).text());
+    assert_eq!(
+        check(&other, IAT),
+        Err(AccessError::Answer("exercise-mismatch"))
+    );
+    let mut bare = body;
+    bare.as_object_mut().unwrap().remove("receipt");
+    assert_eq!(
+        check(&bare, IAT),
+        Err(AccessError::Answer("receipt-missing"))
+    );
+}

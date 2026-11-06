@@ -111,6 +111,7 @@ pub fn router_with(
             "/v1/authority-requests",
             post(authority::create_authority_request),
         )
+        .route("/v1/access/approval", get(authority::get_approval_return))
         .with_state(services);
     Router::new()
         .route("/v1/problems/{code}", get(problem_type))

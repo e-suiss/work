@@ -6,7 +6,8 @@ use serde_json::{Map, Value};
 use utoipa::OpenApi as _;
 
 use crate::authority::{
-    ApprovalAnswer, AuthorityDecision, BasisInput, HoldingInput, NewAuthorityRequest, ProofInput,
+    ApprovalAnswer, ApprovalReturned, AuthorityDecision, BasisInput, HoldingInput,
+    NewAuthorityRequest, ProofInput,
 };
 use crate::problem::{FieldError, Problem, ProblemCode, ProblemType};
 use crate::reads::{
@@ -48,7 +49,8 @@ fn security_scheme() -> Value {
         crate::reads::list_changes,
         crate::reads::get_record_evidence,
         crate::writes::create_declaration,
-        crate::authority::create_authority_request
+        crate::authority::create_authority_request,
+        crate::authority::get_approval_return
     ),
     components(schemas(
         Problem,
@@ -75,7 +77,8 @@ fn security_scheme() -> Value {
         HoldingInput,
         ProofInput,
         AuthorityDecision,
-        ApprovalAnswer
+        ApprovalAnswer,
+        ApprovalReturned
     ))
 )]
 struct Api;

@@ -6,7 +6,7 @@ use std::pin::Pin;
 use work_kernel::id::{LedgerId, RecordId, WorkId};
 use work_proto::id::{Cursor, PositionToken};
 
-use crate::domain::authority::{AuthorityAnswer, AuthorityAsk};
+use crate::domain::authority::{ApprovalReturned, AuthorityAnswer, AuthorityAsk};
 use crate::domain::caller::{Caller, CallerRefusal, Presented};
 use crate::domain::reads::{Changes, Evidence, ReadRefusal, WorkView};
 use crate::domain::writes::{DeclarationRequest, WriteRefusal, Written};
@@ -72,6 +72,14 @@ pub trait AuthorityRequests: Send + Sync {
         ledger: &'a LedgerId,
         ask: &'a AuthorityAsk,
     ) -> Pending<'a, Result<AuthorityAnswer, WriteRefusal>>;
+
+    /// Reads the redirect `query` the Approval Surface sent back for `caller` (T-101 item 7): the
+    /// `state` Work issued, used once, and the contribution Exercise Access confirms.
+    fn approval<'a>(
+        &'a self,
+        caller: &'a Caller,
+        query: &'a str,
+    ) -> Pending<'a, Result<ApprovalReturned, WriteRefusal>>;
 }
 
 /// The writer of the ledgers this process leads (OP-31, OP-41).

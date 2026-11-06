@@ -1,4 +1,6 @@
-use work_store::{AccessPool, Pairing, RealmState, StoreError, StreamState};
+use work_store::{
+    AccessPool, ApprovalStateRow, NewApprovalState, Pairing, RealmState, StoreError, StreamState,
+};
 
 use crate::env::{Env, fails};
 
@@ -295,4 +297,99 @@ async fn t_103_the_stream_row_is_recorded_and_never_goes_back() {
         Some("23514"),
     )
     .await;
+}
+
+// T-101 E-17 Access OP-73
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs Docker"]
+async fn e_17_an_approval_state_is_issued_once_used_once_and_never_deleted() {
+    let env = Env::start().await;
+    let access = pool(&env).await;
+    let state: String = std::iter::repeat_n('s', 43).collect();
+    let issued = NewApprovalState {
+        state: &state,
+        tenant: TENANT,
+        party: [1; 16],
+        digest: [2; 32],
+        ledger: [3; 32],
+        issued_at_ms: T0,
+        expires_at_ms: at(100),
+    };
+    assert!(access.issue_approval_state(&issued).await.unwrap());
+    assert!(
+        !access
+            .issue_approval_state(&NewApprovalState {
+                party: [9; 16],
+                ..issued
+            })
+            .await
+            .unwrap()
+    );
+    let row = access.approval_state(&state).await.unwrap().unwrap();
+    assert_eq!(
+        row,
+        ApprovalStateRow {
+            state: state.clone(),
+            tenant: TENANT.to_owned(),
+            party: [1; 16],
+            digest: [2; 32],
+            ledger: [3; 32],
+            issued_at_ms: T0,
+            expires_at_ms: at(100),
+            used_at_ms: None,
+        }
+    );
+    assert_eq!(access.approval_state(&"u".repeat(43)).await.unwrap(), None);
+    assert!(!access.use_approval_state(&state, at(101)).await.unwrap());
+    assert!(access.use_approval_state(&state, at(10)).await.unwrap());
+    assert!(!access.use_approval_state(&state, at(11)).await.unwrap());
+    assert_eq!(
+        access
+            .approval_state(&state)
+            .await
+            .unwrap()
+            .unwrap()
+            .used_at_ms,
+        Some(at(10))
+    );
+    let writer = env.canonical("work_access");
+    for (sql, code) in [
+        (
+            "UPDATE work.approval_state SET used_at = NULL",
+            Some("23514"),
+        ),
+        (
+            "UPDATE work.approval_state SET used_at = now()",
+            Some("23514"),
+        ),
+        (
+            "UPDATE work.approval_state SET party = decode(repeat('09', 16), 'hex')",
+            Some("42501"),
+        ),
+        ("DELETE FROM work.approval_state", Some("42501")),
+        ("TRUNCATE work.approval_state", Some("42501")),
+        (
+            "INSERT INTO work.approval_state (state, tenant, party, digest, ledger, issued_at, expires_at, used_at) \
+             VALUES (repeat('t', 43), 'tnt_01HZ', decode(repeat('01', 16), 'hex'), decode(repeat('02', 32), 'hex'), \
+                     decode(repeat('03', 32), 'hex'), now(), now(), now())",
+            Some("23514"),
+        ),
+        (
+            "INSERT INTO work.approval_state (state, tenant, party, digest, ledger, issued_at, expires_at) \
+             VALUES ('short', 'tnt_01HZ', decode(repeat('01', 16), 'hex'), decode(repeat('02', 32), 'hex'), \
+                     decode(repeat('03', 32), 'hex'), now(), now())",
+            Some("23514"),
+        ),
+    ] {
+        fails(&writer, "", &[sql], code).await;
+    }
+    for role in ["work_app", "work_sequencer", "work_erasure"] {
+        fails(
+            &env.canonical(role),
+            "",
+            &["SELECT count(*) FROM work.approval_state"],
+            Some("42501"),
+        )
+        .await;
+    }
 }

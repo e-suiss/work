@@ -251,10 +251,19 @@ fn kernel_id(text: &str, code: &'static str) -> Result<KernelId, AccessError> {
 }
 
 fn named(exercise: &str, domain: &str, expected: &Expected<'_>) -> Result<(), AccessError> {
-    if ExerciseId::parse(exercise).ok() != Some(*expected.exercise) {
+    named_as(exercise, domain, expected.exercise, expected.domain)
+}
+
+fn named_as(
+    exercise: &str,
+    domain: &str,
+    asked: &ExerciseId,
+    asked_domain: &DomainId,
+) -> Result<(), AccessError> {
+    if ExerciseId::parse(exercise).ok() != Some(*asked) {
         return Err(answer("exercise-mismatch"));
     }
-    if DomainId::parse(domain).ok() != Some(*expected.domain) {
+    if DomainId::parse(domain).ok() != Some(*asked_domain) {
         return Err(answer("exercise-domain"));
     }
     Ok(())
@@ -265,6 +274,31 @@ fn verify_receipt(
     metadata: &DomainMetadata,
     wire: &ReceiptWire,
     expected: &Expected<'_>,
+) -> Result<(Receipt, Vec<u8>, Vec<u8>), AccessError> {
+    let (r, sign1, excerpt) = signed_receipt(
+        metadata,
+        wire,
+        expected.exercise,
+        expected.domain,
+        expected.now_ms,
+    )?;
+    if r.intent.0 != expected.intent.digest {
+        return Err(answer("receipt-intent"));
+    }
+    if r.audience != expected.audience {
+        return Err(answer("receipt-audience"));
+    }
+    Ok((r, sign1, excerpt))
+}
+
+/// The receipt of an answer, signed under the domain key its excerpt binds to `metadata`, for
+/// the asked Exercise and domain and not after `now_ms`.
+fn signed_receipt(
+    metadata: &DomainMetadata,
+    wire: &ReceiptWire,
+    exercise: &ExerciseId,
+    domain: &DomainId,
+    now_ms: u64,
 ) -> Result<(Receipt, Vec<u8>, Vec<u8>), AccessError> {
     let (Some(sign1), Some(excerpt)) = (&wire.cose_sign1, &wire.key_excerpt) else {
         return Err(answer("receipt-missing"));
@@ -277,7 +311,7 @@ fn verify_receipt(
     let claimed = Receipt::from_bytes(&unverified).map_err(|_| answer("receipt-malformed"))?;
     let key = operational_key(
         metadata,
-        &expected.domain.0,
+        &domain.0,
         &excerpt,
         KeyUsage::Receipt,
         claimed.iat,
@@ -289,22 +323,86 @@ fn verify_receipt(
         return Err(answer("receipt-payload"));
     }
     let r = Receipt::from_bytes(&verified.payload).map_err(|_| answer("receipt-malformed"))?;
-    if r.domain.0 != expected.domain.0 || metadata.domain != expected.domain.0 {
+    if r.domain.0 != domain.0 || metadata.domain != domain.0 {
         return Err(answer("receipt-domain"));
     }
-    if r.exercise.0 != expected.exercise.0 {
+    if r.exercise.0 != exercise.0 {
         return Err(answer("receipt-exercise"));
     }
-    if r.intent.0 != expected.intent.digest {
-        return Err(answer("receipt-intent"));
-    }
-    if r.audience != expected.audience {
-        return Err(answer("receipt-audience"));
-    }
-    if r.iat > expected.now_ms.saturating_add(SKEW_MS) {
+    if r.iat > now_ms.saturating_add(SKEW_MS) {
         return Err(answer("receipt-future"));
     }
     Ok((r, sign1, excerpt))
+}
+
+/// A contribution Exercise an approver made on Access's Approval Surface, as the Exercise query
+/// answers it: what the approval return hands back as a proof of the next commit.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct VerifiedContribution {
+    /// The contribution Exercise.
+    pub exercise: ExerciseId,
+    /// Its domain.
+    pub domain: DomainId,
+    /// The ledger position of its decision record.
+    pub position: u64,
+    /// The intent digest of the contribution.
+    pub intent: [u8; 32],
+    /// The approver's Instance, absent for an anonymous approver.
+    pub instance: Option<KernelId>,
+    /// The receipt's trusted time, Unix milliseconds.
+    pub iat: u64,
+}
+
+/// Verifies an `exercise` answer for a contribution Exercise (T-101 item 7, E-17; Access
+/// §9.14.1 step 4): it names the asked Exercise and domain, is `allowed`, and carries its
+/// decision receipt signed under the domain's receipt key for the same Exercise, domain, intent
+/// and Instance and not after `now_ms`. The surface commits a contribution over Access's own
+/// PEP, so its receipt is not addressed to Work's; Work does not act on a contribution, it only
+/// hands it back to Access's decision point as the proof of the next commit, and Access decides
+/// what it proves.
+///
+/// # Errors
+/// [`AccessError::Answer`]: `exercise` for a body outside the schema, `exercise-mismatch`,
+/// `exercise-domain`, `exercise-status`, `receipt-missing`, `receipt-intent`,
+/// `receipt-instance`, and the `receipt-*` code of the receipt check that fails.
+pub fn verify_contribution(
+    metadata: &DomainMetadata,
+    body: &[u8],
+    exercise: &ExerciseId,
+    domain: &DomainId,
+    now_ms: u64,
+) -> Result<VerifiedContribution, AccessError> {
+    let wire: ExerciseWire = serde_json::from_slice(body).map_err(|_| answer("exercise"))?;
+    named_as(&wire.exercise, &wire.domain, exercise, domain)?;
+    if wire.status != "allowed" {
+        return Err(answer("exercise-status"));
+    }
+    let intent = fixed_b64url::<32>(&wire.intent).map_err(|_| answer("exercise"))?;
+    let position = wire.position.parse().map_err(|_| answer("exercise"))?;
+    let instance = wire
+        .instance
+        .as_deref()
+        .map(|i| kernel_id(i, "exercise"))
+        .transpose()?;
+    let receipt = wire
+        .receipt
+        .as_ref()
+        .ok_or_else(|| answer("receipt-missing"))?;
+    let (r, _, _) = signed_receipt(metadata, receipt, exercise, domain, now_ms)?;
+    if r.intent.0 != intent {
+        return Err(answer("receipt-intent"));
+    }
+    if r.instance.map(|i| KernelId(i.0)) != instance {
+        return Err(answer("receipt-instance"));
+    }
+    Ok(VerifiedContribution {
+        exercise: *exercise,
+        domain: *domain,
+        position,
+        intent,
+        instance,
+        iat: r.iat,
+    })
 }
 
 fn verified(

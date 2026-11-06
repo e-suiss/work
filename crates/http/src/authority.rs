@@ -1,4 +1,4 @@
-//! The authority request route (T-101 item 2 and its note, E-7, E-17, E-45, P-13, P-116 item 6, T-28): a named caller hands Work's PEP the canonical `work:commit` intent, the nonce, the holding basis and the Actor Intent Statement its own device Instance signed, and Work answers what Access decided: the allowed Exercise with its verified decision receipt, which the Declaration write then refers to, or a `REQUIRE_ACTION` with the step-up Access names, the typed authority request and, once the approver's contribution came with it, the Approval Surface URL. The route writes nothing in Work, approves nothing and signs nothing for the caller.
+//! The authority request route (T-101 item 2 and its note, E-7, E-17, E-45, P-13, P-116 item 6, T-28): a named caller hands Work's PEP the canonical `work:commit` intent, the nonce, the holding basis and the Actor Intent Statement its own device Instance signed, and Work answers what Access decided: the allowed Exercise with its verified decision receipt, which the Declaration write then refers to, or a `REQUIRE_ACTION` with the step-up Access names, the typed authority request and, once the approver's contribution came with it, the Approval Surface URL. The route writes nothing in Work, approves nothing and signs nothing for the caller. `GET /v1/access/approval` is the `redirect_uri` Work registers: it reads the return from the Approval Surface with the caller's token, uses the single-use `state` Work issued, confirms the contribution with Access and hands it back as the proof of the next authority request.
 
 use std::sync::Arc;
 
@@ -128,6 +128,37 @@ pub struct AuthorityDecision {
     pub approval: Option<ApprovalAnswer>,
 }
 
+/// The answer's `next` once an approval returned: a new authority request with the contribution
+/// as its proof.
+pub const COMMIT: &str = "commit";
+
+/// What the approval return hands back.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, ToSchema)]
+pub struct ApprovalReturned {
+    /// The ledger, `led_…`, the next authority request names.
+    pub ledger: String,
+    /// The contribution `ExerciseID` Access confirmed, unpadded base64url of 32 bytes; the next
+    /// authority request sends it as `proofs[].contribution`.
+    pub contribution: String,
+    /// The digest of the render the approver approved, unpadded base64url of 32 bytes; the
+    /// caller compares it with the render it computes itself.
+    pub render_digest: String,
+    /// What the caller does next: `commit`, a new authority request with the contribution as
+    /// its proof, whose allowed Exercise the Declaration write then refers to.
+    pub next: String,
+}
+
+/// The answer's body for an approval return.
+#[must_use]
+pub fn returned(back: &work_query::domain::authority::ApprovalReturned) -> ApprovalReturned {
+    ApprovalReturned {
+        ledger: back.ledger.to_external(),
+        contribution: back.contribution.text(),
+        render_digest: base64url_text(&back.render_digest),
+        next: COMMIT.to_owned(),
+    }
+}
+
 fn invalid(code: &str) -> Box<Problem> {
     Box::new(Problem::new(ProblemCode::InvalidRequest).with_code_detail(code))
 }
@@ -214,7 +245,7 @@ pub fn decision(answer: AuthorityAnswer) -> AuthorityDecision {
     }
 }
 
-fn answered(body: &AuthorityDecision) -> Response {
+fn answered(body: &impl Serialize) -> Response {
     let json = HeaderValue::from_static("application/json");
     (
         StatusCode::OK,
@@ -313,6 +344,88 @@ pub async fn create_authority_request(
     };
     match services.authorities.request(&caller, &ledger, &ask).await {
         Ok(answer) => answered(&decision(answer)),
+        Err(refused) => write_problem(refused).into_response(),
+    }
+}
+
+/// Reads the return from Access's Approval Surface.
+///
+/// The `redirect_uri` Work sends to the Approval Surface. Access puts the contribution Exercise,
+/// the render digest and Work's `state` on the redirect; the caller's client hands the query to
+/// this route with its own token. The `state` must be the one Work issued for this caller's
+/// pushed request, unused and unexpired, and is used up by an answer; the contribution must be
+/// an Exercise Access allowed in the caller's realm's domain, asked of Access now. The answer is
+/// the contribution the caller sends as the proof of its next authority request, whose allowed
+/// Exercise the Declaration write refers to. Work approves nothing here.
+#[utoipa::path(
+    get,
+    path = "/v1/access/approval",
+    operation_id = "get_approval_return",
+    tag = "authority",
+    params(
+        ("exercise" = String, Query, description = "The contribution `ExerciseID` Access put on the redirect, unpadded base64url of 32 bytes."),
+        ("render_digest" = String, Query, description = "The digest of the render the approver approved, unpadded base64url of 32 bytes."),
+        ("state" = String, Query, description = "The `state` Work sent with the pushed request.")
+    ),
+    responses(
+        (status = 200, description = "The contribution Access confirmed, for the next authority request.", body = ApprovalReturned, headers(
+            ("Request-Id" = String, description = "The request, `<trace id>-<span id>`."),
+            ("RateLimit-Policy" = String, description = "The quota policy."),
+            ("RateLimit" = String, description = "What is left of the quota.")
+        )),
+        (status = 400, description = "A query without exactly one exercise, render_digest and state.", body = Problem,
+            content_type = "application/problem+json", headers(
+            ("Request-Id" = String, description = "The request, `<trace id>-<span id>`."),
+            ("RateLimit-Policy" = String, description = "The quota policy."),
+            ("RateLimit" = String, description = "What is left of the quota.")
+        )),
+        (status = 401, description = "No valid Access access token and DPoP proof.", body = Problem,
+            content_type = "application/problem+json", headers(
+            ("WWW-Authenticate" = String, description = "The DPoP challenge."),
+            ("Request-Id" = String, description = "The request, `<trace id>-<span id>`."),
+            ("RateLimit-Policy" = String, description = "The quota policy."),
+            ("RateLimit" = String, description = "What is left of the quota.")
+        )),
+        (status = 403, description = "A state Work did not issue to this caller, used or expired, or a contribution Access did not allow.", body = Problem,
+            content_type = "application/problem+json", headers(
+            ("Request-Id" = String, description = "The request, `<trace id>-<span id>`."),
+            ("RateLimit-Policy" = String, description = "The quota policy."),
+            ("RateLimit" = String, description = "What is left of the quota.")
+        )),
+        (status = 429, description = "The caller has spent its quota.", body = Problem,
+            content_type = "application/problem+json", headers(
+            ("Request-Id" = String, description = "The request, `<trace id>-<span id>`."),
+            ("RateLimit-Policy" = String, description = "The quota policy."),
+            ("RateLimit" = String, description = "What is left of the quota."),
+            ("Retry-After" = String, description = "Seconds until the next window.")
+        )),
+        (status = 503, description = "Access cannot be reached or its answer cannot be verified; send the same request again.", body = Problem,
+            content_type = "application/problem+json", headers(
+            ("Request-Id" = String, description = "The request, `<trace id>-<span id>`."),
+            ("RateLimit-Policy" = String, description = "The quota policy."),
+            ("RateLimit" = String, description = "What is left of the quota.")
+        ))
+    ),
+    security(("access_token" = [])),
+    extensions(("x-work-action" = json!("work:commit")))
+)]
+#[allow(
+    clippy::needless_pass_by_value,
+    reason = "axum hands extractors over by value"
+)]
+pub async fn get_approval_return(
+    State(services): State<Arc<ApiServices>>,
+    method: Method,
+    uri: Uri,
+    headers: HeaderMap,
+) -> Response {
+    let caller = match caller_of(&services, &method, &uri, &headers).await {
+        Ok(caller) => caller,
+        Err(refused) => return *refused,
+    };
+    let query = uri.query().unwrap_or_default();
+    match services.authorities.approval(&caller, query).await {
+        Ok(back) => answered(&returned(&back)),
         Err(refused) => write_problem(refused).into_response(),
     }
 }
@@ -418,5 +531,39 @@ mod tests {
         let denied = write_problem(WriteRefusal::Denied("no-covering-authority"));
         assert_eq!(denied.code, ProblemCode::AccessDenied);
         assert_eq!(denied.code_detail.as_deref(), Some("no-covering-authority"));
+    }
+
+    // T-101 E-17
+    #[test]
+    fn e_17_an_approval_return_hands_back_the_contribution_as_the_next_commit_s_proof() {
+        let back = work_query::domain::authority::ApprovalReturned {
+            ledger: LedgerId::parse_external(LEDGER).unwrap(),
+            contribution: ExerciseId([0xc1; 32]),
+            render_digest: [7; 32],
+        };
+        let v = serde_json::to_value(returned(&back)).unwrap();
+        assert_eq!(
+            v,
+            json!({
+                "ledger": LEDGER,
+                "contribution": "wcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcE",
+                "render_digest": "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
+                "next": COMMIT,
+            })
+        );
+        for code in [
+            "state_unknown",
+            "state_caller",
+            "state_used",
+            "state_expired",
+        ] {
+            let p = write_problem(WriteRefusal::Denied(code));
+            assert_eq!(p.code, ProblemCode::AccessDenied);
+            assert_eq!(p.code_detail.as_deref(), Some(code));
+        }
+        assert_eq!(
+            write_problem(WriteRefusal::Invalid("state")).code,
+            ProblemCode::InvalidRequest
+        );
     }
 }

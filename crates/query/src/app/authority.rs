@@ -1,4 +1,4 @@
-//! The authority request of a `work:commit` (T-101 item 2 and its note, E-7, E-17, P-13, P-116 item 6, T-28): Work's PEP commits the caller's intent at Access's decision point over its certificate, only after it checked that the intent is the `work:commit` of an existing ledger valid now and that the caller's own device Instance stated exactly that commit to Work's PEP in the caller's realm's governing domain. An allowed Exercise is returned only with its decision receipt verified for the intent and addressed to Work's PEP; a `REQUIRE_ACTION` is returned with the step-up Access names and, when Access asks for an approval, with the typed authority request and, given the approver's pre-signed contribution, the Approval Surface URL of the pushed request. Work approves nothing on the caller's behalf. When Access cannot answer, nothing is returned as authority (fail-closed).
+//! The authority request of a `work:commit` (T-101 item 2 and its note, E-7, E-17, P-13, P-116 item 6, T-28): Work's PEP commits the caller's intent at Access's decision point over its certificate, only after it checked that the intent is the `work:commit` of an existing ledger valid now and that the caller's own device Instance stated exactly that commit to Work's PEP in the caller's realm's governing domain. An allowed Exercise is returned only with its decision receipt verified for the intent and addressed to Work's PEP; a `REQUIRE_ACTION` is returned with the step-up Access names and, when Access asks for an approval, with the typed authority request and, given the approver's pre-signed contribution, the Approval Surface URL of the pushed request. Work approves nothing on the caller's behalf. A push issues a single-use `state` bound to the caller's Party and the pushed request's digest; the approval return uses it once, confirms the contribution Exercise with Access and hands it back as the proof of the next commit. When Access cannot answer, nothing is returned as authority (fail-closed).
 
 use std::sync::Arc;
 
@@ -8,17 +8,20 @@ use work_access_client::domain::adp::{
     AuthorityRequest, Decision, Evaluation, Statement, denial_code, needs_approval, step_up,
     valid_reason,
 };
-use work_access_client::domain::approval::{ApprovalRequest, State as ApprovalState};
+use work_access_client::domain::approval::{
+    ApprovalRequest, ApprovalReturn, State as ApprovalState,
+};
 use work_access_client::domain::b64url;
 use work_access_client::domain::discovery::Issuer;
 use work_access_client::domain::exercise::{Capacity, Intent};
 use work_access_client::ports::{Clock, Transport};
-use work_kernel::id::LedgerId;
-use work_store::{AccessPool, LedgerTx, Pool};
+use work_kernel::id::{Digest, LedgerId};
+use work_store::{AccessPool, LedgerTx, NewApprovalState, Pool};
 
 use crate::app::writes::{bounded, caller_realm, store_ledger, unverifiable};
 use crate::domain::authority::{
-    Approval, AuthorityAnswer, AuthorityAsk, approval_state, expires_at, forwarded_key,
+    Approval, ApprovalReturned, AuthorityAnswer, AuthorityAsk, IssuedState, approval_state,
+    expires_at, forwarded_key, state_refusal,
 };
 use crate::domain::caller::Caller;
 use crate::domain::writes::{WriteRefusal, check_intent};
@@ -102,11 +105,11 @@ where
     async fn push(
         &self,
         caller: &Caller,
-        party: &str,
+        pushing: &Pushing<'_>,
         request: &serde_json::Value,
         contribution: &serde_json::Value,
-        key: &str,
     ) -> Result<Approval, WriteRefusal> {
+        let party = pushing.party;
         let realm = Issuer::parse(&caller.issuer)
             .map_err(|_| WriteRefusal::Unverifiable("access_answer"))?;
         if !contribution.is_object() {
@@ -116,12 +119,25 @@ where
             &realm,
             request,
             contribution,
-            &forwarded_key("push", party, key),
+            &forwarded_key("push", party, pushing.key),
         ))
         .await
         .map_err(|e| refused_call(&e, "approval_refused"))?;
-        let state = ApprovalState::new(&approval_state(party, &pushed.digest))
-            .map_err(|_| WriteRefusal::Unverifiable("access_answer"))?;
+        let text = approval_state(party, &pushed.digest);
+        let state =
+            ApprovalState::new(&text).map_err(|_| WriteRefusal::Unverifiable("access_answer"))?;
+        self.realms
+            .issue_approval_state(&NewApprovalState {
+                state: &text,
+                tenant: caller.tenant.as_str(),
+                party: caller.party_id,
+                digest: pushed.digest,
+                ledger: *pushing.ledger.0.as_bytes(),
+                issued_at_ms: pushing.now_ms,
+                expires_at_ms: pushing.expires_at_ms,
+            })
+            .await
+            .map_err(|_| WriteRefusal::NotRecorded)?;
         let url = bounded(self.access.approval_url(
             &realm,
             &ApprovalRequest::Pushed(pushed.request_uri.clone()),
@@ -156,6 +172,7 @@ where
         let now_ms = self.access.now_ms();
         let intent =
             Intent::from_bytes(&ask.intent).map_err(|_| WriteRefusal::Invalid("intent"))?;
+        let request_expires_at_ms = expires_at(now_ms, intent.valid_until_ms);
         check_intent(&intent, ledger, now_ms).map_err(WriteRefusal::Denied)?;
         self.exists(ledger).await?;
         let (domain, _) = caller_realm(&self.realms, caller).await?;
@@ -205,7 +222,7 @@ where
                             intent: &ask.intent,
                             statement,
                             reason: &ask.reason,
-                            expires_at_ms: expires_at(now_ms, intent.valid_until_ms),
+                            expires_at_ms: request_expires_at_ms,
                         }
                         .json()
                         .map_err(|_| WriteRefusal::Invalid("reason"))?,
@@ -214,10 +231,16 @@ where
                     None
                 };
                 let approval = match (&request, &ask.contribution) {
-                    (Some(r), Some(c)) => Some(
-                        self.push(caller, &party, r, c, &ask.idempotency_key)
-                            .await?,
-                    ),
+                    (Some(r), Some(c)) => {
+                        let pushing = Pushing {
+                            party: &party,
+                            key: &ask.idempotency_key,
+                            ledger,
+                            now_ms,
+                            expires_at_ms: request_expires_at_ms,
+                        };
+                        Some(self.push(caller, &pushing, r, c).await?)
+                    }
                     _ => None,
                 };
                 Ok(AuthorityAnswer::RequireAction {
@@ -229,6 +252,64 @@ where
             }
         }
     }
+
+    async fn returned(
+        &self,
+        caller: &Caller,
+        query: &str,
+    ) -> Result<ApprovalReturned, WriteRefusal> {
+        let invalid = |e: AccessError| match e {
+            AccessError::Answer(code) => WriteRefusal::Invalid(code),
+            _ => WriteRefusal::Invalid("query"),
+        };
+        let state = ApprovalReturn::state(query).map_err(invalid)?;
+        let back = ApprovalReturn::parse(query, &state).map_err(invalid)?;
+        let row = self
+            .realms
+            .approval_state(state.as_str())
+            .await
+            .map_err(|_| WriteRefusal::NotRecorded)?
+            .ok_or(WriteRefusal::Denied("state_unknown"))?;
+        if row.tenant != caller.tenant.as_str() {
+            return Err(WriteRefusal::Denied("state_caller"));
+        }
+        let issued = IssuedState {
+            state: &row.state,
+            party: row.party,
+            digest: &row.digest,
+            expires_at_ms: row.expires_at_ms,
+            used: row.used_at_ms.is_some(),
+        };
+        if let Some(code) = state_refusal(&issued, caller.party_id, self.access.now_ms()) {
+            return Err(WriteRefusal::Denied(code));
+        }
+        let (domain, _) = caller_realm(&self.realms, caller).await?;
+        let contribution = bounded(self.access.contribution(domain, &back.exercise))
+            .await
+            .map_err(|e| exercise_refusal(&e))?;
+        let used = self
+            .realms
+            .use_approval_state(state.as_str(), self.access.now_ms())
+            .await
+            .map_err(|_| WriteRefusal::NotRecorded)?;
+        if !used {
+            return Err(WriteRefusal::Denied("state_used"));
+        }
+        Ok(ApprovalReturned {
+            ledger: LedgerId(Digest::sha256(row.ledger)),
+            contribution: contribution.exercise,
+            render_digest: back.render_digest,
+        })
+    }
+}
+
+/// What a push records with the `state` it issues.
+struct Pushing<'a> {
+    party: &'a str,
+    key: &'a str,
+    ledger: &'a LedgerId,
+    now_ms: u64,
+    expires_at_ms: u64,
 }
 
 impl<T, C> AuthorityRequests for Authorities<T, C>
@@ -243,5 +324,13 @@ where
         ask: &'a AuthorityAsk,
     ) -> Pending<'a, Result<AuthorityAnswer, WriteRefusal>> {
         Box::pin(self.ask(caller, ledger, ask))
+    }
+
+    fn approval<'a>(
+        &'a self,
+        caller: &'a Caller,
+        query: &'a str,
+    ) -> Pending<'a, Result<ApprovalReturned, WriteRefusal>> {
+        Box::pin(self.returned(caller, query))
     }
 }

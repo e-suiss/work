@@ -22,8 +22,8 @@ use crate::domain::discovery::{
 };
 use crate::domain::eligibility::{Eligibility, EligibilityRequest};
 use crate::domain::exercise::{
-    ExerciseId, Expected, Intent, VerifiedExercise, verify_agency, verify_decision_receipt,
-    verify_exercise,
+    ExerciseId, Expected, Intent, VerifiedContribution, VerifiedExercise, verify_agency,
+    verify_contribution, verify_decision_receipt, verify_exercise,
 };
 use crate::domain::keys::{
     ACCEPT_COSE, ActorKind, AsOf, DomainId, EXCERPT_HEADER, KernelId, KeyAnswer, Kid, MAX_KIDS,
@@ -637,6 +637,26 @@ impl<T: Transport, C: Clock> Client<T, C> {
             now_ms: self.clock.now_ms(),
         };
         verify_exercise(&metadata, &body, &expected)
+    }
+
+    /// The contribution Exercise `exercise` of `domain` an approver made on Access's Approval
+    /// Surface, asked of Access every time and never cached, used only when it is allowed and
+    /// its decision receipt verifies under the domain's receipt key (T-101 item 7, E-17).
+    ///
+    /// # Errors
+    /// [`AccessError::Refused`] with `404` for an Exercise Access never allowed,
+    /// [`AccessError::Answer`] for an answer [`verify_contribution`] does not accept, and every
+    /// error that keeps a consequential action from Access.
+    pub async fn contribution(
+        &self,
+        domain: DomainId,
+        exercise: &ExerciseId,
+    ) -> Result<VerifiedContribution, AccessError> {
+        let body = self
+            .exercise_answer(domain, exercise, Endpoint::Exercise)
+            .await?;
+        let (metadata, _) = self.metadata(domain).await?;
+        verify_contribution(&metadata, &body, exercise, &domain, self.clock.now_ms())
     }
 
     /// The agency chain of the Exercise `exercise` of `domain`, asked and verified as

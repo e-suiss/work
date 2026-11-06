@@ -6,6 +6,7 @@
 //! of the workspace lives in this crate.
 
 mod access;
+mod approval;
 mod archive;
 mod body;
 mod checkpoint;
@@ -30,6 +31,7 @@ mod skeleton;
 mod witness;
 
 pub use access::{ACCESS_ROLE, AccessPool, Pairing, RealmRow, RealmState, StreamRow, StreamState};
+pub use approval::{ApprovalStateRow, NewApprovalState};
 pub use archive::{ARCHIVE_ROLE, ARCHIVED_TABLES, ArchivePool, ArchiveRecord, PartitionSlice};
 pub use body::{
     BodyPartRow, DekRow, ERASURE_ROLE, Erased, ErasureCause, ErasurePool, ErasureRow, ErasureState,

@@ -65,20 +65,44 @@ impl std::fmt::Debug for State {
     }
 }
 
+/// Whether `uri` is a redirect Access registers: an `https` URL, or an `http` URL of a loopback
+/// address (RFC 8252 section 7.3), with a host and without a fragment.
+#[must_use]
+pub fn redirect_target(uri: &str) -> bool {
+    let authority = |rest: &str| {
+        let end = rest.find(['/', '?']).unwrap_or(rest.len());
+        rest.get(..end).unwrap_or_default().to_owned()
+    };
+    if uri.contains('#') || uri.contains('@') {
+        return false;
+    }
+    if let Some(rest) = uri.strip_prefix("https://") {
+        return !authority(rest).is_empty();
+    }
+    uri.strip_prefix("http://").is_some_and(|rest| {
+        let a = authority(rest);
+        let host = if a.ends_with(']') {
+            a.as_str()
+        } else {
+            a.rsplit_once(':').map_or(a.as_str(), |(h, _)| h)
+        };
+        matches!(host, "127.0.0.1" | "[::1]")
+    })
+}
+
 /// The Approval Surface URL for `request`, `redirect_uri` and `state`, below the `approval`
 /// endpoint discovery publishes.
 ///
 /// # Errors
-/// [`AccessError::Answer`] (`redirect_uri`) for a redirect that is not an `https` URL without a
-/// fragment, (`request`) for a pushed request whose URI is not a `request_uri`.
+/// [`AccessError::Answer`] (`redirect_uri`) for a redirect that is not a [`redirect_target`],
+/// (`request`) for a pushed request whose URI is not a `request_uri`.
 pub fn approval_url(
     endpoint: &Template,
     request: &ApprovalRequest,
     redirect_uri: &str,
     state: &State,
 ) -> Result<String, AccessError> {
-    let host = redirect_uri.strip_prefix("https://").unwrap_or_default();
-    if host.is_empty() || redirect_uri.contains('#') {
+    if !redirect_target(redirect_uri) {
         return Err(AccessError::Answer("redirect_uri"));
     }
     if let ApprovalRequest::Pushed(uri) = request
@@ -125,6 +149,26 @@ fn unpercent(text: &str) -> Option<String> {
 }
 
 impl ApprovalReturn {
+    /// The `state` the query of the redirect carries, exactly once, to look up the one Work sent.
+    ///
+    /// # Errors
+    /// [`AccessError::Answer`]: `state` for a missing, repeated or malformed `state`, `query`
+    /// for a value that does not decode.
+    pub fn state(query: &str) -> Result<State, AccessError> {
+        let mut found = None;
+        for pair in query.split('&').filter(|p| !p.is_empty()) {
+            let (name, value) = pair.split_once('=').unwrap_or((pair, ""));
+            if name != "state" {
+                continue;
+            }
+            let value = unpercent(value).ok_or(AccessError::Answer("query"))?;
+            if found.replace(value).is_some() {
+                return Err(AccessError::Answer("state"));
+            }
+        }
+        State::new(&found.ok_or(AccessError::Answer("state"))?)
+    }
+
     /// Reads the query of the redirect: exactly one `exercise`, `render_digest` and `state`,
     /// whose `state` is the one Work sent.
     ///
@@ -252,12 +296,24 @@ mod tests {
             approval_url(&endpoint(), &bare, "https://w.example/r", &state),
             Err(AccessError::Answer("request"))
         );
-        for redirect in ["http://w.example/r", "https://", "https://w.example/r#f"] {
+        for redirect in [
+            "http://w.example/r",
+            "http://127.0.0.2:8190/r",
+            "http://127.0.0.1@w.example/r",
+            "https://",
+            "https://w.example/r#f",
+        ] {
             assert_eq!(
                 approval_url(&endpoint(), &pushed, redirect, &state),
                 Err(AccessError::Answer("redirect_uri")),
                 "{redirect}"
             );
+        }
+        for loopback in [
+            "http://127.0.0.1:8190/v1/access/approval",
+            "http://[::1]/v1/access/approval",
+        ] {
+            assert!(approval_url(&endpoint(), &pushed, loopback, &state).is_ok());
         }
         for bad in [String::new(), "x".repeat(513), "a\nb".to_owned()] {
             assert!(State::new(&bad).is_err());
@@ -292,6 +348,23 @@ mod tests {
         assert_eq!(
             ApprovalReturn::parse(&missing, &sent),
             Err(AccessError::Answer("exercise"))
+        );
+        assert_eq!(ApprovalReturn::state(&query).unwrap(), sent);
+        assert_eq!(ApprovalReturn::state(&missing).unwrap(), sent);
+        for bad in [
+            format!("{query}&state=st%2F1"),
+            format!("exercise={}", exercise.text()),
+            "state=".to_owned(),
+        ] {
+            assert_eq!(
+                ApprovalReturn::state(&bad),
+                Err(AccessError::Answer("state")),
+                "{bad}"
+            );
+        }
+        assert_eq!(
+            ApprovalReturn::state("state=%zz"),
+            Err(AccessError::Answer("query"))
         );
     }
 

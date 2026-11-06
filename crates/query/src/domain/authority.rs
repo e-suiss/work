@@ -98,6 +98,56 @@ pub fn approval_state(caller: &str, digest: &[u8; 32]) -> String {
     derived("work/approval-state/v1", caller, digest)
 }
 
+/// What the approval return hands the caller back (T-101 item 7, E-17): the contribution Exercise
+/// Access confirmed, which the caller sends as the proof of its next authority request for the
+/// ledger, and the render digest the approver signed, which the caller compares with its own.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ApprovalReturned {
+    /// The ledger the pushed request commits into.
+    pub ledger: work_kernel::id::LedgerId,
+    /// The contribution Exercise.
+    pub contribution: ExerciseId,
+    /// The digest of the render the approver approved.
+    pub render_digest: [u8; 32],
+}
+
+/// A stored `state` as the approval return reads it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct IssuedState<'a> {
+    /// The `state`.
+    pub state: &'a str,
+    /// The Party it was issued to.
+    pub party: [u8; 16],
+    /// The digest of the pushed request it was issued for.
+    pub digest: &'a [u8; 32],
+    /// The last instant it is accepted, Unix milliseconds.
+    pub expires_at_ms: u64,
+    /// Whether it was used.
+    pub used: bool,
+}
+
+/// Why `caller` may not use `issued` at `now_ms`, as the `code_detail` of the refusal (T-101
+/// item 7): `state_caller` for a `state` issued to another Party, `state_binding` for one that is
+/// not the `state` of its Party and pushed request, `state_used` for one used already and
+/// `state_expired` past its last instant; `None` when it may.
+#[must_use]
+pub fn state_refusal(
+    issued: &IssuedState<'_>,
+    caller: [u8; 16],
+    now_ms: u64,
+) -> Option<&'static str> {
+    if issued.party != caller {
+        return Some("state_caller");
+    }
+    if approval_state(&b64url(&issued.party), issued.digest) != issued.state {
+        return Some("state_binding");
+    }
+    if issued.used {
+        return Some("state_used");
+    }
+    (now_ms > issued.expires_at_ms).then_some("state_expired")
+}
+
 /// The holding of `grant` by `holder` since `since`, each id as unpadded base64url of its 16
 /// bytes; `None` for an id that is not.
 #[must_use]
@@ -140,5 +190,34 @@ mod tests {
         assert_ne!(s, approval_state("party-a", &[2; 32]));
         assert_eq!(expires_at(1_000, u64::MAX), 3_601_000);
         assert_eq!(expires_at(1_000, 5_000), 5_000);
+    }
+
+    // T-101 E-17
+    #[test]
+    fn e_17_an_approval_state_is_used_once_by_its_own_caller_before_it_expires() {
+        let party = [1; 16];
+        let digest = [2; 32];
+        let state = approval_state(&b64url(&party), &digest);
+        let issued = IssuedState {
+            state: &state,
+            party,
+            digest: &digest,
+            expires_at_ms: 10,
+            used: false,
+        };
+        assert_eq!(state_refusal(&issued, party, 10), None);
+        assert_eq!(state_refusal(&issued, [9; 16], 10), Some("state_caller"));
+        assert_eq!(state_refusal(&issued, party, 11), Some("state_expired"));
+        let used = IssuedState {
+            used: true,
+            ..issued
+        };
+        assert_eq!(state_refusal(&used, party, 10), Some("state_used"));
+        let other = [3; 32];
+        let unbound = IssuedState {
+            digest: &other,
+            ..issued
+        };
+        assert_eq!(state_refusal(&unbound, party, 10), Some("state_binding"));
     }
 }

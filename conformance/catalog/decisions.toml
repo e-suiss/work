@@ -4972,6 +4972,9 @@ stage = 10
 acceptance = "to-fill"
 title = "Strict TypeScript clients on esuiss-ui with a generated API client"
 tests = [
+  "packages/api-client/src/index.test.ts::t_34 keeps 64-bit positions as strings",
+  "packages/api-client/src/index.test.ts::t_34 proves every request that acts for a caller with its DPoP token and proof",
+  "packages/api-client/src/index.test.ts::t_34 reads a public operation typed as the OpenAPI document states it",
   "packages/kernel/src/bytes.test.ts::t_5_t_34 byte entry points raise kernel input errors instead of deciding",
   "packages/kernel/src/index.test.ts::t_34 rejects names the kernel does not declare",
   "packages/kernel/src/index.test.ts::t_34 rejects values outside the kernel integer ranges",
@@ -6160,6 +6163,7 @@ tests = [
   "crates/access-client/src/domain/cache.rs::t_101_cached_keys_follow_max_age_and_never_go_back_in_etag",
   "crates/access-client/src/domain/eligibility.rs::t_101_the_answer_carries_a_consistency_token",
   "crates/access-client/src/domain/eligibility.rs::t_101_the_eligibility_request_is_a_check_context_without_mode_or_nonce",
+  "crates/access-client/src/domain/exercise/tests.rs::e_17_a_contribution_is_an_allowed_exercise_of_its_domain_under_its_signed_receipt",
   "crates/access-client/src/domain/exercise/tests.rs::t_101_a_receipt_is_used_only_for_its_domain_exercise_audience_and_time",
   "crates/access-client/src/domain/exercise/tests.rs::t_101_a_receipt_signed_outside_the_receipt_key_or_changed_is_refused",
   "crates/access-client/src/domain/exercise/tests.rs::t_101_a_receiptless_exercise_leaves_the_gate_waiting",
@@ -6185,8 +6189,10 @@ tests = [
   "crates/access-client/src/domain/x509.rs::t_101_the_certificate_expiry_and_key_are_read_from_its_der",
   "crates/access-client/src/ports.rs::t_101_a_refusal_carries_its_problem_code_reason_and_pointers",
   "crates/access-client/src/ports.rs::t_101_a_signer_without_its_key_is_a_temporary_outage_not_a_refusal",
+  "crates/http/src/authority.rs::e_17_an_approval_return_hands_back_the_contribution_as_the_next_commit_s_proof",
   "crates/http/src/authority.rs::p_116_the_answer_says_whether_the_caller_steps_up_at_access_or_has_the_request_approved",
   "crates/http/src/authority.rs::t_101_an_authority_request_carries_one_key_the_intent_and_the_caller_s_own_statement",
+  "crates/query/src/domain/authority.rs::e_17_an_approval_state_is_used_once_by_its_own_caller_before_it_expires",
   "crates/query/src/domain/authority.rs::t_101_a_request_s_access_keys_and_state_are_its_caller_s_alone",
   "crates/query/src/domain/writes/tests.rs::e_45_the_exercise_is_the_work_commit_intent_of_this_ledger_and_valid_now",
   "crates/query/src/domain/writes/tests.rs::p_105_a_record_whose_author_is_not_the_key_s_party_is_kid_unknown",
