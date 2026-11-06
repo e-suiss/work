@@ -857,7 +857,12 @@ async fn t_101_a_party_and_its_pairwise_sub_resolve_both_ways() {
         .await
         .unwrap()
         .unwrap();
-    let client_id = local.bootstrap["clients"][0]["client_id"]
+    let client_id = local.bootstrap["clients"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["product"] == "work")
+        .unwrap()["client_id"]
         .as_str()
         .unwrap()
         .to_owned();
