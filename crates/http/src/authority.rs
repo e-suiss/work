@@ -388,8 +388,7 @@ mod tests {
 
     // T-101 P-116 E-17 E-7
     #[test]
-    fn p_116_the_answer_says_whether_the_caller_steps_up_at_access_or_has_the_request_approved()
-    {
+    fn p_116_the_answer_says_whether_the_caller_steps_up_at_access_or_has_the_request_approved() {
         let aal2 = json!({"term": {"proof_kind": "authentication", "assurance": {"aal": 2}}});
         let step = decision(AuthorityAnswer::RequireAction {
             unmet: vec![aal2.clone()],
@@ -413,7 +412,10 @@ mod tests {
         assert_eq!(approve.next.as_deref(), Some(APPROVE));
         assert!(approve.step_up.is_none());
         let v = serde_json::to_value(&approve).unwrap();
-        assert_eq!(v["approval"]["request_uri"], "urn:ietf:params:oauth:request_uri:x");
+        assert_eq!(
+            v["approval"]["request_uri"],
+            "urn:ietf:params:oauth:request_uri:x"
+        );
         assert!(v.get("exercise").is_none());
         let denied = write_problem(WriteRefusal::Denied("no-covering-authority"));
         assert_eq!(denied.code, ProblemCode::AccessDenied);

@@ -762,7 +762,9 @@ impl<T: Transport, C: Clock> Client<T, C> {
         if let Some(endpoints) = cached {
             return Ok(endpoints);
         }
-        let answer = self.get(realm.well_known(SUISS_CONFIGURATION), JSON).await?;
+        let answer = self
+            .get(realm.well_known(SUISS_CONFIGURATION), JSON)
+            .await?;
         let endpoints = SuissConfiguration::from_json(answer.ok()?, realm)?.endpoints;
         self.state()?
             .realm_endpoints

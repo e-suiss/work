@@ -264,8 +264,8 @@ pub fn intent_json(bytes: &[u8]) -> Result<Value, AccessError> {
         out.insert(
             "params".to_owned(),
             Value::Object(
-            e.params
-                .iter()
+                e.params
+                    .iter()
                     .map(|(k, v)| (k.clone(), param_json(v)))
                     .collect(),
             ),

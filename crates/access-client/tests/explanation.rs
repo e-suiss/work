@@ -1,4 +1,4 @@
-//! Work's decision explanation against Access's kernel (PR-11, PR-17; Access E43, A25 item 4): every example of Access's `explanation.json` that Work's `explanation.cddl` check accepts, Access's `decision_from_value` accepts too, and both write it back to the same deterministic CBOR; what one refuses the other refuses.
+//! Work's decision explanation against Access's kernel (PR-11, PR-17; Access E43, A25 item 4): every valid example of Access's `explanation.json` passes Work's `explanation.cddl` check, and every one in Access's full (audit) form passes Access's `decision_from_value` too, which writes it back to the same deterministic CBOR; the requester's and the viewer's views, whose blockers drop the `position` or the `subcode` the full form carries, are the ones `decision_from_value` refuses; what Work refuses Access refuses.
 
 #![allow(
     clippy::unwrap_used,
@@ -52,6 +52,7 @@ fn with(value: &Value, name: &str, member: Value) -> Value {
 fn pr_11_pr_17_work_and_the_access_kernel_agree_on_access_s_explanation_examples() {
     let file: Json = serde_json::from_str(VECTORS).unwrap();
     let mut valid = Vec::new();
+    let mut views = Vec::new();
     for case in file["cases"].as_array().unwrap() {
         let id = case["id"].as_str().unwrap();
         if case["valid"] != true {
@@ -60,17 +61,22 @@ fn pr_11_pr_17_work_and_the_access_kernel_agree_on_access_s_explanation_examples
         }
         let cbor = hex(case["cbor"].as_str().unwrap());
         let value = dcbor::decode(&cbor, Limits::CEILING).unwrap();
-        assert!(agree(id, &value), "{id}");
         let work = Explanation::decode(&cbor).unwrap();
         assert_eq!(work.encode().unwrap(), cbor, "{id}");
         assert_eq!(from_json(&case["json"]).unwrap(), work, "{id}");
         assert_eq!(to_json(&work).unwrap(), case["json"], "{id}");
-        let decision = decision_from_value(&value).unwrap();
-        let back = dcbor::encode(&decision_value(&decision), Limits::CEILING).unwrap();
-        assert_eq!(back, cbor, "{id}");
+        match decision_from_value(&value) {
+            Ok(decision) => {
+                let back = dcbor::encode(&decision_value(&decision), Limits::CEILING).unwrap();
+                assert_eq!(back, cbor, "{id}");
+            }
+            Err(_) => views.push(id),
+        }
         valid.push(value);
     }
     assert_eq!(valid.len(), 7);
+    assert_eq!(views, ["deny-viewer", "deny-requester"]);
+    assert!(agree("deny-audit", &valid[2]));
     let bare = &valid[1];
     let deny = &valid[2];
     let refused = [
@@ -79,8 +85,14 @@ fn pr_11_pr_17_work_and_the_access_kernel_agree_on_access_s_explanation_examples
             "unknown-outcome",
             with(bare, "outcome", Value::text("no_objection")),
         ),
-        ("empty-blockers", with(deny, "blockers", Value::Array(Vec::new()))),
-        ("empty-relied-on", with(bare, "relied_on", Value::Array(Vec::new()))),
+        (
+            "empty-blockers",
+            with(deny, "blockers", Value::Array(Vec::new())),
+        ),
+        (
+            "empty-relied-on",
+            with(bare, "relied_on", Value::Array(Vec::new())),
+        ),
         (
             "short-proof-id",
             with(

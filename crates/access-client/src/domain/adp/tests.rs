@@ -70,10 +70,8 @@ fn t_101_work_builds_the_canonical_commit_intent_of_a_ledger_and_its_adp_form() 
     let digest = intent_digest_of(&bytes).unwrap();
     assert_eq!(intent(), bytes);
     assert_ne!(
-        intent_digest_of(
-            &commit_intent(&action(), LEDGER, &[8; 32], FROM, UNTIL).unwrap()
-        )
-        .unwrap(),
+        intent_digest_of(&commit_intent(&action(), LEDGER, &[8; 32], FROM, UNTIL).unwrap())
+            .unwrap(),
         digest
     );
     assert_eq!(
@@ -157,7 +155,10 @@ fn t_101_the_evaluation_names_the_caller_the_intent_and_the_approvals_it_relies_
         json!({"type": "access_party", "id": "EREREREREREREREREREREQ"})
     );
     assert_eq!(body["action"], json!({"name": "commit"}));
-    assert_eq!(body["resource"], json!({"type": "work.ledger", "id": LEDGER}));
+    assert_eq!(
+        body["resource"],
+        json!({"type": "work.ledger", "id": LEDGER})
+    );
     let c = &body["context"];
     assert_eq!(c["mode"], "commit");
     assert_eq!(c["domain"], b64url(&[3; 32]));
@@ -176,10 +177,7 @@ fn t_101_the_evaluation_names_the_caller_the_intent_and_the_approvals_it_relies_
     };
     let body: Value = serde_json::from_slice(&first.body().unwrap()).unwrap();
     assert!(body["context"].get("proofs").is_none());
-    assert_eq!(
-        holding_from_json(&holding().json()).unwrap(),
-        holding()
-    );
+    assert_eq!(holding_from_json(&holding().json()).unwrap(), holding());
     assert!(holding_from_json(&json!({"anchor": "x"})).is_err());
 }
 
@@ -199,7 +197,8 @@ fn t_101_access_s_decision_reads_as_allow_deny_or_require_action() {
             receipt: Some((b"s".to_vec(), b"e".to_vec())),
         })
     );
-    let unsigned = json!({"decision": true, "context": {"outcome": "allow", "exercise": exercise.text()}});
+    let unsigned =
+        json!({"decision": true, "context": {"outcome": "allow", "exercise": exercise.text()}});
     assert_eq!(
         Decision::from_json(unsigned.to_string().as_bytes()),
         Ok(Decision::Allow {

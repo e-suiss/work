@@ -29,6 +29,29 @@
         ],
         "type": "object"
       },
+      "ApprovalAnswer": {
+        "description": "A request pushed to the Approval Surface.",
+        "properties": {
+          "expires_at": {
+            "description": "When the surface stops showing it, RFC 3339.",
+            "type": "string"
+          },
+          "request_uri": {
+            "description": "The `request_uri` Access gave.",
+            "type": "string"
+          },
+          "url": {
+            "description": "Where the caller's browser goes.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "request_uri",
+          "expires_at"
+        ],
+        "type": "object"
+      },
       "AuthContextAnswer": {
         "description": "The Access authentication context an unsigned human record names; not an author signature\n(P-21 item 3).",
         "properties": {
@@ -74,6 +97,78 @@
         ],
         "type": "object"
       },
+      "AuthorityDecision": {
+        "description": "What Access decided.",
+        "properties": {
+          "approval": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApprovalAnswer",
+                "description": "The pushed request."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "exercise": {
+            "description": "The allowed `ExerciseID`, unpadded base64url of 32 bytes.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "next": {
+            "description": "What the caller does next: `step_up` to authenticate at Access as the `step_up` terms\nask and send a new request, `approve` to have the request approved on the Approval\nSurface and send a new request with the contribution as its proof.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "outcome": {
+            "description": "`allow` or `require_action`.",
+            "type": "string"
+          },
+          "receipt": {
+            "description": "The decision receipt `COSE_Sign1` exactly as Access signed it, unpadded base64url; a\nrecord's `authority` digest is its SHA-256.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "request": {
+            "description": "The typed authority request (Access `authority-request.schema.json`).",
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "step_up": {
+            "description": "The authentication terms among them, verbatim.",
+            "items": {
+              "type": "object"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "unmet": {
+            "description": "The unmet terms, as Access shows them to the requester.",
+            "items": {
+              "type": "object"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "outcome"
+        ],
+        "type": "object"
+      },
       "AuthorityInput": {
         "additionalProperties": false,
         "description": "The Access Exercise the record's `authority` refers to.",
@@ -90,6 +185,20 @@
         "required": [
           "exercise",
           "intent"
+        ],
+        "type": "object"
+      },
+      "BasisInput": {
+        "additionalProperties": false,
+        "description": "The basis of the Exercise.",
+        "properties": {
+          "holding": {
+            "$ref": "#/components/schemas/HoldingInput",
+            "description": "The caller's holding."
+          }
+        },
+        "required": [
+          "holding"
         ],
         "type": "object"
       },
@@ -297,6 +406,30 @@
         ],
         "type": "object"
       },
+      "HoldingInput": {
+        "additionalProperties": false,
+        "description": "A holding of the Grant the caller exercises.",
+        "properties": {
+          "grant": {
+            "description": "The Grant, unpadded base64url of 16 bytes.",
+            "type": "string"
+          },
+          "holder": {
+            "description": "Its holder, unpadded base64url of 16 bytes.",
+            "type": "string"
+          },
+          "since": {
+            "description": "The position that opened the holding.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "grant",
+          "holder",
+          "since"
+        ],
+        "type": "object"
+      },
       "InclusionAnswer": {
         "description": "Whether the record is in the transparency log, and the proof that it is.",
         "properties": {
@@ -356,6 +489,59 @@
           "epoch",
           "recorded_at",
           "leaf_hash"
+        ],
+        "type": "object"
+      },
+      "NewAuthorityRequest": {
+        "additionalProperties": false,
+        "description": "One authority request.",
+        "properties": {
+          "ais": {
+            "description": "The Actor Intent Statement, the tagged `COSE_Sign1` the caller's device Instance key\nsigned over this commit addressed to Work's PEP, unpadded base64url.",
+            "type": "string"
+          },
+          "basis": {
+            "$ref": "#/components/schemas/BasisInput",
+            "description": "The basis."
+          },
+          "contribution": {
+            "description": "The approver's pre-signed contribution, to push the request with when Access asks for\nan approval.",
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "intent": {
+            "description": "The canonical `work:commit` intent envelope, unpadded base64url.",
+            "type": "string"
+          },
+          "ledger": {
+            "description": "The ledger, `led_…`, the intent's `work.ledger` resource.",
+            "type": "string"
+          },
+          "nonce": {
+            "description": "The Exercise nonce, unpadded base64url of 16 to 64 bytes.",
+            "type": "string"
+          },
+          "proofs": {
+            "description": "The approvals the commit relies on.",
+            "items": {
+              "$ref": "#/components/schemas/ProofInput"
+            },
+            "type": "array"
+          },
+          "reason": {
+            "description": "Why, as the Approval Surface shows it: 1 to 1024 bytes, no control character.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ledger",
+          "intent",
+          "nonce",
+          "basis",
+          "ais",
+          "reason"
         ],
         "type": "object"
       },
@@ -543,6 +729,20 @@
         ],
         "type": "object"
       },
+      "ProofInput": {
+        "additionalProperties": false,
+        "description": "An approval the commit relies on.",
+        "properties": {
+          "contribution": {
+            "description": "The contribution `ExerciseID` the Approval Surface returned, unpadded base64url of 32\nbytes.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "contribution"
+        ],
+        "type": "object"
+      },
       "WitnessAnswer": {
         "description": "A witness cosignature or time stamp of the covering checkpoint.",
         "properties": {
@@ -662,6 +862,267 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/v1/authority-requests": {
+      "post": {
+        "description": "Work's PEP commits the caller's intent at Access's decision point under the Actor Intent\nStatement the caller's own device signed; Work signs nothing for the caller and approves\nnothing. The intent must be the `work:commit` of this existing ledger, valid now, and the\nstatement must name exactly this commit, Work's PEP and the domain of the caller's realm. An\nallowed Exercise is answered only with its decision receipt verified for the intent and\naddressed to Work's PEP. When Access asks for more, the answer says what: a step-up at\nAccess, verbatim from Access's terms, or an approval on Access's Approval Surface, with the\ntyped request and, given the approver's contribution, the pushed request's URL. A denial is\n`403`; when Access cannot be asked, nothing is answered as authority.",
+        "operationId": "create_authority_request",
+        "parameters": [
+          {
+            "description": "A UUIDv7; the same key with the same body asks Access the same question again.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewAuthorityRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthorityDecision"
+                }
+              }
+            },
+            "description": "What Access decided: allow with the Exercise and its receipt, or require_action with what the caller does next.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "A body, identifier, header or statement that does not open or does not state this commit.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No valid Access access token and DPoP proof.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "WWW-Authenticate": {
+                "description": "The DPoP challenge.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Access denied the commit, or the intent is not this ledger's work:commit valid now.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No such ledger.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "The caller has spent its quota.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Retry-After": {
+                "description": "Seconds until the next window.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Access cannot be reached or its answer cannot be verified; send the same request again.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Asks Access for the authority of a `work:commit`.",
+        "tags": [
+          "authority"
+        ],
+        "x-work-action": "work:commit"
+      }
+    },
     "/v1/ledgers/{ledger}/changes": {
       "get": {
         "description": "The difference comes in the order of the position that last changed each Work, scoped to\nwhat the caller may read; a cursor that no longer opens a difference answers `resync` and no\nchange, so the client reads every Work again rather than miss one.",

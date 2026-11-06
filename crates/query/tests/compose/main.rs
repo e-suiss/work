@@ -1095,10 +1095,12 @@ mod retired {
 }
 
 /// The commitment write against the real Access (E-17, P-13, T-101, SEC-36, WD-124, WD-125): a
-/// ledger opens in `work-server`'s cell; Work's PEP commits the test user's `work:commit` intent
-/// over it at the ADP with an AIS of the user's device key and gets `REQUIRE_ACTION`; the CI job
-/// has Access's `approve` tool approve that typed authority request with the user's passkey;
-/// the PEP commits again with the contribution and gets the allowed Exercise with its receipt.
+/// ledger opens in `work-server`'s cell; the test user asks `work-server`'s
+/// `POST /v1/authority-requests` with the `work:commit` intent Work's client builds and an AIS of
+/// the user's own device key, Work's PEP commits it at the ADP and answers `REQUIRE_ACTION` with
+/// the typed authority request; the CI job has Access's `approve` tool approve that request with
+/// the user's passkey; the user asks again with the contribution and Work's PEP answers the
+/// allowed Exercise with its verified receipt.
 /// `work-server` then refuses a tampered intent and a capacity the Exercise does not carry,
 /// writes the user's unsigned Declaration under the user's AAL2 `auth_context`, keeps the
 /// receipt the record's `authority` names, and marks the record once Access declares the user's
@@ -1112,14 +1114,13 @@ mod commit {
     use suiss_crypto::pkcs11::{HsmSigner, KeyStore};
     use suiss_crypto::secret::Secret;
     use suiss_crypto::signer::{Signer as _, sign_sign1};
-    use work_access_client::adapters::{DEFAULT_TIMEOUT, HttpsTransport};
+    use work_access_client::domain::adp::{self, Action, Holding, Statement};
     use work_access_client::domain::exercise::{
         Capacity as Held, ExerciseId, Intent, VerifiedExercise,
     };
-    use work_access_client::domain::keys::DomainId;
+    use work_access_client::domain::keys::{DomainId, KernelId};
     use work_access_client::domain::metadata::thumbprint;
     use work_access_client::domain::{b64url, fixed_b64url, from_b64url};
-    use work_access_client::ports::{Request, Transport as _};
     use work_kernel::codec::{Decoded, decode_record, record_id};
     use work_kernel::id::{Digest, LedgerId};
     use work_kernel::record::Record;
@@ -1138,11 +1139,11 @@ mod commit {
     const WRITTEN_FILE: &str = "commit-written.json";
     const SEQUENCER: &str = "postgres://work_sequencer:local-only-not-a-secret@127.0.0.1:5442/work";
     const APP: &str = "postgres://work_app:local-only-not-a-secret@127.0.0.1:5442/work";
-    const API: &str = "https://access-server:8443";
     const DEVICE_LABEL: &str = "access/bootstrap/test-user-device";
     const RECORD_TYPE: &str = "application/work-record+cbor";
     const AIS_TYPE: &str = "application/access-ais+cbor";
     const RECORDS: &str = include_str!("../../../../conformance/vectors/records/records.json");
+    const REASON: &str = "Work compose test: commit into the test ledger";
 
     fn ledger(local: &Local) -> String {
         std::fs::read_to_string(local.dir.join(LEDGER_FILE))
@@ -1219,85 +1220,39 @@ mod commit {
         dcbor::encode(&envelope, Limits::CEILING).unwrap()
     }
 
-    /// The test user's `work:commit` intent over the ledger, as the ADP reads it and as the
-    /// `approve` tool is given it.
+    /// The test user's `work:commit` intent over the ledger, as Work's client builds it for the
+    /// ADP and as the `approve` tool is given it.
     struct Commit {
         json: Value,
-        namespace: String,
-        name: String,
         bytes: Vec<u8>,
         digest: [u8; 32],
     }
 
-    /// A SHA-256 digest as Access's CBOR writes it, `[-16, bytes]`.
-    fn digest_value(d: [u8; 32]) -> Cbor {
-        Cbor::Array(vec![Cbor::int(-16), Cbor::Bytes(d.to_vec())])
-    }
-
     /// The intent `test_user.allowed` names over `led`, valid around `now_ms`, with the sample
-    /// catalog's parameters: the ledger and a `declaration` digest (E-45 names no parameter).
+    /// catalog's parameters: the ledger and a `declaration` digest (E-45 names no parameter),
+    /// built by Work's client.
     fn commit_intent(local: &Local, led: &str, now_ms: u64, declaration: &[u8]) -> Commit {
         let a = allowed(local);
         let action = &a["action"];
-        let namespace = text(&a["resource"], "namespace");
-        let (from, until) = (now_ms - 60_000, now_ms + 600_000);
-        let json = json!({
-            "action": action,
-            "resources": [{"namespace": namespace, "path": [led]}],
-            "params": {
-                "ledger": {"eq": led},
-                "declaration": {"eq": {"bytes": b64url(declaration)}},
-            },
-            "validity": {"from": from, "until": until},
-        });
-        let envelope = map(vec![
-            (
-                "action",
-                map(vec![
-                    ("namespace", Cbor::text(text(action, "namespace"))),
-                    ("name", Cbor::text(text(action, "name"))),
-                    ("major", Cbor::Unsigned(action["major"].as_u64().unwrap())),
-                    (
-                        "schema",
-                        digest_value(fixed_b64url(text(action, "schema")).unwrap()),
-                    ),
-                ]),
-            ),
-            (
-                "resources",
-                Cbor::Array(vec![map(vec![
-                    ("namespace", Cbor::text(namespace)),
-                    ("path", Cbor::Array(vec![Cbor::text(led)])),
-                    ("incarnation", Cbor::Unsigned(0)),
-                ])]),
-            ),
-            (
-                "params",
-                map(vec![
-                    (
-                        "declaration",
-                        map(vec![("eq", Cbor::Bytes(declaration.to_vec()))]),
-                    ),
-                    ("ledger", map(vec![("eq", Cbor::text(led))])),
-                ]),
-            ),
-            (
-                "validity",
-                Cbor::Array(vec![Cbor::Unsigned(from), Cbor::Unsigned(until)]),
-            ),
-        ]);
-        let bytes = dcbor::encode(&envelope, Limits::CEILING).unwrap();
-        let digest = Intent::from_bytes(&bytes).unwrap().digest;
-        Commit {
-            json,
-            namespace: namespace.to_owned(),
+        assert_eq!(text(&a["resource"], "namespace"), adp::LEDGER_RESOURCE);
+        let named = Action {
+            namespace: text(action, "namespace").to_owned(),
             name: text(action, "name").to_owned(),
+            major: action["major"].as_u64().unwrap(),
+            schema: fixed_b64url(text(action, "schema")).unwrap(),
+        };
+        let bytes = adp::commit_intent(&named, led, declaration, now_ms - 60_000, now_ms + 600_000)
+            .unwrap();
+        let digest = Intent::from_bytes(&bytes).unwrap().digest;
+        assert_eq!(adp::intent_digest_of(&bytes).unwrap(), digest);
+        Commit {
+            json: adp::intent_json(&bytes).unwrap(),
             bytes,
             digest,
         }
     }
 
-    /// The intent of the commit the first PEP commit opened.
+    /// The intent of the commit the first authority request opened.
     fn opened(local: &Local) -> (Commit, Vec<u8>) {
         let state = read(local, STATE_FILE);
         let commit = commit_intent(
@@ -1319,72 +1274,71 @@ mod commit {
             .unwrap()
     }
 
-    /// Work's PEP commits `c` at `POST /access/v1/evaluation` under `nonce` with an AIS of the
-    /// test user's device key that names the PEP by its `x5t#S256`, and `proofs` (Access
-    /// L1-ADP-5, L1-ADP-8, L2-SIG-1).
-    async fn evaluate(local: &Local, c: &Commit, nonce: &[u8], proofs: Vec<Value>) -> Value {
-        let pep = local.pep();
+    /// The test user's request at `work-server`'s `POST /v1/authority-requests` that Work's PEP
+    /// commit `c` under `nonce`, with the Actor Intent Statement the test user's own device key
+    /// signs, addressed to Work's PEP by its `x5t#S256`, and the approvals `contributions`
+    /// (T-101 item 2, Access L1-ADP-5, L2-SIG-1).
+    async fn authority(local: &Local, c: &Commit, nonce: &[u8], contributions: &[&str]) -> Value {
         let a = allowed(local);
         let holding = &a["basis"]["holding"];
-        let party = local.user("party");
-        let basis = Cbor::Array(vec![
-            Cbor::Bytes(id(holding, "grant").to_vec()),
-            Cbor::Bytes(id(holding, "holder").to_vec()),
-            Cbor::Unsigned(holding["since"].as_u64().unwrap()),
-        ]);
-        let domain: [u8; 32] = fixed_b64url(text(a, "domain")).unwrap();
-        let statement = map(vec![
-            ("domain", digest_value(domain)),
-            ("nonce", Cbor::Bytes(nonce.to_vec())),
-            ("intent", digest_value(c.digest)),
-            ("mode", Cbor::text("commit")),
-            ("pep", Cbor::text(&pep.x5t_s256())),
-            ("capacity", Cbor::text("own")),
-            ("basis", map(vec![("holding", basis)])),
-            ("iat", Cbor::Unsigned(local.access_now_s().await * 1000)),
-        ]);
+        let basis = Holding {
+            grant: KernelId(id(holding, "grant")),
+            holder: KernelId(id(holding, "holder")),
+            since: holding["since"].as_u64().unwrap(),
+        };
+        let domain = DomainId(fixed_b64url(text(a, "domain")).unwrap());
+        let pep = local.pep().x5t_s256();
+        let statement = Statement {
+            domain: &domain,
+            nonce,
+            intent: &c.digest,
+            pep: &pep,
+            capacity: Held::Own,
+            basis,
+        };
         let device = device(local);
+        let now = local.access_now_s().await * 1000;
         let ais = sign_sign1(
             &device,
             thumbprint(&device.public_key()),
             AIS_TYPE,
-            &dcbor::encode(&statement, Limits::CEILING).unwrap(),
+            &statement.to_sign(now).unwrap(),
         )
         .unwrap();
-        let mut context = json!({
-            "domain": b64url(&domain),
-            "mode": "commit",
+        let body = serde_json::to_vec(&json!({
+            "ledger": ledger(local),
+            "intent": b64url(&c.bytes),
             "nonce": b64url(nonce),
-            "intent": c.json,
-            "basis": {"holding": holding},
-            "capacity": "own",
+            "basis": {"holding": {
+                "grant": text(holding, "grant"),
+                "holder": text(holding, "holder"),
+                "since": basis.since.to_string(),
+            }},
             "ais": b64url(&ais),
-        });
-        if !proofs.is_empty() {
-            context["proofs"] = Value::Array(proofs);
-        }
-        let body = json!({
-            "subject": {"type": "access_party", "id": party},
-            "action": {"name": c.name},
-            "resource": {"type": c.namespace, "id": ledger(local)},
-            "context": context,
-        });
-        let transport =
-            HttpsTransport::new(pep.client_config(local.roots()).unwrap(), DEFAULT_TIMEOUT);
-        let answer = transport
+            "proofs": contributions.iter().map(|e| json!({"contribution": e})).collect::<Vec<_>>(),
+            "reason": REASON,
+        }))
+        .unwrap();
+        let key = local.dpop();
+        let token = local.token(&key).await;
+        let url = format!("{WORK}/v1/authority-requests");
+        let proof = local.proof(&key, "POST", &url, None, Some(&token)).await;
+        let authorization = format!("DPoP {token}");
+        let idempotency = local.uuid7(now);
+        let answer = local
             .send(
-                Request::post(
-                    format!("{API}/access/v1/evaluation"),
-                    "application/json",
-                    body.to_string().into_bytes(),
-                )
-                .with("idempotency-key", &local.random()),
+                "POST",
+                &url,
+                &[
+                    ("idempotency-key", idempotency.as_str()),
+                    ("authorization", authorization.as_str()),
+                    ("dpop", proof.as_str()),
+                ],
+                Some(("application/json", body)),
             )
-            .await
-            .unwrap();
-        let text = String::from_utf8_lossy(&answer.body).into_owned();
-        assert_eq!(answer.status, 200, "{text}");
-        serde_json::from_str(&text).unwrap()
+            .await;
+        assert_eq!(answer.status, 200, "{answer:?}");
+        answer.json()
     }
 
     /// The Exercise `exercise` as `work-server` reads it: asked of Access, its receipt verified
@@ -1672,24 +1626,27 @@ mod commit {
         let declaration = from_b64url(&local.random()).unwrap();
         let nonce = from_b64url(&local.random()).unwrap()[..16].to_vec();
         let c = commit_intent(&local, &led, now, &declaration);
-        let asked = evaluate(&local, &c, &nonce, Vec::new()).await;
-        assert_eq!(asked["decision"], false, "{asked}");
-        assert_eq!(asked["context"]["outcome"], "require_action", "{asked}");
-        let request = json!({
-            "requester": {"party": local.user("party"), "instance": local.user("instance")},
-            "action": c.json["action"],
-            "resource": c.json["resources"][0],
-            "params": c.json["params"],
-            "capacity": "own",
-            "reason": "Work compose test: commit into the test ledger",
-            "require_action": {
+        let asked = authority(&local, &c, &nonce, &[]).await;
+        assert_eq!(asked["outcome"], "require_action", "{asked}");
+        assert_eq!(asked["next"], "approve", "{asked}");
+        assert!(asked.get("exercise").is_none(), "{asked}");
+        let request = &asked["request"];
+        assert_eq!(request["requester"], json!({"party": local.user("party")}));
+        assert_eq!(request["action"], c.json["action"]);
+        assert_eq!(request["resource"], c.json["resources"][0]);
+        assert_eq!(request["params"], c.json["params"]);
+        assert_eq!(request["capacity"], "own");
+        assert_eq!(request["reason"], REASON);
+        assert_eq!(
+            request["require_action"],
+            json!({
                 "domain": text(a, "domain"),
                 "nonce": b64url(&nonce),
                 "intent": b64url(&c.digest),
-            },
-            "expires_at": now + 3_600_000,
-        });
-        write(&local, REQUEST_FILE, &request);
+            })
+        );
+        assert!(request["expires_at"].as_u64().unwrap() > now, "{request}");
+        write(&local, REQUEST_FILE, request);
         write(
             &local,
             STATE_FILE,
@@ -1710,15 +1667,14 @@ mod commit {
         let approved = read(&local, APPROVED_FILE);
         let contribution = text(&approved, "contribution");
         let (c, nonce) = opened(&local);
-        let answer = evaluate(
-            &local,
-            &c,
-            &nonce,
-            vec![json!({"contribution": contribution})],
-        )
-        .await;
-        assert_eq!(answer["decision"], true, "{answer}");
-        let exercise = text(&answer["context"], "exercise").to_owned();
+        let answer = authority(&local, &c, &nonce, &[contribution]).await;
+        assert_eq!(answer["outcome"], "allow", "{answer}");
+        assert!(answer.get("next").is_none(), "{answer}");
+        let exercise = text(&answer, "exercise").to_owned();
+        assert_ne!(
+            from_b64url(text(&answer, "receipt")).unwrap(),
+            Vec::<u8>::new()
+        );
         let v = verified(&local, &exercise, &c).await;
         assert_eq!(v.intent, c.digest);
         assert_eq!(v.exercise.text(), exercise);

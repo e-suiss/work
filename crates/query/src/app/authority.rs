@@ -154,7 +154,8 @@ where
             return Err(WriteRefusal::Invalid("nonce"));
         }
         let now_ms = self.access.now_ms();
-        let intent = Intent::from_bytes(&ask.intent).map_err(|_| WriteRefusal::Invalid("intent"))?;
+        let intent =
+            Intent::from_bytes(&ask.intent).map_err(|_| WriteRefusal::Invalid("intent"))?;
         check_intent(&intent, ledger, now_ms).map_err(WriteRefusal::Denied)?;
         self.exists(ledger).await?;
         let (domain, _) = caller_realm(&self.realms, caller).await?;
