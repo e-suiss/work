@@ -8,9 +8,12 @@ license.workspace = true
 repository.workspace = true
 publish = false
 
-# T-17 T-76 P-37
+# T-17 T-76 P-37 T-99
 [dependencies]
+suiss-crypto = { workspace = true, features = ["signer"] }
+work-access-client = { workspace = true }
 work-proto = { workspace = true }
+work-relay-client = { workspace = true }
 work-store = { workspace = true }
 async-nats = { workspace = true, features = ["jetstream"] }
 futures-util = { workspace = true }
@@ -20,6 +23,7 @@ tokio = { workspace = true, features = ["macros", "rt", "time"] }
 tracing = { workspace = true, features = ["std"] }
 
 [dev-dependencies]
+sha2 = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time"] }
 work-testkit = { workspace = true }
 

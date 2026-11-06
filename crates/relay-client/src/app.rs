@@ -1,4 +1,4 @@
-//! The Relay client and the delivery of intents (T-99, T-17, T-28, E-18): [`Relay`] sends one event to the events endpoint Relay's discovery names, or a batch to `<events>/batch`, each with `Relay-Version`, Work's Access token as `Bearer`, the intent's idempotency key and the `traceparent` of the committing request; [`Deliverer`] takes the pending intents of the outbox oldest first, resolves their Parties to pairwise `sub`s in Relay's sector, sends nothing to a Party that does not resolve, and settles each intent Relay takes or refuses. While Relay or Access cannot answer the intent stays in the outbox, the pass stops, and a later pass sends it again with the same key; no normative outcome waits on Relay (MD-3 item 6).
+//! The Relay client and the delivery of intents (T-99, T-17, T-28, E-18): [`Relay`] sends one event to the events endpoint Relay's discovery names, or a batch to `<events>/batch`, each with `Relay-Version`, Work's Access service token as `DPoP` with a fresh proof of the call, the intent's idempotency key and the `traceparent` of the committing request; [`Deliverer`] takes the pending intents of the outbox oldest first, resolves their Parties to pairwise `sub`s in Relay's sector, sends nothing to a Party that does not resolve, and settles each intent Relay takes or refuses. While Relay or Access cannot answer the intent stays in the outbox, the pass stops, and a later pass sends it again with the same key; no normative outcome waits on Relay (MD-3 item 6).
 
 use crate::RELAY_VERSION;
 use crate::domain::answer::{Accepted, RelayError, RowOutcome, accepted, batch, problem};
@@ -40,7 +40,7 @@ impl<T: Transport, K: Credential> Relay<T, K> {
         key: &IdempotencyKey,
         traceparent: &str,
     ) -> Result<crate::ports::Response, RelayError> {
-        let bearer = self.credential.bearer().await?;
+        let auth = self.credential.authorize("POST", &url).await?;
         let headers = [
             ("content-type", "application/json"),
             ("accept", "application/json"),
@@ -50,9 +50,16 @@ impl<T: Transport, K: Credential> Relay<T, K> {
         ]
         .into_iter()
         .map(|(n, v)| (n.to_owned(), v.to_owned()))
-        .chain([("authorization".to_owned(), format!("Bearer {bearer}"))])
+        .chain([
+            ("authorization".to_owned(), auth.authorization),
+            ("dpop".to_owned(), auth.dpop),
+        ])
         .collect();
-        self.transport.post(Request { url, headers, body }).await
+        let answer = self.transport.post(Request { url, headers, body }).await?;
+        if answer.status == 401 {
+            self.credential.rejected();
+        }
+        Ok(answer)
     }
 
     /// `POST /v1/events`.
@@ -265,13 +272,14 @@ impl<T: Transport, K: Credential, R: Recipients, I: Intents> Deliverer<T, K, R, 
 mod tests {
     use std::collections::{BTreeMap, VecDeque};
     use std::sync::Mutex;
+    use std::sync::atomic::{AtomicU32, Ordering};
 
     use work_proto::id::TenantId;
 
     use super::*;
     use crate::domain::intent::Spec;
     use crate::domain::intent::tests::{TRACE, committed, spec};
-    use crate::ports::Response;
+    use crate::ports::{Authorization, Response};
 
     #[derive(Default)]
     struct Wire {
@@ -307,8 +315,34 @@ mod tests {
     struct Token;
 
     impl Credential for Token {
-        fn bearer(&self) -> impl Future<Output = Result<String, RelayError>> + Send {
-            std::future::ready(Ok("at".to_owned()))
+        fn authorize(
+            &self,
+            method: &str,
+            url: &str,
+        ) -> impl Future<Output = Result<Authorization, RelayError>> + Send {
+            std::future::ready(Ok(Authorization {
+                authorization: "DPoP at".to_owned(),
+                dpop: format!("proof {method} {url}"),
+            }))
+        }
+    }
+
+    struct Counting(AtomicU32);
+
+    impl Credential for &Counting {
+        fn authorize(
+            &self,
+            _method: &str,
+            _url: &str,
+        ) -> impl Future<Output = Result<Authorization, RelayError>> + Send {
+            std::future::ready(Ok(Authorization {
+                authorization: "DPoP at".to_owned(),
+                dpop: "proof".to_owned(),
+            }))
+        }
+
+        fn rejected(&self) {
+            self.0.fetch_add(1, Ordering::SeqCst);
         }
     }
 
@@ -438,12 +472,44 @@ mod tests {
         let r = &sent[0];
         assert_eq!(r.url, "https://relay.example/v1/events");
         assert_eq!(r.header("relay-version"), Some(RELAY_VERSION));
-        assert_eq!(r.header("authorization"), Some("Bearer at"));
+        assert_eq!(r.header("authorization"), Some("DPoP at"));
+        assert_eq!(
+            r.header("dpop"),
+            Some("proof POST https://relay.example/v1/events")
+        );
         assert_eq!(r.header("idempotency-key"), Some(i.key().as_str()));
         assert_eq!(r.header("traceparent"), Some(TRACE));
         assert_eq!(r.header("content-type"), Some("application/json"));
         assert_eq!(r.body, request.body().unwrap());
         assert!(Relay::new(&wire, Token, "http://relay.example/v1/events").is_err());
+    }
+
+    // T-99 T-28
+    #[tokio::test]
+    async fn t_99_a_token_relay_does_not_take_is_dropped_before_the_next_call() {
+        let wire = Wire::answering(vec![
+            Ok(refusal(401, "auth_invalid_token", false)),
+            Ok(accepted_body()),
+        ]);
+        let counting = Counting(AtomicU32::new(0));
+        let relay = Relay::new(&wire, &counting, "https://relay.example/v1/events").unwrap();
+        let i = intent(1, spec());
+        let request = EventRequest::new(
+            &i,
+            &["s".to_owned()],
+            &Installation::parse("https://work.example").unwrap(),
+        )
+        .unwrap();
+        assert!(
+            relay
+                .send(&request, TRACE)
+                .await
+                .unwrap_err()
+                .is_temporary()
+        );
+        assert_eq!(counting.0.load(Ordering::SeqCst), 1);
+        relay.send(&request, TRACE).await.unwrap();
+        assert_eq!(counting.0.load(Ordering::SeqCst), 1);
     }
 
     // T-99
@@ -474,6 +540,10 @@ mod tests {
         assert!(!outcomes[1].as_ref().unwrap_err().is_temporary());
         let sent = wire.sent.lock().unwrap();
         assert_eq!(sent[0].url, "https://relay.example/v1/events/batch");
+        assert_eq!(
+            sent[0].header("dpop"),
+            Some("proof POST https://relay.example/v1/events/batch")
+        );
         let keys: Vec<&IdempotencyKey> = rows.iter().map(EventRequest::key).collect();
         assert_eq!(
             sent[0].header("idempotency-key"),
@@ -639,7 +709,8 @@ mod tests {
                 "relay-version",
                 "idempotency-key",
                 "traceparent",
-                "authorization"
+                "authorization",
+                "dpop"
             ]
         );
     }

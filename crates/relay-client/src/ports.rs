@@ -1,4 +1,4 @@
-//! What the client needs from outside (T-32): an `https` `POST` to Relay under a bound, Work's Access token for Relay (T-99 item 4), the pairwise `sub`s of Parties in Relay's sector from Access (T-99 item 5), and the outbox the intents wait in until Relay takes or refuses them (T-17, T-28).
+//! What the client needs from outside (T-32): an `https` `POST` to Relay under a bound, Work's Access service token for Relay with a `DPoP` proof per call (T-99 item 4), the pairwise `sub`s of Parties in Relay's sector from Access (T-99 item 5), and the outbox the intents wait in until Relay takes or refuses them (T-17, T-28).
 
 use std::collections::BTreeMap;
 use std::future::Future;
@@ -60,10 +60,33 @@ pub trait Transport: Send + Sync {
     fn post(&self, request: Request) -> impl Future<Output = Result<Response, RelayError>> + Send;
 }
 
-/// Work's Access token for Relay.
+/// The headers that say who is calling: Work's Access service token for Relay and the proof of
+/// one call (T-99 item 4, Relay E-93).
+#[derive(Clone, PartialEq, Eq)]
+pub struct Authorization {
+    /// `DPoP <token>`.
+    pub authorization: String,
+    /// The `DPoP` proof of this call.
+    pub dpop: String,
+}
+
+impl std::fmt::Debug for Authorization {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Authorization").finish_non_exhaustive()
+    }
+}
+
+/// Work's Access service token for Relay, bound by `DPoP` (T-99 item 4; Access A28 (a)).
 pub trait Credential: Send + Sync {
-    /// A token Relay takes as `Bearer`.
-    fn bearer(&self) -> impl Future<Output = Result<String, RelayError>> + Send;
+    /// The headers of one `method` call to `url`, with a fresh proof.
+    fn authorize(
+        &self,
+        method: &str,
+        url: &str,
+    ) -> impl Future<Output = Result<Authorization, RelayError>> + Send;
+
+    /// Relay answered `401`; the next call asks for a new token.
+    fn rejected(&self) {}
 }
 
 /// Access did not answer the resolution; the intent waits.

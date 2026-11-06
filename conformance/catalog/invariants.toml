@@ -2254,7 +2254,9 @@ tests = [
   "bins/work-server/src/health.rs::t_96_an_access_outage_raises_its_alarm_and_keeps_readiness",
   "bins/work-server/src/health.rs::t_99_a_relay_outage_raises_its_alarm_and_keeps_readiness",
   "bins/work-server/src/startup.rs::t_99_a_relay_document_that_fails_its_checks_refuses_start_and_an_outage_does_not",
+  "crates/access-client/src/app/service.rs::t_99_a_refused_token_request_is_not_asked_again_with_another_nonce",
   "crates/access-client/src/domain/discovery.rs::t_96_a_stale_discovery_refuses_consequential_actions",
+  "crates/access-client/src/domain/service.rs::t_99_a_refused_token_request_carries_its_oauth_error",
   "crates/access-client/src/domain/token/tests.rs::e_7_a_token_signed_by_the_realm_key_names_the_pairwise_subject_of_its_client",
   "crates/access-client/src/ports.rs::t_101_a_signer_without_its_key_is_a_temporary_outage_not_a_refusal",
   "crates/http/src/problem.rs::inv_34_problem_titles_claim_no_more_than_their_guarantee",
@@ -2265,6 +2267,7 @@ tests = [
   "crates/relay-client/src/app.rs::t_28_an_access_outage_or_a_refused_token_keeps_the_intent",
   "crates/relay-client/src/app.rs::t_28_an_unreachable_relay_keeps_the_intent_and_a_later_pass_sends_it_with_the_same_key",
   "crates/relay-client/src/app.rs::t_99_a_refused_event_leaves_the_outbox_with_its_code",
+  "crates/relay-client/src/app.rs::t_99_a_token_relay_does_not_take_is_dropped_before_the_next_call",
   "crates/relay-client/src/domain/answer.rs::t_28_an_outage_is_temporary_and_a_refusal_is_permanent",
 ]
 

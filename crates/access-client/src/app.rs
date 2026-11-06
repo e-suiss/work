@@ -1,7 +1,8 @@
-//! The Access client's use cases: discovery at start and on refresh (T-96 item 2), Relay's discovery document (T-99 item 1), Domain Metadata kept per domain, verified and cached key lookups (T-101 item 4), the eligibility check (T-101 item 5), the Exercise and its agency verified with their decision receipt on every call and the approval call Work only sends its user to (T-101 item 7), the realm token keys an `auth_context` artifact verifies under (P-116), tenant snapshots and the reconciliation job (T-96 item 4), and the platform routes with Work's pairing and event stream upkeep (T-103) in [`platform`], and the Access intake of Work's event entry (T-102) in [`events`]. Every consequential call is refused fail-closed while the PEP certificate has expired or the endpoint it needs is not served (T-28).
+//! The Access client's use cases: discovery at start and on refresh (T-96 item 2), Relay's discovery document (T-99 item 1), Domain Metadata kept per domain, verified and cached key lookups (T-101 item 4), the eligibility check (T-101 item 5), the Exercise and its agency verified with their decision receipt on every call and the approval call Work only sends its user to (T-101 item 7), the realm token keys an `auth_context` artifact verifies under (P-116), tenant snapshots and the reconciliation job (T-96 item 4), and the platform routes with Work's pairing and event stream upkeep (T-103) in [`platform`], Work's service token for another platform product (T-99 item 4) in [`service`], and the Access intake of Work's event entry (T-102) in [`events`]. Every consequential call is refused fail-closed while the PEP certificate has expired or the endpoint it needs is not served (T-28).
 
 pub mod events;
 pub mod platform;
+pub mod service;
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{Mutex, MutexGuard};

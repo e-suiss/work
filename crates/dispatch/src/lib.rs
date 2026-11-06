@@ -11,6 +11,7 @@ pub mod app;
 pub mod domain;
 pub mod ports;
 
+pub use adapters::relay::RelayCredential;
 pub use adapters::{JetStreamBus, JetStreamPull, PgCommitted, PgOutbox, PullToken};
 pub use app::{ConsumeError, Consumed, Consumer, DispatchError, Published, Publisher};
 pub use domain::{

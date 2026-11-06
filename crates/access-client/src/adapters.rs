@@ -1,4 +1,4 @@
-//! The outside of the Access client: the PEP credential, a TLS client certificate whose private key never leaves the PKCS#11 token and whose certificate is a token object of the same label (T-101 item 2, T-56), the client assertion key `work-access-client` (P-256) and the service key `work-access-service` (Ed25519) of the same token (T-101 note items 1 and 6), and the HTTPS transport that presents the certificate to `/access/v1` and the ADP, or no certificate on the platform routes, over TLS 1.3, one HTTP/1.1 connection per call, every step under a bound (T-32 rule 7).
+//! The outside of the Access client: the PEP credential, a TLS client certificate whose private key never leaves the PKCS#11 token and whose certificate is a token object of the same label (T-101 item 2, T-56), the client assertion key `work-access-client` (P-256), the service key `work-access-service` (Ed25519) and the `DPoP` key `work-access-dpop` (P-256) of the same token (T-101 note items 1 and 6), and the HTTPS transport that presents the certificate to `/access/v1` and the ADP, or no certificate on the platform routes, over TLS 1.3, one HTTP/1.1 connection per call, every step under a bound (T-32 rule 7).
 
 use std::path::Path;
 use std::sync::{Arc, Mutex};
@@ -39,6 +39,9 @@ pub const CLIENT_LABEL: &str = "work-access-client";
 
 /// The token label of the service Instance key, Ed25519 (T-101 note item 6).
 pub const SERVICE_LABEL: &str = "work-access-service";
+
+/// The token label of the `DPoP` key of Work's service tokens, P-256 (T-99 item 4).
+pub const DPOP_LABEL: &str = "work-access-dpop";
 
 /// Default bound of one call (T-32 rule 7).
 pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(5);
@@ -383,11 +386,13 @@ pub struct AccessKeys {
     /// `work-access-service`, Ed25519; signs only Actor Intent Statements and the service
     /// Party's records.
     pub service: TokenSigner,
+    /// `work-access-dpop`, P-256; signs only the `DPoP` proofs of Work's service tokens.
+    pub dpop: TokenSigner,
 }
 
 impl AccessKeys {
-    /// Loads both keys from the token: the client key must be P-256 and the service key
-    /// Ed25519 (T-101 note item 1).
+    /// Loads the three keys from the token: the client and `DPoP` keys must be P-256 and the
+    /// service key Ed25519 (T-101 note item 1, T-99 item 4).
     ///
     /// # Errors
     /// [`AccessError::KeyStore`].
@@ -405,7 +410,15 @@ impl AccessKeys {
                 "{SERVICE_LABEL} is not Ed25519"
             )));
         }
-        Ok(Self { client, service })
+        let dpop = TokenSigner::of(store.signer(DPOP_LABEL).map_err(|e| store_error(&e))?);
+        if !matches!(dpop.key, PublicKey::P256(_)) {
+            return Err(AccessError::KeyStore(format!("{DPOP_LABEL} is not P-256")));
+        }
+        Ok(Self {
+            client,
+            service,
+            dpop,
+        })
     }
 }
 
@@ -776,6 +789,7 @@ mod tests {
         let (label, store) = token(test);
         store.generate_p256(CLIENT_LABEL).unwrap();
         store.generate_ed25519(SERVICE_LABEL).unwrap();
+        store.generate_p256(DPOP_LABEL).unwrap();
         AccessKeys::load(&module(), &label, &pin()).unwrap()
     }
 
@@ -831,12 +845,54 @@ mod tests {
         assert!(!format!("{platform:?}").contains("PRIVATE"));
     }
 
+    // T-99 T-56
+    #[test]
+    fn t_99_a_dpop_proof_is_signed_in_the_token_by_its_own_key() {
+        use crate::app::service::{ServiceTokens, Target as Service};
+
+        let keys = keys("dpop");
+        let PublicKey::P256(sec1) = keys.dpop.public_key() else {
+            panic!("a P-256 DPoP key");
+        };
+        let tokens = ServiceTokens::new(
+            HttpsTransport::new(
+                public_config(RootCertStore::empty()).unwrap(),
+                DEFAULT_TIMEOUT,
+            ),
+            At(NOW),
+            Counter(AtomicU8::new(1)),
+            keys.client,
+            keys.dpop,
+            Service {
+                client_id: "cli_work".to_owned(),
+                issuer: Issuer::parse("https://access.example").unwrap(),
+                resource: "app_relay".to_owned(),
+            },
+        );
+        let proof = tokens
+            .proof("POST", "https://relay/v1/events", None, Some("at"))
+            .unwrap();
+        let (input, signature) = proof.rsplit_once('.').unwrap();
+        p256(
+            &PureBackend,
+            &sec1,
+            input.as_bytes(),
+            &from_b64url(signature).unwrap(),
+            true,
+        )
+        .unwrap();
+        let (header, body) = claims(&proof);
+        assert_eq!(header["typ"], "dpop+jwt");
+        assert_eq!(body["htu"], "https://relay/v1/events");
+    }
+
     // T-101
     #[test]
     fn t_101_the_client_key_is_p256_and_the_service_key_ed25519() {
         let (label, store) = token("key-kinds");
         store.generate_ed25519(CLIENT_LABEL).unwrap();
         store.generate_ed25519(SERVICE_LABEL).unwrap();
+        store.generate_p256(DPOP_LABEL).unwrap();
         assert!(matches!(
             AccessKeys::load(&module(), &label, &pin()),
             Err(AccessError::KeyStore(_))
@@ -849,6 +905,7 @@ mod tests {
         let (label, store) = token("key-kinds-service");
         store.generate_p256(CLIENT_LABEL).unwrap();
         store.generate_p256(SERVICE_LABEL).unwrap();
+        store.generate_p256(DPOP_LABEL).unwrap();
         assert!(matches!(
             AccessKeys::load(&module(), &label, &pin()),
             Err(AccessError::KeyStore(_))

@@ -1,4 +1,4 @@
-//! The Relay client against the real Relay of the local environment (T-99, T-28, MD-3): Relay's discovery at `https://relay` names the Access client of Relay's own registration in the local Access, the events capability and the dated version Work speaks, and an intent waits in the outbox while Relay cannot be reached and is sent again by a later pass once it can. These tests need `just dev`; `just test-compose` runs them with `WORK_ACCESS_LOCAL` naming the directory `just dev-access` fills with Access's local CA, which issued Relay's certificate too, and `bootstrap.json`, and with `relay` resolving to the loopback address.
+//! The Relay client against the real Relay of the local environment (T-99, T-28, MD-3): Relay's discovery at `https://relay` names the Access client of Relay's own registration in the local Access, the events capability and the dated version Work speaks, a token no Access issued gets a `DPoP` challenge, and an intent waits in the outbox while Relay cannot be reached and is sent again by a later pass once it can. These tests need `just dev`; `just test-compose` runs them with `WORK_ACCESS_LOCAL` naming the directory `just dev-access` fills with Access's local CA, which issued Relay's certificate too, and `bootstrap.json`, and with `relay` resolving to the loopback address.
 
 #![allow(
     clippy::unwrap_used,
@@ -35,8 +35,8 @@ use work_relay_client::domain::intent::{
 };
 use work_relay_client::domain::request::Installation;
 use work_relay_client::ports::{
-    Credential, Intents, OutboxError, Recipients, Request, Response, Settlement, Transport,
-    Unresolvable,
+    Authorization, Credential, Intents, OutboxError, Recipients, Request, Response, Settlement,
+    Transport, Unresolvable,
 };
 
 const RELAY: &str = "https://relay";
@@ -184,12 +184,19 @@ impl Transport for &Https {
     }
 }
 
-/// A credential Relay has no API client trace for.
+/// A credential no Access issued: Relay answers it, and refuses it.
 struct Untraced;
 
 impl Credential for Untraced {
-    fn bearer(&self) -> impl Future<Output = Result<String, RelayError>> + Send {
-        std::future::ready(Ok("untraced".to_owned()))
+    fn authorize(
+        &self,
+        _method: &str,
+        _url: &str,
+    ) -> impl Future<Output = Result<Authorization, RelayError>> + Send {
+        std::future::ready(Ok(Authorization {
+            authorization: "DPoP untraced".to_owned(),
+            dpop: "untraced".to_owned(),
+        }))
     }
 }
 
@@ -285,42 +292,80 @@ async fn t_28_an_intent_waits_in_the_outbox_while_relay_is_down_and_a_later_pass
     assert!(answered.load(Ordering::SeqCst));
 }
 
-/// Relay's discovery as Work reads it. `just test-compose` leaves these out while Relay answers
-/// every request that reached it through a TLS terminator `400 malformed_request`.
-mod relay_tls {
-    use super::*;
+// T-99
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs the local environment"]
+async fn t_99_relay_publishes_its_access_client_the_events_capability_and_work_s_version() {
+    let local = Local::open();
+    let https = Https {
+        tls: local.tls(),
+        cut: Arc::default(),
+        answered: Arc::default(),
+    };
+    let answer = https
+        .exchange(
+            http::Method::GET,
+            &format!("{RELAY}/.well-known/relay-configuration"),
+            &[("accept".to_owned(), "application/json".to_owned())],
+            Vec::new(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        answer.status,
+        200,
+        "{}",
+        String::from_utf8_lossy(&answer.body)
+    );
+    let doc: Value = serde_json::from_slice(&answer.body).unwrap();
+    assert_eq!(doc["issuer"], RELAY, "{doc}");
+    assert_eq!(doc["api_base"], format!("{RELAY}/v1"));
+    assert_eq!(doc["region"], REGION);
+    assert_eq!(doc["access_issuer"], ACCESS_ISSUER);
+    assert_eq!(doc["access_client_id"], local.client_of("relay"));
+    assert_ne!(local.client_of("relay"), local.client_of("work"));
+    assert_eq!(doc["events_endpoint"], format!("{RELAY}/v1/events"));
+    let has = |field: &str, value: &str| doc[field].as_array().unwrap().iter().any(|v| v == value);
+    assert!(has("capabilities", "urn:suiss:relay:events:1"), "{doc}");
+    assert!(has("contract_versions_supported", RELAY_VERSION), "{doc}");
+}
 
-    // T-99
-    #[tokio::test(flavor = "multi_thread")]
-    #[ignore = "needs a Relay that serves its API over TLS"]
-    async fn t_99_relay_publishes_its_access_client_the_events_capability_and_work_s_version() {
-        let local = Local::open();
-        let https = Https {
-            tls: local.tls(),
-            cut: Arc::default(),
-            answered: Arc::default(),
-        };
-        let answer = https
-            .exchange(
-                http::Method::GET,
-                &format!("{RELAY}/.well-known/relay-configuration"),
-                &[("accept".to_owned(), "application/json".to_owned())],
-                Vec::new(),
-            )
-            .await
-            .unwrap();
-        assert_eq!(answer.status, 200);
-        let doc: Value = serde_json::from_slice(&answer.body).unwrap();
-        assert_eq!(doc["issuer"], RELAY, "{doc}");
-        assert_eq!(doc["api_base"], format!("{RELAY}/v1"));
-        assert_eq!(doc["region"], REGION);
-        assert_eq!(doc["access_issuer"], ACCESS_ISSUER);
-        assert_eq!(doc["access_client_id"], local.client_of("relay"));
-        assert_ne!(local.client_of("relay"), local.client_of("work"));
-        assert_eq!(doc["events_endpoint"], format!("{RELAY}/v1/events"));
-        let has =
-            |field: &str, value: &str| doc[field].as_array().unwrap().iter().any(|v| v == value);
-        assert!(has("capabilities", "urn:suiss:relay:events:1"), "{doc}");
-        assert!(has("contract_versions_supported", RELAY_VERSION), "{doc}");
-    }
+// T-99 E-93
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs the local environment"]
+async fn t_99_relay_answers_a_token_no_access_issued_with_a_dpop_challenge() {
+    let local = Local::open();
+    let https = Https {
+        tls: local.tls(),
+        cut: Arc::default(),
+        answered: Arc::default(),
+    };
+    let answer = https
+        .exchange(
+            http::Method::POST,
+            &format!("{RELAY}/v1/events"),
+            &[
+                ("content-type".to_owned(), "application/json".to_owned()),
+                ("relay-version".to_owned(), RELAY_VERSION.to_owned()),
+                ("idempotency-key".to_owned(), "wrk-untraced-0001".to_owned()),
+                ("authorization".to_owned(), "DPoP untraced".to_owned()),
+                ("dpop".to_owned(), "untraced".to_owned()),
+            ],
+            b"{}".to_vec(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        answer.status,
+        401,
+        "{}",
+        String::from_utf8_lossy(&answer.body)
+    );
+    assert!(
+        answer
+            .header("www-authenticate")
+            .is_some_and(|v| v.starts_with("DPoP")),
+        "{:?}",
+        answer.headers
+    );
 }

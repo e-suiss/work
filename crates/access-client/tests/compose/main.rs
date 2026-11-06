@@ -932,40 +932,34 @@ async fn e_38_without_access_the_known_realms_last_only_their_bound() {
     assert_eq!(error.code(), "authority_unverifiable");
 }
 
-/// Relay found through Access. `just test-compose` leaves these out while Relay answers every
-/// request that reached it through a TLS terminator `400 malformed_request`.
-mod relay_tls {
-    use super::*;
-
-    // T-99 T-96 E-2
-    #[tokio::test(flavor = "multi_thread")]
-    #[ignore = "needs a Relay that serves its API over TLS"]
-    async fn t_99_relay_is_found_through_access_and_names_its_own_access_client() {
-        let local = Local::open();
-        let pep = local.pep();
-        let client = local.client(&pep, "platform");
-        let doc = client.discover().await.unwrap();
-        assert_eq!(doc.relay.as_str(), "https://relay");
-        let relay = HttpsTransport::new(public_config(local.roots()).unwrap(), DEFAULT_TIMEOUT);
-        let found = client.relay(&relay, "2026-11-01").await.unwrap();
-        assert_eq!(found.issuer, doc.relay);
-        assert_eq!(found.api_base, "https://relay/v1");
-        assert_eq!(found.events_endpoint, "https://relay/v1/events");
-        let client_of = |product: &str| {
-            local.bootstrap["clients"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .find(|c| c["product"] == product)
-                .map(|c| c["client_id"].as_str().unwrap().to_owned())
-                .unwrap()
-        };
-        assert_eq!(found.access_client_id, client_of("relay"));
-        assert_ne!(found.access_client_id, client_of("work"));
-        assert!(found.capabilities.contains("urn:suiss:relay:events:1"));
-        assert_eq!(
-            client.relay(&relay, "2026-10-01").await.unwrap_err(),
-            AccessError::ContractVersion("2026-10-01".to_owned())
-        );
-    }
+// T-99 T-96 E-2
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs the local environment"]
+async fn t_99_relay_is_found_through_access_and_names_its_own_access_client() {
+    let local = Local::open();
+    let pep = local.pep();
+    let client = local.client(&pep, "platform");
+    let doc = client.discover().await.unwrap();
+    assert_eq!(doc.relay.as_str(), "https://relay");
+    let relay = HttpsTransport::new(public_config(local.roots()).unwrap(), DEFAULT_TIMEOUT);
+    let found = client.relay(&relay, "2026-11-01").await.unwrap();
+    assert_eq!(found.issuer, doc.relay);
+    assert_eq!(found.api_base, "https://relay/v1");
+    assert_eq!(found.events_endpoint, "https://relay/v1/events");
+    let client_of = |product: &str| {
+        local.bootstrap["clients"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|c| c["product"] == product)
+            .map(|c| c["client_id"].as_str().unwrap().to_owned())
+            .unwrap()
+    };
+    assert_eq!(found.access_client_id, client_of("relay"));
+    assert_ne!(found.access_client_id, client_of("work"));
+    assert!(found.capabilities.contains("urn:suiss:relay:events:1"));
+    assert_eq!(
+        client.relay(&relay, "2026-10-01").await.unwrap_err(),
+        AccessError::ContractVersion("2026-10-01".to_owned())
+    );
 }

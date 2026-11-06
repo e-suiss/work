@@ -3,7 +3,10 @@
 //! scans of the canonical store as `work_deriver` (T-21, T-82) resumed from its cursor in the
 //! derived store (§18 OP-39); [`JetStreamBus`] over NATS JetStream with the T-76 stream,
 //! `Nats-Msg-Id`, `traceparent` and the CloudEvents structured content type; and
-//! [`JetStreamPull`], the per-partition durable pull consumers with explicit acks (T-76 rule 6).
+//! [`JetStreamPull`], the per-partition durable pull consumers with explicit acks (T-76 rule 6);
+//! and in [`relay`] Work's credential for Relay (T-99 item 4).
+
+pub mod relay;
 
 use std::collections::BTreeMap;
 use std::future::Future;

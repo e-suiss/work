@@ -1,4 +1,4 @@
-//! Pure rules of the Access client: what a discovery document, a signed key lookup answer, an Exercise with its decision receipt, the approval call, an eligibility answer, a tenant snapshot and a pushed Access event must be before Work uses them, the realm token keys an `auth_context` artifact verifies under, the platform client assertion, what Work checks and signs when it pairs with a realm and how it keeps its event stream, the Access access token and `DPoP` proof a caller presents with the realm and Party it names, and the stable codes of every refusal.
+//! Pure rules of the Access client: what a discovery document, a signed key lookup answer, an Exercise with its decision receipt, the approval call, an eligibility answer, a tenant snapshot and a pushed Access event must be before Work uses them, the realm token keys an `auth_context` artifact verifies under, the platform client assertion, the service token for another platform product with its `DPoP` proofs, what Work checks and signs when it pairs with a realm and how it keeps its event stream, the Access access token and `DPoP` proof a caller presents with the realm and Party it names, and the stable codes of every refusal.
 
 pub mod adp;
 pub mod approval;
@@ -15,6 +15,7 @@ pub mod pairing;
 pub mod parties;
 pub mod realm;
 pub mod relay;
+pub mod service;
 pub mod streams;
 pub mod subjects;
 pub mod tenants;

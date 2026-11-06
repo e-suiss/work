@@ -31,7 +31,7 @@ test-containers:
 # OP-32, OP-42, OP-43, T-41, T-96, T-101
 test-compose:
     dir="$(mktemp -d)"; just dev-access "$dir"; \
-    WORK_ACCESS_LOCAL="$dir" SOFTHSM2_CONF="$dir/softhsm2.conf" cargo nextest run --workspace --locked --no-tests=fail --run-ignored only -E 'binary(=compose) & not test(/^(signed|upkeep|status|retired|commit|relay_tls)::/)'
+    WORK_ACCESS_LOCAL="$dir" SOFTHSM2_CONF="$dir/softhsm2.conf" cargo nextest run --workspace --locked --no-tests=fail --run-ignored only -E 'binary(=compose) & not test(/^(signed|upkeep|status|retired|commit)::/)'
 
 # T-103: disables Work's platform stream as its owner, for the CI job to check that work-server
 # opens it again after a restart
