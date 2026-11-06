@@ -442,8 +442,8 @@ mod tests {
                 assert!(parsed.is_err(), "{id}");
             }
         }
-        assert_eq!(valid, 6);
-        assert_eq!(cases.len(), 12);
+        assert_eq!(valid, 7);
+        assert_eq!(cases.len(), 17);
     }
 
     // PR-11 PR-17

@@ -294,7 +294,7 @@ mod tests {
         let other = d.sign("application/access-key-lookup+cbor", &payload);
         assert_eq!(
             verify_answer(&m, &d.id, &asked, &other, &excerpt, Some(9)),
-            Err(AccessError::Metadata("signature"))
+            Err(AccessError::Metadata("content-type"))
         );
     }
 
