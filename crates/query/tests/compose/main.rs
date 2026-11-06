@@ -1104,16 +1104,8 @@ mod retired {
 /// receipt the record's `authority` names, and marks the record once Access declares the user's
 /// Party compromised.
 mod commit {
-    use std::collections::BTreeMap;
     use std::time::Duration;
 
-    use access_kernel::ais::{CONTENT_TYPE as AIS_TYPE, Statement};
-    use access_kernel::codec::Canonical as _;
-    use access_kernel::combinator::{Capacity, Mode};
-    use access_kernel::digest::Digest as AccessDigest;
-    use access_kernel::intent::{ContextRefs, IntentEnvelope, ParamValue, intent_digest};
-    use access_kernel::meta::{ExerciseBasis, HoldingRef};
-    use access_kernel::model::{ActionRef, EqValue, Id, ResourceRef, Window};
     use serde_json::{Value, json};
     use suiss_crypto::dcbor::{self, Limits, Value as Cbor};
     use suiss_crypto::digest::sha256;
@@ -1149,6 +1141,7 @@ mod commit {
     const API: &str = "https://access-server:8443";
     const DEVICE_LABEL: &str = "access/bootstrap/test-user-device";
     const RECORD_TYPE: &str = "application/work-record+cbor";
+    const AIS_TYPE: &str = "application/access-ais+cbor";
     const RECORDS: &str = include_str!("../../../../conformance/vectors/records/records.json");
 
     fn ledger(local: &Local) -> String {
@@ -1174,8 +1167,8 @@ mod commit {
         v[name].as_str().unwrap_or_else(|| panic!("{name}: {v}"))
     }
 
-    fn id(v: &Value, name: &str) -> Id {
-        Id(fixed_b64url(text(v, name)).unwrap())
+    fn id(v: &Value, name: &str) -> [u8; 16] {
+        fixed_b64url(text(v, name)).unwrap()
     }
 
     fn unhex(s: &str) -> Vec<u8> {
@@ -1230,9 +1223,15 @@ mod commit {
     /// `approve` tool is given it.
     struct Commit {
         json: Value,
-        envelope: IntentEnvelope,
+        namespace: String,
+        name: String,
         bytes: Vec<u8>,
-        digest: AccessDigest,
+        digest: [u8; 32],
+    }
+
+    /// A SHA-256 digest as Access's CBOR writes it, `[-16, bytes]`.
+    fn digest_value(d: [u8; 32]) -> Cbor {
+        Cbor::Array(vec![Cbor::int(-16), Cbor::Bytes(d.to_vec())])
     }
 
     /// The intent `test_user.allowed` names over `led`, valid around `now_ms`, with the sample
@@ -1251,39 +1250,48 @@ mod commit {
             },
             "validity": {"from": from, "until": until},
         });
-        let envelope = IntentEnvelope {
-            action: ActionRef {
-                namespace: text(action, "namespace").to_owned(),
-                name: text(action, "name").to_owned(),
-                major: action["major"].as_u64().unwrap(),
-                schema: AccessDigest(fixed_b64url(text(action, "schema")).unwrap()),
-            },
-            resources: vec![ResourceRef {
-                namespace: namespace.to_owned(),
-                path: vec![led.to_owned()],
-                incarnation: 0,
-            }],
-            params: BTreeMap::from([
-                (
-                    "declaration".to_owned(),
-                    ParamValue::Eq(EqValue::Bytes(declaration.to_vec())),
-                ),
-                (
-                    "ledger".to_owned(),
-                    ParamValue::Eq(EqValue::Text(led.to_owned())),
-                ),
-            ]),
-            opaque: BTreeMap::new(),
-            recipient: None,
-            purpose: None,
-            context: ContextRefs::default(),
-            validity: Window { from, until },
-        };
-        let bytes = envelope.to_bytes().unwrap();
-        let digest = intent_digest(&envelope).unwrap();
+        let envelope = map(vec![
+            (
+                "action",
+                map(vec![
+                    ("namespace", Cbor::text(text(action, "namespace"))),
+                    ("name", Cbor::text(text(action, "name"))),
+                    ("major", Cbor::Unsigned(action["major"].as_u64().unwrap())),
+                    (
+                        "schema",
+                        digest_value(fixed_b64url(text(action, "schema")).unwrap()),
+                    ),
+                ]),
+            ),
+            (
+                "resources",
+                Cbor::Array(vec![map(vec![
+                    ("namespace", Cbor::text(namespace)),
+                    ("path", Cbor::Array(vec![Cbor::text(led)])),
+                    ("incarnation", Cbor::Unsigned(0)),
+                ])]),
+            ),
+            (
+                "params",
+                map(vec![
+                    (
+                        "declaration",
+                        map(vec![("eq", Cbor::Bytes(declaration.to_vec()))]),
+                    ),
+                    ("ledger", map(vec![("eq", Cbor::text(led))])),
+                ]),
+            ),
+            (
+                "validity",
+                Cbor::Array(vec![Cbor::Unsigned(from), Cbor::Unsigned(until)]),
+            ),
+        ]);
+        let bytes = dcbor::encode(&envelope, Limits::CEILING).unwrap();
+        let digest = Intent::from_bytes(&bytes).unwrap().digest;
         Commit {
             json,
-            envelope,
+            namespace: namespace.to_owned(),
+            name: text(action, "name").to_owned(),
             bytes,
             digest,
         }
@@ -1319,33 +1327,32 @@ mod commit {
         let a = allowed(local);
         let holding = &a["basis"]["holding"];
         let party = local.user("party");
-        let basis = HoldingRef {
-            grant: id(holding, "grant"),
-            holder: id(holding, "holder"),
-            since: holding["since"].as_u64().unwrap(),
-        };
-        let domain = AccessDigest(fixed_b64url(text(a, "domain")).unwrap());
-        let statement = Statement {
-            domain,
-            nonce: nonce.to_vec(),
-            intent: c.digest,
-            mode: Mode::Commit,
-            pep: pep.x5t_s256(),
-            capacity: Capacity::Own,
-            basis: ExerciseBasis::Holding(basis),
-            iat: local.access_now_s().await * 1000,
-            exercise: None,
-        };
+        let basis = Cbor::Array(vec![
+            Cbor::Bytes(id(holding, "grant").to_vec()),
+            Cbor::Bytes(id(holding, "holder").to_vec()),
+            Cbor::Unsigned(holding["since"].as_u64().unwrap()),
+        ]);
+        let domain: [u8; 32] = fixed_b64url(text(a, "domain")).unwrap();
+        let statement = map(vec![
+            ("domain", digest_value(domain)),
+            ("nonce", Cbor::Bytes(nonce.to_vec())),
+            ("intent", digest_value(c.digest)),
+            ("mode", Cbor::text("commit")),
+            ("pep", Cbor::text(&pep.x5t_s256())),
+            ("capacity", Cbor::text("own")),
+            ("basis", map(vec![("holding", basis)])),
+            ("iat", Cbor::Unsigned(local.access_now_s().await * 1000)),
+        ]);
         let device = device(local);
         let ais = sign_sign1(
             &device,
             thumbprint(&device.public_key()),
             AIS_TYPE,
-            &statement.to_bytes().unwrap(),
+            &dcbor::encode(&statement, Limits::CEILING).unwrap(),
         )
         .unwrap();
         let mut context = json!({
-            "domain": b64url(&domain.0),
+            "domain": b64url(&domain),
             "mode": "commit",
             "nonce": b64url(nonce),
             "intent": c.json,
@@ -1356,11 +1363,10 @@ mod commit {
         if !proofs.is_empty() {
             context["proofs"] = Value::Array(proofs);
         }
-        let first = &c.envelope.resources[0];
         let body = json!({
             "subject": {"type": "access_party", "id": party},
-            "action": {"name": c.envelope.action.name},
-            "resource": {"type": first.namespace, "id": first.path.join("/")},
+            "action": {"name": c.name},
+            "resource": {"type": c.namespace, "id": ledger(local)},
             "context": context,
         });
         let transport =
@@ -1679,7 +1685,7 @@ mod commit {
             "require_action": {
                 "domain": text(a, "domain"),
                 "nonce": b64url(&nonce),
-                "intent": b64url(&c.digest.0),
+                "intent": b64url(&c.digest),
             },
             "expires_at": now + 3_600_000,
         });
@@ -1714,7 +1720,7 @@ mod commit {
         assert_eq!(answer["decision"], true, "{answer}");
         let exercise = text(&answer["context"], "exercise").to_owned();
         let v = verified(&local, &exercise, &c).await;
-        assert_eq!(v.intent, c.digest.0);
+        assert_eq!(v.intent, c.digest);
         assert_eq!(v.exercise.text(), exercise);
         assert!(matches!(v.capacity, Held::Own), "{:?}", v.capacity);
         assert_ne!(v.receipt, Vec::<u8>::new());
@@ -1802,7 +1808,7 @@ mod commit {
         );
     }
 
-    // SEC-36 C-4 T-102 WD-123
+    // SEC-36 C-4 T-102
     #[tokio::test(flavor = "multi_thread")]
     #[ignore = "needs the local environment with the test user's Party compromised"]
     async fn sec_36_the_test_user_s_record_shows_the_compromise_window_of_its_party() {
