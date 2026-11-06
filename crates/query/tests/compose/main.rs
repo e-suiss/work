@@ -1468,11 +1468,16 @@ mod commit {
             "content_digest": b64url(record_id(record).0.as_bytes()),
         });
         let cookies = jar.header();
+        let key = local.random();
         let answer = local
             .send(
                 "POST",
                 &format!("{issuer}/v1/me/auth-context"),
-                &[("cookie", cookies.as_str()), ("origin", origin.as_str())],
+                &[
+                    ("cookie", cookies.as_str()),
+                    ("origin", origin.as_str()),
+                    ("idempotency-key", key.as_str()),
+                ],
                 Some(("application/json", body.to_string().into_bytes())),
             )
             .await;
@@ -1712,7 +1717,7 @@ mod commit {
         assert_eq!(v.intent, c.digest.0);
         assert_eq!(v.exercise.text(), exercise);
         assert!(matches!(v.capacity, Held::Own), "{:?}", v.capacity);
-        assert!(!v.receipt.is_empty());
+        assert_ne!(v.receipt, Vec::<u8>::new());
         write(&local, EXERCISE_FILE, &json!({"exercise": exercise}));
     }
 
