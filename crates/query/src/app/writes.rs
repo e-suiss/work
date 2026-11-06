@@ -331,8 +331,8 @@ where
         decided
     }
 
-    /// The governing domain of the caller's realm and the realms of its tenant Work is paired
-    /// with (P-115 item 2).
+    /// The governing domain of the caller's realm and the issuers of the realms of its tenant
+    /// Work is paired with, as an `auth_context` names its realm (P-115 item 2, P-116).
     async fn realm(&self, caller: &Caller) -> Result<(DomainId, BTreeSet<String>), WriteRefusal> {
         let rows = self
             .realms
@@ -342,7 +342,7 @@ where
         let paired: BTreeSet<String> = rows
             .iter()
             .filter(|r| r.state == RealmState::Paired)
-            .map(|r| r.realm.clone())
+            .map(|r| r.issuer.clone())
             .collect();
         let domain = rows
             .iter()

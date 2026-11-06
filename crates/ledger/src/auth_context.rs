@@ -62,7 +62,7 @@ pub struct AuthContext<'a> {
     pub realm_keys: &'a KeySet,
     /// The `iss` of the Access token the request carries.
     pub issuer: &'a str,
-    /// The realms the tenant is paired with (P-115 item 2).
+    /// The issuers of the realms the tenant is paired with (P-115 item 2).
     pub paired: &'a BTreeSet<String>,
     /// The admission time, Unix milliseconds from the Clock port.
     pub now_ms: u64,
