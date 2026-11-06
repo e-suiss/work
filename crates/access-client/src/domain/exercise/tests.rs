@@ -355,7 +355,7 @@ fn t_101_the_intent_digest_is_recomputed_from_the_canonical_envelope() {
 #[test]
 fn t_101_an_exercise_id_is_the_domain_and_nonce_digest() {
     let domain = DomainId([1; 32]);
-    let nonce = [0x2a; 32];
+    let nonce = suiss_crypto::digest::sha256(DomainId([1; 32]).text().as_bytes());
     let value = dcbor::Value::Array(vec![
         Digest(domain.0).to_value(),
         dcbor::Value::Bytes(nonce.to_vec()),
