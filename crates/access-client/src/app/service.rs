@@ -158,10 +158,9 @@ impl<T: Transport, C: Clock, R: Random, K: Signer + Send + Sync, D: Signer + Sen
                 return ServiceToken::from_json(&answer.body, self.clock.now_ms());
             }
             let refused = refusal(answer.status, &answer.body);
-            match (&refused, answer.header(NONCE_HEADER), &nonce) {
-                (AccessError::Refused { code, .. }, Some(fresh), None) if code == NONCE_ERROR => {
-                    nonce = Some(fresh.to_owned());
-                }
+            let asks = matches!(&refused, AccessError::Refused { code, .. } if code == NONCE_ERROR);
+            match answer.header(NONCE_HEADER) {
+                Some(fresh) if asks && nonce.is_none() => nonce = Some(fresh.to_owned()),
                 _ => return Err(refused),
             }
         }
@@ -350,7 +349,7 @@ mod tests {
         assert_eq!(h.authorization, "DPoP at-1");
         let sent = endpoint.sent.lock().unwrap();
         assert_eq!(sent.len(), 2);
-        for r in sent.iter() {
+        for r in &*sent {
             assert_eq!(r.url, "https://access.example/realms/platform/token");
             assert_eq!(header(r, "content-type"), FORM);
             let body = String::from_utf8(r.body.clone()).unwrap();

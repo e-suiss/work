@@ -281,7 +281,7 @@ mod tests {
         let claims = part(&bare.signing_input().unwrap(), 1);
         assert!(claims.get("nonce").is_none());
         assert!(claims.get("ath").is_none());
-        let ed = PublicKey::Ed25519(vec![1; 32]);
+        let ed = PublicKey::Ed25519([1; 32]);
         assert!(Proof { key: &ed, ..proof }.signing_input().is_err());
         let short = PublicKey::P256(vec![4; 33]);
         assert!(
