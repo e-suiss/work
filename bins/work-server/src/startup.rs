@@ -9,7 +9,9 @@
 //! start; until it answers the process is not ready and nothing is checkpointed (T-39 rule 6).
 //! Access's discovery is read here too (T-96, E-2): an answer that refuses start stops the
 //! process, while an Access that does not answer is an outage that refuses consequential actions
-//! and never readiness (T-28).
+//! and never readiness (T-28). The client presents the PEP certificate of the `[access]` token,
+//! whose key never leaves it (T-101 item 2, T-56); without it every consequential call is
+//! refused.
 
 use std::future::Future;
 use std::io::BufReader;
@@ -17,10 +19,14 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
+use suiss_crypto::secret::Secret;
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 use tokio::time::MissedTickBehavior;
-use work_access_client::adapters::{DEFAULT_TIMEOUT, HttpsTransport, public_config, roots};
+use tokio_rustls::rustls::ServerConfig;
+use work_access_client::adapters::{
+    DEFAULT_TIMEOUT, HttpsTransport, PEP_LABEL, PepCredential, public_config, roots, server_config,
+};
 use work_access_client::app::{Client, DISCOVERY_INTERVAL_MS};
 use work_access_client::ports::Clock as AccessClockPort;
 use work_ledger::SystemRng;
@@ -77,7 +83,7 @@ pub(crate) enum StartupError {
 /// Ledger time as the Access client reads it; while ledger time is unavailable the client is at
 /// the end of time and refuses every consequential call (OP-6, T-28).
 #[derive(Debug, Clone)]
-pub(crate) struct AccessClock(LedgerTime<ProcessMonotonic>);
+pub(crate) struct AccessClock(pub(crate) LedgerTime<ProcessMonotonic>);
 
 impl AccessClockPort for AccessClock {
     fn now_ms(&self) -> u64 {
@@ -85,13 +91,47 @@ impl AccessClockPort for AccessClock {
     }
 }
 
-/// Whether the discovery of the `[suiss] access` issuer last answered, and the task that reads
-/// it again every [`DISCOVERY_INTERVAL_MS`] (T-96 items 1, 2). The process holds no PEP
-/// certificate yet, so its client refuses every consequential call.
+/// The process's client of `[suiss] access`.
+pub(crate) type AccessClient = Client<HttpsTransport, AccessClock>;
+
+/// Whether the discovery of the `[suiss] access` issuer last answered, the task that reads it
+/// again every [`DISCOVERY_INTERVAL_MS`] (T-96 items 1, 2), and the client itself, which
+/// presents the PEP certificate of the `[access]` token and refuses every consequential call
+/// past its `notAfter` (T-101 item 2, T-56).
 #[derive(Debug)]
 pub(crate) struct AccessLink {
     pub(crate) up: Arc<AtomicBool>,
+    pub(crate) client: Arc<AccessClient>,
     refresh: JoinHandle<()>,
+}
+
+fn read_pin(path: &std::path::Path) -> Result<Secret<String>, String> {
+    let pin = std::fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))?;
+    Ok(Secret::new(pin.trim_end().to_owned()))
+}
+
+/// The PEP credential of the `[access]` token: the key `work-access-pep` and its certificate,
+/// the one Access's CA issued for the key's CSR.
+fn pep(config: &Config) -> Result<PepCredential, String> {
+    let pin = read_pin(&config.access.pin_file)?;
+    PepCredential::load(&config.access.module, &config.access.token, &pin, PEP_LABEL)
+        .map_err(|e| e.to_string())
+}
+
+/// The TLS settings of the event entry: `[inbound] certificate` and the token key
+/// `[inbound] key_label` (T-102 item 2, T-56).
+pub(crate) fn inbound_tls(config: &Config) -> Result<Arc<ServerConfig>, String> {
+    let pin = read_pin(&config.access.pin_file)?;
+    let chain = std::fs::read(&config.inbound.certificate)
+        .map_err(|e| format!("{}: {e}", config.inbound.certificate.display()))?;
+    server_config(
+        &config.access.module,
+        &config.access.token,
+        &pin,
+        &config.inbound.key_label,
+        &chain,
+    )
+    .map_err(|e| e.to_string())
 }
 
 impl AccessLink {
@@ -104,13 +144,33 @@ impl AccessLink {
     ) -> Result<Self, StartupError> {
         let refused = |e: &dyn std::fmt::Display| StartupError::Access(e.to_string());
         let (issuer, region, pem) = config.access().map_err(|e| refused(&e))?;
-        let tls = public_config(roots(&pem).map_err(|e| refused(&e))?).map_err(|e| refused(&e))?;
+        let trusted = roots(&pem).map_err(|e| refused(&e))?;
+        let (tls, not_after) = match pep(config) {
+            Ok(pep) => {
+                tracing::info!(
+                    event = "access.pep_loaded",
+                    x5t = pep.x5t_s256().as_str(),
+                    not_after_ms = pep.not_after_ms(),
+                    "PEP certificate loaded from the token"
+                );
+                let tls = pep.client_config(trusted).map_err(|e| refused(&e))?;
+                (tls, pep.not_after_ms())
+            }
+            Err(error) => {
+                tracing::warn!(
+                    event = "access.pep_unavailable",
+                    %error,
+                    "no PEP certificate; consequential actions are refused"
+                );
+                (public_config(trusted).map_err(|e| refused(&e))?, 0)
+            }
+        };
         let client = Arc::new(Client::new(
             HttpsTransport::new(tls, DEFAULT_TIMEOUT),
             AccessClock(time),
             issuer,
             region,
-            0,
+            not_after,
         ));
         let up = Arc::new(AtomicBool::new(false));
         match client.discover().await {
@@ -130,8 +190,12 @@ impl AccessLink {
                 "Access does not answer; consequential actions are refused until it does"
             ),
         }
-        let refresh = tokio::spawn(rediscover(client, Arc::clone(&up)));
-        Ok(Self { up, refresh })
+        let refresh = tokio::spawn(rediscover(Arc::clone(&client), Arc::clone(&up)));
+        Ok(Self {
+            up,
+            client,
+            refresh,
+        })
     }
 
     /// Stops the refresh.
@@ -140,7 +204,7 @@ impl AccessLink {
     }
 }
 
-async fn rediscover(client: Arc<Client<HttpsTransport, AccessClock>>, up: Arc<AtomicBool>) {
+async fn rediscover(client: Arc<AccessClient>, up: Arc<AtomicBool>) {
     let mut ticks = tokio::time::interval(Duration::from_millis(DISCOVERY_INTERVAL_MS));
     ticks.set_missed_tick_behavior(MissedTickBehavior::Delay);
     ticks.tick().await;

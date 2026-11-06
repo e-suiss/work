@@ -1,6 +1,6 @@
 [package]
 name = "work-reconciler"
-description = "Reconciler: level-triggered, idempotent sync of expected state (T-12), including Work's Access pairing state (T-103)."
+description = "Reconciler: level-triggered, idempotent sync of expected state (T-12), including Work's Access pairing state (T-103) and the deduplication rows of Access events (T-102)."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -13,6 +13,7 @@ suiss-crypto = { workspace = true, features = ["aws-lc"] }
 work-access-client = { workspace = true }
 work-proto = { workspace = true }
 work-store = { workspace = true }
+sha2 = { workspace = true }
 
 [lints]
 workspace = true

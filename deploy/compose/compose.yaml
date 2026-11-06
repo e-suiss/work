@@ -132,7 +132,27 @@ services:
       timeout: 3s
       retries: 60
 
-  # T-39, T-84, T-20, OP-33, T-76, T-96, E-2
+  # T-36, OP-28
+  work-migrate:
+    <<: *access-hardening
+    build:
+      context: ../..
+      dockerfile: deploy/compose/work/Dockerfile
+      target: cli
+    image: work-dev/work-cli:local
+    read_only: true
+    entrypoint: ["sh", "-c"]
+    command: ["work-cli migrate canonical && work-cli migrate derived"]
+    environment:
+      PGHOST: work-postgres
+      PGPORT: "5432"
+      PGUSER: work_owner
+      PGPASSWORD: local-only-not-a-secret
+    depends_on:
+      work-postgres:
+        condition: service_healthy
+
+  # T-39, T-84, T-20, OP-33, T-76, T-96, E-2, T-101, T-102, T-103
   work-server:
     <<: *hardening
     build:
@@ -158,6 +178,11 @@ services:
       - ./nts/pki/root.pem:/etc/work/nts-root.pem:ro
       - witness-public:/run/witness:ro
       - access-product-tls:/var/lib/access/product-tls:ro
+      - softhsm:/var/lib/softhsm/tokens
+      - work-access-client:/run/work-access:ro
+    secrets:
+      - source: work_access_pin
+        target: /run/secrets/access-pin
     ports:
       - "127.0.0.1:${WORK_DEV_SERVER_PORT:-8190}:8090"
       - "127.0.0.1:${WORK_DEV_SERVER_INTERNAL_PORT:-8191}:8091"
@@ -165,6 +190,12 @@ services:
     depends_on:
       work-postgres:
         condition: service_healthy
+      work-migrate:
+        condition: service_completed_successfully
+      work-server-tls:
+        condition: service_completed_successfully
+      work-access-client-id:
+        condition: service_completed_successfully
       access:
         condition: service_healthy
       nats:
@@ -377,7 +408,7 @@ services:
     read_only: true
     entrypoint: ["sh", "-c"]
     command:
-      - "chown 65532:65532 /var/lib/access/certs /var/lib/access/secrets /var/lib/access/initdb /var/lib/access/signer /var/lib/access/identity-signer /var/lib/access/bootstrap /var/lib/access/products /var/lib/access/product-tls && chmod 0750 /var/lib/access/certs /var/lib/access/secrets /var/lib/access/initdb /var/lib/access/signer /var/lib/access/identity-signer /var/lib/access/bootstrap /var/lib/access/products /var/lib/access/product-tls && chown 65532:softhsm /var/lib/softhsm/tokens && chmod 0770 /var/lib/softhsm/tokens"
+      - "chown 65532:65532 /var/lib/access/certs /var/lib/access/secrets /var/lib/access/initdb /var/lib/access/signer /var/lib/access/identity-signer /var/lib/access/bootstrap /var/lib/access/products /var/lib/access/product-tls /var/lib/work-access && chmod 0750 /var/lib/access/certs /var/lib/access/secrets /var/lib/access/initdb /var/lib/access/signer /var/lib/access/identity-signer /var/lib/access/bootstrap /var/lib/access/products /var/lib/access/product-tls /var/lib/work-access && chown 65532:softhsm /var/lib/softhsm/tokens && chmod 0770 /var/lib/softhsm/tokens"
     volumes:
       - access-certs:/var/lib/access/certs
       - access-secrets:/var/lib/access/secrets
@@ -388,6 +419,7 @@ services:
       - access-bootstrap:/var/lib/access/bootstrap
       - access-products:/var/lib/access/products
       - access-product-tls:/var/lib/access/product-tls
+      - work-access-client:/var/lib/work-access
     networks: [access]
 
   # T-51, T-41, T-101
@@ -551,6 +583,45 @@ services:
       access-init:
         condition: service_completed_successfully
 
+  # T-56, T-102
+  work-server-tls:
+    <<: *access-hardening
+    build: ./softhsm
+    image: work-dev/softhsm:local
+    read_only: true
+    entrypoint: ["/usr/local/bin/work-server-tls"]
+    group_add: ["65532"]
+    environment:
+      SOFTHSM_TOKEN_LABEL: work-dev
+      SOFTHSM_USER_PIN: "1234"
+      WORK_SERVER_KEY: /var/lib/access/product-tls/work-server.key
+    tmpfs:
+      - /tmp:uid=65532,gid=65532,mode=0700
+    volumes:
+      - softhsm:/var/lib/softhsm/tokens
+      - access-product-tls:/var/lib/access/product-tls:ro
+    depends_on:
+      access-init:
+        condition: service_completed_successfully
+      softhsm:
+        condition: service_healthy
+
+  # T-96, T-103
+  work-access-client-id:
+    <<: *access-hardening
+    build: ./softhsm
+    image: work-dev/softhsm:local
+    read_only: true
+    entrypoint: ["sh", "-c"]
+    command:
+      - "jq -er '.clients[] | select(.product == \"work\") | .client_id' /var/lib/access/bootstrap/bootstrap.json > /run/work-access/client_id.new && mv /run/work-access/client_id.new /run/work-access/client_id && cat /run/work-access/client_id"
+    volumes:
+      - access-bootstrap:/var/lib/access/bootstrap:ro
+      - work-access-client:/run/work-access
+    depends_on:
+      access-bootstrap:
+        condition: service_completed_successfully
+
   # T-96, T-101, T-103, T-51
   access-bootstrap:
     <<: *access-process
@@ -569,6 +640,7 @@ services:
       - access-bootstrap:/var/lib/access/bootstrap
       - access-products:/etc/access/products:ro
       - ./access/bootstrap-work.toml:/etc/work-access/bootstrap-work.toml:ro
+      - ./access/bootstrap-work-beta.toml:/etc/work-access/bootstrap-work-beta.toml:ro
     depends_on:
       access-migrate:
         condition: service_completed_successfully
@@ -715,6 +787,7 @@ volumes:
   access-bootstrap:
   access-products:
   access-product-tls:
+  work-access-client:
 
 networks:
   default:
@@ -723,3 +796,5 @@ networks:
 secrets:
   relay_db_password:
     file: ./relay/db-password
+  work_access_pin:
+    file: ./work/access-pin

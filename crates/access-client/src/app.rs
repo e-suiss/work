@@ -1,5 +1,6 @@
-//! The Access client's use cases: discovery at start and on refresh (T-96 item 2), Relay's discovery document (T-99 item 1), Domain Metadata kept per domain, verified and cached key lookups (T-101 item 4), the eligibility check (T-101 item 5), the realm token keys an `auth_context` artifact verifies under (P-116), tenant snapshots and the reconciliation job (T-96 item 4), and the platform routes with Work's pairing and event stream upkeep (T-103) in [`platform`]. Every consequential call is refused fail-closed while the PEP certificate has expired or the endpoint it needs is not served (T-28).
+//! The Access client's use cases: discovery at start and on refresh (T-96 item 2), Relay's discovery document (T-99 item 1), Domain Metadata kept per domain, verified and cached key lookups (T-101 item 4), the eligibility check (T-101 item 5), the realm token keys an `auth_context` artifact verifies under (P-116), tenant snapshots and the reconciliation job (T-96 item 4), and the platform routes with Work's pairing and event stream upkeep (T-103) in [`platform`], and the Access intake of Work's event entry (T-102) in [`events`]. Every consequential call is refused fail-closed while the PEP certificate has expired or the endpoint it needs is not served (T-28).
 
+pub mod events;
 pub mod platform;
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -51,6 +52,8 @@ struct State {
     domains: BTreeMap<DomainId, Trusted>,
     cache: KeyCache,
     realms: BTreeMap<Issuer, (KeySet, u64)>,
+    event_reread_ms: Option<u64>,
+    disabled: bool,
 }
 
 /// A key the client looked up: verified, from the cache or a fresh answer, or unknown to Access.
@@ -119,7 +122,95 @@ impl<T: Transport, C: Clock> Client<T, C> {
         if now > self.pep_not_after_ms {
             return Err(AccessError::Expired);
         }
-        fresh(self.state()?.discovered, now)
+        let state = self.state()?;
+        if state.disabled {
+            return Err(AccessError::Disabled);
+        }
+        fresh(state.discovered, now)
+    }
+
+    /// Now on the client's clock, Unix milliseconds.
+    #[must_use]
+    pub fn now_ms(&self) -> u64 {
+        self.clock.now_ms()
+    }
+
+    /// Refuses every later consequential action: Access disabled Work's own client
+    /// (`api_client.disabled`, T-102 item 5, T-28).
+    ///
+    /// # Errors
+    /// [`AccessError::Transport`] when the client state is poisoned.
+    pub fn disable(&self) -> Result<(), AccessError> {
+        self.state()?.disabled = true;
+        Ok(())
+    }
+
+    /// Drops every cached key of `domain` at once (T-102 item 5, E-14).
+    ///
+    /// # Errors
+    /// [`AccessError::Transport`] when the client state is poisoned.
+    pub fn forget_domain(&self, domain: DomainId) -> Result<(), AccessError> {
+        self.state()?.cache.forget_domain(domain);
+        Ok(())
+    }
+
+    /// How many keys the cache holds.
+    ///
+    /// # Errors
+    /// [`AccessError::Transport`] when the client state is poisoned.
+    pub fn cached_keys(&self) -> Result<usize, AccessError> {
+        Ok(self.state()?.cache.len())
+    }
+
+    /// The platform realm keys a pushed SET signed under `kid` verifies with (T-102 item 3):
+    /// the realm JWKS of `[suiss] access`, read again for a `kid` it does not hold at most once
+    /// per [`DISCOVERY_INTERVAL_MS`], so that SETs naming unknown keys cannot make Work read
+    /// Access's JWKS on every request.
+    ///
+    /// # Errors
+    /// [`AccessError`]; the SET is not accepted.
+    pub async fn event_keys(&self, kid: &[u8; 32]) -> Result<KeySet, AccessError> {
+        let now = self.clock.now_ms();
+        {
+            let state = self.state()?;
+            if let Some((keys, read_at)) = state.realms.get(&self.issuer)
+                && now.saturating_sub(*read_at) < REALM_KEYS_MAX_AGE_MS
+                && (keys.keys.contains_key(kid)
+                    || state
+                        .event_reread_ms
+                        .is_some_and(|at| now.saturating_sub(at) < DISCOVERY_INTERVAL_MS))
+            {
+                return Ok(keys.clone());
+            }
+        }
+        let issuer = self.issuer.clone();
+        let keys = self.realm_keys(&issuer, kid).await?;
+        if !keys.keys.contains_key(kid) {
+            self.state()?.event_reread_ms = Some(now);
+        }
+        Ok(keys)
+    }
+
+    /// Puts a key set for the platform realm as read at `read_at_ms`, for tests that hand the
+    /// intake a known JWKS.
+    #[cfg(test)]
+    pub(crate) fn put_event_keys(&self, keys: KeySet, read_at_ms: u64) {
+        if let Ok(mut state) = self.state() {
+            state.realms.insert(self.issuer.clone(), (keys, read_at_ms));
+        }
+    }
+
+    /// Puts a verified key answer in the cache, for tests.
+    #[cfg(test)]
+    pub(crate) fn put_key(&self, answer: &KeyAnswer, as_of: &AsOf, now_ms: u64) {
+        if let Ok(mut state) = self.state() {
+            state.cache.put(
+                answer,
+                as_of,
+                CachePolicy::parse(Some("max-age=300")),
+                now_ms,
+            );
+        }
     }
 
     /// The endpoints the last discovery read.

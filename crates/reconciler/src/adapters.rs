@@ -1,11 +1,15 @@
-//! Port implementations (T-32): Work's Access realm table and stream row in the canonical database, written as `work_access`, behind the pairing step's [`PairingStore`] port (T-103 item 5).
+//! Port implementations (T-32): Work's Access realm table and stream row in the canonical database, written as `work_access`, behind the pairing step's [`PairingStore`] port (T-103 item 5), and the deduplication rows of Access events in `work.inbound_seen`, written as `work_sequencer` in one scope per tenant, behind [`InboundLog`] (T-102 item 4).
 
+use sha2::{Digest as _, Sha256};
 use work_access_client::domain::pairing::{PairState, RealmChange, RealmId, StoredRealm};
 use work_access_client::domain::streams::StreamStatus;
 use work_access_client::domain::{AccessError, b64url, fixed_b64url};
-use work_access_client::ports::{PairingStore, StoredStream};
+use work_access_client::ports::{Arrival, InboundLog, PairingStore, StoredStream};
 use work_proto::id::TenantId;
-use work_store::{AccessPool, Pairing, RealmRow, RealmState, StoreError, StreamRow, StreamState};
+use work_store::{
+    AccessPool, InboundEvent, InboundSeen, LedgerId, Pairing, RealmRow, RealmState, SequencerPool,
+    StoreError, StreamRow, StreamState,
+};
 
 /// Work's realm table and stream row in PostgreSQL.
 #[derive(Debug, Clone)]
@@ -156,9 +160,73 @@ impl PairingStore for PgPairing {
     }
 }
 
+/// The domain of the scope an Access event's deduplication row is written in.
+const TENANT_SCOPE: &[u8] = b"work/inbound/access-tenant/v1\0";
+
+/// The ledger scope of a tenant's Access events: SHA-256 of [`TENANT_SCOPE`] and the `tnt_`
+/// id. A tenant may lead many ledgers and an Access event belongs to none of them, so its row
+/// is scoped to this one id per tenant, and `(access_tenant, iss, jti)` is seen once (T-102
+/// item 4, P-35 item 4).
+#[must_use]
+pub fn tenant_scope(tenant: &TenantId) -> LedgerId {
+    let mut hash = Sha256::new();
+    hash.update(TENANT_SCOPE);
+    hash.update(tenant.as_bytes());
+    LedgerId::from_bytes(hash.finalize().into())
+}
+
+/// The `work.inbound_seen` rows of Access events, written as `work_sequencer`.
+#[derive(Debug, Clone)]
+pub struct PgInbound {
+    pool: SequencerPool,
+}
+
+impl PgInbound {
+    /// Over a pool checked to act as `work_sequencer`.
+    #[must_use]
+    pub const fn new(pool: SequencerPool) -> Self {
+        Self { pool }
+    }
+}
+
+impl InboundLog for PgInbound {
+    async fn note(&self, arrival: &Arrival<'_>) -> Result<bool, AccessError> {
+        let mut tx = self
+            .pool
+            .begin(&tenant_scope(arrival.tenant))
+            .await
+            .map_err(|e| store(&e))?;
+        let seen = tx
+            .note_inbound(&InboundEvent {
+                source: arrival.source.to_owned(),
+                source_id: arrival.id.to_owned(),
+                content_digest: arrival.digest,
+                seen_at_ms: arrival.at_ms,
+            })
+            .await
+            .map_err(|e| store(&e))?;
+        tx.commit().await.map_err(|e| store(&e))?;
+        Ok(seen == InboundSeen::First)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // T-102
+    #[test]
+    fn t_102_each_tenant_has_its_own_deduplication_scope() {
+        let a = TenantId::new("tnt_a").unwrap();
+        let b = TenantId::new("tnt_b").unwrap();
+        assert_eq!(tenant_scope(&a), tenant_scope(&a.clone()));
+        assert_ne!(tenant_scope(&a), tenant_scope(&b));
+        assert_eq!(tenant_scope(&a).to_hex(), {
+            let mut h = Sha256::new();
+            h.update(b"work/inbound/access-tenant/v1\0tnt_a");
+            LedgerId::from_bytes(h.finalize().into()).to_hex()
+        });
+    }
 
     // T-103
     #[test]

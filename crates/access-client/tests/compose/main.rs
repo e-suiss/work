@@ -534,3 +534,118 @@ mod signed {
         }
     }
 }
+
+/// The stream upkeep against the real Access (T-103 item 7): the platform stream is disabled
+/// the only way Access offers, `DELETE` by the client that owns it, here with Work's own client
+/// assertion key from the token copy, acting as the operator would; Work itself never deletes a
+/// stream. The CI job then restarts `work-server` and checks that it opened the stream again.
+/// `just test-compose-upkeep` runs this after `just test-compose`.
+mod upkeep {
+    use std::sync::atomic::AtomicU64;
+
+    use bytes::Bytes;
+    use http_body_util::Full;
+    use hyper::client::conn::http1;
+    use hyper_util::rt::TokioIo;
+    use rustls::pki_types::ServerName;
+    use tokio::net::TcpStream;
+    use tokio_rustls::TlsConnector;
+    use work_access_client::adapters::{AccessKeys, public_config};
+    use work_access_client::app::platform::Platform;
+    use work_access_client::domain::streams::StreamStatus;
+    use work_access_client::ports::Random;
+
+    use sha2::Digest as _;
+
+    use super::{
+        AccessError, At, DEFAULT_TIMEOUT, Endpoint, HttpsTransport, Local, Ordering, PIN, Secret,
+        Sha256, TOKEN, module,
+    };
+
+    const RECEIVER: &str = "https://work-server:8443/v1/inbound/events";
+
+    /// Fresh `jti`s: the hash of Access's time at the start and a counter.
+    struct Jti(AtomicU64, u64);
+
+    impl Random for Jti {
+        fn fill(&self, out: &mut [u8]) -> Result<(), AccessError> {
+            let n = self.0.fetch_add(1, Ordering::SeqCst);
+            let mut h = Sha256::new();
+            h.update(self.1.to_be_bytes());
+            h.update(n.to_be_bytes());
+            let d = h.finalize();
+            for (o, b) in out.iter_mut().zip(d.iter().cycle()) {
+                *o = *b;
+            }
+            Ok(())
+        }
+    }
+
+    async fn delete(url: &str, bearer: &str, local: &Local) -> u16 {
+        let rest = url.strip_prefix("https://").unwrap();
+        let slash = rest.find('/').unwrap();
+        let (authority, path) = rest.split_at(slash);
+        let (host, port) = authority
+            .rsplit_once(':')
+            .map_or((authority, 443), |(h, p)| (h, p.parse::<u16>().unwrap()));
+        let tcp = TcpStream::connect((host, port)).await.unwrap();
+        let tls = TlsConnector::from(public_config(local.roots()).unwrap())
+            .connect(ServerName::try_from(host.to_owned()).unwrap(), tcp)
+            .await
+            .unwrap();
+        let (mut send, connection) = http1::handshake(TokioIo::new(tls)).await.unwrap();
+        tokio::spawn(connection);
+        let request = http::Request::delete(path)
+            .header("host", authority)
+            .header("authorization", bearer)
+            .body(Full::new(Bytes::new()))
+            .unwrap();
+        send.send_request(request).await.unwrap().status().as_u16()
+    }
+
+    // T-103 T-102
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore = "needs the local environment with work-server paired"]
+    async fn t_103_the_owner_disables_the_platform_stream_for_work_to_reopen() {
+        let local = Local::open();
+        let pep = local.pep();
+        let now = local.access_now_ms(&pep).await;
+        let discovery = local.client(&pep, "platform");
+        discovery.discover().await.unwrap();
+        let endpoints = discovery.served().unwrap();
+        let keys = AccessKeys::load(&module(), TOKEN, &Secret::new(PIN.to_owned())).unwrap();
+        let client_id = local.bootstrap["clients"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|c| c["product"] == "work")
+            .unwrap()["client_id"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        let platform = Platform::new(
+            HttpsTransport::new(public_config(local.roots()).unwrap(), DEFAULT_TIMEOUT),
+            At(now),
+            Jti(AtomicU64::new(0), now),
+            keys.client,
+            &client_id,
+            &local.issuer("platform"),
+        );
+        let streams = platform.streams(&endpoints).await.unwrap();
+        let live = streams
+            .iter()
+            .find(|s| s.pushes_to(RECEIVER) && s.status == StreamStatus::Enabled)
+            .expect("work-server's pairing opened the stream");
+        let base = endpoints.get(Endpoint::PlatformStreams).unwrap().expand("");
+        let bearer = format!("Bearer {}", platform.assertion().unwrap());
+        assert_eq!(
+            delete(&format!("{base}/{}", live.id), &bearer, &local).await,
+            204
+        );
+        let after = platform.stream(&endpoints, &live.id).await.unwrap();
+        assert!(
+            after.is_none_or(|s| s.status == StreamStatus::Disabled),
+            "{after:?}"
+        );
+    }
+}

@@ -5444,6 +5444,7 @@ name = "work-reconciler"
 version = "0.1.0"
 dependencies = [
  "esuiss-crypto",
+ "sha2 0.11.1",
  "work-access-client",
  "work-proto",
  "work-store",
@@ -5473,6 +5474,7 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.21",
  "tokio",
+ "tokio-rustls",
  "tracing",
  "work-access-client",
  "work-dispatch",

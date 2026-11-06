@@ -3,7 +3,8 @@
 use std::io::BufReader;
 use std::net::{Ipv4Addr, SocketAddr};
 use std::num::NonZeroU8;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::time::Duration;
 
 use base64::Engine as _;
@@ -11,7 +12,7 @@ use base64::engine::general_purpose::STANDARD;
 use figment::Figment;
 use figment::providers::{Env, Format, Serialized, Toml};
 use serde::{Deserialize, Serialize};
-use work_access_client::adapters::roots;
+use work_access_client::adapters::{SERVER_TLS_LABEL, roots};
 use work_access_client::domain::discovery::Issuer;
 use work_dispatch::{PublisherConfig, StreamSettings};
 use work_kernel::proof::{TimeSources, Verifier, WitnessProfile};
@@ -74,6 +75,21 @@ pub(crate) struct Config {
     pub(crate) access: Access,
     /// `WORK_ACCESS_CLIENT_ID`, Work's Access client (T-96 item 3).
     pub(crate) access_client_id: String,
+    /// The TLS listener of the event entry (T-102 item 2).
+    pub(crate) inbound: Inbound,
+}
+
+/// `[inbound]`: the TLS listener of `POST /v1/inbound/events`, whose key signs inside the
+/// `[access]` token (T-102 item 2, T-56).
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Inbound {
+    /// The listen address; none serves no event entry.
+    pub(crate) listen: Option<SocketAddr>,
+    /// A PEM file of the server certificate chain, leaf first.
+    pub(crate) certificate: PathBuf,
+    /// The token label of the server key.
+    pub(crate) key_label: String,
 }
 
 /// The single Suiss connection setting with Work's region and the roots that verify Access and
@@ -102,6 +118,8 @@ pub(crate) struct Access {
     pub(crate) pin_file: PathBuf,
     /// Upper bound on one call to Access, in milliseconds.
     pub(crate) call_timeout_ms: u64,
+    /// A file holding `WORK_ACCESS_CLIENT_ID`, read when the setting is empty.
+    pub(crate) client_id_file: Option<PathBuf>,
 }
 
 /// The most parser workers one server starts (T-94 item 8).
@@ -486,8 +504,15 @@ impl Default for Config {
                 token: "work".to_owned(),
                 pin_file: PathBuf::from("/run/secrets/access-pin"),
                 call_timeout_ms: 5_000,
+                client_id_file: None,
             },
             access_client_id: String::new(),
+            // T-102
+            inbound: Inbound {
+                listen: None,
+                certificate: PathBuf::new(),
+                key_label: SERVER_TLS_LABEL.to_owned(),
+            },
         }
     }
 }
@@ -855,13 +880,29 @@ impl Config {
         Duration::from_millis(self.startup_timeout_ms)
     }
 
+    /// `WORK_ACCESS_CLIENT_ID`, or the trimmed content of `[access] client_id_file` while the
+    /// setting is empty; empty when neither gives one, and every platform call is refused.
+    pub(crate) fn client_id(&self) -> String {
+        client_id_of(
+            &self.access_client_id,
+            self.access.client_id_file.as_deref(),
+        )
+    }
+
+    /// [`Config::client_id`] read again at each call.
+    pub(crate) fn client_id_reader(&self) -> Arc<dyn Fn() -> String + Send + Sync> {
+        let setting = self.access_client_id.clone();
+        let file = self.access.client_id_file.clone();
+        Arc::new(move || client_id_of(&setting, file.as_deref()))
+    }
+
     /// What the pairing step reads at each run; the files are read then, so a missing PIN, root
     /// or key is a pairing signal, not a start-up refusal (T-103 item 1).
     pub(crate) fn access_settings(&self) -> AccessSettings {
         AccessSettings {
             issuer: self.suiss.access.clone(),
             region: self.suiss.region.clone(),
-            client_id: self.access_client_id.clone(),
+            client_id: self.client_id(),
             receiver: format!("{}/v1/inbound/events", self.publisher.source),
             module: self.access.module.clone(),
             token: self.access.token.clone(),
@@ -870,6 +911,15 @@ impl Config {
             timeout: Duration::from_millis(self.access.call_timeout_ms),
         }
     }
+}
+
+fn client_id_of(setting: &str, file: Option<&Path>) -> String {
+    if !setting.is_empty() {
+        return setting.to_owned();
+    }
+    file.and_then(|f| std::fs::read_to_string(f).ok())
+        .map(|id| id.trim().to_owned())
+        .unwrap_or_default()
 }
 
 /// A stored `ledger.ident`: `[a-z][a-z0-9_]{0,63}`.
@@ -1194,6 +1244,31 @@ mod tests {
             Err(ConfigError::PasswordInUrl("postgres.access"))
         ));
         assert!(with("[access]\npin = \"1234\"").is_err());
+        let dir = std::env::temp_dir().join(format!("t103-client-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("client_id");
+        std::fs::write(&file, "cli_from_file\n").unwrap();
+        let from_file = with(&format!(
+            "[access]\nclient_id_file = \"{}\"",
+            file.display()
+        ))
+        .unwrap();
+        assert_eq!(from_file.client_id(), "cli_from_file");
+        assert_eq!(config.client_id(), "cli_work");
+    }
+
+    // T-102
+    #[test]
+    fn t_102_the_event_entry_listens_only_when_configured_with_a_token_key() {
+        let config = with("").unwrap();
+        assert_eq!(config.inbound.listen, None);
+        assert_eq!(config.inbound.key_label, "work-server-tls");
+        let served = with(
+            "[inbound]\nlisten = \"0.0.0.0:8443\"\ncertificate = \"/var/lib/access/product-tls/work-server.crt\"",
+        )
+        .unwrap();
+        assert_eq!(served.inbound.listen.map(|a| a.port()), Some(8443));
+        assert!(with("[inbound]\nkey_file = \"/tmp/k.pem\"").is_err());
     }
 
     // OP-46 OP-33 OP-32 T-93

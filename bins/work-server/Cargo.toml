@@ -17,6 +17,7 @@ work-http = { workspace = true }
 work-kernel = { workspace = true }
 work-ledger = { workspace = true, features = ["s3"] }
 work-parse = { workspace = true }
+work-proto = { workspace = true }
 work-reconciler = { workspace = true }
 work-store = { workspace = true }
 work-telemetry = { workspace = true }
@@ -27,6 +28,7 @@ figment = { workspace = true, features = ["env", "toml"] }
 serde = { workspace = true, features = ["derive", "std"] }
 thiserror = { workspace = true, features = ["std"] }
 tokio = { workspace = true, features = ["macros", "net", "rt-multi-thread", "signal", "sync", "time"] }
+tokio-rustls = { workspace = true }
 tracing = { workspace = true, features = ["std"] }
 
 [dev-dependencies]
@@ -34,7 +36,6 @@ futures-util = { workspace = true }
 serde_json = { workspace = true, features = ["std"] }
 suiss-crypto = { workspace = true, features = ["pkcs11"] }
 tokio = { workspace = true, features = ["io-util", "macros", "net", "rt-multi-thread", "time"] }
-work-proto = { workspace = true }
 work-testkit = { workspace = true }
 
 [lints]

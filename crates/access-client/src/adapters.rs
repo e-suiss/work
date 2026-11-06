@@ -15,8 +15,9 @@ use hyper::client::conn::http1;
 use hyper_util::rt::TokioIo;
 use rustls::pki_types::pem::PemObject as _;
 use rustls::pki_types::{CertificateDer, ServerName};
+use rustls::server::{ClientHello, ResolvesServerCert};
 use rustls::sign::{CertifiedKey, Signer as TlsSigner, SigningKey, SingleCertAndKey};
-use rustls::{ClientConfig, RootCertStore, SignatureAlgorithm, SignatureScheme};
+use rustls::{ClientConfig, RootCertStore, ServerConfig, SignatureAlgorithm, SignatureScheme};
 use sha2::{Digest as _, Sha256};
 use suiss_crypto::cose::{Algorithm, PublicKey};
 use suiss_crypto::pkcs11::{HsmSigner, KeyStore};
@@ -199,20 +200,8 @@ impl PepCredential {
         if spki_of(&key).as_deref() != Some(facts.spki.as_slice()) {
             return Err(AccessError::Certificate("not of the token key"));
         }
-        let (scheme, algorithm) = match key {
-            PublicKey::Ed25519(_) => (SignatureScheme::ED25519, SignatureAlgorithm::ED25519),
-            PublicKey::P256(_) => (
-                SignatureScheme::ECDSA_NISTP256_SHA256,
-                SignatureAlgorithm::ECDSA,
-            ),
-            PublicKey::MlDsa(..) => return Err(AccessError::Certificate("key type")),
-        };
         let x5t: [u8; 32] = Sha256::digest(&der).into();
-        let signing = TokenKey {
-            signer: Arc::new(Mutex::new(signer)),
-            scheme,
-            algorithm,
-        };
+        let signing = token_key(signer)?;
         Ok(Self {
             certified: Arc::new(CertifiedKey::new(
                 vec![CertificateDer::from(der)],
@@ -276,6 +265,71 @@ impl PepCredential {
             .with_client_cert_resolver(Arc::new(SingleCertAndKey::from(self.certified.clone())));
         Ok(Arc::new(config))
     }
+}
+
+/// The token label of the TLS server key of Work's event entry, imported into the token from
+/// the certificate authority's issue (T-56, T-102).
+pub const SERVER_TLS_LABEL: &str = "work-server-tls";
+
+#[derive(Debug)]
+struct FixedServerCert(Arc<CertifiedKey>);
+
+impl ResolvesServerCert for FixedServerCert {
+    fn resolve(&self, _hello: ClientHello<'_>) -> Option<Arc<CertifiedKey>> {
+        Some(self.0.clone())
+    }
+}
+
+/// The TLS 1.3 server settings of Work's event entry (T-102 item 2): the certificate chain of
+/// `chain_pem`, leaf first, and the key labelled `label`, which signs inside the token; the
+/// leaf must be of that key.
+///
+/// # Errors
+/// [`AccessError::KeyStore`], [`AccessError::Certificate`] or [`AccessError::Transport`].
+pub fn server_config(
+    module: &Path,
+    token: &str,
+    pin: &Secret<String>,
+    label: &str,
+    chain_pem: &[u8],
+) -> Result<Arc<ServerConfig>, AccessError> {
+    let chain = CertificateDer::pem_slice_iter(chain_pem)
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|_| AccessError::Certificate("chain"))?;
+    let leaf = chain.first().ok_or(AccessError::Certificate("chain"))?;
+    let facts = read(leaf)?;
+    let store = KeyStore::open(module, token, pin).map_err(|e| store_error(&e))?;
+    let signer = store.signer(label).map_err(|e| store_error(&e))?;
+    let key = signer.public_key();
+    if spki_of(&key).as_deref() != Some(facts.spki.as_slice()) {
+        return Err(AccessError::Certificate("not of the token key"));
+    }
+    let signing = token_key(signer)?;
+    let certified = Arc::new(CertifiedKey::new(chain, Arc::new(signing)));
+    let provider = Arc::new(rustls::crypto::aws_lc_rs::default_provider());
+    let mut config = ServerConfig::builder_with_provider(provider)
+        .with_protocol_versions(&[&rustls::version::TLS13])
+        .map_err(|e| failed(&e))?
+        .with_no_client_auth()
+        .with_cert_resolver(Arc::new(FixedServerCert(certified)));
+    config.alpn_protocols = vec![b"http/1.1".to_vec()];
+    Ok(Arc::new(config))
+}
+
+fn token_key(signer: HsmSigner) -> Result<TokenKey, AccessError> {
+    let (scheme, algorithm) = match signer.public_key() {
+        PublicKey::Ed25519(_) => (SignatureScheme::ED25519, SignatureAlgorithm::ED25519),
+        PublicKey::P256(_) => (
+            SignatureScheme::ECDSA_NISTP256_SHA256,
+            SignatureAlgorithm::ECDSA,
+        ),
+        PublicKey::MlDsa(..) => return Err(AccessError::Certificate("key type")),
+    };
+    Ok(TokenKey {
+        signer: Arc::new(Mutex::new(signer)),
+        scheme,
+        algorithm,
+    })
 }
 
 /// A signing key of the token behind a lock, so that tasks share it; the private key never

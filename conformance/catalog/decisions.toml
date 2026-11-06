@@ -6022,6 +6022,35 @@ tests = [
 ]
 
 [[rule]]
+id = "T-102"
+family = "T"
+status = "frozen-technical"
+acceptance = "filled"
+title = ""
+tests = [
+  "bins/work-server/src/config.rs::t_102_the_event_entry_listens_only_when_configured_with_a_token_key",
+  "crates/access-client/src/app/events/tests.rs::t_102_a_compromise_without_window_from_marks_nothing",
+  "crates/access-client/src/app/events/tests.rs::t_102_a_repeated_jti_is_accepted_once",
+  "crates/access-client/src/app/events/tests.rs::t_102_a_revocation_drops_the_cache_at_once",
+  "crates/access-client/src/app/events/tests.rs::t_102_an_unpaired_tenant_is_only_logged_and_tenant_created_pairs",
+  "crates/access-client/src/app/events/tests.rs::t_102_only_works_own_disabled_client_fails_closed",
+  "crates/access-client/src/app/events/tests.rs::t_102_organization_and_unknown_types_write_only_the_deduplication_row",
+  "crates/access-client/src/app/events/tests.rs::t_102_the_answer_follows_rfc_8935_and_relay_is_asked_to_deliver_again",
+  "crates/access-client/src/domain/events/tests.rs::t_102_a_compromise_carries_its_window_from_window_from",
+  "crates/access-client/src/domain/events/tests.rs::t_102_a_platform_set_takes_its_tenant_from_access_tenant",
+  "crates/access-client/src/domain/events/tests.rs::t_102_a_set_signed_by_the_realm_key_is_accepted",
+  "crates/access-client/src/domain/events/tests.rs::t_102_a_set_without_access_tenant_is_invalid_request",
+  "crates/access-client/src/domain/events/tests.rs::t_102_an_eddsa_header_is_refused",
+  "crates/access-client/src/domain/events/tests.rs::t_102_every_type_of_the_access_catalog_is_read",
+  "crates/access-client/src/domain/events/tests.rs::t_102_issuer_audience_age_and_jti_are_checked",
+  "crates/access-client/src/domain/events/tests.rs::t_102_no_hmac_signed_event_is_accepted",
+  "crates/access-client/src/domain/events/tests.rs::t_102_the_content_type_alone_selects_the_verifier",
+  "crates/access-client/src/domain/streams.rs::t_102_a_stopped_stream_raises_attention",
+  "crates/http/src/inbound.rs::t_102_the_entry_hands_the_media_type_and_bytes_as_received",
+  "crates/reconciler/src/adapters.rs::t_102_each_tenant_has_its_own_deduplication_scope",
+]
+
+[[rule]]
 id = "T-103"
 family = "T"
 status = "frozen-technical"

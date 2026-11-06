@@ -1,0 +1,18 @@
+# T-96, T-101, T-102, T-103
+platform = "platform"
+tenants = ["acme", "beta"]
+issuer_style = "path"
+
+# T-101
+[sample]
+realm = "acme"
+namespace = "work"
+action = "approve"
+
+[[products]]
+product = "work"
+display_name = "Suiss Work"
+client_key = "/etc/access/products/work-client.jwk"
+service_key = "/etc/access/products/work-service.jwk"
+redirect_uri = "https://work.localhost/v1/access/approval"
+event_receiver = "https://work-server:8443/v1/inbound/events"

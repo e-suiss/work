@@ -24,7 +24,7 @@ use work_reconciler::adapters::PgPairing;
 
 use crate::config::{Config, ReplicaTarget};
 use crate::health::Health;
-use crate::pairing::{self, PairingStats};
+use crate::pairing::{self, Pairer, PairingStats};
 use crate::startup::{Infrastructure, StartupError};
 
 /// The access key of the replica's bucket, from the environment like the database passwords.
@@ -85,6 +85,7 @@ pub(crate) struct Services {
     checkpoints: Arc<CheckpointStats>,
     signer: SignerClient,
     pairing: Arc<PairingStats>,
+    pairer: Pairer,
 }
 
 impl Services {
@@ -136,12 +137,13 @@ impl Services {
             )),
         ];
         let pairing = Arc::new(PairingStats::default());
-        handles.push(pairing::spawn(
-            config.access_settings(),
-            PgPairing::new(infrastructure.access.clone()),
-            clock.clone(),
-            Arc::clone(&pairing),
-        ));
+        let pairer = Pairer {
+            settings: Arc::new(config.access_settings()),
+            store: PgPairing::new(infrastructure.access.clone()),
+            clock: clock.clone(),
+            stats: Arc::clone(&pairing),
+        };
+        handles.push(pairing::spawn(pairer.clone()));
         let witness_count = witnesses.len();
         if !witnesses.is_empty() {
             let witnessing = WitnessSetup {
@@ -170,7 +172,13 @@ impl Services {
             checkpoints,
             signer,
             pairing,
+            pairer,
         })
+    }
+
+    /// The pairing step, for `tenant.created` (T-102 item 5).
+    pub(crate) fn pairer(&self) -> Pairer {
+        self.pairer.clone()
     }
 
     /// What the health endpoints look at, with whether Access's discovery last answered.

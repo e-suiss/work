@@ -154,6 +154,11 @@ impl KeyCache {
             .retain(|(d, k, _), _| *d != domain || *k != kid);
     }
 
+    /// Drops every entry of `domain` (T-102 item 5).
+    pub fn forget_domain(&mut self, domain: DomainId) {
+        self.entries.retain(|(d, _, _), _| *d != domain);
+    }
+
     /// The number of entries.
     #[must_use]
     pub fn len(&self) -> usize {

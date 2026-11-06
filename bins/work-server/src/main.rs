@@ -4,6 +4,7 @@
 
 mod config;
 mod health;
+mod inbound;
 mod pairing;
 mod parser;
 mod services;
@@ -19,6 +20,10 @@ use startup::{AccessLink, Infrastructure, TimeDriver};
 use tokio::sync::watch;
 use work_http::api::{ApiConfig, router};
 use work_http::common::TraceIds;
+use work_http::inbound::{self as entry, Receiver};
+use work_reconciler::adapters::PgInbound;
+
+use crate::inbound::{AccessReceiver, TlsListener};
 use work_ledger::{Rng as _, SystemRng};
 
 fn main() -> ExitCode {
@@ -133,7 +138,13 @@ async fn run(config: &Config) -> ExitCode {
         }
     };
     let health = services.health(&infrastructure, Arc::clone(&access.up));
-    let served = serve(config, health::router(health)).await;
+    let receiver: Arc<dyn Receiver> = Arc::new(AccessReceiver::new(
+        Arc::clone(&access.client),
+        services.pairer(),
+        PgInbound::new(infrastructure.sequencer.clone()),
+        config.client_id_reader(),
+    ));
+    let served = serve(config, health::router(health), receiver).await;
     services.stop().await;
     access.stop();
     time.stop();
@@ -163,9 +174,32 @@ async fn stopped(mut stop: watch::Receiver<bool>) {
     let _stopped = stop.wait_for(|s| *s).await.is_ok();
 }
 
-async fn serve(config: &Config, internal: axum::Router) -> std::io::Result<()> {
+/// The event entry's listener (T-102 item 2); a certificate or key that does not load leaves
+/// the entry unserved, so Access delivers again later.
+async fn event_entry(config: &Config) -> std::io::Result<Option<TlsListener>> {
+    let Some(addr) = config.inbound.listen else {
+        return Ok(None);
+    };
+    match startup::inbound_tls(config) {
+        Ok(tls) => {
+            tracing::info!(event = "inbound.listening", listen = %addr, "event entry listening");
+            Ok(Some(TlsListener::bind(addr, tls).await?))
+        }
+        Err(error) => {
+            tracing::error!(event = "inbound.unserved", %error, "the event entry does not start");
+            Ok(None)
+        }
+    }
+}
+
+async fn serve(
+    config: &Config,
+    internal: axum::Router,
+    receiver: Arc<dyn Receiver>,
+) -> std::io::Result<()> {
     let api = tokio::net::TcpListener::bind(config.listen).await?;
     let health = tokio::net::TcpListener::bind(config.internal_listen).await?;
+    let events = event_entry(config).await?;
     tracing::info!(listen = %config.listen, internal_listen = %config.internal_listen, version = env!("CARGO_PKG_VERSION"), "work-server listening");
     let (stop, stopping) = watch::channel(false);
     let routes = router(ApiConfig::default(), Arc::new(SystemTraceIds));
@@ -174,13 +208,26 @@ async fn serve(config: &Config, internal: axum::Router) -> std::io::Result<()> {
         .with_graceful_shutdown(stopped(stopping.clone()))
         .into_future();
     let health = axum::serve(health, internal)
-        .with_graceful_shutdown(stopped(stopping))
+        .with_graceful_shutdown(stopped(stopping.clone()))
         .into_future();
+    let events = async move {
+        match events {
+            Some(listener) => {
+                axum::serve(listener, entry::router(receiver))
+                    .with_graceful_shutdown(stopped(stopping))
+                    .await
+            }
+            None => {
+                stopped(stopping).await;
+                Ok(())
+            }
+        }
+    };
     let signal = tokio::spawn(async move {
         shutdown_signal().await;
         let _sent = stop.send(true);
     });
-    let served = tokio::try_join!(api, health).map(|((), ())| ());
+    let served = tokio::try_join!(api, health, events).map(|((), (), ())| ());
     signal.abort();
     served
 }

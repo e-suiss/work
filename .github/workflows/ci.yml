@@ -505,6 +505,53 @@ jobs:
           c logs work-signer | grep -q 'serving on /run/work-signer/signer.sock, lockdown'
           c logs work-server | grep 'parser.workers_started' | grep -q '"workers":2'
           test "$(c logs work-server 2>&1 | grep -c 'work-server parser-worker: serving, lockdown')" -ge 2
+      - name: work-server pairs with every tenant realm over its PEP certificate and keeps the stream Access opened (T-101, T-103)
+        run: |
+          c() { docker compose -f deploy/compose/compose.yaml "$@"; }
+          q() { c exec -T -e PGPASSWORD=local-only-not-a-secret work-postgres psql -h 127.0.0.1 -U work_app -d work -tA "$@"; }
+          for _ in $(seq 1 180); do c logs work-server | grep 'access.pairing_ran' | grep -q '"paired":[1-9]' && break; sleep 1; done
+          c logs work-server | grep 'access.pairing_ran' | grep '"paired":[1-9]'
+          c logs work-server | grep -q 'access.pep_loaded'
+          c logs work-server | grep -q 'inbound.listening'
+          q -c "select tenant, slug, state, refusal_code, failed_runs from work.access_realm order by tenant, slug"
+          test "$(q -c "select count(*) from work.access_realm where state = 'paired' and party is not null and instance is not null and kid is not null and paired_at is not null")" -ge 1
+          test "$(q -c "select count(*) from work.access_event_stream where stream_id is not null and state = 'enabled'")" = 1
+          curl -fsS http://127.0.0.1:8191/metrics | grep -qx 'work_access_unpaired_realms 0'
+          curl -fsS http://127.0.0.1:8191/metrics | grep -qx 'work_access_event_stream_up 1'
+          q -c "select tenant, slug, paired_at from work.access_realm where state = 'paired' order by tenant, slug" > "$RUNNER_TEMP/paired-before"
+          c restart work-server
+          for _ in $(seq 1 180); do test "$(c logs work-server | grep -c 'access.pairing_ran')" -ge 2 && break; sleep 1; done
+          c logs work-server | grep 'access.pairing_ran' | tail -n 1 | grep -q '"paired":0'
+          q -c "select tenant, slug, paired_at from work.access_realm where state = 'paired' order by tenant, slug" | diff "$RUNNER_TEMP/paired-before" -
+      - name: Access pushes tenant.created to the event entry, which verifies it, records it once and pairs the new tenant (T-102, T-103)
+        run: |
+          c() { docker compose -f deploy/compose/compose.yaml "$@"; }
+          q() { c exec -T -e PGPASSWORD=local-only-not-a-secret work-postgres psql -h 127.0.0.1 -U work_app -d work -tA "$@"; }
+          c run --rm --no-deps -T --entrypoint access-server access-bootstrap bootstrap /etc/work-access/bootstrap-work-beta.toml > "$RUNNER_TEMP/bootstrap-beta.json"
+          beta="$(jq -er '.realms[] | select(.slug == "beta") | .tenant' "$RUNNER_TEMP/bootstrap-beta.json")"
+          for _ in $(seq 1 180); do c logs work-server | grep 'access.event_accepted' | grep 'tenant.created' | grep -q "$beta" && break; sleep 1; done
+          c logs work-server | grep 'access.event_accepted' | grep 'tenant.created' | grep "$beta"
+          if c logs work-server | grep -q 'access.event_refused'; then c logs work-server | grep 'access.event_refused'; exit 1; fi
+          scope="$(printf 'work/inbound/access-tenant/v1\000%s' "$beta" | sha256sum | cut -d' ' -f1)"
+          test "$(q -c "select set_config('app.ledger_id', '$scope', false)" -c "select count(*) from work.inbound_seen where source = 'https://access-server:8443/realms/platform'" | tail -n 1)" = 1
+          for _ in $(seq 1 120); do test "$(q -c "select count(*) from work.access_realm where tenant = '$beta' and state = 'paired'")" -ge 1 && break; sleep 1; done
+          test "$(q -c "select count(*) from work.access_realm where tenant = '$beta' and state = 'paired'")" -ge 1
+      - name: A disabled stream is opened again by work-server and counted (T-103)
+        env:
+          NEXTEST_PROFILE: ci
+        run: |
+          c() { docker compose -f deploy/compose/compose.yaml "$@"; }
+          q() { c exec -T -e PGPASSWORD=local-only-not-a-secret work-postgres psql -h 127.0.0.1 -U work_app -d work -tA "$@"; }
+          before="$(q -c "select stream_id from work.access_event_stream")"
+          just test-compose-upkeep
+          runs="$(c logs work-server | grep -c 'access.pairing_ran')"
+          c restart work-server
+          for _ in $(seq 1 180); do test "$(c logs work-server | grep -c 'access.pairing_ran')" -gt "$runs" && break; sleep 1; done
+          c logs work-server | grep -q 'access.event_stream_recreated'
+          test "$(q -c "select recreated from work.access_event_stream")" = 1
+          test "$(q -c "select stream_id from work.access_event_stream")" != "$before"
+          curl -fsS http://127.0.0.1:8191/metrics | grep -qx 'work_access_event_stream_recreated_total 1'
+          curl -fsS http://127.0.0.1:8191/metrics | grep -qx 'work_access_event_stream_up 1'
       - name: The witness speaks C2SP tlog-witness and the server is configured with it (OP-33, OP-46, T-41)
         run: |
           c() { docker compose -f deploy/compose/compose.yaml "$@"; }
@@ -530,7 +577,7 @@ jobs:
           lock | grep -q '<ObjectLockEnabled>Enabled</ObjectLockEnabled>'
       - name: Logs on failure
         if: failure()
-        run: docker compose -f deploy/compose/compose.yaml logs --no-color --tail 80 work-access-keys work-access-pep access-init access-migrate access-bootstrap access relay relay-migrate nts-a nts-b roughtime-a roughtime-b roughtime-c s3 witness work-signer work-server
+        run: docker compose -f deploy/compose/compose.yaml logs --no-color --tail 200 work-access-keys work-access-pep work-server-tls work-access-client-id work-migrate access-init access-migrate access-bootstrap access relay relay-migrate nts-a nts-b roughtime-a roughtime-b roughtime-c s3 witness work-signer work-server
       - name: Stop
         if: always()
         run: just dev-down

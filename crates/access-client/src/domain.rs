@@ -1,9 +1,10 @@
-//! Pure rules of the Access client: what a discovery document, a signed key lookup answer, an eligibility answer and a tenant snapshot must be before Work uses them, the realm token keys an `auth_context` artifact verifies under, the platform client assertion, what Work checks and signs when it pairs with a realm and how it keeps its event stream, and the stable codes of every refusal.
+//! Pure rules of the Access client: what a discovery document, a signed key lookup answer, an eligibility answer, a tenant snapshot and a pushed Access event must be before Work uses them, the realm token keys an `auth_context` artifact verifies under, the platform client assertion, what Work checks and signs when it pairs with a realm and how it keeps its event stream, and the stable codes of every refusal.
 
 pub mod assertion;
 pub mod cache;
 pub mod discovery;
 pub mod eligibility;
+pub mod events;
 pub mod keys;
 pub mod metadata;
 pub mod pairing;
@@ -101,6 +102,9 @@ pub enum AccessError {
     /// The PKCS#11 token refused (T-56).
     #[error("key store: {0}")]
     KeyStore(String),
+    /// Access disabled Work's own client (`api_client.disabled`, T-102 item 5).
+    #[error("Work's Access client is disabled")]
+    Disabled,
 }
 
 impl AccessError {

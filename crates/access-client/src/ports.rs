@@ -1,4 +1,4 @@
-//! What the client needs from outside (T-32): an HTTPS exchange with Access or Relay under a bound, the time, randomness, Work's tenant map for the reconciliation and Work's realm table for the pairing step.
+//! What the client needs from outside (T-32): an HTTPS exchange with Access or Relay under a bound, the time, randomness, Work's tenant map for the reconciliation, Work's realm table for the pairing step, and the inbound deduplication row and the effects of an Access event (T-102).
 
 use std::collections::BTreeMap;
 use std::future::Future;
@@ -6,6 +6,8 @@ use std::future::Future;
 use serde_json::Value;
 use work_proto::id::TenantId;
 
+use crate::domain::events::Signal;
+use crate::domain::keys::DomainId;
 use crate::domain::pairing::{RealmChange, StoredRealm};
 use crate::domain::streams::StreamStatus;
 use crate::domain::tenants::TenantChange;
@@ -213,6 +215,44 @@ pub trait PairingStore: Send + Sync {
         recreated: bool,
         at_ms: u64,
     ) -> impl Future<Output = Result<StoredStream, AccessError>> + Send;
+}
+
+/// One inbound event as its deduplication row names it (T-102 item 4, P-35 item 4).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Arrival<'a> {
+    /// The tenant the event happened in.
+    pub tenant: &'a TenantId,
+    /// `iss`.
+    pub source: &'a str,
+    /// `jti`.
+    pub id: &'a str,
+    /// SHA-256 of the bytes as received.
+    pub digest: [u8; 32],
+    /// Work's clock at arrival, Unix milliseconds.
+    pub at_ms: u64,
+}
+
+/// The `work.inbound_seen` row of the tenant (T-102 item 4).
+pub trait InboundLog: Send + Sync {
+    /// Writes the row unless `(tenant, source, id)` is already there; `true` for a first
+    /// arrival.
+    fn note(&self, arrival: &Arrival<'_>)
+    -> impl Future<Output = Result<bool, AccessError>> + Send;
+}
+
+/// What an accepted Access event does outside the intake (T-102 item 5).
+pub trait Effects: Send + Sync {
+    /// Starts the pairing step for `tenant` (T-103 item 1).
+    fn pair(&self, tenant: &TenantId);
+
+    /// Drops every cached key of `domain` at once.
+    fn forget_domain(&self, domain: DomainId);
+
+    /// Fails every consequential action closed: Work's own Access client is disabled (T-28).
+    fn disable_client(&self);
+
+    /// Tells the operator.
+    fn signal(&self, signal: &Signal);
 }
 
 #[cfg(test)]

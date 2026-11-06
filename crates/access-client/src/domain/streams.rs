@@ -232,6 +232,23 @@ mod tests {
         assert_eq!(events(&[]), CATALOG.map(str::to_owned).to_vec());
     }
 
+    // T-102
+    #[test]
+    fn t_102_a_stopped_stream_raises_attention() {
+        let list = Stream::list_from_json(EXAMPLE.as_bytes()).unwrap();
+        for status in [StreamStatus::Paused, StreamStatus::Unreachable] {
+            let mut s = list[0].clone();
+            s.status = status;
+            assert_eq!(check(Some(&s)), StreamCheck::Down(status));
+            let signal = crate::app::platform::Signal::StreamDown {
+                stream: s.id.clone(),
+                status,
+            };
+            assert_eq!(signal.event(), "access.event_stream_down");
+            assert!(signal.to_string().ends_with(status.as_str()));
+        }
+    }
+
     // T-103
     #[test]
     fn t_103_stream_exists_adopts_the_live_stream() {

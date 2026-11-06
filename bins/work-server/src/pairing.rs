@@ -84,20 +84,49 @@ fn log(report: &Report) {
     );
 }
 
-/// Starts the step: now, then every [`RECONCILE_INTERVAL_MS`].
-pub(crate) fn spawn(
-    settings: AccessSettings,
-    store: PgPairing,
-    clock: LedgerTime<ProcessMonotonic>,
-    stats: Arc<PairingStats>,
-) -> JoinHandle<()> {
+/// One pairing step over a scope, with what it needs and the gauges it sets; the hourly task
+/// and `tenant.created` share it (T-103 item 1, T-102 item 5).
+#[derive(Clone)]
+pub(crate) struct Pairer {
+    pub(crate) settings: Arc<AccessSettings>,
+    pub(crate) store: PgPairing,
+    pub(crate) clock: LedgerTime<ProcessMonotonic>,
+    pub(crate) stats: Arc<PairingStats>,
+}
+
+impl Pairer {
+    /// Runs one step over `scope`, logs its signals and keeps its gauges.
+    pub(crate) async fn run(&self, scope: &Scope) {
+        let report = pair(
+            &self.settings,
+            &self.store,
+            Ledger(self.clock.clone()),
+            Os,
+            scope,
+        )
+        .await;
+        log(&report);
+        self.stats.record(&report);
+    }
+}
+
+/// How long the first step waits for ledger time, in seconds; nothing is signed without it.
+const LEDGER_TIME_WAIT_S: u32 = 120;
+
+/// Starts the step: as soon as ledger time answers, at most [`LEDGER_TIME_WAIT_S`] after start,
+/// then every [`RECONCILE_INTERVAL_MS`].
+pub(crate) fn spawn(pairer: Pairer) -> JoinHandle<()> {
     tokio::spawn(async move {
+        for _ in 0..LEDGER_TIME_WAIT_S {
+            if pairer.clock.read().is_ok() {
+                break;
+            }
+            tokio::time::sleep(Duration::from_secs(1)).await;
+        }
         let mut hourly = tokio::time::interval(Duration::from_millis(RECONCILE_INTERVAL_MS));
         loop {
             hourly.tick().await;
-            let report = pair(&settings, &store, Ledger(clock.clone()), Os, &Scope::Due).await;
-            log(&report);
-            stats.record(&report);
+            pairer.run(&Scope::Due).await;
         }
     })
 }
