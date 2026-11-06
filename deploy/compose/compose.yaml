@@ -823,7 +823,7 @@ services:
       net.ipv4.ip_unprivileged_port_start: 0
     volumes:
       - relay-softhsm:/var/lib/relay-softhsm
-      - relay-trust:/etc/ssl/certs:ro
+      - relay-trust:/var/lib/relay-trust:ro
       - relay-access-client:/var/lib/relay-client:ro
       - access-product-tls:/var/lib/access/product-tls:ro
     ports:

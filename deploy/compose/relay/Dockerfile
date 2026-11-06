@@ -8,7 +8,9 @@ RUN apt-get update \
  && printf 'directories.tokendir = /var/lib/relay-softhsm\nobjectstore.backend = file\nlog.level = ERROR\n' > /etc/relay-softhsm2.conf \
  && chmod 0644 /etc/relay-softhsm2.conf \
  && install -d -o 65532 -g 65532 -m 0700 /var/lib/relay-softhsm \
- && install -d -o 65532 -g 65532 -m 0755 /var/lib/relay-access /var/lib/relay-client /var/lib/relay-trust
+ && install -d -o 65532 -g 65532 -m 0755 /var/lib/relay-access /var/lib/relay-client /var/lib/relay-trust \
+ && cp /etc/ssl/certs/ca-certificates.crt /etc/relay-system-ca.crt \
+ && ln -sf /var/lib/relay-trust/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 
 COPY --chmod=0755 keys.sh /usr/local/bin/relay-keys
 COPY --chmod=0755 init.sh /usr/local/bin/relay-init

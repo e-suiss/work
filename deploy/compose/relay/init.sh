@@ -6,7 +6,7 @@ set -eu
 : "${AUDIT_S3_ENDPOINT:?}" "${AUDIT_S3_BUCKET:?}" "${AUDIT_S3_REGION:?}" "${AUDIT_S3_ACCESS_KEY_ID:?}"
 : "${AUDIT_S3_SECRET_ACCESS_KEY_FILE:?}" "${LOCAL_MIGRATOR_DATABASE_URL:?}"
 
-cat /etc/ssl/certs/ca-certificates.crt "$LOCAL_ACCESS_CA" > "$LOCAL_TRUST/ca-certificates.crt.new"
+cat /etc/relay-system-ca.crt "$LOCAL_ACCESS_CA" > "$LOCAL_TRUST/ca-certificates.crt.new"
 mv "$LOCAL_TRUST/ca-certificates.crt.new" "$LOCAL_TRUST/ca-certificates.crt"
 
 jq -er '.clients[] | select(.product == "relay") | .client_id' "$LOCAL_BOOTSTRAP" > "$LOCAL_ACCESS_CLIENT_FILE.new"
