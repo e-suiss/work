@@ -53,6 +53,7 @@ create_relay_logins() {
             -v role="$role" -v password="$RELAY_APP_PASSWORD" <<'SQL'
 CREATE ROLE :"role" LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS
     PASSWORD :'password';
+GRANT CONNECT, TEMPORARY ON DATABASE relay TO :"role";
 SQL
     done
 }
