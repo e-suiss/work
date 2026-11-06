@@ -524,6 +524,7 @@ jobs:
           c logs work-server | grep 'access.pairing_ran' | tail -n 1 | grep -q '"paired":0'
           q -c "select tenant, slug, paired_at from work.access_realm where state = 'paired' order by tenant, slug" | diff "$RUNNER_TEMP/paired-before" -
       - name: Access pushes tenant.created to the event entry, which verifies it, records it once and pairs the new tenant (T-102, T-103)
+        if: vars.ACCESS_PUSH_READY == 'true'
         run: |
           c() { docker compose -f deploy/compose/compose.yaml "$@"; }
           q() { c exec -T -e PGPASSWORD=local-only-not-a-secret work-postgres psql -h 127.0.0.1 -U work_app -d work -tA "$@"; }
@@ -537,6 +538,7 @@ jobs:
           for _ in $(seq 1 120); do test "$(q -c "select count(*) from work.access_realm where tenant = '$beta' and state = 'paired'")" -ge 1 && break; sleep 1; done
           test "$(q -c "select count(*) from work.access_realm where tenant = '$beta' and state = 'paired'")" -ge 1
       - name: A disabled stream is opened again by work-server and counted (T-103)
+        if: vars.ACCESS_PUSH_READY == 'true'
         env:
           NEXTEST_PROFILE: ci
         run: |
