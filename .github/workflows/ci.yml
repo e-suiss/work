@@ -670,12 +670,22 @@ jobs:
           c restart s3
           for _ in $(seq 1 60); do lock >/dev/null 2>&1 && break; sleep 1; done
           lock | grep -q '<ObjectLockEnabled>Enabled</ObjectLockEnabled>'
-      - name: Once Access retires Work's client, api_client.disabled fails every caller closed; the last step, since it ends the client (T-102, T-28)
+      - name: The test user's Party compromised reaches work-server, which writes no notice where no record falls in the window; once Access retires Work's client, api_client.disabled fails every caller closed; the last step, since it ends the client (T-102, T-28, SEC-36)
         env:
           NEXTEST_PROFILE: ci
         run: |
           c() { docker compose -f deploy/compose/compose.yaml "$@"; }
           just test-compose-only "$RUNNER_TEMP/access-local" retired::t_102_before_work_s_client_is_retired_the_test_user_is_named
+          b="$RUNNER_TEMP/access-local/bootstrap.json"
+          user="$(jq -er '.test_user.party' "$b")"
+          c run --rm --no-deps -T --entrypoint access-local-client access-bootstrap compromise \
+            --api https://access-server:8443 --ca /var/lib/access/certs/ca.crt \
+            --cert /var/lib/access/certs/pep.crt --key /var/lib/access/certs/pep.key \
+            --domain "$(jq -er '.compromise.domain' "$b")" --issuer-party "$(jq -er '.compromise.issuer' "$b")" \
+            --party "$user"
+          for _ in $(seq 1 180); do c logs work-server | grep 'access.party_compromised' | grep -q "$user" && break; sleep 1; done
+          c logs work-server | grep 'access.party_compromised' | grep "$user" | grep -q 'compromised from'
+          if c logs work-server | grep -q 'access.compromise_notice_failed\|access.compromise_notices_unserved'; then c logs work-server | grep 'access.compromise_notice'; exit 1; fi
           change() {
             for _ in $(seq 1 30); do
               if c run --rm --no-deps -T --entrypoint access-server access-bootstrap "$@" > "$RUNNER_TEMP/change.err" 2>&1; then return 0; fi
