@@ -538,7 +538,7 @@ jobs:
           led="$(cat "$dir/commit-ledger")"
           now="$(date +%s)000"
           intent="$(jq -c --argjson now "$now" --arg led "$led" '.test_user.allowed | {
-            action: .action, resources: [{namespace: .resource.namespace, path: [$led]}],
+            action: .action, resources: [.resource],
             params: { ledger: { eq: $led }, declaration: { eq: { bytes: "0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dE" } } },
             validity: { from: ($now - 60000), until: ($now + 600000) } }' "$b")"
           read -r issuer domain party instance grant since cgrant csince < <(jq -r '.test_user as $u | [
