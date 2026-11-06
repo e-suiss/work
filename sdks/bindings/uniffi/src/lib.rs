@@ -340,8 +340,8 @@ pub fn map_record(record: Vec<u8>, context: &str) -> String {
 }
 
 /// One restriction rule set evaluated against one request by the shared engine; returns
-/// `{"outcome", "requirements"?, "policies"?, "attention"?}` or `{"error": …}` as JSON text
-/// (T-23, PR-17, PR-23).
+/// `{"outcome", "requirements"?, "policies"?, "attention"?, "explanation"?}` or `{"error": …}` as
+/// JSON text, `explanation` in the format shared with Access (T-23, PR-11, PR-17, PR-23).
 #[uniffi::export]
 #[must_use]
 pub fn evaluate_restriction(rule_set: &str, request: &str) -> String {

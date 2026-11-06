@@ -404,6 +404,16 @@ fn sorted(items: Vec<Value>) -> Checked<Vec<Value>> {
     Ok(keyed.into_iter().map(|(_, v)| v).collect())
 }
 
+fn canonical(value: Value) -> Value {
+    match encoded(&value)
+        .ok()
+        .and_then(|b| dcbor::decode(&b, Limits::CEILING).ok())
+    {
+        Some(c) => c,
+        None => value,
+    }
+}
+
 fn entry(key: &str, value: Value) -> (Value, Value) {
     (Value::text(key), value)
 }
@@ -436,7 +446,7 @@ fn b64url(bytes: &[u8]) -> String {
 }
 
 impl Explanation {
-    /// Checks `value` against `explanation.cddl`.
+    /// Checks `value` against `explanation.cddl`; its maps are kept in canonical key order.
     ///
     /// # Errors
     /// [`ExplanationError`] naming the member that does not fit.
@@ -465,7 +475,7 @@ impl Explanation {
                 }
             }
         }
-        Ok(Self(value))
+        Ok(Self(canonical(value)))
     }
 
     /// Decodes and checks the CBOR form.
@@ -519,10 +529,10 @@ impl Explanation {
             "remediation",
             Value::text("not-satisfiable-by-actor"),
         ));
-        Self(Value::Map(Vec::from([
+        Self(canonical(Value::Map(Vec::from([
             entry("outcome", Value::text("deny")),
             entry("blockers", Value::Array(Vec::from([Value::Map(blocker)]))),
-        ])))
+        ]))))
     }
 
     /// A restriction rule set's `REQUIRE` (Access L0-EVAL-18): each requirement term unmet at
@@ -551,10 +561,10 @@ impl Explanation {
         if unmet.is_empty() {
             return Err(ExplanationError("unmet"));
         }
-        Ok(Self(Value::Map(Vec::from([
+        Ok(Self(canonical(Value::Map(Vec::from([
             entry("outcome", Value::text("require_action")),
             entry("unmet", Value::Array(sorted(unmet)?)),
-        ]))))
+        ])))))
     }
 }
 

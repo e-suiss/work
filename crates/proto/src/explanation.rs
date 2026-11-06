@@ -1,7 +1,7 @@
 //! The JSON form of the decision explanation shared with Access (`urn:suiss:access:schema:explanation:1`; Access E43, PR-11, PR-17): the members of [`Explanation`] in the ADP encodings, an id and a party as unpadded base64url of their 16 bytes and a digest as unpadded base64url of its 32 SHA-256 bytes, every integer within `0..=2^53-1` but a conjunct value; a byte-valued conjunct value has no JSON form. The requirement terms a rule set names for its `@require` references come in the same form, and a rule set's verdict is explained the way Access explains a restriction result.
 
 use alloc::collections::BTreeMap;
-use alloc::string::{String, ToString as _};
+use alloc::string::String;
 use alloc::vec::Vec;
 
 use base64::Engine as _;
@@ -354,7 +354,7 @@ impl Requirements {
                 return refused("requirements");
             }
             let terms = terms.iter().map(term_from_json).collect::<Mapped<_>>()?;
-            out.insert(reference.to_string(), terms);
+            out.insert(reference.clone(), terms);
         }
         Ok(Self(out))
     }

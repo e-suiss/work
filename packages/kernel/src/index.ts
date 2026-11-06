@@ -422,12 +422,7 @@ export interface RequirementTerm {
 
 /** Where a blocker or an unmet term sits. */
 export type ExplanationPosition =
-  | "instance"
-  | "anchor"
-  | "domain-policy"
-  | "foreign"
-  | "actor-side"
-  | { readonly hop: number };
+  "instance" | "anchor" | "domain-policy" | "foreign" | "actor-side" | { readonly hop: number };
 
 /** The decision explanation shared with Access (`urn:suiss:access:schema:explanation:1`; PR-11, PR-17). */
 export interface Explanation {
