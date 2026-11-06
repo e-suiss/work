@@ -334,12 +334,12 @@ pub fn verify_access_token(
         None => None,
         Some(_) => Some(text(&claims, "access_tenant")?),
     };
-    let kind = if claims.contains_key("sid") {
+    let token_kind = if claims.contains_key("sid") {
         TokenKind::User
     } else {
         TokenKind::Service
     };
-    if kind == TokenKind::Service
+    if token_kind == TokenKind::Service
         && ["scope", "authorization_details"]
             .iter()
             .any(|k| claims.contains_key(*k))
@@ -351,7 +351,7 @@ pub fn verify_access_token(
         sub: text(&claims, "sub")?,
         client_id: text(&claims, "client_id")?,
         tenant,
-        kind,
+        kind: token_kind,
         jkt,
         scope,
         exp_ms,

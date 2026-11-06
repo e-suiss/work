@@ -55,6 +55,13 @@
       "ApprovalReturned": {
         "description": "What the approval return hands back.",
         "properties": {
+          "claim": {
+            "description": "The approver's `authentication` Claim Access put on the redirect, its `ClaimID` as\nunpadded base64url of 16 bytes; the next authority request sends it as\n`proofs[].claim_ref` when the first answer was `next: step_up`.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "contribution": {
             "description": "The contribution `ExerciseID` Access confirmed, unpadded base64url of 32 bytes; the next\nauthority request sends it as `proofs[].contribution`.",
             "type": "string"
@@ -64,7 +71,7 @@
             "type": "string"
           },
           "next": {
-            "description": "What the caller does next: `commit`, a new authority request with the contribution as\nits proof, whose allowed Exercise the Declaration write then refers to.",
+            "description": "What the caller does next: `commit`, a new authority request with the contribution, and\nthe Claim when there is one, as its proofs, whose allowed Exercise the Declaration write\nthen refers to.",
             "type": "string"
           },
           "render_digest": {
@@ -147,7 +154,7 @@
             ]
           },
           "next": {
-            "description": "What the caller does next: `step_up` to authenticate at Access as the `step_up` terms\nask and send a new request, `approve` to have the request approved on the Approval\nSurface and send a new request with the contribution as its proof.",
+            "description": "What the caller does next: `step_up` when Access also asks for the approver's fresh\nauthentication, which the passkey assertion on the Approval Surface meets beside the\napproval, so the new request sends the returned Claim as `claim_ref` beside the\ncontribution; `approve` to have the request approved on the Approval Surface and send a\nnew request with the contribution as its proof.",
             "type": [
               "string",
               "null"
@@ -759,16 +766,23 @@
       },
       "ProofInput": {
         "additionalProperties": false,
-        "description": "An approval the commit relies on.",
+        "description": "A proof the commit relies on: exactly one of `contribution` and `claim_ref`.",
         "properties": {
+          "claim_ref": {
+            "description": "The approver's `authentication` Claim the approval return handed back as `claim`, its\n`ClaimID` as unpadded base64url of 16 bytes, when Access asked for a step-up.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "contribution": {
-            "description": "The contribution `ExerciseID` the Approval Surface returned, unpadded base64url of 32\nbytes.",
-            "type": "string"
+            "description": "The contribution `ExerciseID` the approval return handed back, unpadded base64url of 32\nbytes.",
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
-        "required": [
-          "contribution"
-        ],
         "type": "object"
       },
       "WitnessAnswer": {
@@ -921,6 +935,15 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "description": "The approver's `authentication` Claim Access put on the redirect, unpadded base64url of 16 bytes.",
+            "in": "query",
+            "name": "claim",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -962,7 +985,7 @@
                 }
               }
             },
-            "description": "A query without exactly one exercise, render_digest and state.",
+            "description": "A query without exactly one exercise, render_digest and state, or with more than one claim.",
             "headers": {
               "RateLimit": {
                 "description": "What is left of the quota.",

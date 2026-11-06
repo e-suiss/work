@@ -275,7 +275,7 @@ fn p_116_a_step_up_is_the_authentication_terms_access_names_and_work_adds_none()
     };
     assert_eq!(step_up(&unmet).len(), 1);
     assert!(needs_approval(&unmet));
-    assert!(step_up(&[other]).is_empty());
+    assert_eq!(step_up(&[other]), Vec::<Value>::new());
 }
 
 // E-17 T-101

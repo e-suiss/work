@@ -510,7 +510,7 @@ mod tests {
             };
             let envelope = access_kernel::intent::IntentEnvelope::from_bytes(&unhex(cbor)).unwrap();
             let Some(target) = case["target"].as_str() else {
-                assert!(envelope.opaque.is_empty());
+                assert_eq!(envelope.opaque, std::collections::BTreeMap::new());
                 continue;
             };
             let target: [u8; 32] = unhex(target).try_into().unwrap();

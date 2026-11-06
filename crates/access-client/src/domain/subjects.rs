@@ -367,7 +367,7 @@ mod tests {
             |body: &[u8]| Resolution::from_json(body, REALM, "cli_web", Direction::Subs, &asked);
         let ok = read(&answer(&[(party(7), sub(1))], &[sub(2)])).unwrap();
         assert_eq!(ok.pairs, vec![([7; 16], sub(1))]);
-        assert!(ok.clients.is_empty());
+        assert_eq!(ok.clients, Vec::<(String, String)>::new());
         assert_eq!(ok.unknown, vec![sub(2)]);
         assert_eq!(ok.consistency_token, "ct-1");
         let client = |entries: serde_json::Value| {
@@ -385,7 +385,7 @@ mod tests {
         ))
         .unwrap();
         assert_eq!(api.clients, vec![("cli_backend".to_owned(), sub(1))]);
-        assert!(api.pairs.is_empty());
+        assert_eq!(api.pairs, Vec::<([u8; 16], String)>::new());
         for bad in [
             serde_json::json!([{"client_id": "cli_backend", "party": party(7), "sub": sub(1)}]),
             serde_json::json!([{"client_id": "", "sub": sub(1)}]),
