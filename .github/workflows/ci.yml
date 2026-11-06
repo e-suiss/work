@@ -189,6 +189,89 @@ jobs:
           retention-days: 7
           if-no-files-found: error
 
+  # T-58 T-60 T-38
+  npm-lockfile:
+    name: npm-lockfile
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+      - name: Every package-lock.json installs its package.json unchanged (T-58, T-60)
+        id: check
+        run: |
+          for dir in packages/*/; do
+            test -f "$dir/package-lock.json"
+            (cd "$dir" && npm ci --no-audit --no-fund)
+          done
+      - name: Resolve the changed manifests within the cooldown, keeping every locked version that still fits
+        if: failure() && steps.check.outcome == 'failure'
+        run: |
+          for dir in packages/*/; do
+            (cd "$dir" && npm install --package-lock-only --no-audit --no-fund)
+          done
+      - name: Upload the resolved lock files
+        if: failure() && steps.check.outcome == 'failure'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: npm-lockfiles
+          path: packages/*/package-lock.json
+          retention-days: 7
+          if-no-files-found: error
+
+  # T-34 T-35 T-58 P-53
+  api-client:
+    name: api-client
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: packages/api-client
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+          # T-58
+          cache-dependency-path: |
+            packages/api-client/package-lock.json
+      - name: Install (lockfile only, no install scripts; T-58, T-60)
+        run: npm ci
+      - name: npm vulnerability scan (T-38)
+        run: npm audit --audit-level=high
+      - name: The client regenerates byte for byte from the committed OpenAPI document (T-34, T-35)
+        id: generated
+        run: |
+          npm run generate
+          git status --porcelain -- src/generated
+          test -z "$(git status --porcelain -- src/generated)"
+      - name: Upload the regenerated client
+        if: failure() && steps.generated.outcome == 'failure'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: api-client
+          path: packages/api-client/src/generated/
+          retention-days: 7
+          if-no-files-found: error
+      - name: Lint, type check, format (T-34, T-58)
+        run: |
+          npm run lint
+          npm run typecheck
+          npm run format:check
+      - name: The typed client against a local server (T-34, P-53)
+        run: npm test
+
   # T-98 E-45 P-54
   contracts:
     name: contracts
@@ -538,7 +621,7 @@ jobs:
         run: |
           just test-compose-only "$RUNNER_TEMP/access-local" commit::p_100_a_ledger_opens_in_work_server_s_cell_for_the_test_user_s_commit
           just test-compose-only "$RUNNER_TEMP/access-local" commit::e_45_an_intent_that_names_no_work_ledger_writes_nothing
-      - name: Work's PEP commits the test user's work:commit intent, Access's approve tool approves Work's request with the passkey, and work-server refuses a tampered intent and a foreign capacity, then writes the AAL2 user's Declaration and keeps its receipt (E-17, E-45, P-13, P-21, P-116, T-101)
+      - name: Work's PEP commits the test user's work:commit intent, Access's approve tool approves Work's request with the passkey, the approval return hands the contribution back once, and work-server refuses a tampered intent and a foreign capacity, then writes the AAL2 user's Declaration and keeps its receipt (E-17, E-45, P-13, P-21, P-116, T-101)
         env:
           NEXTEST_PROFILE: ci
         run: |
@@ -563,6 +646,7 @@ jobs:
             --intent-json "$(jq -c '.intent' "$dir/commit-state.json")" \
             --request /tmp/commit-request.json > "$dir/approved.json"
           jq -e '.render_digest_verified == true and (.contribution | length > 0)' "$dir/approved.json"
+          just test-compose-only "$dir" commit::e_17_the_approval_return_hands_back_the_contribution_access_confirmed_once
           just test-compose-only "$dir" commit::t_101_with_the_contribution_work_s_pep_gets_the_exercise_and_its_receipt
           just test-compose-only "$dir" commit::e_17_work_server_writes_nothing_for_an_intent_access_did_not_approve
           just test-compose-only "$dir" commit::p_13_work_server_writes_nothing_for_a_capacity_the_exercise_does_not_carry
@@ -680,7 +764,7 @@ jobs:
           c restart s3
           for _ in $(seq 1 60); do lock >/dev/null 2>&1 && break; sleep 1; done
           lock | grep -q '<ObjectLockEnabled>Enabled</ObjectLockEnabled>'
-      - name: The test user's Party compromised reaches work-server, which writes the notice once into the ledger of the user's record and shows its window on the record's evidence; once Access retires Work's client, api_client.disabled fails every caller closed; the last step, since it ends the client (T-102, T-28, SEC-36)
+      - name: The test user's Party compromised reaches work-server, which writes the notice once into the ledger of the user's record, matched by its device Instance, and shows its window on the record's evidence; once Access retires Work's client, api_client.disabled fails every caller closed; the last step, since it ends the client (T-102, T-28, SEC-36)
         env:
           NEXTEST_PROFILE: ci
         run: |
