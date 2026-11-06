@@ -35,7 +35,7 @@ use crate::domain::parties::{
     self as parties, MAX_PARTIES, PARTY_UNKNOWN, PartyAnswer, PartyEntry,
 };
 use crate::domain::realm::{OPENID_CONFIGURATION, jwks_uri, realm_keys};
-use crate::domain::relay::RelayConfiguration;
+use crate::domain::relay::{RelayConfiguration, version_refused};
 use crate::domain::subjects::{
     self, CACHE_ENTRIES, Direction, MAX_SUBJECTS, Resolution, SubjectCache,
 };
@@ -347,13 +347,10 @@ impl<T: Transport, C: Clock> Client<T, C> {
         let request = Request::get(RelayConfiguration::url(&base), JSON)
             .with("relay-version", contract_version);
         let answer = relay_transport.send(request).await?;
-        RelayConfiguration::from_json(
-            answer.ok()?,
-            &base,
-            &self.issuer,
-            &self.region,
-            contract_version,
-        )
+        let body = answer
+            .ok()
+            .map_err(|e| version_refused(e, contract_version))?;
+        RelayConfiguration::from_json(body, &base, &self.issuer, &self.region, contract_version)
     }
 
     /// The domain's Domain Metadata: read from the domain's `AuthZEN` document, verified against

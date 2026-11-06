@@ -13,6 +13,9 @@ pub const REQUIRED_RELAY_CAPABILITY: &str = "urn:suiss:relay:events:1";
 /// The well-known path of Relay's discovery document below `suiss_relay`.
 pub const RELAY_CONFIGURATION: &str = "/.well-known/relay-configuration";
 
+/// The problem code of a Relay that does not serve the `Relay-Version` asked for.
+pub const UNSUPPORTED_VERSION: &str = "unsupported_api_version";
+
 #[derive(Deserialize)]
 struct Wire {
     issuer: String,
@@ -43,6 +46,20 @@ pub struct RelayConfiguration {
     pub capabilities: BTreeSet<String>,
     /// The events endpoint.
     pub events_endpoint: String,
+}
+
+/// The error of Relay's discovery answer `error` for `contract_version`: a Relay that refuses the
+/// dated version itself does not support it either, and refuses start (T-99 item 2).
+#[must_use]
+pub fn version_refused(error: AccessError, contract_version: &str) -> AccessError {
+    match error {
+        AccessError::Refused {
+            status: 400, code, ..
+        } if code == UNSUPPORTED_VERSION => {
+            AccessError::ContractVersion(contract_version.to_owned())
+        }
+        other => other,
+    }
 }
 
 impl RelayConfiguration {
@@ -203,6 +220,29 @@ mod tests {
             Err(AccessError::Capability(
                 REQUIRED_RELAY_CAPABILITY.to_owned()
             ))
+        );
+    }
+
+    // T-99
+    #[test]
+    fn t_99_a_relay_that_refuses_the_dated_version_refuses_start() {
+        let refused = |status, code: &str| AccessError::Refused {
+            status,
+            code: code.to_owned(),
+            reason: None,
+            errors: Vec::new(),
+        };
+        assert_eq!(
+            version_refused(refused(400, UNSUPPORTED_VERSION), "2026-10-01"),
+            AccessError::ContractVersion("2026-10-01".to_owned())
+        );
+        assert_eq!(
+            version_refused(refused(400, "malformed_request"), "2026-10-01"),
+            refused(400, "malformed_request")
+        );
+        assert_eq!(
+            version_refused(AccessError::Timeout, "2026-10-01"),
+            AccessError::Timeout
         );
     }
 
