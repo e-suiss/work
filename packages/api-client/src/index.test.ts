@@ -97,7 +97,7 @@ describe("createWorkClient", () => {
     expect(last?.method).toBe("GET");
     expect(last?.url).toBe(`/v1/ledgers/${LEDGER}/works/${WORK}`);
     expect(last?.headers.authorization).toBe("DPoP token-1");
-    expect(last?.headers.dpop).toBe("proof-1");
+    expect(last?.headers["dpop"]).toBe("proof-1");
     expect(proven).toEqual([`GET ${baseUrl}/v1/ledgers/${LEDGER}/works/${WORK}`]);
   });
 
