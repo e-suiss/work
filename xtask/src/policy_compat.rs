@@ -299,15 +299,16 @@ fn product_service(
     out
 }
 
-/// Compose problems against `compat.toml`: the `access` and `relay` services and
-/// every other service whose image is the Access or Relay repository.
+/// Compose problems against `compat.toml` for services that build no local image.
+#[cfg(test)]
 pub(crate) fn compose_violations(c: &Compat, compose: &str) -> Vec<Violation> {
     compose_violations_built(c, compose, &BTreeMap::new())
 }
 
-/// As [`compose_violations`], with `built` naming the base image of each service that builds a
-/// local image: such a service runs the product as pinned when its Dockerfile starts from the
-/// pinned image (T-51, T-56: the local Relay adds SoftHSM to the pinned image).
+/// Compose problems against `compat.toml`: the `access` and `relay` services and every other
+/// service whose image is the Access or Relay repository. `built` names the base image of each
+/// service that builds a local image; such a service runs the product as pinned when its
+/// Dockerfile starts from the pinned image (T-51, T-56: the local Relay adds `SoftHSM`).
 pub(crate) fn compose_violations_built(
     c: &Compat,
     compose: &str,
