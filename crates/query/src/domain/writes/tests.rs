@@ -111,7 +111,7 @@ fn sec_19_a_record_signed_after_a_compromise_or_with_an_ended_key_is_kid_unknown
     for state in [KeyState::Compromised, KeyState::Ended] {
         let s = signer(Some(&entry(kid, key.clone(), state)));
         assert!(s.party.is_none(), "{state:?}");
-        assert!(s.keys.keys.is_empty(), "{state:?}");
+        assert_eq!(s.keys.keys.len(), 0, "{state:?}");
         assert_eq!(check(&cose, &author, &s), kid_unknown(), "{state:?}");
     }
     assert_eq!(check(&cose, &author, &signer(None)), kid_unknown());

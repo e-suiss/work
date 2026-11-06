@@ -15,6 +15,8 @@ const AUDIENCE: &str = "cli_work";
 const LEDGER: &str = "led_0101";
 const EXERCISE: ExerciseId = ExerciseId([0xe1; 32]);
 
+type Edit = Box<dyn Fn(&mut Receipt)>;
+
 fn envelope(action: &str, from: u64, until: u64) -> Vec<u8> {
     IntentEnvelope {
         action: ActionRef {
@@ -115,7 +117,7 @@ fn t_101_an_allowed_exercise_with_its_receipt_is_the_authority_proof() {
     assert_eq!(got.intent, i.digest);
     assert_eq!(got.instance, Some(KernelId([3; 16])));
     assert_eq!(got.capacity, Capacity::Own);
-    assert!(got.agency.is_empty());
+    assert_eq!(got.agency, Vec::<AgencyLink>::new());
     assert_eq!(got.iat, IAT);
     assert_eq!(got.receipt, d.sign(receipt::CONTENT_TYPE, &payload));
 }
@@ -177,7 +179,7 @@ fn t_101_a_receipt_is_used_only_for_its_domain_exercise_audience_and_time() {
     let d = domain(&store);
     let i = intent();
     let excerpt = d.excerpt("receipt");
-    let cases: [(&str, Box<dyn Fn(&mut Receipt)>); 4] = [
+    let cases: [(&str, Edit); 4] = [
         (
             "receipt-domain",
             Box::new(|r: &mut Receipt| r.domain = Digest([7; 32])),

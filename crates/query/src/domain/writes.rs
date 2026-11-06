@@ -9,7 +9,7 @@ use work_access_client::domain::exercise::{Capacity as Held, Intent, VerifiedExe
 use work_access_client::domain::keys::{ActorKind, InstanceKey, KernelId, KeyState};
 use work_access_client::domain::{b64url, from_b64url};
 use work_kernel::catalog::DeclarationSubtype;
-use work_kernel::cose::{KeySet, parse_container};
+use work_kernel::cose::{Algorithm, KeySet, parse_container};
 use work_kernel::id::{LedgerId, PartyRef, RecordId};
 use work_kernel::record::{AuthorityProofKind, Capacity, Record, RecordCore};
 use work_kernel::validate::ActorType;
@@ -191,18 +191,25 @@ pub struct Signer {
 /// item 6, SEC-36 item 3).
 #[must_use]
 pub fn signer(key: Option<&InstanceKey>) -> Signer {
+    let refused = Signer {
+        party: None,
+        keys: KeySet {
+            keys: BTreeMap::new(),
+            allowed: BTreeSet::from([Algorithm::Ed25519, Algorithm::Esp256]),
+        },
+    };
     let Some(key) = key.filter(|k| k.state == KeyState::Active) else {
-        return Signer::default();
+        return refused;
     };
     let Some(party) = party_ref(&key.party) else {
-        return Signer::default();
+        return refused;
     };
     let mut keys = KeySet {
         keys: BTreeMap::new(),
         allowed: BTreeSet::from([key.alg]),
     };
     if keys.insert(key.kid.0, key.key.clone()).is_err() {
-        return Signer::default();
+        return refused;
     }
     Signer {
         party: Some((party, actor_type(key.actor_kind))),
