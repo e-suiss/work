@@ -119,9 +119,13 @@ pub enum Endpoint {
     Exercise,
     /// `GET /access/v1/exercises/{exercise}/agency`.
     ExerciseAgency,
+    /// `POST /access/v1/claims:ingest` (Access OP-150 item 2).
+    ClaimIngest,
+    /// The Token Status List `{list}` (Access OP-150 item 2).
+    StatusList,
 }
 
-const ENDPOINTS: [(&str, Endpoint, Option<&str>); 13] = [
+const ENDPOINTS: [(&str, Endpoint, Option<&str>); 15] = [
     ("adp", Endpoint::Adp, None),
     ("key_lookup", Endpoint::KeyLookup, Some("kid")),
     ("key_batch", Endpoint::KeyBatch, None),
@@ -147,6 +151,8 @@ const ENDPOINTS: [(&str, Endpoint, Option<&str>); 13] = [
         Endpoint::ExerciseAgency,
         Some("exercise"),
     ),
+    ("claim_ingest", Endpoint::ClaimIngest, None),
+    ("status_list", Endpoint::StatusList, Some("list")),
 ];
 
 impl Endpoint {
@@ -543,6 +549,35 @@ mod tests {
             doc.endpoints.get(Endpoint::AuthContext),
             Err(AccessError::Unserved(Endpoint::AuthContext))
         );
+    }
+
+    // T-96
+    #[test]
+    fn t_96_claim_ingest_and_the_status_list_are_read_once_served() {
+        let served = EXAMPLE.replace(
+            "\"adp\":",
+            "\"claim_ingest\": \"https://access.example/access/v1/claims:ingest\", \"status_list\": \"https://access.example/access/v1/status-lists/{list}\", \"adp\":",
+        );
+        let doc = SuissConfiguration::from_json(served.as_bytes(), &acme()).unwrap();
+        assert_eq!(
+            doc.endpoints.get(Endpoint::ClaimIngest).unwrap().as_str(),
+            "https://access.example/access/v1/claims:ingest"
+        );
+        assert_eq!(
+            doc.endpoints
+                .get(Endpoint::StatusList)
+                .unwrap()
+                .expand("l1"),
+            "https://access.example/access/v1/status-lists/l1"
+        );
+        let unnamed = EXAMPLE.replace(
+            "\"adp\":",
+            "\"status_list\": \"https://access.example/access/v1/status-lists\", \"adp\":",
+        );
+        assert!(matches!(
+            SuissConfiguration::from_json(unnamed.as_bytes(), &acme()),
+            Err(AccessError::Endpoint(_))
+        ));
     }
 
     // T-96

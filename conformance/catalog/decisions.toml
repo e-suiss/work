@@ -5954,6 +5954,7 @@ tests = [
   "crates/access-client/src/domain/discovery.rs::t_96_a_stale_discovery_refuses_consequential_actions",
   "crates/access-client/src/domain/discovery.rs::t_96_a_template_names_only_its_own_variable",
   "crates/access-client/src/domain/discovery.rs::t_96_another_issuer_or_version_refuses_start",
+  "crates/access-client/src/domain/discovery.rs::t_96_claim_ingest_and_the_status_list_are_read_once_served",
   "crates/access-client/src/domain/discovery.rs::t_96_every_endpoint_access_serves_is_read_with_its_variable",
   "crates/access-client/src/domain/discovery.rs::t_96_signed_discovery_matches_the_access_vectors",
   "crates/access-client/src/domain/discovery.rs::t_96_start_needs_adp_the_three_capabilities_and_the_region",
