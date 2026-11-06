@@ -65,12 +65,8 @@ async fn p_56_a_party_reads_only_the_works_and_records_it_took_part_in() {
         );
     }
     assert!(seen > 0);
-    assert!(
-        tx.visible_changes(None, 1000, STRANGER)
-            .await
-            .unwrap()
-            .is_empty()
-    );
+    let none = tx.visible_changes(None, 1000, STRANGER).await.unwrap();
+    assert_eq!(none, Vec::<ChangeRow>::new());
 
     let mut kinds = BTreeSet::new();
     for (id, author, signed) in &records {
