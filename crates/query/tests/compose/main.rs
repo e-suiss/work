@@ -242,14 +242,11 @@ impl Local {
             .unwrap()
     }
 
-    /// An RFC 9562 version 7 UUID no other call of this process sees, for an `Idempotency-Key`.
-    fn uuid7(&self) -> String {
-        let ms = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_millis();
+    /// An RFC 9562 version 7 UUID of `ms` no other call of this process sees, for an
+    /// `Idempotency-Key`.
+    fn uuid7(&self, ms: u64) -> String {
         let mut b = [0_u8; 16];
-        b[..6].copy_from_slice(&ms.to_be_bytes()[10..]);
+        b[..6].copy_from_slice(&ms.to_be_bytes()[2..]);
         b[6..].copy_from_slice(&from_b64url(&self.random()).unwrap()[..10]);
         b[6] = (b[6] & 0x0f) | 0x70;
         b[8] = (b[8] & 0x3f) | 0x80;
@@ -1133,7 +1130,7 @@ mod commit {
             .unwrap();
             let proof = local.proof(&key, "POST", &url, None, Some(&token)).await;
             let authorization = format!("DPoP {token}");
-            let idempotency = local.uuid7();
+            let idempotency = local.uuid7(now);
             let answer = local
                 .send(
                     "POST",
