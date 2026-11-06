@@ -17,5 +17,5 @@ path = "junit.xml"
 softhsm = { max-threads = 1 }
 
 [[profile.default.overrides]]
-filter = "package(work-signer) | (package(work-ledger) & (binary(=containers) | test(/^(body|admit|auth_context)::/))) | (package(work-server) & test(/^(signer::|t_17_)/)) | (package(work-query) & test(/^adapters::/)) | (package(work-access-client) & (binary(=compose) | test(/^(adapters|app::events|domain::events|domain::keys|domain::cache)::/)))"
+filter = "package(work-signer) | (package(work-ledger) & (binary(=containers) | test(/^(body|admit|auth_context)::/))) | (package(work-server) & test(/^(signer::|t_17_)/)) | (package(work-query) & test(/^adapters::/)) | (package(work-access-client) & (binary(=compose) | test(/^(adapters|app::events|domain::events|domain::keys|domain::cache|domain::token)::/)))"
 test-group = "softhsm"
