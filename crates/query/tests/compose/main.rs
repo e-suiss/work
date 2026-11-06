@@ -620,9 +620,19 @@ impl Local {
         answer
     }
 
-    /// The access token of a sign-in that succeeds.
+    /// The access token of a sign-in that succeeds, once Access's sign-in throttle lets it.
     async fn token(&self, key: &HsmSigner) -> String {
-        let tokens = self.login(key).await.unwrap();
+        let mut tokens = self.login(key).await;
+        for _ in 0..6 {
+            match &tokens {
+                Err(answer) if answer.status == 429 => {
+                    tokio::time::sleep(Duration::from_secs(10)).await;
+                    tokens = self.login(key).await;
+                }
+                _ => break,
+            }
+        }
+        let tokens = tokens.unwrap();
         assert_eq!(tokens["token_type"], "DPoP", "{tokens}");
         tokens["access_token"].as_str().unwrap().to_owned()
     }
