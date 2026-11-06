@@ -257,7 +257,12 @@ impl Local {
             .find(|n| n["type"] == "passkey_get")
             .unwrap_or_else(|| panic!("{step}"))["options"]
             .clone();
-        let challenge = options["challenge"].as_str().unwrap();
+        self.passkey_over(issuer, options["challenge"].as_str().unwrap())
+    }
+
+    /// The `WebAuthn` assertion of the passkey over `challenge`, unpadded base64url, as the
+    /// realm's software authenticator answers it: user present and verified, no counter.
+    fn passkey_over(&self, issuer: &str, challenge: &str) -> Value {
         let authority = issuer
             .strip_prefix("https://")
             .unwrap()
@@ -821,7 +826,7 @@ mod signed {
     use work_access_client::domain::subjects::Direction;
     use work_proto::id::TenantId;
     use work_query::app::caller::Authenticator;
-    use work_query::domain::caller::{CallerRefusal, Presented};
+    use work_query::domain::caller::{CallerKind, CallerRefusal, Presented};
     use work_query::domain::writes::{actor_type, signer};
 
     use super::{Local, POLL, UNSEEN, WORK, ledger_path, names, payload};
@@ -865,6 +870,12 @@ mod signed {
         assert_eq!(claims["iss"], local.issuer("acme"));
         assert!(names(&claims["aud"], &work), "{claims}");
         assert_eq!(claims["cnf"]["jkt"], b64url(&thumbprint(&key.public_key())));
+        assert_eq!(
+            claims["access_tenant"],
+            local.realm("acme")["tenant"],
+            "{claims}"
+        );
+        assert!(claims.get("sid").is_some(), "{claims}");
         let access = local.client().await;
         let auth = Authenticator::new(Arc::clone(&access), Some(work));
         let url = format!("{WORK}{}", ledger_path().0);
@@ -886,8 +897,10 @@ mod signed {
         assert_eq!(caller.realm, acme["realm"].as_str().unwrap());
         assert_eq!(caller.issuer, local.issuer("acme"));
         assert_eq!(caller.client_id, local.user("client_id"));
-        assert_eq!(b64url(&caller.party_id), party);
-        assert_eq!(caller.party.as_str(), party);
+        let named = caller.party.as_ref().unwrap();
+        assert_eq!(b64url(&named.id), party);
+        assert_eq!(named.reference.as_str(), party);
+        assert_eq!(caller.kind, CallerKind::User);
         let back = access
             .resolve(
                 &caller.tenant,
@@ -1127,6 +1140,7 @@ mod commit {
     use suiss_crypto::secret::Secret;
     use suiss_crypto::signer::{Signer as _, sign_sign1};
     use work_access_client::domain::adp::{self, Action, Holding, Statement};
+    use work_access_client::domain::approval::{APPROVE_CLASS, contribution_intent};
     use work_access_client::domain::exercise::{
         Capacity as Held, ExerciseId, Intent, VerifiedExercise,
     };
@@ -1139,18 +1153,18 @@ mod commit {
     use work_kernel::rules::RuleSet;
     use work_ledger::{GenesisInput, SystemRng, genesis};
     use work_proto::id::ExternalId as _;
-    use work_query::domain::authority::approval_state;
     use work_store::{
-        AccessPool, CellId, Durability, ExportLog, NewApprovalState, ReceivedRole, SequencerPool,
-        WindowHit,
+        AccessPool, CellId, Durability, ExportLog, ReceivedRole, SequencerPool, WindowHit,
     };
 
-    use super::{ACCESS_PIN_FILE, ACCESS_TOKEN, Answer, Jar, Local, WORK, module};
+    use super::{ACCESS_PIN_FILE, ACCESS_TOKEN, Answer, Jar, Local, WORK, module, query};
 
     const LEDGER_FILE: &str = "commit-ledger";
     const STATE_FILE: &str = "commit-state.json";
     const REQUEST_FILE: &str = "commit-request.json";
+    const PUSHED_FILE: &str = "commit-pushed.json";
     const APPROVED_FILE: &str = "approved.json";
+    const RETURNED_FILE: &str = "commit-returned.json";
     const EXERCISE_FILE: &str = "commit-exercise.json";
     const WRITTEN_FILE: &str = "commit-written.json";
     const SEQUENCER: &str = "postgres://work_sequencer:local-only-not-a-secret@127.0.0.1:5442/work";
@@ -1161,6 +1175,8 @@ mod commit {
     const DEVICE_LABEL: &str = "access/bootstrap/test-user-device";
     const RECORD_TYPE: &str = "application/work-record+cbor";
     const AIS_TYPE: &str = "application/access-ais+cbor";
+    const IDENTITY_PEP: &str = "access-identity";
+    const CONTRIBUTION_TTL_MS: u64 = 600_000;
     const RECORDS: &str = include_str!("../../../../conformance/vectors/records/records.json");
     const REASON: &str = "Work compose test: commit into the test ledger";
 
@@ -1377,11 +1393,96 @@ mod commit {
             .await
     }
 
+    /// RFC 3339 UTC text of Unix milliseconds `ms`, `YYYY-MM-DDTHH:MM:SS.mmmZ`.
+    fn rfc3339(ms: u64) -> String {
+        let (days, rest) = (ms / 86_400_000, ms % 86_400_000);
+        let z = days + 719_468;
+        let era = z / 146_097;
+        let doe = z - era * 146_097;
+        let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+        let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+        let mp = (5 * doy + 2) / 153;
+        let day = doy - (153 * mp + 2) / 5 + 1;
+        let month = if mp < 10 { mp + 3 } else { mp - 9 };
+        let year = yoe + era * 400 + u64::from(month <= 2);
+        format!(
+            "{year:04}-{month:02}-{day:02}T{:02}:{:02}:{:02}.{:03}Z",
+            rest / 3_600_000,
+            rest / 60_000 % 60,
+            rest / 1000 % 60,
+            rest % 1000
+        )
+    }
+
+    /// The contribution the test user's device pre-signs for an approval of `c` (Access §9.14.1
+    /// A step 4, L0-META-30): an `approve` under the user's holding over `access/contribute`,
+    /// its Actor Intent Statement over the `contribute` intent of `c` Work derives, addressed to
+    /// Access's identity plane.
+    async fn presigned(local: &Local, c: &Commit) -> (Value, [u8; 32]) {
+        let a = allowed(local);
+        let holding = &a["contribution"]["basis"]["holding"];
+        let basis = Holding {
+            grant: KernelId(id(holding, "grant")),
+            holder: KernelId(id(holding, "holder")),
+            since: holding["since"].as_u64().unwrap(),
+        };
+        let domain = DomainId(fixed_b64url(text(a, "domain")).unwrap());
+        let now = local.access_now_s().await * 1000;
+        let (from, until) = (now - 60_000, now + CONTRIBUTION_TTL_MS);
+        let intent = contribution_intent(&c.digest, APPROVE_CLASS, from, until).unwrap();
+        let nonce = from_b64url(&local.random()).unwrap()[..16].to_vec();
+        let statement = Statement {
+            domain: &domain,
+            nonce: &nonce,
+            intent: &intent,
+            pep: IDENTITY_PEP,
+            capacity: Held::Own,
+            basis,
+        };
+        let device = device(local);
+        let ais = sign_sign1(
+            &device,
+            thumbprint(&device.public_key()),
+            AIS_TYPE,
+            &statement.to_sign(now).unwrap(),
+        )
+        .unwrap();
+        let contribution = json!({
+            "nonce": b64url(&nonce),
+            "class": APPROVE_CLASS,
+            "basis": holding,
+            "valid_from": rfc3339(from),
+            "valid_until": rfc3339(until),
+            "ais": b64url(&ais),
+        });
+        (contribution, intent)
+    }
+
     /// The test user's request at `work-server`'s `POST /v1/authority-requests` that Work's PEP
     /// commit `c` under `nonce`, with the Actor Intent Statement the test user's own device key
-    /// signs, addressed to Work's PEP by its `x5t#S256`, and the approvals `contributions`
-    /// (T-101 item 2, Access L1-ADP-5, L2-SIG-1).
-    async fn authority(local: &Local, c: &Commit, nonce: &[u8], contributions: &[&str]) -> Value {
+    /// signs, addressed to Work's PEP by its `x5t#S256`, the proofs `proofs` and, to push the
+    /// request, the approver's pre-signed `contribution` (T-101 item 2, Access L1-ADP-5,
+    /// L2-SIG-1).
+    async fn authority(
+        local: &Local,
+        c: &Commit,
+        nonce: &[u8],
+        proofs: &[Value],
+        contribution: Option<&Value>,
+    ) -> Value {
+        let answer = authority_answer(local, c, nonce, proofs, contribution).await;
+        assert_eq!(answer.status, 200, "{answer:?}");
+        answer.json()
+    }
+
+    /// What `work-server` answers [`authority`]'s request, whatever its status.
+    async fn authority_answer(
+        local: &Local,
+        c: &Commit,
+        nonce: &[u8],
+        proofs: &[Value],
+        contribution: Option<&Value>,
+    ) -> Answer {
         let a = allowed(local);
         let holding = &a["basis"]["holding"];
         let basis = Holding {
@@ -1408,7 +1509,7 @@ mod commit {
             &statement.to_sign(now).unwrap(),
         )
         .unwrap();
-        let body = serde_json::to_vec(&json!({
+        let mut body = json!({
             "ledger": ledger(local),
             "intent": b64url(&c.bytes),
             "nonce": b64url(nonce),
@@ -1418,17 +1519,20 @@ mod commit {
                 "since": basis.since.to_string(),
             }},
             "ais": b64url(&ais),
-            "proofs": contributions.iter().map(|e| json!({"contribution": e})).collect::<Vec<_>>(),
+            "proofs": proofs,
             "reason": REASON,
-        }))
-        .unwrap();
+        });
+        if let Some(c) = contribution {
+            body["contribution"] = c.clone();
+        }
+        let body = serde_json::to_vec(&body).unwrap();
         let key = local.dpop();
         let token = local.token(&key).await;
         let url = format!("{WORK}/v1/authority-requests");
         let proof = local.proof(&key, "POST", &url, None, Some(&token)).await;
         let authorization = format!("DPoP {token}");
         let idempotency = local.uuid7(now);
-        let answer = local
+        local
             .send(
                 "POST",
                 &url,
@@ -1439,9 +1543,7 @@ mod commit {
                 ],
                 Some(("application/json", body)),
             )
-            .await;
-        assert_eq!(answer.status, 200, "{answer:?}");
-        answer.json()
+            .await
     }
 
     /// The Exercise `exercise` as `work-server` reads it: asked of Access, its receipt verified
@@ -1714,7 +1816,7 @@ mod commit {
         assert_eq!(problem["code_detail"], "intent_resource", "{problem}");
     }
 
-    // T-101 E-17 E-45 P-13
+    // T-101 E-17 E-45 P-13 P-116
     #[tokio::test(flavor = "multi_thread")]
     #[ignore = "needs the local environment with the commit ledger opened"]
     async fn t_101_work_s_pep_commits_the_test_user_s_intent_and_access_asks_for_approval() {
@@ -1730,10 +1832,24 @@ mod commit {
         let declaration = from_b64url(&local.random()).unwrap();
         let nonce = from_b64url(&local.random()).unwrap()[..16].to_vec();
         let c = commit_intent(&local, &led, now, &declaration);
-        let asked = authority(&local, &c, &nonce, &[]).await;
+        let asked = authority(&local, &c, &nonce, &[], None).await;
         assert_eq!(asked["outcome"], "require_action", "{asked}");
-        assert_eq!(asked["next"], "approve", "{asked}");
+        assert_eq!(asked["next"], "step_up", "{asked}");
         assert!(asked.get("exercise").is_none(), "{asked}");
+        assert!(asked.get("approval").is_none(), "{asked}");
+        let step_up = asked["step_up"].as_array().unwrap();
+        assert_eq!(step_up.len(), 1, "{asked}");
+        assert_eq!(step_up[0]["term"]["proof_kind"], "claim", "{asked}");
+        assert_eq!(step_up[0]["term"]["class"], "authentication", "{asked}");
+        assert_eq!(step_up[0]["term"]["assurance"]["aal"], 2, "{asked}");
+        let unmet = asked["unmet"].as_array().unwrap();
+        assert!(
+            unmet
+                .iter()
+                .any(|u| u["term"]["proof_kind"] == "contribution"),
+            "{asked}"
+        );
+        assert!(unmet.contains(&step_up[0]), "{asked}");
         let request = &asked["request"];
         assert_eq!(request["requester"], json!({"party": local.user("party")}));
         assert_eq!(request["action"], c.json["action"]);
@@ -1763,15 +1879,156 @@ mod commit {
         );
     }
 
-    // T-101 E-17 P-13 E-14
+    // T-101 E-17 E-26
     #[tokio::test(flavor = "multi_thread")]
-    #[ignore = "needs the local environment with the test user's approval of Work's request"]
+    #[ignore = "needs the local environment with Work's first authority request"]
+    async fn t_101_work_pushes_the_request_with_the_approver_s_pre_signed_contribution() {
+        let local = Local::open();
+        let (c, nonce) = opened(&local);
+        let (contribution, intent) = presigned(&local, &c).await;
+        let mut stated = contribution.clone();
+        stated["valid_until"] = json!("2099-01-01T00:00:00Z");
+        let refused = authority_answer(&local, &c, &nonce, &[], Some(&stated)).await;
+        assert_eq!(refused.status, 400, "{refused:?}");
+        assert_eq!(
+            refused.json()["code_detail"],
+            "contribution-intent",
+            "{refused:?}"
+        );
+        let asked = authority(&local, &c, &nonce, &[], Some(&contribution)).await;
+        assert_eq!(asked["outcome"], "require_action", "{asked}");
+        assert_eq!(asked["next"], "step_up", "{asked}");
+        assert_eq!(asked["request"], read(&local, REQUEST_FILE), "{asked}");
+        let approval = &asked["approval"];
+        let url = text(approval, "url");
+        let request_uri = text(approval, "request_uri");
+        assert!(
+            request_uri.starts_with("urn:ietf:params:oauth:request_uri:"),
+            "{approval}"
+        );
+        assert_eq!(query(url, "request").as_deref(), Some(request_uri), "{url}");
+        assert_eq!(
+            query(url, "redirect_uri").as_deref(),
+            Some(format!("{WORK}{RETURN}").as_str()),
+            "{url}"
+        );
+        let state = query(url, "state").unwrap();
+        let row = access_pool()
+            .await
+            .approval_state(&state)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(row.tenant, tenant(&local));
+        assert_eq!(b64url(&row.party), local.user("party"));
+        assert_eq!(row.contribution, Some(intent));
+        assert_eq!(
+            row.ledger,
+            *LedgerId::parse_external(&ledger(&local))
+                .unwrap()
+                .0
+                .as_bytes()
+        );
+        assert!(row.used_at_ms.is_none(), "{row:?}");
+        write(
+            &local,
+            PUSHED_FILE,
+            &json!({"url": url, "request_uri": request_uri, "state": state}),
+        );
+    }
+
+    // T-101 E-17 E-26 P-116
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore = "needs the local environment with Work's pushed request"]
+    async fn e_17_the_test_user_approves_work_s_pushed_request_on_the_approval_surface() {
+        let local = Local::open();
+        let pushed = read(&local, PUSHED_FILE);
+        let url = text(&pushed, "url");
+        let issuer = local.issuer("acme");
+        let redirect = query(url, "redirect_uri").unwrap();
+        let state = query(url, "state").unwrap();
+        let key = local.dpop();
+        let (_, mut jar) = local.session(&key, true).await.unwrap();
+        bind_device(&local, &mut jar).await;
+        let started = local
+            .post_json(
+                &format!("{issuer}/v1/approve/flows"),
+                &mut jar,
+                Some(json!({
+                    "request": text(&pushed, "request_uri"),
+                    "redirect_uri": redirect,
+                    "state": state,
+                })),
+            )
+            .await;
+        assert_eq!(started.status, 201, "{started:?}");
+        let started = started.json();
+        let (c, _) = opened(&local);
+        let fields = started["render"]["fields"].as_array().unwrap();
+        let ledger_field = fields.iter().find(|f| f["name"] == "ledger").unwrap();
+        assert_eq!(ledger_field["text"], ledger(&local), "{started}");
+        assert_eq!(c.json["params"]["ledger"]["eq"], ledger(&local));
+        let challenge = text(&started["options"], "challenge");
+        let credential = local.passkey_over(&issuer, challenge);
+        let flow = text(&started, "flow");
+        let finished = local
+            .post_json(
+                &format!("{issuer}/v1/approve/flows/{flow}"),
+                &mut jar,
+                Some(json!({
+                    "credential": credential,
+                    "redirect_uri": redirect,
+                    "state": state,
+                })),
+            )
+            .await;
+        assert_eq!(finished.status, 200, "{finished:?}");
+        let finished = finished.json();
+        let back = text(&finished, "redirect");
+        assert!(back.starts_with(&format!("{redirect}?")), "{finished}");
+        assert_eq!(
+            query(back, "state").as_deref(),
+            Some(state.as_str()),
+            "{back}"
+        );
+        assert_eq!(
+            query(back, "exercise").as_deref(),
+            Some(text(&finished, "exercise")),
+            "{back}"
+        );
+        assert_eq!(
+            query(back, "claim").as_deref(),
+            Some(text(&finished, "claim")),
+            "{back}"
+        );
+        assert_eq!(
+            fixed_b64url::<16>(text(&finished, "claim")).unwrap().len(),
+            16
+        );
+        write(
+            &local,
+            APPROVED_FILE,
+            &json!({
+                "redirect": back,
+                "contribution": text(&finished, "exercise"),
+                "render_digest": text(&finished, "render_digest"),
+                "claim": text(&finished, "claim"),
+            }),
+        );
+    }
+
+    // T-101 E-17 P-13 E-14 P-116
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore = "needs the local environment with the approval return of Work's request"]
     async fn t_101_with_the_contribution_work_s_pep_gets_the_exercise_and_its_receipt() {
         let local = Local::open();
-        let approved = read(&local, APPROVED_FILE);
-        let contribution = text(&approved, "contribution");
+        let returned = read(&local, RETURNED_FILE);
+        let proofs = [
+            json!({"contribution": text(&returned, "contribution")}),
+            json!({"claim_ref": text(&returned, "claim")}),
+        ];
         let (c, nonce) = opened(&local);
-        let answer = authority(&local, &c, &nonce, &[contribution]).await;
+        let answer = authority(&local, &c, &nonce, &proofs, None).await;
         assert_eq!(answer["outcome"], "allow", "{answer}");
         assert!(answer.get("next").is_none(), "{answer}");
         let exercise = text(&answer, "exercise").to_owned();
@@ -1936,7 +2193,7 @@ mod commit {
         );
     }
 
-    // T-101 E-17
+    // T-101 E-17 P-116
     #[tokio::test(flavor = "multi_thread")]
     #[ignore = "needs the local environment with the test user's approval of Work's request"]
     async fn e_17_the_approval_return_hands_back_the_contribution_access_confirmed_once() {
@@ -1944,41 +2201,34 @@ mod commit {
         let approved = read(&local, APPROVED_FILE);
         let contribution = text(&approved, "contribution").to_owned();
         let render = text(&approved, "render_digest").to_owned();
-        let digest = sha256(&std::fs::read(local.dir.join(REQUEST_FILE)).unwrap());
-        let party = local.user("party");
-        let state = approval_state(&party, &digest);
+        let claim = text(&approved, "claim").to_owned();
+        let redirect = text(&approved, "redirect");
+        let (_, query_part) = redirect.split_once('?').unwrap();
+        let state = query(redirect, "state").unwrap();
         let led = ledger(&local);
-        let now = local.access_now_s().await * 1000;
-        let access = access_pool().await;
-        let tenant = tenant(&local);
-        let issued = NewApprovalState {
-            state: &state,
-            tenant: &tenant,
-            party: fixed_b64url(&party).unwrap(),
-            digest,
-            ledger: *LedgerId::parse_external(&led).unwrap().0.as_bytes(),
-            issued_at_ms: now,
-            expires_at_ms: now + 3_600_000,
-        };
-        assert!(access.issue_approval_state(&issued).await.unwrap());
-        assert!(!access.issue_approval_state(&issued).await.unwrap());
         let key = local.dpop();
         let token = local.token(&key).await;
-        let query = format!("exercise={contribution}&render_digest={render}&state={state}");
-        let back = approval_return(&local, &key, &token, &query).await;
+        let back = approval_return(&local, &key, &token, query_part).await;
         assert_eq!(back.status, 200, "{back:?}");
+        let returned = back.json();
         assert_eq!(
-            back.json(),
+            returned,
             json!({
                 "ledger": led,
                 "contribution": contribution,
                 "render_digest": render,
+                "claim": claim,
                 "next": "commit",
             })
         );
-        let row = access.approval_state(&state).await.unwrap().unwrap();
+        let row = access_pool()
+            .await
+            .approval_state(&state)
+            .await
+            .unwrap()
+            .unwrap();
         assert!(row.used_at_ms.is_some(), "{row:?}");
-        let again = approval_return(&local, &key, &token, &query).await;
+        let again = approval_return(&local, &key, &token, query_part).await;
         assert_eq!(denied(&again)["code_detail"], "state_used");
         let unknown = format!(
             "exercise={contribution}&render_digest={render}&state={}",
@@ -1989,5 +2239,6 @@ mod commit {
         let unsent =
             approval_return(&local, &key, &token, &format!("exercise={contribution}")).await;
         assert_eq!(unsent.status, 400, "{unsent:?}");
+        write(&local, RETURNED_FILE, &returned);
     }
 }

@@ -621,31 +621,16 @@ jobs:
         run: |
           just test-compose-only "$RUNNER_TEMP/access-local" commit::p_100_a_ledger_opens_in_work_server_s_cell_for_the_test_user_s_commit
           just test-compose-only "$RUNNER_TEMP/access-local" commit::e_45_an_intent_that_names_no_work_ledger_writes_nothing
-      - name: Work's PEP commits the test user's work:commit intent, Access's approve tool approves Work's request with the passkey, the approval return hands the contribution back once, and work-server refuses a tampered intent and a foreign capacity, then writes the AAL2 user's Declaration and keeps its receipt (E-17, E-45, P-13, P-21, P-116, T-101)
+      - name: Work's PEP commits the test user's work:commit intent and Access asks for an approval and an AAL2 step-up, Work pushes the request with the contribution the device pre-signed, the test user approves it on the Approval Surface with the passkey, the approval return hands the contribution and the authentication Claim back once, the commit with both is allowed, and work-server refuses a tampered intent and a foreign capacity, then writes the AAL2 user's Declaration and keeps its receipt (E-17, E-26, E-45, P-13, P-21, P-116, T-101)
         env:
           NEXTEST_PROFILE: ci
         run: |
-          c() { docker compose -f deploy/compose/compose.yaml "$@"; }
           dir="$RUNNER_TEMP/access-local"
-          b="$dir/bootstrap.json"
+          jq -e '.test_user.allowed.step_up == "aal2"' "$dir/bootstrap.json"
+          jq -e '.clients[] | select(.product == "work") | .redirect_uris | index("http://127.0.0.1:8190/v1/access/approval") and index("https://work.localhost/v1/access/approval")' "$dir/bootstrap.json"
           just test-compose-only "$dir" commit::t_101_work_s_pep_commits_the_test_user_s_intent_and_access_asks_for_approval
-          read -r issuer domain party instance grant since cgrant csince < <(jq -r '.test_user as $u | [
-            (.realms[] | select(.slug == "acme") | .issuer), $u.allowed.domain, $u.party, $u.instance,
-            $u.allowed.basis.holding.grant, $u.allowed.basis.holding.since,
-            $u.allowed.contribution.basis.holding.grant, $u.allowed.contribution.basis.holding.since] | @tsv' "$b")
-          c run --rm --no-deps -T -v "$dir/commit-request.json:/tmp/commit-request.json:ro" \
-            --entrypoint access-local-client access-bootstrap approve \
-            --issuer "$issuer" --api https://access-server:8443 --ca /var/lib/access/certs/ca.crt \
-            --cert /var/lib/access/certs/pep.crt --key /var/lib/access/certs/pep.key \
-            --redirect-uri "$(jq -er '.test_user.redirect_uri' "$b")" --identifier "$(jq -er '.test_user.identifier' "$b")" \
-            --hsm-module /usr/lib/softhsm/libsofthsm2.so --hsm-token access-server \
-            --hsm-pin-file /var/lib/access/secrets/hsm-access-server \
-            --device-key access/bootstrap/test-user-device --passkey access/bootstrap/test-user-passkey \
-            --domain "$domain" --party "$party" --instance "$instance" \
-            --grant "$grant" --grant-since "$since" --contribute-grant "$cgrant" --contribute-since "$csince" \
-            --intent-json "$(jq -c '.intent' "$dir/commit-state.json")" \
-            --request /tmp/commit-request.json > "$dir/approved.json"
-          jq -e '.render_digest_verified == true and (.contribution | length > 0)' "$dir/approved.json"
+          just test-compose-only "$dir" commit::t_101_work_pushes_the_request_with_the_approver_s_pre_signed_contribution
+          just test-compose-only "$dir" commit::e_17_the_test_user_approves_work_s_pushed_request_on_the_approval_surface
           just test-compose-only "$dir" commit::e_17_the_approval_return_hands_back_the_contribution_access_confirmed_once
           just test-compose-only "$dir" commit::t_101_with_the_contribution_work_s_pep_gets_the_exercise_and_its_receipt
           just test-compose-only "$dir" commit::e_17_work_server_writes_nothing_for_an_intent_access_did_not_approve
