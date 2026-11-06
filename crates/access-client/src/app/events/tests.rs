@@ -1,6 +1,7 @@
 #![allow(clippy::arithmetic_side_effects, reason = "test code")]
 
 use std::collections::BTreeSet;
+use std::future::ready;
 use std::sync::{Arc, Mutex};
 
 use serde_json::{Value, json};
@@ -33,8 +34,11 @@ impl Clock for At {
 struct Offline;
 
 impl Transport for Offline {
-    async fn send(&self, _request: Request) -> Result<Response, AccessError> {
-        Err(AccessError::Transport("offline".to_owned()))
+    fn send(
+        &self,
+        _request: Request,
+    ) -> impl Future<Output = Result<Response, AccessError>> + Send {
+        ready(Err(AccessError::Transport("offline".to_owned())))
     }
 }
 
@@ -43,8 +47,11 @@ impl Transport for Offline {
 struct Realms(BTreeSet<String>);
 
 impl PairingStore for Realms {
-    async fn realms(&self, tenant: &TenantId) -> Result<Vec<StoredRealm>, AccessError> {
-        Ok(if self.0.contains(tenant.as_str()) {
+    fn realms(
+        &self,
+        tenant: &TenantId,
+    ) -> impl Future<Output = Result<Vec<StoredRealm>, AccessError>> + Send {
+        ready(Ok(if self.0.contains(tenant.as_str()) {
             vec![StoredRealm {
                 realm: RealmId::parse("019a0000-0000-7000-8000-0000000000a1").unwrap(),
                 state: PairState::Paired,
@@ -52,38 +59,38 @@ impl PairingStore for Realms {
             }]
         } else {
             Vec::new()
-        })
+        }))
     }
 
-    async fn apply(
+    fn apply(
         &self,
         _tenant: &TenantId,
         _change: &RealmChange,
         _at_ms: u64,
-    ) -> Result<Option<u64>, AccessError> {
-        Ok(None)
+    ) -> impl Future<Output = Result<Option<u64>, AccessError>> + Send {
+        ready(Ok(None))
     }
 
-    async fn stalled(&self, _runs: u64) -> Result<u64, AccessError> {
-        Ok(0)
+    fn stalled(&self, _runs: u64) -> impl Future<Output = Result<u64, AccessError>> + Send {
+        ready(Ok(0))
     }
 
-    async fn stream(&self) -> Result<Option<StoredStream>, AccessError> {
-        Ok(None)
+    fn stream(&self) -> impl Future<Output = Result<Option<StoredStream>, AccessError>> + Send {
+        ready(Ok(None))
     }
 
-    async fn record_stream(
+    fn record_stream(
         &self,
         id: Option<&str>,
         status: Option<StreamStatus>,
         _recreated: bool,
         _at_ms: u64,
-    ) -> Result<StoredStream, AccessError> {
-        Ok(StoredStream {
+    ) -> impl Future<Output = Result<StoredStream, AccessError>> + Send {
+        ready(Ok(StoredStream {
             id: id.map(str::to_owned),
             status,
             recreated: 0,
-        })
+        }))
     }
 }
 
@@ -92,12 +99,12 @@ impl PairingStore for Realms {
 struct Seen(Mutex<BTreeSet<(String, String, String)>>);
 
 impl InboundLog for Seen {
-    async fn note(&self, a: &Arrival<'_>) -> Result<bool, AccessError> {
-        Ok(self.0.lock().unwrap().insert((
+    fn note(&self, a: &Arrival<'_>) -> impl Future<Output = Result<bool, AccessError>> + Send {
+        ready(Ok(self.0.lock().unwrap().insert((
             a.tenant.as_str().to_owned(),
             a.source.to_owned(),
             a.id.to_owned(),
-        )))
+        ))))
     }
 }
 
@@ -318,7 +325,7 @@ async fn t_102_an_unpaired_tenant_is_only_logged_and_tenant_created_pairs() {
     assert!(matches!(unpaired, Outcome::Unpaired { .. }), "{unpaired:?}");
     assert_eq!(unpaired.status(), 202);
     assert!(w.seen.0.lock().unwrap().is_empty());
-    assert!(w.done().is_empty());
+    assert_eq!(w.done(), Vec::<String>::new());
     let created = json!({"tenant": stranger, "placement": "pool-default", "at": NOW});
     let pushed = w
         .push(
@@ -379,7 +386,7 @@ async fn t_102_organization_and_unknown_types_write_only_the_deduplication_row()
             .await;
         assert!(matches!(pushed, Outcome::Accepted { .. }), "{name}");
     }
-    assert!(w.done().is_empty());
+    assert_eq!(w.done(), Vec::<String>::new());
     assert_eq!(w.seen.0.lock().unwrap().len(), 2);
 }
 
