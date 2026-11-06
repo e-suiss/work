@@ -5969,6 +5969,7 @@ acceptance = "filled"
 pd = "set"
 title = ""
 tests = [
+  "bins/work-server/src/config.rs::t_97_the_caller_routes_take_an_origin_and_the_read_position_keys",
   "crates/http/src/position.rs::t_14_a_stale_answer_says_so_and_carries_the_position_it_reflects",
   "crates/http/src/position.rs::t_97_prefer_wait_is_applied_up_to_the_maximum",
   "crates/http/src/position.rs::t_97_work_min_position_is_one_pos_token",
@@ -6084,6 +6085,7 @@ tests = [
   "crates/access-client/src/domain/events/tests.rs::t_102_a_platform_set_takes_its_tenant_from_access_tenant",
   "crates/access-client/src/domain/events/tests.rs::t_102_a_set_signed_by_the_realm_key_is_accepted",
   "crates/access-client/src/domain/events/tests.rs::t_102_a_set_without_access_tenant_is_invalid_request",
+  "crates/access-client/src/domain/events/tests.rs::t_102_an_api_client_set_names_the_same_tenant_in_its_payload",
   "crates/access-client/src/domain/events/tests.rs::t_102_an_eddsa_header_is_refused",
   "crates/access-client/src/domain/events/tests.rs::t_102_every_type_of_the_access_catalog_is_read",
   "crates/access-client/src/domain/events/tests.rs::t_102_issuer_audience_age_and_jti_are_checked",
@@ -6091,6 +6093,7 @@ tests = [
   "crates/access-client/src/domain/events/tests.rs::t_102_the_content_type_alone_selects_the_verifier",
   "crates/access-client/src/domain/streams.rs::t_102_a_stopped_stream_raises_attention",
   "crates/http/src/inbound.rs::t_102_the_entry_hands_the_media_type_and_bytes_as_received",
+  "crates/query/src/app/caller.rs::t_102_once_access_disables_work_s_client_no_caller_is_named",
   "crates/reconciler/src/adapters.rs::t_102_each_tenant_has_its_own_deduplication_scope",
 ]
 

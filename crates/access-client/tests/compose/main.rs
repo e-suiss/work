@@ -556,22 +556,23 @@ mod upkeep {
     use rustls::pki_types::ServerName;
     use tokio::net::TcpStream;
     use tokio_rustls::TlsConnector;
-    use work_access_client::adapters::{AccessKeys, public_config};
+    use work_access_client::adapters::{AccessKeys, TokenSigner, public_config};
     use work_access_client::app::platform::Platform;
-    use work_access_client::domain::streams::StreamStatus;
+    use work_access_client::domain::discovery::Endpoints;
+    use work_access_client::domain::streams::{Stream, StreamStatus};
     use work_access_client::ports::Random;
 
     use sha2::Digest as _;
 
     use super::{
         AccessError, At, DEFAULT_TIMEOUT, Endpoint, HttpsTransport, Local, Ordering, PIN, Secret,
-        Sha256, TOKEN, module,
+        Sha256, TOKEN, Value, module,
     };
 
     const RECEIVER: &str = "https://work-server:8443/v1/inbound/events";
 
     /// Fresh `jti`s: the hash of Access's time at the start and a counter.
-    struct Jti(AtomicU64, u64);
+    pub(super) struct Jti(AtomicU64, u64);
 
     impl Random for Jti {
         fn fill(&self, out: &mut [u8]) -> Result<(), AccessError> {
@@ -587,7 +588,14 @@ mod upkeep {
         }
     }
 
-    async fn delete(url: &str, bearer: &str, local: &Local) -> u16 {
+    /// `method url` with `bearer` and a JSON `body` when given; the status.
+    pub(super) async fn send(
+        method: &str,
+        url: &str,
+        bearer: &str,
+        body: Option<&Value>,
+        local: &Local,
+    ) -> u16 {
         let rest = url.strip_prefix("https://").unwrap();
         let slash = rest.find('/').unwrap();
         let (authority, path) = rest.split_at(slash);
@@ -601,19 +609,31 @@ mod upkeep {
             .unwrap();
         let (mut send, connection) = http1::handshake(TokioIo::new(tls)).await.unwrap();
         tokio::spawn(connection);
-        let request = http::Request::delete(path)
+        let mut request = http::Request::builder()
+            .method(method)
+            .uri(path)
             .header("host", authority)
-            .header("authorization", bearer)
-            .body(Full::new(Bytes::new()))
-            .unwrap();
+            .header("authorization", bearer);
+        let bytes = match body {
+            Some(b) => {
+                request = request.header("content-type", "application/json");
+                Bytes::from(b.to_string())
+            }
+            None => Bytes::new(),
+        };
+        let request = request.body(Full::new(bytes)).unwrap();
         send.send_request(request).await.unwrap().status().as_u16()
     }
 
-    // T-103 T-102
-    #[tokio::test(flavor = "multi_thread")]
-    #[ignore = "needs the local environment with work-server paired"]
-    async fn t_103_the_owner_disables_the_platform_stream_for_work_to_reopen() {
-        let local = Local::open();
+    /// Work's platform client with its own client assertion key from the token copy, the
+    /// served endpoints, and the stream work-server's pairing opened.
+    pub(super) async fn owner(
+        local: &Local,
+    ) -> (
+        Platform<HttpsTransport, At, Jti, TokenSigner>,
+        Endpoints,
+        Stream,
+    ) {
         let pep = local.pep();
         let now = local.access_now_ms(&pep).await;
         let discovery = local.client(&pep, "platform");
@@ -639,15 +659,23 @@ mod upkeep {
         );
         let streams = platform.streams(&endpoints).await.unwrap();
         let live = streams
-            .iter()
-            .find(|s| s.pushes_to(RECEIVER) && s.status == StreamStatus::Enabled)
+            .into_iter()
+            .find(|s| s.pushes_to(RECEIVER) && s.status != StreamStatus::Disabled)
             .expect("work-server's pairing opened the stream");
+        (platform, endpoints, live)
+    }
+
+    // T-103 T-102
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore = "needs the local environment with work-server paired"]
+    async fn t_103_the_owner_disables_the_platform_stream_for_work_to_reopen() {
+        let local = Local::open();
+        let (platform, endpoints, live) = owner(&local).await;
+        assert_eq!(live.status, StreamStatus::Enabled);
         let base = endpoints.get(Endpoint::PlatformStreams).unwrap().expand("");
         let bearer = format!("Bearer {}", platform.assertion().unwrap());
-        assert_eq!(
-            delete(&format!("{base}/{}", live.id), &bearer, &local).await,
-            204
-        );
+        let url = format!("{base}/{}", live.id);
+        assert_eq!(send("DELETE", &url, &bearer, None, &local).await, 204);
         let after = platform.stream(&endpoints, &live.id).await.unwrap();
         assert!(
             after
@@ -655,6 +683,43 @@ mod upkeep {
                 .is_none_or(|s| s.status == StreamStatus::Disabled),
             "{after:?}"
         );
+    }
+}
+
+/// The platform stream's status as its owner sets it (T-102 item 7, T-103): paused, which
+/// work-server reports as an operator signal with `work_access_event_stream_up` 0 after its next
+/// pairing step, and enabled again. The nightly job runs each by name and restarts work-server
+/// after it.
+mod status {
+    use work_access_client::domain::streams::StreamStatus;
+
+    use super::upkeep::{owner, send};
+    use super::{Endpoint, Local, json};
+
+    async fn set(status: StreamStatus) {
+        let local = Local::open();
+        let (platform, endpoints, live) = owner(&local).await;
+        let base = endpoints.get(Endpoint::PlatformStreams).unwrap().expand("");
+        let bearer = format!("Bearer {}", platform.assertion().unwrap());
+        let body = json!({"stream_id": live.id, "status": status.as_str()});
+        let url = format!("{base}/{}/status", live.id);
+        assert_eq!(send("POST", &url, &bearer, Some(&body), &local).await, 200);
+        let after = platform.stream(&endpoints, &live.id).await.unwrap();
+        assert_eq!(after.map(|s| s.status), Some(status));
+    }
+
+    // T-102 T-103
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore = "needs the local environment with work-server paired"]
+    async fn t_102_the_owner_pauses_the_platform_stream() {
+        set(StreamStatus::Paused).await;
+    }
+
+    // T-102 T-103
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore = "needs the local environment with work-server paired"]
+    async fn t_102_the_owner_enables_the_platform_stream_again() {
+        set(StreamStatus::Enabled).await;
     }
 }
 

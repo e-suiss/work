@@ -20,8 +20,18 @@ thiserror = { workspace = true, features = ["std"] }
 tokio = { workspace = true, features = ["sync", "time"] }
 
 [dev-dependencies]
+suiss-crypto = { workspace = true, features = ["pkcs11", "verify"] }
+base64 = { workspace = true, features = ["alloc"] }
+bytes = { workspace = true, features = ["std"] }
+http = { workspace = true, features = ["std"] }
+http-body-util = { workspace = true }
+hyper = { workspace = true, features = ["client", "http1"] }
+hyper-util = { workspace = true, features = ["tokio"] }
+rustls = { workspace = true, features = ["aws_lc_rs", "std"] }
 serde_json = { workspace = true, features = ["std"] }
-tokio = { workspace = true, features = ["macros", "rt", "sync", "test-util", "time"] }
+sha2 = { workspace = true }
+tokio = { workspace = true, features = ["macros", "net", "rt", "rt-multi-thread", "sync", "test-util", "time"] }
+tokio-rustls = { workspace = true }
 
 [lints]
 workspace = true

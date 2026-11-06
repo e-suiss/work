@@ -28,10 +28,10 @@ test-containers:
     docker build --quiet --tag work-dev/witness:local deploy/compose/witness
     cargo nextest run --workspace --locked --no-tests=fail --run-ignored only -E 'binary(=containers)'
 
-# OP-32, OP-42, OP-43, T-41, T-96, T-101
+# OP-32, OP-42, OP-43, T-41, T-96, T-101: what needs no signature of Access's new realms
 test-compose:
     dir="$(mktemp -d)"; just dev-access "$dir"; \
-    WORK_ACCESS_LOCAL="$dir" SOFTHSM2_CONF="$dir/softhsm2.conf" cargo nextest run --workspace --locked --no-tests=fail --run-ignored only -E 'binary(=compose) & not test(/^signed::/) & not test(/^upkeep::/)'
+    WORK_ACCESS_LOCAL="$dir" SOFTHSM2_CONF="$dir/softhsm2.conf" cargo nextest run --workspace --locked --no-tests=fail --run-ignored only -E 'binary(=compose) & not test(/^(signed|upkeep|status|retired)::/)'
 
 # T-103: disables Work's platform stream as its owner, for the CI job to check that work-server
 # opens it again after a restart
@@ -39,12 +39,20 @@ test-compose-upkeep:
     dir="$(mktemp -d)"; just dev-access "$dir"; \
     WORK_ACCESS_LOCAL="$dir" SOFTHSM2_CONF="$dir/softhsm2.conf" cargo nextest run --workspace --locked --no-tests=fail --run-ignored only -E 'binary(=compose) & test(/^upkeep::/)'
 
-# T-101: the signed key lookup, once Access's new domains sign (about 65 minutes after `just dev`);
-# waits at most `wait` seconds for that
-test-compose-signed wait="5400":
-    dir="$(mktemp -d)"; just dev-access "$dir"; \
-    WORK_ACCESS_LOCAL="$dir" SOFTHSM2_CONF="$dir/softhsm2.conf" WORK_ACCESS_SIGNED_WAIT_S="{{wait}}" cargo nextest run --workspace --locked --no-tests=fail --run-ignored only -E 'binary(=compose) & test(=signed::wait_until_access_signs_key_lookups)'; \
-    WORK_ACCESS_LOCAL="$dir" SOFTHSM2_CONF="$dir/softhsm2.conf" cargo nextest run --workspace --locked --no-tests=fail --run-ignored only -E 'binary(=compose) & test(/^signed::/) & not test(=signed::wait_until_access_signs_key_lookups)'
+# T-101, T-104, T-97: once Access's new realms sign key lookups and tokens (waiting at
+# most `wait` seconds), the signed key lookup, a real user token from Access's own client and one
+# from Work's, and the reads work-server serves for it; `dir` keeps the token copy for
+# `test-compose-only`
+test-compose-signed dir wait="9000":
+    just dev-access "{{dir}}"
+    WORK_ACCESS_LOCAL="{{dir}}" SOFTHSM2_CONF="{{dir}}/softhsm2.conf" WORK_ACCESS_SIGNED_WAIT_S="{{wait}}" cargo nextest run --workspace --locked --no-tests=fail --run-ignored only -E 'binary(=compose) & test(/^signed::wait_until_/)'
+    {{compose}} run --rm --no-deps -T --entrypoint access-local-client access-bootstrap login --issuer "$(jq -er '.realms[] | select(.slug == "acme") | .issuer' "{{dir}}/bootstrap.json")" --ca /var/lib/access/certs/ca.crt --client-id "$(jq -er '.test_user.client_id' "{{dir}}/bootstrap.json")" --redirect-uri "$(jq -er '.test_user.redirect_uri' "{{dir}}/bootstrap.json")" --identifier "$(jq -er '.test_user.identifier' "{{dir}}/bootstrap.json")" --password-env BOOTSTRAP_TEST_PASSWORD --resource "$(jq -er '.clients[] | select(.product == "work") | .client_id' "{{dir}}/bootstrap.json")" > "{{dir}}/tool-login.json"
+    WORK_ACCESS_LOCAL="{{dir}}" SOFTHSM2_CONF="{{dir}}/softhsm2.conf" cargo nextest run --workspace --locked --no-tests=fail --run-ignored only -E 'binary(=compose) & test(/^signed::/) & not test(/^signed::wait_until_/)'
+
+# T-102, T-103: one compose test by its full name, over the token copy `test-compose-signed` left
+# in `dir`
+test-compose-only dir name:
+    WORK_ACCESS_LOCAL="{{dir}}" SOFTHSM2_CONF="{{dir}}/softhsm2.conf" cargo nextest run --workspace --locked --no-tests=fail --run-ignored only -E 'binary(=compose) & test(={{name}})'
 
 fmt:
     cargo fmt --all
