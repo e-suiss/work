@@ -1,4 +1,4 @@
-//! What the client needs from outside (T-32): an HTTPS exchange with Access or Relay under a bound, the time, randomness, Work's tenant map for the reconciliation, Work's realm table for the pairing step, and the inbound deduplication row and the effects of an Access event (T-102).
+//! What the client needs from outside (T-32): an HTTPS exchange with Access or Relay under a bound, the time, randomness, the actor kinds of the Parties a record names without signing it, Work's tenant map for the reconciliation, Work's realm table for the pairing step, and the inbound deduplication row and the effects of an Access event (T-102).
 
 use std::collections::BTreeMap;
 use std::future::Future;
@@ -7,7 +7,7 @@ use serde_json::Value;
 use work_proto::id::TenantId;
 
 use crate::domain::events::Signal;
-use crate::domain::keys::DomainId;
+use crate::domain::keys::{ActorKind, DomainId, KernelId};
 use crate::domain::pairing::{RealmChange, StoredRealm};
 use crate::domain::streams::StreamStatus;
 use crate::domain::tenants::TenantChange;
@@ -253,6 +253,33 @@ pub trait InboundLog: Send + Sync {
     /// arrival.
     fn note(&self, arrival: &Arrival<'_>)
     -> impl Future<Output = Result<bool, AccessError>> + Send;
+}
+
+/// The actor kinds Access recorded for Parties a record names but that sign nothing in it: its
+/// `on_behalf_of` principals and evidence presenters (P-12, MD-7 item 3). A Party left out of
+/// the answer has no binding and stays `declared_unverified`.
+pub trait PartyKinds: Send + Sync {
+    /// The kinds of `parties` in `domain` that Access binds.
+    fn kinds(
+        &self,
+        domain: DomainId,
+        parties: &[KernelId],
+    ) -> impl Future<Output = Result<BTreeMap<KernelId, ActorKind>, AccessError>> + Send;
+}
+
+/// The Party lookup while Access serves no signed Party status lookup: it binds no Party, so
+/// every principal and presenter stays `declared_unverified` (P-12).
+#[derive(Clone, Copy, Debug, Default)]
+pub struct Unpublished;
+
+impl PartyKinds for Unpublished {
+    fn kinds(
+        &self,
+        _domain: DomainId,
+        _parties: &[KernelId],
+    ) -> impl Future<Output = Result<BTreeMap<KernelId, ActorKind>, AccessError>> + Send {
+        std::future::ready(Ok(BTreeMap::new()))
+    }
 }
 
 /// What an accepted Access event does outside the intake (T-102 item 5).

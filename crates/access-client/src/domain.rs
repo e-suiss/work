@@ -1,11 +1,13 @@
-//! Pure rules of the Access client: what a discovery document, a signed key lookup answer, an eligibility answer, a tenant snapshot and a pushed Access event must be before Work uses them, the realm token keys an `auth_context` artifact verifies under, the platform client assertion, what Work checks and signs when it pairs with a realm and how it keeps its event stream, the Access access token and `DPoP` proof a caller presents with the realm and Party it names, and the stable codes of every refusal.
+//! Pure rules of the Access client: what a discovery document, a signed key lookup answer, an Exercise with its decision receipt, the approval call, an eligibility answer, a tenant snapshot and a pushed Access event must be before Work uses them, the realm token keys an `auth_context` artifact verifies under, the platform client assertion, what Work checks and signs when it pairs with a realm and how it keeps its event stream, the Access access token and `DPoP` proof a caller presents with the realm and Party it names, and the stable codes of every refusal.
 
+pub mod approval;
 pub mod assertion;
 pub mod cache;
 pub mod directory;
 pub mod discovery;
 pub mod eligibility;
 pub mod events;
+pub mod exercise;
 pub mod keys;
 pub mod metadata;
 pub mod pairing;
@@ -212,6 +214,7 @@ pub(crate) mod tests {
             ("adapters.rs", include_str!("adapters.rs")),
             ("ports.rs", include_str!("ports.rs")),
             ("domain.rs", include_str!("domain.rs")),
+            ("domain/approval.rs", include_str!("domain/approval.rs")),
             ("domain/cache.rs", include_str!("domain/cache.rs")),
             ("domain/directory.rs", include_str!("domain/directory.rs")),
             ("domain/discovery.rs", include_str!("domain/discovery.rs")),
@@ -219,6 +222,7 @@ pub(crate) mod tests {
                 "domain/eligibility.rs",
                 include_str!("domain/eligibility.rs"),
             ),
+            ("domain/exercise.rs", include_str!("domain/exercise.rs")),
             ("domain/keys.rs", include_str!("domain/keys.rs")),
             ("domain/metadata.rs", include_str!("domain/metadata.rs")),
             ("domain/realm.rs", include_str!("domain/realm.rs")),

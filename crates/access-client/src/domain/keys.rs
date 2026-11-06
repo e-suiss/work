@@ -706,6 +706,16 @@ pub(crate) mod tests {
             Kid(thumbprint(&PublicKey::Ed25519(self.instance)))
         }
 
+        pub(crate) fn sign(&self, content_type: &str, payload: &[u8]) -> Vec<u8> {
+            sign_sign1(
+                &self.operational,
+                thumbprint(&PublicKey::Ed25519(ed(&self.operational))),
+                content_type,
+                payload,
+            )
+            .unwrap()
+        }
+
         pub(crate) fn entry(&self, state: &str, compromise: bool) -> Value {
             let mut e = vec![
                 ("kid", Value::Bytes(self.kid().0.to_vec())),

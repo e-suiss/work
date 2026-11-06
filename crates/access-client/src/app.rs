@@ -1,4 +1,4 @@
-//! The Access client's use cases: discovery at start and on refresh (T-96 item 2), Relay's discovery document (T-99 item 1), Domain Metadata kept per domain, verified and cached key lookups (T-101 item 4), the eligibility check (T-101 item 5), the realm token keys an `auth_context` artifact verifies under (P-116), tenant snapshots and the reconciliation job (T-96 item 4), and the platform routes with Work's pairing and event stream upkeep (T-103) in [`platform`], and the Access intake of Work's event entry (T-102) in [`events`]. Every consequential call is refused fail-closed while the PEP certificate has expired or the endpoint it needs is not served (T-28).
+//! The Access client's use cases: discovery at start and on refresh (T-96 item 2), Relay's discovery document (T-99 item 1), Domain Metadata kept per domain, verified and cached key lookups (T-101 item 4), the eligibility check (T-101 item 5), the Exercise and its agency verified with their decision receipt on every call and the approval call Work only sends its user to (T-101 item 7), the realm token keys an `auth_context` artifact verifies under (P-116), tenant snapshots and the reconciliation job (T-96 item 4), and the platform routes with Work's pairing and event stream upkeep (T-103) in [`platform`], and the Access intake of Work's event entry (T-102) in [`events`]. Every consequential call is refused fail-closed while the PEP certificate has expired or the endpoint it needs is not served (T-28).
 
 pub mod events;
 pub mod platform;
@@ -10,6 +10,9 @@ use suiss_crypto::cose::KeySet;
 
 use work_proto::id::TenantId;
 
+use crate::domain::approval::{
+    ApprovalRequest, Pushed, State as ApprovalState, approval_url, push_body,
+};
 use crate::domain::cache::{CachePolicy, CachedKey, KeyCache};
 use crate::domain::directory::{KnownRealm, by_issuer, page_realms};
 use crate::domain::discovery::{
@@ -17,6 +20,9 @@ use crate::domain::discovery::{
     fresh, percent,
 };
 use crate::domain::eligibility::{Eligibility, EligibilityRequest};
+use crate::domain::exercise::{
+    ExerciseId, Expected, Intent, VerifiedExercise, verify_agency, verify_exercise,
+};
 use crate::domain::keys::{
     ACCEPT_COSE, AsOf, DomainId, EXCERPT_HEADER, KeyAnswer, Kid, MAX_KIDS, batch_body,
     etag_position, verify_answer,
@@ -491,6 +497,126 @@ impl<T: Transport, C: Clock> Client<T, C> {
             .send(Request::post(url, JSON, request.body()))
             .await?;
         Eligibility::from_json(answer.ok()?)
+    }
+
+    /// The Exercise `exercise` of `domain`, asked of Access every time and never cached, used
+    /// only when it is allowed for `intent` and its decision receipt verifies with Work's
+    /// `audience` (T-101 item 7 and its note, MD-4 item 5, E-14).
+    ///
+    /// # Errors
+    /// [`AccessError::Refused`] with `404` for an Exercise Access never allowed,
+    /// [`AccessError::Answer`] for an answer [`verify_exercise`] does not accept, and every
+    /// error that keeps a consequential action from Access.
+    pub async fn exercise(
+        &self,
+        domain: DomainId,
+        exercise: &ExerciseId,
+        intent: &Intent,
+        audience: &str,
+    ) -> Result<VerifiedExercise, AccessError> {
+        let body = self
+            .exercise_answer(domain, exercise, Endpoint::Exercise)
+            .await?;
+        let (metadata, _) = self.metadata(domain).await?;
+        let expected = Expected {
+            exercise,
+            domain: &domain,
+            intent,
+            audience,
+            now_ms: self.clock.now_ms(),
+        };
+        verify_exercise(&metadata, &body, &expected)
+    }
+
+    /// The agency chain of the Exercise `exercise` of `domain`, asked and verified as
+    /// [`Client::exercise`] does (Access OP-149 m.11).
+    ///
+    /// # Errors
+    /// As [`Client::exercise`], with [`verify_agency`]'s refusals.
+    pub async fn exercise_agency(
+        &self,
+        domain: DomainId,
+        exercise: &ExerciseId,
+        intent: &Intent,
+        audience: &str,
+    ) -> Result<VerifiedExercise, AccessError> {
+        let body = self
+            .exercise_answer(domain, exercise, Endpoint::ExerciseAgency)
+            .await?;
+        let (metadata, _) = self.metadata(domain).await?;
+        let expected = Expected {
+            exercise,
+            domain: &domain,
+            intent,
+            audience,
+            now_ms: self.clock.now_ms(),
+        };
+        verify_agency(&metadata, &body, &expected)
+    }
+
+    async fn exercise_answer(
+        &self,
+        domain: DomainId,
+        exercise: &ExerciseId,
+        endpoint: Endpoint,
+    ) -> Result<Vec<u8>, AccessError> {
+        self.consequential()?;
+        let (_, signed) = self.metadata(domain).await?;
+        let template = self.endpoints()?.agreed(endpoint, signed.as_ref())?.clone();
+        let url = format!(
+            "{}?domain={}",
+            template.expand(&exercise.text()),
+            percent(&domain.text())
+        );
+        let answer = self.get(url, JSON).await?;
+        answer.ok().map(<[u8]>::to_vec)
+    }
+
+    /// The Access Approval Surface URL for `request`, Work's registered `redirect_uri` and
+    /// `state` (T-101 item 7, E-17); Work sends the user there and approves nothing itself.
+    ///
+    /// # Errors
+    /// [`AccessError::Unserved`] while discovery does not publish `approval`, and the
+    /// refusals of [`approval_url`].
+    pub fn approval_url(
+        &self,
+        request: &ApprovalRequest,
+        redirect_uri: &str,
+        state: &ApprovalState,
+    ) -> Result<String, AccessError> {
+        let endpoints = self.endpoints()?;
+        approval_url(
+            endpoints.get(Endpoint::Approval)?,
+            request,
+            redirect_uri,
+            state,
+        )
+    }
+
+    /// Pushes a typed authority request with the approver's pre-signed contribution under
+    /// `idempotency_key` (Access OP-149 m.9, RFC 9126); Access keeps it until it expires.
+    ///
+    /// # Errors
+    /// [`AccessError::Unserved`] while discovery does not publish `approval_requests`, the
+    /// refusals of [`push_body`] and [`Pushed::from_json`], and every error that keeps a
+    /// consequential action from Access.
+    pub async fn push_approval(
+        &self,
+        request: &serde_json::Value,
+        contribution: &serde_json::Value,
+        idempotency_key: &str,
+    ) -> Result<Pushed, AccessError> {
+        self.consequential()?;
+        let url = self
+            .endpoints()?
+            .get(Endpoint::ApprovalRequests)?
+            .expand("");
+        let body = push_body(request, contribution)?;
+        let answer = self
+            .transport
+            .send(Request::post(url, JSON, body).with("idempotency-key", idempotency_key))
+            .await?;
+        Pushed::from_json(answer.created()?)
     }
 
     /// The token keys of `realm` that verify an `auth_context` artifact signed under `kid`

@@ -123,9 +123,13 @@ pub enum Endpoint {
     ClaimIngest,
     /// The Token Status List `{list}` (Access OP-150 item 2).
     StatusList,
+    /// The Frontend API Approval Surface (`approval`, E-17).
+    Approval,
+    /// The Frontend API pushed approval requests (`approval_requests`, E-17).
+    ApprovalRequests,
 }
 
-const ENDPOINTS: [(&str, Endpoint, Option<&str>); 15] = [
+const ENDPOINTS: [(&str, Endpoint, Option<&str>); 17] = [
     ("adp", Endpoint::Adp, None),
     ("key_lookup", Endpoint::KeyLookup, Some("kid")),
     ("key_batch", Endpoint::KeyBatch, None),
@@ -153,6 +157,8 @@ const ENDPOINTS: [(&str, Endpoint, Option<&str>); 15] = [
     ),
     ("claim_ingest", Endpoint::ClaimIngest, None),
     ("status_list", Endpoint::StatusList, Some("list")),
+    ("approval", Endpoint::Approval, None),
+    ("approval_requests", Endpoint::ApprovalRequests, None),
 ];
 
 impl Endpoint {
@@ -737,6 +743,11 @@ mod tests {
             (
                 "adp",
                 "https://access.example/.well-known/authzen-configuration",
+            ),
+            ("approval", "https://acme.id.example/v1/approve"),
+            (
+                "approval_requests",
+                "https://acme.id.example/v1/approve/requests",
             ),
             ("auth_context", "https://acme.id.example/v1/me/auth-context"),
             (
