@@ -463,7 +463,10 @@ async fn t_101_a_broken_set_is_refused_with_the_pointer_of_what_it_names() {
 /// The signed key lookup (T-101 item 4), after `wait_until_access_signs_key_lookups`, which
 /// waits while the lookup answers `503` `signer-no-key`.
 mod signed {
-    use super::{AccessError, AsOf, Duration, KeyState, Kid, Local, Looked};
+    use work_access_client::domain::approval::{ApprovalRequest, State};
+    use work_access_client::domain::exercise::{ExerciseId, Intent};
+
+    use super::{AccessError, AsOf, Duration, Endpoint, KeyState, Kid, Local, Looked};
 
     const POLL: Duration = Duration::from_secs(30);
 
@@ -535,6 +538,46 @@ mod signed {
                 panic!("{slug}: {one:?}");
             };
             assert_eq!(alone.key, key.key);
+        }
+    }
+
+    // T-101 E-17 P-13
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore = "needs the local environment and its domains signing"]
+    async fn t_101_an_exercise_access_never_allowed_is_no_authority_and_work_approves_nothing() {
+        let local = Local::open();
+        let pep = local.pep();
+        let client = local.client(&pep, "acme");
+        client.discover().await.unwrap();
+        let intent = Intent {
+            digest: [0x1e; 32],
+            namespace: "work".to_owned(),
+            action: "commit".to_owned(),
+            major: 1,
+            resources: Vec::new(),
+            valid_from_ms: 0,
+            valid_until_ms: u64::MAX,
+        };
+        let unknown = ExerciseId([0x5e; 32]);
+        let domain = local.domain("acme");
+        for agency in [false, true] {
+            let refused = if agency {
+                client
+                    .exercise_agency(domain, &unknown, &intent, "cli_work")
+                    .await
+            } else {
+                client.exercise(domain, &unknown, &intent, "cli_work").await
+            };
+            let Err(AccessError::Refused { status: 404, .. }) = &refused else {
+                panic!("{refused:?}");
+            };
+        }
+        let state = State::new("work-test").unwrap();
+        let request = ApprovalRequest::Digest([0x2e; 32]);
+        match client.approval_url(&request, "https://work.example/v1/access/approval", &state) {
+            Err(AccessError::Unserved(Endpoint::Approval)) => {}
+            Ok(url) => assert!(url.contains("request="), "{url}"),
+            other => panic!("{other:?}"),
         }
     }
 }

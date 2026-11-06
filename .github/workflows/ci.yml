@@ -527,7 +527,7 @@ jobs:
         env:
           NEXTEST_PROFILE: ci
         run: just test-compose-signed "$RUNNER_TEMP/access-local" 600
-      - name: The routes that act for a caller are mounted and ask for a DPoP token first (T-97, P-56, C-9, SEC-18)
+      - name: The routes that act for a caller, the declaration write among them, are mounted and ask for a DPoP token first (T-97, P-56, C-9, SEC-18, P-13)
         run: |
           c() { docker compose -f deploy/compose/compose.yaml "$@"; }
           c logs work-server | grep 'api.caller_routes_served' | grep -q 'http://127.0.0.1:8190'
@@ -535,6 +535,8 @@ jobs:
           test "$(curl -s -o /dev/null -w '%{http_code}' "$url")" = 401
           curl -s -D - -o /dev/null "$url" | tr -d '\r' | grep -qi '^www-authenticate: DPoP'
           test "$(curl -s -o /dev/null -w '%{http_code}' -H 'Authorization: Bearer x' "$url")" = 401
+          write='http://127.0.0.1:8190/v1/ledgers/led_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/declarations'
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{}' "$write")" = 401
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8190/v1/problems/busy)" = 200
       - name: Access pushes tenant.created to the event entry, which verifies it, records it once and pairs the new tenant (T-102, T-103)
         run: |

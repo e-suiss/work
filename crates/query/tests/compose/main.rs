@@ -696,12 +696,15 @@ mod signed {
 
     use serde_json::{Value, json};
     use suiss_crypto::signer::Signer as _;
+    use work_access_client::app::Looked;
     use work_access_client::domain::b64url;
+    use work_access_client::domain::keys::{AsOf, DomainId, KernelId, Kid};
     use work_access_client::domain::metadata::thumbprint;
     use work_access_client::domain::subjects::Direction;
     use work_proto::id::TenantId;
     use work_query::app::caller::Authenticator;
     use work_query::domain::caller::{CallerRefusal, Presented};
+    use work_query::domain::writes::{actor_type, signer};
 
     use super::{Local, POLL, WORK, ledger_path, names, payload, unseen};
 
@@ -832,6 +835,105 @@ mod signed {
         assert_eq!(local.send("GET", &url, &headers, None).await.status, status);
         let replayed = local.send("GET", &url, &headers, None).await;
         assert_eq!(replayed.status, 401, "{replayed:?}");
+    }
+
+    /// The golden promise's tagged `COSE_Sign1`: a record the write path decodes, so a named
+    /// caller reaches the ledger check.
+    fn golden_promise() -> String {
+        const COSE: &str = include_str!("../../../../conformance/vectors/records/cose-sign1.json");
+        let cose: Value = serde_json::from_str(COSE).unwrap();
+        let hex = cose["cases"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|c| c["id"] == "cose-sign1/declaration-promise-for-principal")
+            .unwrap()["cose_hex"]
+            .as_str()
+            .unwrap();
+        let bytes: Vec<u8> = hex
+            .as_bytes()
+            .chunks(2)
+            .map(|c| u8::from_str_radix(std::str::from_utf8(c).unwrap(), 16).unwrap())
+            .collect();
+        b64url(&bytes)
+    }
+
+    // E-17 MD-4 T-28 C-9 SEC-18 P-13
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore = "needs the local environment and its realms signing"]
+    async fn e_17_work_server_writes_a_declaration_only_for_a_named_caller() {
+        let local = Local::open();
+        let key = local.dpop();
+        let token = local.token(&key).await;
+        let party = local.party_of(&token).await;
+        let path = format!(
+            "{}/declarations",
+            ledger_path().1.trim_end_matches("/changes")
+        );
+        let url = format!("{WORK}{path}");
+        let body = serde_json::to_vec(&json!({
+            "record": golden_promise(),
+            "authority": {"exercise": b64url(&[0x5e; 32]), "intent": b64url(b"intent")},
+            "actor_types": {"author": "agent", "on_behalf_of": ["organization"]},
+        }))
+        .unwrap();
+        let uuid7 = "01890a5d-ac96-774b-bcce-b302099a8057";
+        let headers = [("idempotency-key", uuid7), ("if-match", "\"0\"")];
+        let anonymous = local
+            .send(
+                "POST",
+                &url,
+                &headers,
+                Some(("application/json", body.clone())),
+            )
+            .await;
+        assert_eq!(anonymous.status, 401, "{anonymous:?}");
+        assert!(
+            anonymous
+                .header("www-authenticate")
+                .is_some_and(|c| c.starts_with("DPoP"))
+        );
+        let proof = local.proof(&key, "POST", &url, None, Some(&token)).await;
+        let authorization = format!("DPoP {token}");
+        let mut named = headers.to_vec();
+        named.push(("authorization", authorization.as_str()));
+        named.push(("dpop", proof.as_str()));
+        let answer = local
+            .send("POST", &url, &named, Some(("application/json", body)))
+            .await;
+        let (status, problem) = match party {
+            Some(_) => (404, "https://suiss.app/ns/work/problems/not_found"),
+            None => (401, "https://suiss.app/ns/work/problems/unauthenticated"),
+        };
+        assert_eq!(answer.status, status, "{answer:?}");
+        assert_eq!(answer.json()["type"], problem, "{answer:?}");
+    }
+
+    // P-12 MD-7 INV-18 P-105 T-101
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore = "needs the local environment and its realms signing"]
+    async fn p_12_a_real_key_signs_for_its_party_with_the_actor_kind_access_recorded() {
+        let local = Local::open();
+        let root = &local.bootstrap["root"];
+        let party = KernelId::parse(root["party"].as_str().unwrap()).unwrap();
+        let kid = Kid::parse(root["kid"].as_str().unwrap()).unwrap();
+        let domain = DomainId(
+            work_access_client::domain::fixed_b64url(
+                local.realm("acme")["domain"].as_str().unwrap(),
+            )
+            .unwrap(),
+        );
+        let access = local.client().await;
+        let looked = access.keys(domain, &[kid], &AsOf::Head).await.unwrap();
+        let [Looked::Known(found)] = looked.as_slice() else {
+            panic!("{looked:?}");
+        };
+        let signer = signer(Some(&found.key));
+        let (named, actor) = signer.party.unwrap();
+        assert_eq!(named.as_str(), b64url(&party.0));
+        assert_eq!(actor, actor_type(found.key.actor_kind));
+        assert_eq!(signer.keys.keys.len(), 1);
+        assert!(signer.keys.keys.contains_key(&kid.0));
     }
 
     // T-104 C-9 E-7
