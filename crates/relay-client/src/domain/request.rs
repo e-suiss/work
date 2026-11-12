@@ -1,8 +1,8 @@
-//! The Relay event request Work sends (T-99 items 5–7, 10, E-15, Relay E-83): the workflow of the intent's class, the recipients as their pairwise Access `sub`s in Relay's sector, the reason code as the only data, the idempotency key as `dedup_key`, `interruption` from the class (blocking is `time-sensitive`, information `passive`; Work has no `active` or `critical`), and the links: always `primary`, the item's page below Work's installation URI, and `access_approval` at an authority gate; every link is absolute `https` and no `rel` repeats. Fields Relay does not serve yet (`item`, `correlation_id`, Relay A7) and anything of the record's content are never written.
+//! The Relay event request Work sends (T-99 items 5–7, 10, E-15, Relay E-83): the workflow of the intent's class, the recipients as their pairwise Access `sub`s in Relay's sector, the reason code as the only data, the idempotency key as `dedup_key`, `interruption` from the class (blocking is `time-sensitive`, information `passive`; Work has no `active` or `critical`), and the links: always `primary`, the item's page below Work's installation URI, and `access_approval` at an authority gate; every link is absolute `https` and no `rel` repeats; `item`, the item's external id with the log position of the record as its version and the record digest, and `correlation_id`, the record's id, which Relay returns with its events about the notification. Nothing of the record's content is ever written.
 
 use serde::Serialize;
 
-use crate::domain::intent::{Class, IdempotencyKey, NotificationIntent};
+use crate::domain::intent::{Class, IdempotencyKey, NotificationIntent, hex};
 
 /// The longest link Relay takes.
 pub const MAX_HREF: usize = 2048;
@@ -153,6 +153,35 @@ struct Data {
     reason: String,
 }
 
+/// The item a notification is about (T-99 item 7, X-25; Relay `ItemRef`).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct Item {
+    #[serde(rename = "ref")]
+    id: String,
+    version: String,
+    digest: String,
+}
+
+impl Item {
+    /// The item's external id.
+    #[must_use]
+    pub fn id(&self) -> &str {
+        &self.id
+    }
+
+    /// The log position of the record that raised the notification, in decimal.
+    #[must_use]
+    pub fn version(&self) -> &str {
+        &self.version
+    }
+
+    /// `sha256:` and the record digest in lower-case hex.
+    #[must_use]
+    pub fn digest(&self) -> &str {
+        &self.digest
+    }
+}
+
 /// The body of one event, `POST /v1/events` (Relay `EventRequest`), or one row of a batch
 /// (`BatchEventRequest`, with `ref`).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -165,6 +194,8 @@ pub struct EventRequest {
     dedup_key: String,
     interruption: Interruption,
     links: Vec<Link>,
+    item: Item,
+    correlation_id: String,
     #[serde(skip)]
     key: IdempotencyKey,
 }
@@ -198,6 +229,12 @@ impl EventRequest {
             dedup_key: intent.key().as_str().to_owned(),
             interruption: spec.class.interruption(),
             links,
+            item: Item {
+                id: spec.item.clone(),
+                version: intent.committed().pos.to_string(),
+                digest: format!("sha256:{}", hex(&intent.committed().record_id)),
+            },
+            correlation_id: hex(&intent.committed().record_id),
             key: intent.key().clone(),
         })
     }
@@ -219,6 +256,18 @@ impl EventRequest {
     #[must_use]
     pub fn links(&self) -> &[Link] {
         &self.links
+    }
+
+    /// The item.
+    #[must_use]
+    pub const fn item(&self) -> &Item {
+        &self.item
+    }
+
+    /// The id of the record the notification comes from, in lower-case hex.
+    #[must_use]
+    pub fn correlation_id(&self) -> &str {
+        &self.correlation_id
     }
 
     /// The JSON body.
@@ -247,8 +296,8 @@ mod tests {
     use serde_json::Value;
 
     use super::*;
+    use crate::domain::intent::Spec;
     use crate::domain::intent::tests::{committed, spec};
-    use crate::domain::intent::{Spec, hex};
 
     fn installation() -> Installation {
         Installation::parse("https://work.example").unwrap()
@@ -282,15 +331,29 @@ mod tests {
         }
     }
 
-    // T-99 X-17
+    // T-99 X-17 X-25
     #[test]
-    fn t_99_every_notification_carries_the_primary_link_to_the_item_page() {
+    fn t_99_every_notification_carries_primary_link_item_and_correlation() {
         let item = format!("cnd_{}", "ab".repeat(32));
         let request =
             EventRequest::new(&intent(spec()), &["s".to_owned()], &installation()).unwrap();
         assert_eq!(
             json(&request)["links"],
             serde_json::json!([{"rel": "primary", "href": format!("https://work.example/open/{item}")}])
+        );
+        assert_eq!(
+            json(&request)["item"],
+            serde_json::json!({"ref": item, "version": "42", "digest": format!("sha256:{}", "09".repeat(32))})
+        );
+        assert_eq!(json(&request)["correlation_id"], "09".repeat(32));
+        assert_eq!(request.item().id(), item);
+        assert_eq!(request.item().version(), "42");
+        assert_eq!(request.correlation_id(), "09".repeat(32));
+        let row = request.clone().row();
+        assert_eq!(json(&row)["item"], json(&request)["item"]);
+        assert_eq!(
+            json(&row)["correlation_id"],
+            json(&request)["correlation_id"]
         );
         let gate = Spec {
             approval: Some("https://acme.id.example/v1/approve?request=r".to_owned()),
@@ -356,7 +419,7 @@ mod tests {
 
     // E-15 T-99
     #[test]
-    fn e_15_the_event_carries_no_record_content_and_no_field_relay_does_not_serve() {
+    fn e_15_the_event_carries_the_record_s_id_and_position_and_none_of_its_content() {
         let gate = Spec {
             approval: Some("https://acme.id.example/v1/approve?request=r".to_owned()),
             ..spec()
@@ -374,9 +437,11 @@ mod tests {
         assert_eq!(
             keys,
             [
+                "correlation_id",
                 "data",
                 "dedup_key",
                 "interruption",
+                "item",
                 "links",
                 "to",
                 "workflow"
@@ -386,15 +451,15 @@ mod tests {
         assert_eq!(body["dedup_key"], i.key().as_str());
         let text = String::from_utf8(request.body().unwrap()).unwrap();
         for fact in [
-            hex(&i.committed().record_id),
             hex(&i.committed().ledger),
+            i.committed().recorded_at_ms.to_string(),
             i.spec().parties[0].clone(),
             i.spec().tenant.as_str().to_owned(),
             i.committed().traceparent.clone(),
         ] {
             assert!(!text.contains(&fact));
         }
-        assert!(!text.contains("correlation_id") && !text.contains("\"item\""));
+        assert_eq!(text.matches(&hex(&i.committed().record_id)).count(), 2);
         let row = request.clone().row();
         assert_eq!(json(&row)["ref"], i.key().as_str());
         let batch: Value = serde_json::from_slice(&batch_body(&[row]).unwrap()).unwrap();

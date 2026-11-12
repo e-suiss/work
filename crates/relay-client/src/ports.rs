@@ -1,4 +1,4 @@
-//! What the client needs from outside (T-32): an `https` `POST` to Relay under a bound, Work's Access service token for Relay with a `DPoP` proof per call (T-99 item 4), the pairwise `sub`s of Parties in Relay's sector from Access (T-99 item 5), and the outbox the intents wait in until Relay takes or refuses them (T-17, T-28).
+//! What the client needs from outside (T-32): one `https` exchange with Relay under a bound, Work's Access service token for Relay with a `DPoP` proof per call (T-99 item 4), the pairwise `sub`s of Parties in Relay's sector from Access (T-99 item 5), the outbox the intents wait in until Relay takes or refuses them (T-17, T-28), and for Relay's events at Work's entry (T-100) the last checked discovery document, the paired tenants, the deduplication rows, the Party of a responder's `sub` and the time.
 
 use std::collections::BTreeMap;
 use std::future::Future;
@@ -6,12 +6,38 @@ use std::future::Future;
 use work_proto::id::TenantId;
 
 use crate::domain::answer::{Accepted, RelayError};
+use crate::domain::inbound::{Attribution, Event};
 use crate::domain::intent::{IdempotencyKey, NotificationIntent};
 use crate::domain::request::RequestError;
 
-/// One `POST` with a JSON body.
+/// The method of a call.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Method {
+    /// `GET`, without a body.
+    Get,
+    /// `POST`.
+    Post,
+    /// `PUT`.
+    Put,
+}
+
+impl Method {
+    /// The method token.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Get => "GET",
+            Self::Post => "POST",
+            Self::Put => "PUT",
+        }
+    }
+}
+
+/// One call, with a JSON body unless it is a `GET`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Request {
+    /// The method.
+    pub method: Method,
     /// Absolute `https` URL.
     pub url: String,
     /// Headers, lower-case names.
@@ -57,7 +83,7 @@ impl Response {
 /// [`RelayError::Unreachable`].
 pub trait Transport: Send + Sync {
     /// Sends `request`.
-    fn post(&self, request: Request) -> impl Future<Output = Result<Response, RelayError>> + Send;
+    fn send(&self, request: Request) -> impl Future<Output = Result<Response, RelayError>> + Send;
 }
 
 /// The headers that say who is calling: Work's Access service token for Relay and the proof of
@@ -149,4 +175,79 @@ pub trait Intents: Send + Sync {
         key: &IdempotencyKey,
         settlement: Settlement,
     ) -> impl Future<Output = Result<(), OutboxError>> + Send;
+}
+
+/// What the event entry needs of Relay's last checked discovery document (T-100 item 4).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Discovered {
+    /// Relay's issuer: the `source` of its events.
+    pub issuer: String,
+    /// The product event key set.
+    pub jwks_uri: String,
+    /// The sector of every responder `sub` (T-104).
+    pub access_client_id: String,
+}
+
+/// Relay's discovery as the process last read and checked it.
+pub trait Discovery: Send + Sync {
+    /// The document, `None` while Relay's discovery has not been read.
+    fn current(&self) -> Option<Discovered>;
+}
+
+/// Something the entry needs did not answer; the event is asked for again.
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+#[error("{0}")]
+pub struct Unavailable(pub String);
+
+/// Work's tenant pairing (T-96 item 4).
+pub trait Tenants: Send + Sync {
+    /// Whether `tenant` is a paired tenant of Work.
+    fn paired(&self, tenant: &TenantId) -> impl Future<Output = Result<bool, Unavailable>> + Send;
+}
+
+/// One Relay event as its deduplication row names it (P-35 item 4).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Arrival<'a> {
+    /// The tenant, `accesstenant`.
+    pub tenant: &'a TenantId,
+    /// `source`.
+    pub source: &'a str,
+    /// `id`.
+    pub id: &'a str,
+    /// SHA-256 of the body as received.
+    pub digest: [u8; 32],
+    /// When it arrived, Unix milliseconds.
+    pub at_ms: u64,
+}
+
+/// The deduplication rows of inbound events.
+pub trait Seen: Send + Sync {
+    /// Writes the row unless `(tenant, source, id)` is already there; `true` for a first
+    /// arrival.
+    fn note(&self, arrival: &Arrival<'_>)
+    -> impl Future<Output = Result<bool, Unavailable>> + Send;
+}
+
+/// The Party behind a responder's pairwise `sub` (T-100 item 6, T-104).
+pub trait Responders: Send + Sync {
+    /// The base64url `PartyID` of `sub` in the sector `client_id` of `tenant`; `None` when
+    /// Access knows no Party for it.
+    fn party(
+        &self,
+        tenant: &TenantId,
+        client_id: &str,
+        sub: &str,
+    ) -> impl Future<Output = Result<Option<String>, Unavailable>> + Send;
+}
+
+/// Time for the timestamp tolerance and the key set's age, Unix milliseconds.
+pub trait Clock: Send + Sync {
+    /// Now.
+    fn now_ms(&self) -> u64;
+}
+
+/// What a first arrival does once it is attributed (P-114).
+pub trait Attributed: Send + Sync {
+    /// `event` may become a record of `attribution` alone.
+    fn attributed(&self, event: &Event, attribution: &Attribution);
 }

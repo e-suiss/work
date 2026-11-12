@@ -85,6 +85,19 @@ impl IdempotencyKey {
         Self(format!("{KEY_PREFIX}{}", hex(&h.finalize())))
     }
 
+    /// The key of one request of a job that makes several under this key, in order: the key
+    /// of this key and `step`.
+    #[must_use]
+    pub fn step(&self, step: &str) -> Self {
+        let mut h = Sha256::new();
+        h.update(KEY_TAG);
+        h.update(b"step\0");
+        h.update(self.0.as_bytes());
+        h.update([0]);
+        h.update(step.as_bytes());
+        Self(format!("{KEY_PREFIX}{}", hex(&h.finalize())))
+    }
+
     /// The key text.
     #[must_use]
     pub fn as_str(&self) -> &str {
@@ -274,6 +287,10 @@ pub(crate) mod tests {
             IdempotencyKey::of_batch(&rows),
             IdempotencyKey::of_batch(&rows[..1])
         );
+        assert_eq!(a.key().step("cancel"), a.key().step("cancel"));
+        assert_ne!(a.key().step("cancel"), a.key().step("create"));
+        assert_ne!(&a.key().step("cancel"), a.key());
+        assert!(a.key().step("cancel").as_str().starts_with(KEY_PREFIX));
     }
 
     // T-99 E-18

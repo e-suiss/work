@@ -1,6 +1,9 @@
-//! What Relay answers (T-28, T-99, Relay API-37): `202` with the accepted event, or for a batch the result of every row, or an RFC 9457 problem. A failure that is not the event's own is temporary and the intent stays in the outbox to be sent again with the same key: Relay unreachable, a `5xx`, `408`, `429`, any problem Relay marks `retryable`, and a credential Relay does not take (`401`, or `403` with an `auth_` code), which is about Work's Access token and not the event. Every other problem is a refusal of the event and permanent.
+//! What Relay answers (T-28, T-99, Relay API-37): `202` with the accepted event, or for a batch the result of every row, or an RFC 9457 problem. A failure that is not the event's own is temporary and the intent stays in the outbox to be sent again with the same key: Relay unreachable, a `5xx`, `408`, `429`, any problem Relay marks `retryable`, a credential Relay does not take (`401`, or `403` with an `auth_` code), which is about Work's Access token and not the event, and a capability Relay's discovery does not offer now (T-99 item 3). Every other problem is a refusal of the event and permanent.
 
 use serde::Deserialize;
+
+/// The reason an intent waits for a capability Relay does not offer (T-99 item 3).
+pub const CAPABILITY_MISSING: &str = "relay_capability_missing";
 
 /// Why a Relay call did not deliver.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
@@ -37,6 +40,10 @@ pub enum RelayError {
     /// Work holds no credential for Relay now.
     #[error("no credential for relay: {0}")]
     Credential(String),
+    /// Relay's discovery does not offer the capability the call needs; there is no other way
+    /// (T-99 item 3, E-2).
+    #[error("relay does not offer {0}")]
+    CapabilityMissing(&'static str),
     /// A `2xx` whose body is not what the contract says.
     #[error("relay answer: {0}")]
     Answer(&'static str),
@@ -55,6 +62,7 @@ impl RelayError {
         match self {
             Self::Unreachable(_) => "relay_unreachable",
             Self::Credential(_) => "relay_credential_missing",
+            Self::CapabilityMissing(_) => CAPABILITY_MISSING,
             Self::Answer(_) => "relay_answer",
             Self::Unavailable { code, .. }
             | Self::Unauthenticated { code, .. }

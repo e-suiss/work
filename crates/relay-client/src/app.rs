@@ -1,13 +1,28 @@
 //! The Relay client and the delivery of intents (T-99, T-17, T-28, E-18): [`Relay`] sends one event to the events endpoint Relay's discovery names, or a batch to `<events>/batch`, each with `Relay-Version`, Work's Access service token as `DPoP` with a fresh proof of the call, the intent's idempotency key and the `traceparent` of the committing request; [`Deliverer`] takes the pending intents of the outbox oldest first, resolves their Parties to pairwise `sub`s in Relay's sector, sends nothing to a Party that does not resolve, and settles each intent Relay takes or refuses. While Relay or Access cannot answer the intent stays in the outbox, the pass stops, and a later pass sends it again with the same key; no normative outcome waits on Relay (MD-3 item 6).
 
+pub mod inbound;
+pub mod waits;
+
 use crate::RELAY_VERSION;
 use crate::domain::answer::{Accepted, RelayError, RowOutcome, accepted, batch, problem};
 use crate::domain::intent::{IdempotencyKey, NotificationIntent};
 use crate::domain::request::{EventRequest, Installation, RequestError, batch_body, is_https};
 use crate::ports::{
-    Credential, Intents, OutboxError, Outcome, Recipients, Request, Settlement, Transport,
+    Credential, Intents, Method, OutboxError, Outcome, Recipients, Request, Settlement, Transport,
     Unresolvable,
 };
+
+/// The endpoints of the capabilities Relay's discovery offers beyond events (T-99 item 3): each
+/// is there only while Relay serves every operation of its capability.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Offered {
+    /// `waitpoints_endpoint`, with `urn:suiss:relay:waitpoint:1`.
+    pub waitpoints: Option<String>,
+    /// `escalation_policies_endpoint`, with `urn:suiss:relay:escalation:1`.
+    pub escalation_policies: Option<String>,
+    /// `agents_endpoint`, with `urn:suiss:relay:agent_ceiling:1`.
+    pub agents: Option<String>,
+}
 
 /// The client of one Relay installation's events endpoint.
 #[derive(Debug)]
@@ -15,6 +30,7 @@ pub struct Relay<T, K> {
     transport: T,
     credential: K,
     events: String,
+    offered: Offered,
 }
 
 impl<T: Transport, K: Credential> Relay<T, K> {
@@ -30,7 +46,25 @@ impl<T: Transport, K: Credential> Relay<T, K> {
             transport,
             credential,
             events: events_endpoint.trim_end_matches('/').to_owned(),
+            offered: Offered::default(),
         })
+    }
+
+    /// The same client with the endpoints Relay's discovery offers now; one that is not `https`
+    /// counts as not offered.
+    #[must_use]
+    pub fn offering(mut self, offered: Offered) -> Self {
+        let checked = |endpoint: Option<String>| {
+            endpoint
+                .filter(|e| is_https(e))
+                .map(|e| e.trim_end_matches('/').to_owned())
+        };
+        self.offered = Offered {
+            waitpoints: checked(offered.waitpoints),
+            escalation_policies: checked(offered.escalation_policies),
+            agents: checked(offered.agents),
+        };
+        self
     }
 
     async fn post(
@@ -40,7 +74,18 @@ impl<T: Transport, K: Credential> Relay<T, K> {
         key: &IdempotencyKey,
         traceparent: &str,
     ) -> Result<crate::ports::Response, RelayError> {
-        let auth = self.credential.authorize("POST", &url).await?;
+        self.call(Method::Post, url, body, key, traceparent).await
+    }
+
+    async fn call(
+        &self,
+        method: Method,
+        url: String,
+        body: Vec<u8>,
+        key: &IdempotencyKey,
+        traceparent: &str,
+    ) -> Result<crate::ports::Response, RelayError> {
+        let auth = self.credential.authorize(method.as_str(), &url).await?;
         let headers = [
             ("content-type", "application/json"),
             ("accept", "application/json"),
@@ -55,7 +100,15 @@ impl<T: Transport, K: Credential> Relay<T, K> {
             ("dpop".to_owned(), auth.dpop),
         ])
         .collect();
-        let answer = self.transport.post(Request { url, headers, body }).await?;
+        let answer = self
+            .transport
+            .send(Request {
+                method,
+                url,
+                headers,
+                body,
+            })
+            .await?;
         if answer.status == 401 {
             self.credential.rejected();
         }
@@ -269,7 +322,7 @@ impl<T: Transport, K: Credential, R: Recipients, I: Intents> Deliverer<T, K, R, 
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use std::collections::{BTreeMap, VecDeque};
     use std::sync::Mutex;
     use std::sync::atomic::{AtomicU32, Ordering};
@@ -282,13 +335,13 @@ mod tests {
     use crate::ports::{Authorization, Response};
 
     #[derive(Default)]
-    struct Wire {
-        sent: Mutex<Vec<Request>>,
+    pub(crate) struct Wire {
+        pub(crate) sent: Mutex<Vec<Request>>,
         answers: Mutex<VecDeque<Result<Response, RelayError>>>,
     }
 
     impl Wire {
-        fn answering(answers: Vec<Result<Response, RelayError>>) -> Self {
+        pub(crate) fn answering(answers: Vec<Result<Response, RelayError>>) -> Self {
             Self {
                 sent: Mutex::default(),
                 answers: Mutex::new(answers.into()),
@@ -297,7 +350,7 @@ mod tests {
     }
 
     impl Transport for &Wire {
-        fn post(
+        fn send(
             &self,
             request: Request,
         ) -> impl Future<Output = Result<Response, RelayError>> + Send {
@@ -312,7 +365,7 @@ mod tests {
         }
     }
 
-    struct Token;
+    pub(crate) struct Token;
 
     impl Credential for Token {
         fn authorize(
@@ -422,7 +475,7 @@ mod tests {
         }
     }
 
-    fn refusal(status: u16, code: &str, retryable: bool) -> Response {
+    pub(crate) fn refusal(status: u16, code: &str, retryable: bool) -> Response {
         Response {
             status,
             headers: vec![("Retry-After".to_owned(), "3".to_owned())],
@@ -470,6 +523,7 @@ mod tests {
         assert_eq!(a.event_id, "evt_1");
         let sent = wire.sent.lock().unwrap();
         let r = &sent[0];
+        assert_eq!(r.method, Method::Post);
         assert_eq!(r.url, "https://relay.example/v1/events");
         assert_eq!(r.header("relay-version"), Some(RELAY_VERSION));
         assert_eq!(r.header("authorization"), Some("DPoP at"));

@@ -29,17 +29,20 @@ use work_access_client::adapters::{
 };
 use work_access_client::app::{Client, DISCOVERY_INTERVAL_MS};
 use work_access_client::domain::AccessError;
+use work_access_client::domain::relay::PRODUCT_EVENTS_CAPABILITY;
 use work_access_client::ports::Clock as AccessClockPort;
 use work_ledger::SystemRng;
 use work_ledger::time::{
     LedgerTime, NTS_EVENT_QUEUE, ProcessMonotonic, RoughtimeUdp, read_roots, spawn_nts,
 };
 use work_relay_client::RELAY_VERSION;
+use work_relay_client::ports::Discovered;
 use work_store::{
     AccessPool, CheckpointerPool, DeriverPool, Pool, PublisherPool, SequencerPool, StoreError,
 };
 
 use crate::config::Config;
+use crate::relay_inbound::RelayDocument;
 
 /// The lowest accepted `server_version_num` (T-20).
 pub(crate) const MIN_POSTGRES_VERSION_NUM: i32 = 180_000;
@@ -231,10 +234,13 @@ pub(crate) const fn relay_refuses_start(error: &AccessError) -> bool {
 /// Whether Relay's discovery document last answered and passed its checks, and the task that
 /// reads it again every [`DISCOVERY_INTERVAL_MS`] (T-99 items 1-3, E-2, MD-3): Relay is found
 /// through the `suiss_relay` of Access's discovery, over the same roots and without a client
-/// certificate.
+/// certificate. The last document that passed its checks names the issuer and the key set
+/// Relay's events are verified against (T-100 item 4).
 #[derive(Debug)]
 pub(crate) struct RelayLink {
     pub(crate) up: Arc<AtomicBool>,
+    pub(crate) document: RelayDocument,
+    pub(crate) transport: HttpsTransport,
     refresh: JoinHandle<()>,
 }
 
@@ -250,15 +256,22 @@ impl RelayLink {
         let tls = public_config(roots(&pem).map_err(|e| refused(&e))?).map_err(|e| refused(&e))?;
         let transport = HttpsTransport::new(tls, DEFAULT_TIMEOUT);
         let up = Arc::new(AtomicBool::new(false));
-        if read_relay(access, &transport, &up).await? {
+        let document = RelayDocument::default();
+        if read_relay(access, &transport, &up, &document).await? {
             up.store(true, Ordering::Relaxed);
         }
         let refresh = tokio::spawn(rediscover_relay(
             Arc::clone(access),
-            transport,
+            transport.clone(),
             Arc::clone(&up),
+            document.clone(),
         ));
-        Ok(Self { up, refresh })
+        Ok(Self {
+            up,
+            document,
+            transport,
+            refresh,
+        })
     }
 
     /// Stops the refresh.
@@ -271,6 +284,7 @@ async fn read_relay(
     access: &AccessClient,
     transport: &HttpsTransport,
     up: &AtomicBool,
+    document: &RelayDocument,
 ) -> Result<bool, StartupError> {
     match access.relay(transport, RELAY_VERSION).await {
         Ok(doc) => {
@@ -279,8 +293,17 @@ async fn read_relay(
                 issuer = doc.issuer.as_str(),
                 access_client_id = doc.access_client_id.as_str(),
                 events_endpoint = doc.events_endpoint.as_str(),
+                waitpoints = doc.waitpoints_endpoint.is_some(),
+                escalation = doc.escalation_policies_endpoint.is_some(),
+                agent_ceiling = doc.agents_endpoint.is_some(),
+                product_events = doc.capabilities.contains(PRODUCT_EVENTS_CAPABILITY),
                 "Relay discovery read"
             );
+            document.keep(Discovered {
+                issuer: doc.issuer.as_str().to_owned(),
+                jwks_uri: doc.jwks_uri,
+                access_client_id: doc.access_client_id,
+            });
             Ok(true)
         }
         Err(error) if relay_refuses_start(&error) => Err(StartupError::Relay(error.to_string())),
@@ -300,13 +323,14 @@ async fn rediscover_relay(
     access: Arc<AccessClient>,
     transport: HttpsTransport,
     up: Arc<AtomicBool>,
+    document: RelayDocument,
 ) {
     let mut ticks = tokio::time::interval(Duration::from_millis(DISCOVERY_INTERVAL_MS));
     ticks.set_missed_tick_behavior(MissedTickBehavior::Delay);
     ticks.tick().await;
     loop {
         ticks.tick().await;
-        match read_relay(&access, &transport, &up).await {
+        match read_relay(&access, &transport, &up, &document).await {
             Ok(answered) => up.store(answered, Ordering::Relaxed),
             Err(error) => {
                 up.store(false, Ordering::Relaxed);

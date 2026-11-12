@@ -1,4 +1,4 @@
-//! Relay's discovery document (T-99 items 1–3, T-104; Relay E-81, E-90): found at `<suiss_relay>/.well-known/relay-configuration`, used only when its `issuer` is `suiss_relay`, its `access_issuer` is Work's Access issuer, its region is Work's, it supports the dated contract version Work speaks, it offers the events capability and it names the Access client whose sector its subscriber and responder `sub`s are in.
+//! Relay's discovery document (T-99 items 1–3, T-104; Relay E-81, E-90): found at `<suiss_relay>/.well-known/relay-configuration`, used only when its `issuer` is `suiss_relay`, its `access_issuer` is Work's Access issuer, its region is Work's, it supports the dated contract version Work speaks, it offers the events capability and it names the Access client whose sector its subscriber and responder `sub`s are in. Every other capability is looked for when it is used: its endpoint is kept only while the document lists the capability with an `https` endpoint.
 
 use std::collections::BTreeSet;
 
@@ -28,7 +28,25 @@ struct Wire {
     capabilities: Vec<String>,
     #[serde(default)]
     events_endpoint: Option<String>,
+    #[serde(default)]
+    waitpoints_endpoint: Option<String>,
+    #[serde(default)]
+    escalation_policies_endpoint: Option<String>,
+    #[serde(default)]
+    agents_endpoint: Option<String>,
 }
+
+/// The capability of the waitpoint operations (T-99 item 3).
+pub const WAITPOINT_CAPABILITY: &str = "urn:suiss:relay:waitpoint:1";
+
+/// The capability of the escalation policy operations.
+pub const ESCALATION_CAPABILITY: &str = "urn:suiss:relay:escalation:1";
+
+/// The capability of the ceiling decision operations.
+pub const AGENT_CEILING_CAPABILITY: &str = "urn:suiss:relay:agent_ceiling:1";
+
+/// The capability of signed product events (T-100 item 4).
+pub const PRODUCT_EVENTS_CAPABILITY: &str = "urn:suiss:relay:product_events:1";
 
 /// The checked Relay discovery document.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -46,6 +64,12 @@ pub struct RelayConfiguration {
     pub capabilities: BTreeSet<String>,
     /// The events endpoint.
     pub events_endpoint: String,
+    /// The waitpoints endpoint, while Relay offers waitpoints.
+    pub waitpoints_endpoint: Option<String>,
+    /// The escalation policies endpoint, while Relay offers escalation.
+    pub escalation_policies_endpoint: Option<String>,
+    /// The agents endpoint, while Relay offers ceiling decisions.
+    pub agents_endpoint: Option<String>,
 }
 
 /// The error of Relay's discovery answer `error` for `contract_version`: a Relay that refuses the
@@ -117,6 +141,13 @@ impl RelayConfiguration {
         if !https(&w.jwks_uri) || !https(&w.api_base) {
             return Err(AccessError::Endpoint("jwks_uri".to_owned()));
         }
+        let offered = |capability: &str, endpoint: Option<String>| {
+            endpoint.filter(|u| capabilities.contains(capability) && https(u))
+        };
+        let waitpoints_endpoint = offered(WAITPOINT_CAPABILITY, w.waitpoints_endpoint);
+        let escalation_policies_endpoint =
+            offered(ESCALATION_CAPABILITY, w.escalation_policies_endpoint);
+        let agents_endpoint = offered(AGENT_CEILING_CAPABILITY, w.agents_endpoint);
         Ok(Self {
             issuer: suiss_relay.clone(),
             api_base: w.api_base,
@@ -124,6 +155,9 @@ impl RelayConfiguration {
             access_client_id: w.access_client_id,
             capabilities,
             events_endpoint,
+            waitpoints_endpoint,
+            escalation_policies_endpoint,
+            agents_endpoint,
         })
     }
 }
@@ -221,6 +255,37 @@ mod tests {
                 REQUIRED_RELAY_CAPABILITY.to_owned()
             ))
         );
+    }
+
+    // T-99
+    #[test]
+    fn t_99_an_endpoint_is_kept_only_while_its_capability_is_offered() {
+        let plain = read(DOC).unwrap();
+        assert_eq!(plain.waitpoints_endpoint, None);
+        assert_eq!(plain.escalation_policies_endpoint, None);
+        assert_eq!(plain.agents_endpoint, None);
+        let endpoints = "\"events_endpoint\": \"https://relay.example/v1/events\",
+        \"waitpoints_endpoint\": \"https://relay.example/v1/waitpoints\",
+        \"escalation_policies_endpoint\": \"http://relay.example/v1/escalation_policies\",
+        \"agents_endpoint\": \"https://relay.example/v1/agents\"";
+        let named = DOC.replace(
+            "\"events_endpoint\": \"https://relay.example/v1/events\"",
+            endpoints,
+        );
+        assert_ne!(named, DOC);
+        assert_eq!(read(&named).unwrap().waitpoints_endpoint, None);
+        let offered = read(&named.replace(
+            "[\"urn:suiss:relay:events:1\"]",
+            "[\"urn:suiss:relay:events:1\", \"urn:suiss:relay:waitpoint:1\", \"urn:suiss:relay:escalation:1\"]",
+        ))
+        .unwrap();
+        assert_eq!(
+            offered.waitpoints_endpoint.as_deref(),
+            Some("https://relay.example/v1/waitpoints")
+        );
+        assert_eq!(offered.escalation_policies_endpoint, None);
+        assert_eq!(offered.agents_endpoint, None);
+        assert!(!offered.capabilities.contains(PRODUCT_EVENTS_CAPABILITY));
     }
 
     // T-99

@@ -1345,6 +1345,7 @@ title = ""
 tests = [
   "bins/work-server/src/config.rs::t_96_refuses_to_start_without_the_access_setting",
   "bins/work-server/src/startup.rs::t_99_a_relay_document_that_fails_its_checks_refuses_start_and_an_outage_does_not",
+  "crates/relay-client/src/app/waits.rs::t_99_a_missing_waitpoint_capability_keeps_the_request_in_the_outbox",
 ]
 
 [[rule]]
@@ -1485,7 +1486,10 @@ family = "E"
 status = "frozen-product"
 stage = 6
 title = ""
-tests = []
+tests = [
+  "crates/relay-client/src/app/waits.rs::t_99_a_ceiling_decision_goes_to_the_agent_and_a_conflict_takes_nothing_back",
+  "crates/relay-client/src/domain/waitpoint.rs::t_99_a_ceiling_decision_names_its_event_and_its_declaration",
+]
 
 [[rule]]
 id = "E-24"
@@ -1688,7 +1692,7 @@ status = "frozen-product"
 stage = 7
 title = ""
 tests = [
-  "crates/relay-client/src/domain/request.rs::t_99_every_notification_carries_the_primary_link_to_the_item_page",
+  "crates/relay-client/src/domain/request.rs::t_99_every_notification_carries_primary_link_item_and_correlation",
 ]
 
 [[rule]]
@@ -1754,7 +1758,9 @@ status = "frozen-technical"
 stage = 10
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/relay-client/src/domain/request.rs::t_99_every_notification_carries_primary_link_item_and_correlation",
+]
 
 [[rule]]
 id = "CM-5"
@@ -2593,7 +2599,11 @@ id = "ST-43"
 family = "ST"
 status = "frozen-product"
 title = ""
-tests = []
+tests = [
+  "crates/relay-client/src/app/waits.rs::t_99_a_waitpoint_and_its_policy_go_to_the_endpoints_discovery_offers",
+  "crates/relay-client/src/domain/waitpoint.rs::t_99_a_policy_is_written_under_its_record_key_with_no_repeat",
+  "crates/relay-client/src/domain/waitpoint.rs::t_99_an_escalation_policy_outside_relay_limits_is_refused",
+]
 
 [[rule]]
 id = "ST-44"
@@ -2607,7 +2617,10 @@ id = "ST-45"
 family = "ST"
 status = "frozen-product"
 title = ""
-tests = []
+tests = [
+  "crates/relay-client/src/app/waits.rs::t_99_a_membership_change_replaces_the_waitpoint",
+  "crates/relay-client/src/domain/waitpoint.rs::t_99_the_tiers_still_to_come_start_from_the_time_already_waited",
+]
 
 [[rule]]
 id = "ST-46"
@@ -3386,6 +3399,8 @@ tests = [
   "crates/dispatch/src/domain.rs::p_35_time_is_rfc3339_utc_milliseconds",
   "crates/proto/src/events.rs::p_35_subject_and_dataschema_come_from_the_item_and_the_type",
   "crates/proto/src/events.rs::p_37_a_thin_event_names_the_author_chain_and_the_first_correlation",
+  "crates/relay-client/src/app/inbound.rs::t_100_a_verified_event_is_recorded_once_per_tenant_source_and_id",
+  "crates/relay-client/src/domain/inbound.rs::t_100_the_event_names_its_tenant_and_the_id_its_headers_carry",
   "crates/store/src/outbox.rs::p_34_only_the_append_of_a_record_writes_an_outbox_pointer",
 ]
 
@@ -3396,7 +3411,12 @@ status = "frozen-protocol"
 stage = 11
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "bins/work-server/src/relay_inbound.rs::t_100_a_delivery_without_one_profile_header_carries_no_signature",
+  "crates/http/src/inbound.rs::t_100_the_entry_hands_the_webhook_profile_headers_as_received",
+  "crates/relay-client/src/domain/inbound.rs::t_100_a_relay_event_signed_by_a_jwks_key_is_accepted",
+  "crates/relay-client/src/domain/inbound.rs::t_100_the_timestamp_lies_within_the_profile_tolerance",
+]
 
 [[rule]]
 id = "P-37"
@@ -4441,6 +4461,22 @@ tests = [
   "crates/proto/src/position.rs::t_97_the_token_lays_out_version_key_count_pairs_and_a_16_byte_tag",
   "crates/query/src/adapters.rs::p_57_a_sync_cursor_opens_only_for_its_caller_and_expires_with_its_key",
   "crates/query/src/adapters.rs::t_97_a_sealed_token_opens_only_for_its_tenant",
+]
+
+[[rule]]
+id = "P-114"
+family = "P"
+status = "frozen-protocol"
+acceptance = "filled"
+title = ""
+tests = [
+  "crates/relay-client/src/app/inbound.rs::p_114_a_resolved_waitpoint_belongs_to_the_party_of_its_responder",
+  "crates/relay-client/src/app/inbound.rs::p_114_an_unsigned_relay_event_becomes_no_record",
+  "crates/relay-client/src/app/inbound.rs::p_114_relay_is_the_author_of_nothing",
+  "crates/relay-client/src/domain/inbound.rs::t_100_a_channel_claim_response_is_not_attributed",
+  "crates/relay-client/src/domain/inbound.rs::t_100_a_tampered_body_or_signature_verifies_under_no_key",
+  "crates/relay-client/src/domain/inbound.rs::t_100_an_event_whose_source_is_not_the_relay_issuer_becomes_no_record",
+  "crates/relay-client/src/domain/inbound.rs::t_100_engagement_events_write_no_record",
 ]
 
 [[rule]]
@@ -6051,6 +6087,7 @@ tests = [
   "crates/access-client/src/domain/tenants.rs::t_96_reconciliation_maps_new_and_changed_tenants_and_reports_missing_ones",
   "crates/access-client/src/domain/tenants.rs::t_96_tenant_ids_stay_opaque_and_organizations_unread",
   "crates/access-client/src/domain/tenants.rs::t_96_the_list_is_found_beside_the_snapshot_template",
+  "crates/relay-client/src/app/inbound.rs::t_100_an_event_of_an_unpaired_tenant_is_only_a_log_line",
 ]
 
 [[rule]]
@@ -6125,6 +6162,7 @@ tests = [
   "crates/access-client/src/domain/relay.rs::t_99_a_relay_document_whose_issuer_is_not_suiss_relay_refuses_start",
   "crates/access-client/src/domain/relay.rs::t_99_a_relay_document_without_its_access_client_refuses_start",
   "crates/access-client/src/domain/relay.rs::t_99_a_relay_that_refuses_the_dated_version_refuses_start",
+  "crates/access-client/src/domain/relay.rs::t_99_an_endpoint_is_kept_only_while_its_capability_is_offered",
   "crates/access-client/src/domain/relay.rs::t_99_region_version_and_events_capability_are_needed_at_start",
   "crates/access-client/src/domain/relay.rs::t_99_relay_is_found_from_access_discovery",
   "crates/access-client/src/domain/service.rs::t_99_a_proof_names_the_call_its_key_the_token_hash_and_the_nonce",
@@ -6138,15 +6176,56 @@ tests = [
   "crates/relay-client/src/app.rs::t_99_a_token_relay_does_not_take_is_dropped_before_the_next_call",
   "crates/relay-client/src/app.rs::t_99_an_event_carries_the_version_the_token_the_key_and_the_trace",
   "crates/relay-client/src/app.rs::t_99_an_unresolved_party_gets_no_notification",
+  "crates/relay-client/src/app/waits.rs::t_99_a_ceiling_decision_goes_to_the_agent_and_a_conflict_takes_nothing_back",
+  "crates/relay-client/src/app/waits.rs::t_99_a_membership_change_replaces_the_waitpoint",
+  "crates/relay-client/src/app/waits.rs::t_99_a_missing_waitpoint_capability_keeps_the_request_in_the_outbox",
+  "crates/relay-client/src/app/waits.rs::t_99_a_waitpoint_and_its_policy_go_to_the_endpoints_discovery_offers",
   "crates/relay-client/src/domain/answer.rs::t_28_an_outage_is_temporary_and_a_refusal_is_permanent",
   "crates/relay-client/src/domain/answer.rs::t_99_an_accepted_event_and_a_batch_answer_every_row",
   "crates/relay-client/src/domain/intent.rs::t_12_the_key_is_the_transition_at_its_ledger_position_and_never_content",
   "crates/relay-client/src/domain/intent.rs::t_99_an_intent_names_a_work_item_a_code_and_one_to_a_hundred_parties",
-  "crates/relay-client/src/domain/request.rs::e_15_the_event_carries_no_record_content_and_no_field_relay_does_not_serve",
+  "crates/relay-client/src/domain/request.rs::e_15_the_event_carries_the_record_s_id_and_position_and_none_of_its_content",
   "crates/relay-client/src/domain/request.rs::t_99_a_link_that_is_not_absolute_https_is_never_sent",
   "crates/relay-client/src/domain/request.rs::t_99_blocking_is_time_sensitive_and_information_is_passive",
-  "crates/relay-client/src/domain/request.rs::t_99_every_notification_carries_the_primary_link_to_the_item_page",
+  "crates/relay-client/src/domain/request.rs::t_99_every_notification_carries_primary_link_item_and_correlation",
   "crates/relay-client/src/domain/request.rs::t_99_recipients_are_access_subjects",
+  "crates/relay-client/src/domain/waitpoint.rs::t_99_a_ceiling_decision_names_its_event_and_its_declaration",
+  "crates/relay-client/src/domain/waitpoint.rs::t_99_a_deadline_is_an_rfc_3339_utc_timestamp",
+  "crates/relay-client/src/domain/waitpoint.rs::t_99_a_policy_is_written_under_its_record_key_with_no_repeat",
+  "crates/relay-client/src/domain/waitpoint.rs::t_99_a_waitpoint_matches_the_condition_and_names_its_opening_record",
+  "crates/relay-client/src/domain/waitpoint.rs::t_99_an_escalation_policy_outside_relay_limits_is_refused",
+  "crates/relay-client/src/domain/waitpoint.rs::t_99_the_tiers_still_to_come_start_from_the_time_already_waited",
+]
+
+[[rule]]
+id = "T-100"
+family = "T"
+status = "frozen-technical"
+acceptance = "filled"
+title = ""
+tests = [
+  "bins/work-server/src/relay_inbound.rs::t_100_a_delivery_without_one_profile_header_carries_no_signature",
+  "bins/work-server/src/relay_inbound.rs::t_100_the_cloudevents_media_type_alone_selects_the_relay_intake",
+  "bins/work-server/src/relay_inbound.rs::t_100_the_last_checked_discovery_document_names_the_keys_and_the_source",
+  "crates/http/src/inbound.rs::t_100_the_entry_hands_the_webhook_profile_headers_as_received",
+  "crates/relay-client/src/app/inbound.rs::p_114_a_resolved_waitpoint_belongs_to_the_party_of_its_responder",
+  "crates/relay-client/src/app/inbound.rs::p_114_an_unsigned_relay_event_becomes_no_record",
+  "crates/relay-client/src/app/inbound.rs::p_114_relay_is_the_author_of_nothing",
+  "crates/relay-client/src/app/inbound.rs::t_100_a_rotated_key_is_found_after_one_jwks_refresh",
+  "crates/relay-client/src/app/inbound.rs::t_100_a_verified_event_is_recorded_once_per_tenant_source_and_id",
+  "crates/relay-client/src/app/inbound.rs::t_100_an_event_is_asked_for_again_while_relay_s_keys_or_the_rows_do_not_answer",
+  "crates/relay-client/src/app/inbound.rs::t_100_an_event_of_an_unpaired_tenant_is_only_a_log_line",
+  "crates/relay-client/src/domain/inbound.rs::t_100_a_channel_claim_response_is_not_attributed",
+  "crates/relay-client/src/domain/inbound.rs::t_100_a_relay_event_signed_by_a_jwks_key_is_accepted",
+  "crates/relay-client/src/domain/inbound.rs::t_100_a_response_carries_the_digest_its_value_must_match",
+  "crates/relay-client/src/domain/inbound.rs::t_100_a_tampered_body_or_signature_verifies_under_no_key",
+  "crates/relay-client/src/domain/inbound.rs::t_100_an_event_whose_source_is_not_the_relay_issuer_becomes_no_record",
+  "crates/relay-client/src/domain/inbound.rs::t_100_an_hmac_entry_is_never_a_signature",
+  "crates/relay-client/src/domain/inbound.rs::t_100_during_a_rotation_either_key_of_the_set_verifies",
+  "crates/relay-client/src/domain/inbound.rs::t_100_engagement_events_write_no_record",
+  "crates/relay-client/src/domain/inbound.rs::t_100_the_event_names_its_tenant_and_the_id_its_headers_carry",
+  "crates/relay-client/src/domain/inbound.rs::t_100_the_key_set_holds_only_ed25519_signing_keys",
+  "crates/relay-client/src/domain/inbound.rs::t_100_the_timestamp_lies_within_the_profile_tolerance",
 ]
 
 [[rule]]
@@ -6226,6 +6305,7 @@ title = ""
 tests = [
   "bins/work-server/src/config.rs::t_102_the_event_entry_listens_only_when_configured_with_a_token_key",
   "bins/work-server/src/pairing.rs::t_102_a_new_tenant_s_step_runs_again_only_after_an_outage_of_its_own_pairing",
+  "bins/work-server/src/relay_inbound.rs::t_100_the_cloudevents_media_type_alone_selects_the_relay_intake",
   "crates/access-client/src/app/events/tests.rs::t_102_a_compromise_without_window_from_marks_nothing",
   "crates/access-client/src/app/events/tests.rs::t_102_a_repeated_jti_is_accepted_once",
   "crates/access-client/src/app/events/tests.rs::t_102_a_revocation_drops_the_cache_at_once",
@@ -6247,6 +6327,7 @@ tests = [
   "crates/http/src/inbound.rs::t_102_the_entry_hands_the_media_type_and_bytes_as_received",
   "crates/query/src/app/caller.rs::t_102_once_access_disables_work_s_client_no_caller_is_named",
   "crates/reconciler/src/adapters.rs::t_102_each_tenant_has_its_own_deduplication_scope",
+  "crates/relay-client/src/domain/inbound.rs::t_100_an_hmac_entry_is_never_a_signature",
 ]
 
 [[rule]]

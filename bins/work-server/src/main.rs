@@ -8,6 +8,7 @@ mod health;
 mod inbound;
 mod pairing;
 mod parser;
+mod relay_inbound;
 mod services;
 mod startup;
 
@@ -24,6 +25,7 @@ use work_http::inbound::{self as entry, Receiver};
 use work_reconciler::adapters::PgInbound;
 
 use crate::inbound::{AccessReceiver, TlsListener};
+use crate::relay_inbound::EntryReceiver;
 use work_ledger::{Rng as _, SystemRng};
 
 fn main() -> ExitCode {
@@ -153,13 +155,26 @@ async fn run(config: &Config) -> ExitCode {
         Arc::clone(&access.up),
         Arc::clone(&relay.up),
     );
-    let receiver: Arc<dyn Receiver> = Arc::new(AccessReceiver::new(
+    let pairer = services.pairer();
+    let relay_events = relay_inbound::intake(
+        relay.document.clone(),
+        relay.transport.clone(),
         Arc::clone(&access.client),
-        services.pairer(),
+        pairer.store.clone(),
         PgInbound::new(infrastructure.sequencer.clone()),
-        config.client_id_reader(),
-        inbound::notices(config, &infrastructure, services.sequence()),
-    ));
+        pairer.clock.clone(),
+    );
+    let receiver: Arc<dyn Receiver> = Arc::new(EntryReceiver {
+        time: pairer.clock.clone(),
+        access: AccessReceiver::new(
+            Arc::clone(&access.client),
+            pairer,
+            PgInbound::new(infrastructure.sequencer.clone()),
+            config.client_id_reader(),
+            inbound::notices(config, &infrastructure, services.sequence()),
+        ),
+        relay: Arc::new(relay_events),
+    });
     let routes = api::routes(
         config,
         &api::Backing {

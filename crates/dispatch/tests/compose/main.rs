@@ -1,4 +1,4 @@
-//! Work's delivery to the real Relay of the local environment under Work's Access service token (T-99, T-28, MD-3; Access A28 (a), Relay E-93): the platform realm gives Work a `DPoP` token for Relay's Access `client_id`, Relay takes Work's events with their interruption level and links, keeps a `critical` event only to lower it at send time while Work never sends one, refuses a link that is not `https`, and an intent waits in the outbox while Relay cannot be reached until a later pass delivers it. These tests need `just dev`; `just test-compose` runs them with `WORK_ACCESS_LOCAL` naming the directory `just dev-access` fills with Access's local CA, `bootstrap.json` and a copy of the `work-dev` token, `SOFTHSM2_CONF` naming that copy, and `access-server` and `relay` resolving to the loopback address.
+//! Work's delivery to the real Relay of the local environment under Work's Access service token (T-99, T-28, MD-3; Access A28 (a), Relay E-93): the platform realm gives Work a `DPoP` token for Relay's Access `client_id`, Relay takes Work's events with their interruption level and links and keeps the item and the correlation id Work sent, keeps a `critical` event only to lower it at send time while Work never sends one, refuses a link that is not `https`, and an intent waits in the outbox while Relay cannot be reached until a later pass delivers it. These tests need `just dev`; `just test-compose` runs them with `WORK_ACCESS_LOCAL` naming the directory `just dev-access` fills with Access's local CA, `bootstrap.json` and a copy of the `work-dev` token, `SOFTHSM2_CONF` naming that copy, and `access-server` and `relay` resolving to the loopback address.
 
 #![allow(
     clippy::unwrap_used,
@@ -40,8 +40,8 @@ use work_relay_client::domain::intent::{
 };
 use work_relay_client::domain::request::{EventRequest, Installation, RequestError};
 use work_relay_client::ports::{
-    Credential, Intents, OutboxError, Outcome, Recipients, Request, Response, Settlement,
-    Transport, Unresolvable,
+    Credential, Intents, Method as RelayMethod, OutboxError, Outcome, Recipients, Request,
+    Response, Settlement, Transport, Unresolvable,
 };
 
 const RELAY_EVENTS: &str = "https://relay/v1/events";
@@ -223,7 +223,12 @@ struct RelayHttps {
 }
 
 impl Transport for &RelayHttps {
-    async fn post(&self, request: Request) -> Result<Response, RelayError> {
+    async fn send(&self, request: Request) -> Result<Response, RelayError> {
+        let method = match request.method {
+            RelayMethod::Get => Method::Get,
+            RelayMethod::Post => Method::Post,
+            RelayMethod::Put => return Err(RelayError::Unreachable("PUT".to_owned())),
+        };
         let url = if self.cut.load(Ordering::SeqCst) {
             request
                 .url
@@ -234,7 +239,7 @@ impl Transport for &RelayHttps {
         let answer = self
             .inner
             .send(AccessRequest {
-                method: Method::Post,
+                method,
                 url,
                 headers: request.headers,
                 body: request.body,
@@ -299,10 +304,36 @@ async fn post_raw(https: &RelayHttps, credential: &impl Credential, body: &Value
     .map(|(n, v)| (n.to_owned(), v.to_owned()))
     .collect();
     https
-        .post(Request {
+        .send(Request {
+            method: RelayMethod::Post,
             url: RELAY_EVENTS.to_owned(),
             headers,
             body: body.to_string().into_bytes(),
+        })
+        .await
+        .unwrap()
+}
+
+/// `GET /v1/events/{id}` under Work's credential: the event as Relay keeps it.
+async fn stored_event(https: &RelayHttps, credential: &impl Credential, id: &str) -> Response {
+    let url = format!("{RELAY_EVENTS}/{id}");
+    let auth = credential.authorize("GET", &url).await.unwrap();
+    let headers = [
+        ("accept", "application/json"),
+        ("relay-version", RELAY_VERSION),
+        ("traceparent", TRACE),
+        ("authorization", auth.authorization.as_str()),
+        ("dpop", auth.dpop.as_str()),
+    ]
+    .into_iter()
+    .map(|(n, v)| (n.to_owned(), v.to_owned()))
+    .collect();
+    https
+        .send(Request {
+            method: RelayMethod::Get,
+            url,
+            headers,
+            body: Vec::new(),
         })
         .await
         .unwrap()
@@ -382,6 +413,43 @@ async fn t_99_relay_takes_work_s_events_with_their_interruption_and_links() {
         let again = relay.send(&request, TRACE).await.unwrap();
         assert_eq!(again.event_id, accepted.event_id);
     }
+}
+
+// T-99 X-25
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs the local environment with work-server paired"]
+async fn t_99_relay_keeps_the_item_and_the_correlation_id_of_work_s_event() {
+    let local = Local::open();
+    let (tokens, seed, _jkt) = tokens(&local, "item").await;
+    paired(&tokens).await;
+    let (reader, _seed, _jkt) = self::tokens(&local, "item-read").await;
+    let https = relay_https(&local);
+    let relay = Relay::new(&https, RelayCredential(tokens), RELAY_EVENTS).unwrap();
+    let installation = Installation::parse(INSTALLATION).unwrap();
+    let i = intent(&seed, 6, Class::Informational, None);
+    let request = EventRequest::new(&i, &[sub(&seed)], &installation).unwrap();
+    let item = json!({
+        "ref": format!("cnd_{}", hex(&seed)),
+        "version": "6",
+        "digest": format!("sha256:{}", hex(&[4; 32])),
+    });
+    let sent: Value = serde_json::from_slice(&request.body().unwrap()).unwrap();
+    assert_eq!(sent["item"], item);
+    assert_eq!(sent["correlation_id"], hex(&[4; 32]));
+    let accepted = relay.send(&request, TRACE).await.unwrap();
+    assert!(accepted.event_id.starts_with("evt_"), "{accepted:?}");
+    let answer = stored_event(&https, &RelayCredential(reader), &accepted.event_id).await;
+    assert_eq!(
+        answer.status,
+        200,
+        "{}",
+        String::from_utf8_lossy(&answer.body)
+    );
+    let kept: Value = serde_json::from_slice(&answer.body).unwrap();
+    assert_eq!(kept["id"], accepted.event_id.as_str(), "{kept}");
+    assert_eq!(kept["item"], item, "{kept}");
+    assert_eq!(kept["correlation_id"], hex(&[4; 32]), "{kept}");
+    assert_eq!(kept["dedup_key"], i.key().as_str(), "{kept}");
 }
 
 // T-99 E-83

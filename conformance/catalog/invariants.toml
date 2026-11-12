@@ -644,7 +644,8 @@ stage = 3
 title = ""
 tests = [
   "crates/access-client/src/domain/eligibility.rs::e_15_access_receives_only_opaque_references_and_the_typed_set",
-  "crates/relay-client/src/domain/request.rs::e_15_the_event_carries_no_record_content_and_no_field_relay_does_not_serve",
+  "crates/relay-client/src/domain/request.rs::e_15_the_event_carries_the_record_s_id_and_position_and_none_of_its_content",
+  "crates/relay-client/src/domain/waitpoint.rs::t_99_a_waitpoint_matches_the_condition_and_names_its_opening_record",
 ]
 
 [[rule]]
@@ -688,7 +689,10 @@ family = "E"
 status = "canonical-invariant"
 stage = 7
 title = ""
-tests = []
+tests = [
+  "crates/relay-client/src/app/inbound.rs::p_114_relay_is_the_author_of_nothing",
+  "crates/relay-client/src/domain/inbound.rs::t_100_engagement_events_write_no_record",
+]
 
 [[rule]]
 id = "E-25"
@@ -2270,6 +2274,8 @@ tests = [
   "crates/relay-client/src/app.rs::t_28_an_unreachable_relay_keeps_the_intent_and_a_later_pass_sends_it_with_the_same_key",
   "crates/relay-client/src/app.rs::t_99_a_refused_event_leaves_the_outbox_with_its_code",
   "crates/relay-client/src/app.rs::t_99_a_token_relay_does_not_take_is_dropped_before_the_next_call",
+  "crates/relay-client/src/app/inbound.rs::t_100_an_event_is_asked_for_again_while_relay_s_keys_or_the_rows_do_not_answer",
+  "crates/relay-client/src/app/waits.rs::t_99_a_missing_waitpoint_capability_keeps_the_request_in_the_outbox",
   "crates/relay-client/src/domain/answer.rs::t_28_an_outage_is_temporary_and_a_refusal_is_permanent",
 ]
 
