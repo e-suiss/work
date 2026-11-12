@@ -613,6 +613,28 @@ jobs:
           for _ in $(seq 1 180); do test "$(c logs work-server | grep -c 'access.pairing_ran')" -ge 2 && break; sleep 1; done
           c logs work-server | grep 'access.pairing_ran' | tail -n 1 | grep -q '"paired":0'
           q -c "select tenant, slug, paired_at from work.access_realm where state = 'paired' order by tenant, slug" | diff "$RUNNER_TEMP/paired-before" -
+      - name: Access pushes organization.created for the synthetic organization the local environment opens once Work's stream is up, work-server maps it once under Access's id, and a reconciliation over a snapshot that lists no organization keeps it (E-3, T-96, T-102, T-41)
+        run: |
+          c() { docker compose -f deploy/compose/compose.yaml "$@"; }
+          q() { c exec -T -e PGPASSWORD=local-only-not-a-secret work-postgres psql -h 127.0.0.1 -U work_app -d work -tA "$@"; }
+          c exec -T access cat /var/lib/access/bootstrap/bootstrap.json > "$RUNNER_TEMP/bootstrap-first.json"
+          acme="$(jq -er '.realms[] | select(.slug == "acme") | .tenant' "$RUNNER_TEMP/bootstrap-first.json")"
+          c exec -T access cat /var/lib/access/bootstrap/organization.json | jq -e '.support_operator.organisation == "Acme Support" and (.support_operator.organisation_party | length) > 0'
+          for _ in $(seq 1 180); do c logs work-server | grep 'access.event_accepted' | grep 'organization.created' | grep -q "$acme" && break; sleep 1; done
+          c logs work-server | grep 'access.event_accepted' | grep 'organization.created' | grep "$acme"
+          c logs work-server | grep 'access.organization_mapped' | grep -q "$acme"
+          if c logs work-server | grep -q 'access.event_refused'; then c logs work-server | grep 'access.event_refused'; exit 1; fi
+          q -c "select tenant, organization, origin, access_pos, access_idx, changed_at, mapped_at from work.access_organization order by tenant, organization"
+          test "$(q -c "select count(*) from work.access_organization where tenant = '$acme' and origin = 'event' and access_pos is not null and changed_at is not null")" = 1
+          q -c "select organization from work.access_organization where tenant = '$acme'" > "$RUNNER_TEMP/organization-before"
+          c logs work-server | grep 'access.event_accepted' | grep 'membership.added' | grep -q "$acme"
+          runs="$(c logs work-server | grep -c 'access.pairing_ran')"
+          c restart work-server
+          for _ in $(seq 1 180); do test "$(c logs work-server | grep -c 'access.pairing_ran')" -gt "$runs" && break; sleep 1; done
+          test "$(c logs work-server | grep -c 'access.pairing_ran')" -gt "$runs"
+          if c logs work-server | grep -q 'access.organization_unlisted'; then exit 1; fi
+          q -c "select organization from work.access_organization where tenant = '$acme'" | diff "$RUNNER_TEMP/organization-before" -
+          curl -fsS --cacert "$RUNNER_TEMP/access-ca.crt" https://access-server:8443/.well-known/suiss-configuration/realms/platform | jq -e '.endpoints.relay_status | startswith("https://")'
       - name: The signed key lookup, real user tokens from Access's client and Work's own, and the reads work-server serves for that user (T-101, T-104, T-97)
         env:
           NEXTEST_PROFILE: ci
@@ -680,6 +702,18 @@ jobs:
           test "$(q -c "select set_config('app.ledger_id', '$scope', false)" -c "select count(*) from work.inbound_seen where source = 'https://access-server:8443/realms/platform'" | tail -n 1)" = 1
           for _ in $(seq 1 120); do test "$(q -c "select count(*) from work.access_realm where tenant = '$beta' and state = 'paired'")" -ge 1 && break; sleep 1; done
           test "$(q -c "select count(*) from work.access_realm where tenant = '$beta' and state = 'paired'")" -ge 1
+      - name: The same bootstrap opens a second organization in acme, and Access's organization.created maps it beside the first (E-3, T-102)
+        run: |
+          c() { docker compose -f deploy/compose/compose.yaml "$@"; }
+          q() { c exec -T -e PGPASSWORD=local-only-not-a-secret work-postgres psql -h 127.0.0.1 -U work_app -d work -tA "$@"; }
+          acme="$(jq -er '.realms[] | select(.slug == "acme") | .tenant' "$RUNNER_TEMP/bootstrap-beta.json")"
+          jq -e '.breakglass_account.organisation == "Acme Security"' "$RUNNER_TEMP/bootstrap-beta.json"
+          for _ in $(seq 1 180); do test "$(q -c "select count(*) from work.access_organization where tenant = '$acme'")" -ge 2 && break; sleep 1; done
+          q -c "select tenant, organization, origin, access_pos, access_idx from work.access_organization order by tenant, organization"
+          test "$(q -c "select count(*) from work.access_organization where tenant = '$acme' and origin = 'event'")" = 2
+          test "$(q -c "select count(distinct (access_pos, access_idx)) from work.access_organization where tenant = '$acme'")" = 2
+          test "$(c logs work-server | grep 'access.organization_mapped' | grep -c "$acme")" = 2
+          if c logs work-server | grep -q 'access.event_refused'; then c logs work-server | grep 'access.event_refused'; exit 1; fi
       - name: A compromise declaration reaches the entry as party.compromised with its window, which drops the domain's keys and raises a signal (T-102)
         run: |
           c() { docker compose -f deploy/compose/compose.yaml "$@"; }
@@ -805,7 +839,7 @@ jobs:
           if c logs work-server | grep -q 'access.event_refused'; then c logs work-server | grep 'access.event_refused'; exit 1; fi
       - name: Logs on failure
         if: failure()
-        run: docker compose -f deploy/compose/compose.yaml logs --no-color --tail 200 work-access-keys work-access-pep work-server-tls work-access-client-id work-migrate access-init access-migrate access-bootstrap access-signer access-identity-signer access relay-keys relay-init relay relay-register nts-a nts-b roughtime-a roughtime-b roughtime-c s3 witness work-signer work-server
+        run: docker compose -f deploy/compose/compose.yaml logs --no-color --tail 200 work-access-keys work-access-pep work-server-tls work-access-client-id work-migrate access-init access-migrate access-bootstrap access-signer access-identity-signer access access-organization relay-keys relay-init relay relay-register nts-a nts-b roughtime-a roughtime-b roughtime-c s3 witness work-signer work-server
       - name: Stop
         if: always()
         run: just dev-down

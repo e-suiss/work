@@ -25,6 +25,12 @@ redirect_uri = "http://127.0.0.1/cb"
 [compromise]
 realm = "acme"
 
+# E-3
+[breakglass_account]
+realm = "acme"
+identifier = "oncall@acme.example"
+organisation = "Acme Security"
+
 [[products]]
 product = "work"
 display_name = "Suiss Work"

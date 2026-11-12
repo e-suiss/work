@@ -1,0 +1,36 @@
+# E-3, T-96, T-41, OP-27
+platform = "platform"
+tenants = ["acme"]
+issuer_style = "path"
+
+# T-101, E-45
+[sample]
+realm = "acme"
+namespace = "work"
+action = "approve"
+allowed = "commit"
+resource_namespace = "work.ledger"
+resource_path_prefix = "led_"
+step_up = "aal2"
+
+# T-104, T-102
+[test_user]
+realm = "acme"
+identifier = "test@acme.example"
+password_env = "BOOTSTRAP_TEST_PASSWORD"
+client_display_name = "Local test client"
+redirect_uri = "http://127.0.0.1/cb"
+
+# T-102
+[compromise]
+realm = "acme"
+
+# E-3
+[support_operator]
+realm = "acme"
+display_name = "Mehmet Y."
+organisation = "Acme Support"
+identifier = "support@acme.example"
+password_env = "BOOTSTRAP_TEST_PASSWORD"
+case_system = "local-desk"
+case = "4411"

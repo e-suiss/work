@@ -759,6 +759,32 @@ services:
       timeout: 3s
       retries: 30
 
+  # E-3, T-96, T-41, OP-27
+  access-organization:
+    <<: *access-process
+    image: ghcr.io/e-suiss/access@sha256:ae11d93ae606b29b097ebc16018e10bc47bb60deb2be1a8ec97caa86b289bbef
+    entrypoint: ["sh", "-c"]
+    command:
+      - "until curl -fsS http://work-server:8091/metrics | grep -qx 'work_access_event_stream_up 1'; do sleep 2; done; n=0; until access-server bootstrap /etc/work-access/bootstrap-work-organization.toml > /var/lib/access/bootstrap/organization.json.new; do n=$$((n + 1)); [ $$n -lt 30 ] || exit 1; sleep 2; done; mv /var/lib/access/bootstrap/organization.json.new /var/lib/access/bootstrap/organization.json && cat /var/lib/access/bootstrap/organization.json"
+    environment:
+      ACCESS_CONFIG: /etc/access/local/access.toml
+      ACCESS_SUISS: *access-suiss
+      ACCESS_DELIVERY_TARGETS: '[{url="https://work-server:8443/v1/inbound/events", ca_file="/var/lib/access/certs/ca.crt"}, {url="https://relay/v1/access/events", ca_file="/var/lib/access/certs/ca.crt"}]'
+      BOOTSTRAP_TEST_PASSWORD: ${ACCESS_LOCAL_TEST_PASSWORD:-local-only-not-a-secret}
+    volumes:
+      - access-certs:/var/lib/access/certs:ro
+      - access-secrets:/var/lib/access/secrets:ro
+      - access-softhsm:/var/lib/softhsm/tokens
+      - access-sockets:/run/access
+      - access-bootstrap:/var/lib/access/bootstrap
+      - ./access/bootstrap-work-organization.toml:/etc/work-access/bootstrap-work-organization.toml:ro
+    depends_on:
+      access:
+        condition: service_healthy
+      work-server:
+        condition: service_started
+    networks: [access]
+
   mailpit:
     <<: *hardening
     image: axllent/mailpit@sha256:ed9b00c609e77e99c79b93f1178255ebc271868920f2c69a8d166bd5634ed10d # v1.31.3
