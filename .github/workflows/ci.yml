@@ -631,7 +631,7 @@ jobs:
           test "$(post -H "webhook-id: $id" -H "webhook-timestamp: $now" -H "webhook-signature: v1a,$signature" --data-binary "$body")" = 401
           test "$(post -H "webhook-id: $id" -H "webhook-timestamp: $now" -H "webhook-signature: v1,$signature" --data-binary "$body")" = 401
           c logs work-server | grep 'relay.event_refused' | grep -q 'a webhook profile header is missing'
-          c logs work-server | grep 'relay.event_refused' | grep -q 'no signature verifies under a product event key'
+          c logs work-server | grep 'relay.event_refused' | grep -q 'the signature verifies under none of the product event keys'
           if c logs work-server | grep -q 'relay.event_accepted'; then exit 1; fi
       - name: A ledger opens in work-server's cell, and work-server writes nothing into it for an intent that names no Work ledger (E-17, E-45, P-13)
         env:

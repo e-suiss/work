@@ -39,7 +39,7 @@ pub enum Refusal {
     #[error("the webhook timestamp is outside the tolerance")]
     Timestamp,
     /// No `v1a` signature verifies under a key of the key set.
-    #[error("no signature verifies under a product event key")]
+    #[error("the signature verifies under none of the product event keys")]
     Signature,
     /// `source` is not Relay's issuer.
     #[error("the source is not the Relay issuer")]
@@ -48,7 +48,7 @@ pub enum Refusal {
     #[error("the body is not the CloudEvents event the headers name")]
     Envelope,
     /// `accesstenant` is missing or not an Access tenant id.
-    #[error("the event names no Access tenant")]
+    #[error("the event does not name its Access tenant")]
     Tenant,
 }
 
