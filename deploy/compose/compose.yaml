@@ -71,7 +71,7 @@ x-relay-env: &relay-env
   AUDIT_S3_SECRET_ACCESS_KEY_FILE: /run/secrets/relay-s3-secret
 
 # T-99, T-96, E-4
-x-access-suiss: &access-suiss '{region="eu", relay="https://relay", management_api="https://access-server:8443", products={work="https://work:8443"}}'
+x-access-suiss: &access-suiss '{region="eu", relay="https://relay", products={work="https://work:8443"}}'
 
 
 services:
@@ -561,6 +561,10 @@ services:
     image: ghcr.io/e-suiss/access@sha256:ae11d93ae606b29b097ebc16018e10bc47bb60deb2be1a8ec97caa86b289bbef
     command: ["access-signer"]
     restart: unless-stopped
+    ulimits:
+      memlock:
+        soft: 1048576
+        hard: 1048576
     environment:
       ACCESS_SIGNER_CONFIG: /etc/access/local/access-signer.toml
     volumes:
@@ -584,6 +588,10 @@ services:
     image: ghcr.io/e-suiss/access@sha256:ae11d93ae606b29b097ebc16018e10bc47bb60deb2be1a8ec97caa86b289bbef
     command: ["access-identity-signer"]
     restart: unless-stopped
+    ulimits:
+      memlock:
+        soft: 1048576
+        hard: 1048576
     environment:
       ACCESS_IDENTITY_SIGNER_CONFIG: /etc/access/local/access-identity-signer.toml
     volumes:
@@ -738,14 +746,15 @@ services:
       - access-bootstrap:/var/lib/access/bootstrap:ro
     ports:
       - "127.0.0.1:8443:8443"
+      - "127.0.0.1:${WORK_DEV_ACCESS_ADMIN_PORT:-9443}:9443"
     depends_on:
       access-bootstrap:
         condition: service_completed_successfully
     networks:
       access:
-        aliases: [access-server]
+        aliases: [access-server, access-server.local]
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "--cacert", "/var/lib/access/certs/ca.crt", "https://localhost:8443/healthz"]
+      test: ["CMD", "curl", "-fsS", "--cacert", "/var/lib/access/certs/ca.crt", "https://localhost:9090/readyz"]
       interval: 2s
       timeout: 3s
       retries: 30

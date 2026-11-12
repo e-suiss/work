@@ -568,8 +568,10 @@ jobs:
         run: |
           c() { docker compose -f deploy/compose/compose.yaml "$@"; }
           c exec -T access cat /var/lib/access/certs/ca.crt > "$RUNNER_TEMP/access-ca.crt"
-          for _ in $(seq 1 60); do curl -fsS --cacert "$RUNNER_TEMP/access-ca.crt" https://access-server:8443/healthz >/dev/null 2>&1 && break; sleep 1; done
-          curl -fsS --cacert "$RUNNER_TEMP/access-ca.crt" https://access-server:8443/healthz
+          doc=https://access-server:8443/.well-known/suiss-configuration/realms/platform
+          for _ in $(seq 1 60); do curl -fsS --cacert "$RUNNER_TEMP/access-ca.crt" "$doc" >/dev/null 2>&1 && break; sleep 1; done
+          curl -fsS --cacert "$RUNNER_TEMP/access-ca.crt" "$doc" | jq -e '.issuer == "https://access-server:8443/realms/platform"'
+          c exec -T access curl -fsS --cacert /var/lib/access/certs/ca.crt https://localhost:9090/readyz
           c exec -T access cat /var/lib/access/bootstrap/bootstrap.json | grep -q '"product": *"work"'
           for _ in $(seq 1 60); do curl -fsS http://127.0.0.1:4010/readyz >/dev/null 2>&1 && break; sleep 1; done
           curl -fsS http://127.0.0.1:4010/readyz
