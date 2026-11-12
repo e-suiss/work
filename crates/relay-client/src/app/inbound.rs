@@ -355,6 +355,14 @@ mod tests {
 
     const JWKS_URI: &str = "https://relay.example/.well-known/relay-jwks.json";
 
+    #[derive(Clone, Default)]
+    enum Directory {
+        #[default]
+        Down,
+        Unknown,
+        Party(String),
+    }
+
     #[derive(Default)]
     struct World {
         discovered: bool,
@@ -364,7 +372,7 @@ mod tests {
         paired: bool,
         rows: Mutex<BTreeSet<(String, String, String)>>,
         rows_down: bool,
-        party: Option<Option<String>>,
+        directory: Directory,
         attributed: Mutex<Vec<(String, Attribution)>>,
     }
 
@@ -375,7 +383,7 @@ mod tests {
                 published: Mutex::new(Some(jwks(keys))),
                 now_ms: AtomicU64::new(NOW_MS),
                 paired: true,
-                party: Some(Some("AAECAwQFBgcICQoLDA0ODw".to_owned())),
+                directory: Directory::Party("AAECAwQFBgcICQoLDA0ODw".to_owned()),
                 ..Self::default()
             }
         }
@@ -465,11 +473,11 @@ mod tests {
         ) -> impl Future<Output = Result<Option<String>, Unavailable>> + Send {
             assert_eq!(client_id, "app_relay");
             assert_eq!(sub, "sub-1");
-            std::future::ready(
-                self.party
-                    .clone()
-                    .ok_or_else(|| Unavailable("access".to_owned())),
-            )
+            std::future::ready(match self.directory.clone() {
+                Directory::Down => Err(Unavailable("access".to_owned())),
+                Directory::Unknown => Ok(None),
+                Directory::Party(party) => Ok(Some(party)),
+            })
         }
     }
 
@@ -685,7 +693,7 @@ mod tests {
             Some(&Attribution::Unattributed(Unattributable::ChannelClaim))
         );
         let unknown = World {
-            party: Some(None),
+            directory: Directory::Unknown,
             ..World::with(&[&k])
         };
         let (w, b) = send("evt_3", "access_aas_ref");
@@ -694,7 +702,7 @@ mod tests {
             Some(&Attribution::Unattributed(Unattributable::Unresolved))
         );
         let down = World {
-            party: None,
+            directory: Directory::Down,
             ..World::with(&[&k])
         };
         assert_eq!(down.intake().receive(Some(&w), &b).await.status(), 503);

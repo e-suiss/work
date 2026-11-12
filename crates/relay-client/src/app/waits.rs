@@ -213,15 +213,15 @@ mod tests {
         IdempotencyKey::of(&[7; 32], 42, "gate_waiting")
     }
 
-    fn answer(status: u16, body: &serde_json::Value) -> Result<Response, RelayError> {
-        Ok(Response {
+    fn answer(status: u16, body: &serde_json::Value) -> Response {
+        Response {
             status,
             headers: Vec::new(),
             body: body.to_string().into_bytes(),
-        })
+        }
     }
 
-    fn waitpoint(id: &str) -> Result<Response, RelayError> {
+    fn waitpoint(id: &str) -> Response {
         answer(
             201,
             &serde_json::json!({"object": "waitpoint", "id": id, "state": "open"}),
@@ -298,9 +298,15 @@ mod tests {
     #[tokio::test]
     async fn t_99_a_waitpoint_and_its_policy_go_to_the_endpoints_discovery_offers() {
         let wire = Wire::answering(vec![
-            answer(201, &serde_json::json!({"object": "escalation_policy"})),
-            waitpoint(WP_OLD),
-            answer(428, &serde_json::json!({"code": "precondition_required"})),
+            Ok(answer(
+                201,
+                &serde_json::json!({"object": "escalation_policy"}),
+            )),
+            Ok(waitpoint(WP_OLD)),
+            Ok(answer(
+                428,
+                &serde_json::json!({"code": "precondition_required"}),
+            )),
             Ok(refusal(422, "escalation_responder_outside_set", false)),
         ]);
         let relay = Relay::new(&wire, Token, EVENTS).unwrap().offering(all());
@@ -352,12 +358,15 @@ mod tests {
     #[tokio::test]
     async fn t_99_a_membership_change_replaces_the_waitpoint() {
         let wire = Wire::answering(vec![
-            answer(201, &serde_json::json!({"object": "escalation_policy"})),
-            answer(
+            Ok(answer(
+                201,
+                &serde_json::json!({"object": "escalation_policy"}),
+            )),
+            Ok(answer(
                 200,
                 &serde_json::json!({"object": "waitpoint", "id": WP_OLD}),
-            ),
-            waitpoint(WP_NEW),
+            )),
+            Ok(waitpoint(WP_NEW)),
         ]);
         let relay = Relay::new(&wire, Token, EVENTS).unwrap().offering(all());
         let left = policy().remaining(&[6; 32], 300).unwrap();
@@ -377,6 +386,14 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(new.as_str(), WP_NEW);
+        let down = Wire::answering(vec![Ok(refusal(503, "service_unavailable", true))]);
+        let offline = Relay::new(&down, Token, EVENTS).unwrap().offering(all());
+        let waiting = offline
+            .replace_waitpoint(&old, "membership_changed", None, &create, &key(), TRACE)
+            .await
+            .unwrap_err();
+        assert!(waiting.is_temporary());
+        assert_eq!(down.sent.lock().unwrap().len(), 1);
         let sent = wire.sent.lock().unwrap();
         let calls: Vec<(Method, &str)> = sent.iter().map(|r| (r.method, r.url.as_str())).collect();
         let policy_url = format!(
@@ -408,24 +425,18 @@ mod tests {
         assert_eq!(body["escalation_policy"]["key"], left.key());
         let tiers: serde_json::Value = serde_json::from_slice(&sent[0].body).unwrap();
         assert_eq!(tiers["tiers"][0]["after"], "PT600S");
-        drop(sent);
-        let down = Wire::answering(vec![Ok(refusal(503, "service_unavailable", true))]);
-        let relay = Relay::new(&down, Token, EVENTS).unwrap().offering(all());
-        let waiting = relay
-            .replace_waitpoint(&old, "membership_changed", None, &create, &key(), TRACE)
-            .await
-            .unwrap_err();
-        assert!(waiting.is_temporary());
-        assert_eq!(down.sent.lock().unwrap().len(), 1);
     }
 
     // T-99 E-23
     #[tokio::test]
     async fn t_99_a_ceiling_decision_goes_to_the_agent_and_a_conflict_takes_nothing_back() {
         let wire = Wire::answering(vec![
-            answer(201, &serde_json::json!({"object": "ceiling_decision"})),
+            Ok(answer(
+                201,
+                &serde_json::json!({"object": "ceiling_decision"}),
+            )),
             Ok(refusal(409, "ceiling_decision_conflict", false)),
-            answer(200, &serde_json::json!({"object": "agent_state"})),
+            Ok(answer(200, &serde_json::json!({"object": "agent_state"}))),
         ]);
         let relay = Relay::new(&wire, Token, EVENTS).unwrap().offering(all());
         let agent = AgentId::parse(AGENT).unwrap();
