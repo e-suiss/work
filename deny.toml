@@ -15,6 +15,8 @@ unsound = "all"
 yanked = "deny"
 ignore = [
     { id = "RUSTSEC-2026-0440", reason = "T-37: astral-tokio-tar is unmaintained since 2026-11-03 and reaches the graph only through testcontainers, a dev-dependency of work-testkit; no testcontainers release replaces it yet" },
+    { id = "RUSTSEC-2026-0374", reason = "T-38: basic-toml is unmaintained since 2026-09-26 and reaches the graph only through askama, the template engine of uniffi_bindgen, which generates the Swift and Kotlin bindings and is in no server binary; askama 0.16.1, its latest release, still depends on it" },
+    { id = "RUSTSEC-2026-0459", reason = "T-38: libsqlite3-sys 0.37.0 is in Cargo.lock only as the locked version of sqlx's optional SQLite driver, which Work does not enable and never builds (PostgreSQL only); sqlx-sqlite 0.9.0, the latest release, requires libsqlite3-sys < 0.38, so the fixed 0.39.0 cannot be locked" },
 ]
 
 # T-38
