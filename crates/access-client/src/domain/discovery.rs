@@ -692,7 +692,12 @@ mod tests {
     // T-96
     #[test]
     fn t_96_a_missing_endpoint_fails_closed_when_used() {
-        let doc = SuissConfiguration::from_json(EXAMPLE.as_bytes(), &acme()).unwrap();
+        let unserved = EXAMPLE.replace(
+            "\"instances\": \"https://acme.id.example/v1/me/instances\",",
+            "",
+        );
+        assert_ne!(unserved, EXAMPLE);
+        let doc = SuissConfiguration::from_json(unserved.as_bytes(), &acme()).unwrap();
         let err = doc.endpoints.get(Endpoint::Instances).unwrap_err();
         assert_eq!(err, AccessError::Unserved(Endpoint::Instances));
         assert_eq!(err.code(), "authority_unverifiable");
@@ -846,6 +851,10 @@ mod tests {
             (
                 "tenant_snapshot",
                 "https://access.example/access/v1/tenants/{tenant}/snapshot",
+            ),
+            (
+                "relay_status",
+                "https://access.example/access/v1/relay-status",
             ),
         ];
         let endpoints = Endpoints::from_pairs(served).unwrap();
