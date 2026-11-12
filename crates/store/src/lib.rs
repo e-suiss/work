@@ -19,6 +19,7 @@ mod id;
 mod idempotency;
 mod inbound;
 mod migrate;
+mod organization;
 mod outbox;
 mod publisher;
 mod reads;
@@ -52,6 +53,7 @@ pub use idempotency::{
 };
 pub use inbound::{InboundEvent, InboundSeen};
 pub use migrate::{Cluster, migrate, migrate_from_env};
+pub use organization::{OrganizationOrigin, OrganizationRow, OrganizationWrite};
 pub use outbox::{CommittedRecord, PendingEvent, PointerKey};
 pub use publisher::{
     DERIVER_ROLE, DeriverPool, DeriverRole, DiscoveryPool, DiscoveryRole, PUBLISHER_ROLE,

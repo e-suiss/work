@@ -11,6 +11,7 @@ pub mod events;
 pub mod exercise;
 pub mod keys;
 pub mod metadata;
+pub mod organizations;
 pub mod pairing;
 pub mod parties;
 pub mod realm;

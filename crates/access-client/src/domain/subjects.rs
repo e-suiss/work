@@ -279,6 +279,28 @@ impl SubjectCache {
         }
     }
 
+    /// Drops both directions of every entry that names `party` of `tenant`, as a
+    /// `party.disabled` event asks (T-102 item 5).
+    pub fn forget_party(&mut self, tenant: &TenantId, party: &[u8; 16]) {
+        let party = b64url(party);
+        let gone: Vec<(Key, u64)> = self
+            .entries
+            .iter()
+            .filter(|((t, _, _, direction, value), (answer, _))| {
+                t == tenant
+                    && match direction {
+                        Direction::Parties => *value == party,
+                        Direction::Subs => *answer == party,
+                    }
+            })
+            .map(|(key, (_, used))| (key.clone(), *used))
+            .collect();
+        for (key, used) in gone {
+            self.entries.remove(&key);
+            self.order.remove(&used);
+        }
+    }
+
     /// How many entries are held.
     #[must_use]
     pub fn len(&self) -> usize {
@@ -289,6 +311,56 @@ impl SubjectCache {
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.entries.is_empty()
+    }
+}
+
+/// How long a Party that Access disabled is refused as a caller (PD): longer than any access
+/// token Access issued before it disabled the Party stays valid.
+pub const DISABLED_HOLD_MS: u64 = 60 * 60 * 1000;
+
+/// The Parties Access disabled within [`DISABLED_HOLD_MS`] (T-102 item 5, T-28): a caller that
+/// resolves to one is refused although its token still verifies. Bounded; the oldest entry
+/// leaves first.
+#[derive(Debug, Default)]
+pub struct DisabledParties {
+    held: BTreeMap<(TenantId, [u8; 16]), u64>,
+    capacity: usize,
+}
+
+impl DisabledParties {
+    /// A set of at most `capacity` Parties.
+    #[must_use]
+    pub fn new(capacity: usize) -> Self {
+        Self {
+            held: BTreeMap::new(),
+            capacity,
+        }
+    }
+
+    /// Holds `party` of `tenant` from `now_ms`.
+    pub fn mark(&mut self, tenant: &TenantId, party: [u8; 16], now_ms: u64) {
+        self.held
+            .retain(|_, at| now_ms.saturating_sub(*at) <= DISABLED_HOLD_MS);
+        self.held.insert((tenant.clone(), party), now_ms);
+        while self.held.len() > self.capacity {
+            let Some(oldest) = self
+                .held
+                .iter()
+                .min_by_key(|(_, at)| **at)
+                .map(|(key, _)| key.clone())
+            else {
+                break;
+            };
+            self.held.remove(&oldest);
+        }
+    }
+
+    /// Whether `party` of `tenant` is held at `now_ms`.
+    #[must_use]
+    pub fn holds(&self, tenant: &TenantId, party: &[u8; 16], now_ms: u64) -> bool {
+        self.held
+            .get(&(tenant.clone(), *party))
+            .is_some_and(|at| now_ms.saturating_sub(*at) <= DISABLED_HOLD_MS)
     }
 }
 
@@ -468,5 +540,61 @@ mod tests {
         let mut none = SubjectCache::new(0);
         none.keep(&tenant(), REALM, "cli_web", &resolution(1));
         assert!(none.is_empty());
+    }
+
+    // T-102
+    #[test]
+    fn t_102_a_disabled_party_leaves_the_cache_in_both_directions() {
+        let mut cache = SubjectCache::new(8);
+        let pairs = Resolution {
+            pairs: vec![([1; 16], sub(1)), ([2; 16], sub(2))],
+            clients: Vec::new(),
+            unknown: Vec::new(),
+            consistency_token: "ct-1".to_owned(),
+        };
+        cache.keep(&tenant(), REALM, "cli_web", &pairs);
+        let other = TenantId::new("tnt_02").unwrap();
+        cache.keep(&other, REALM, "cli_web", &pairs);
+        assert_eq!(cache.len(), 8);
+        cache.forget_party(&tenant(), &[1; 16]);
+        assert_eq!(cache.len(), 6);
+        for (direction, value) in [(Direction::Parties, party(1)), (Direction::Subs, sub(1))] {
+            assert_eq!(
+                cache.get(&tenant(), REALM, "cli_web", direction, &value),
+                None
+            );
+            assert!(
+                cache
+                    .get(&other, REALM, "cli_web", direction, &value)
+                    .is_some()
+            );
+        }
+        assert_eq!(
+            cache.get(&tenant(), REALM, "cli_web", Direction::Subs, &sub(2)),
+            Some(party(2))
+        );
+        cache.forget_party(&tenant(), &[9; 16]);
+        assert_eq!(cache.len(), 6);
+    }
+
+    // T-102 T-28
+    #[test]
+    fn t_102_a_disabled_party_is_held_for_the_hold_and_the_oldest_leaves_a_full_set() {
+        let mut held = DisabledParties::new(2);
+        let t = tenant();
+        held.mark(&t, [1; 16], 1_000);
+        assert!(held.holds(&t, &[1; 16], 1_000));
+        assert!(held.holds(&t, &[1; 16], 1_000 + DISABLED_HOLD_MS));
+        assert!(!held.holds(&t, &[1; 16], 1_001 + DISABLED_HOLD_MS));
+        assert!(!held.holds(&t, &[2; 16], 1_000));
+        assert!(!held.holds(&TenantId::new("tnt_02").unwrap(), &[1; 16], 1_000));
+        held.mark(&t, [2; 16], 2_000);
+        held.mark(&t, [3; 16], 3_000);
+        assert!(!held.holds(&t, &[1; 16], 3_000));
+        assert!(held.holds(&t, &[2; 16], 3_000));
+        assert!(held.holds(&t, &[3; 16], 3_000));
+        held.mark(&t, [4; 16], 3_000 + DISABLED_HOLD_MS);
+        assert!(!held.holds(&t, &[2; 16], 3_000 + DISABLED_HOLD_MS));
+        assert!(held.holds(&t, &[3; 16], 3_000 + DISABLED_HOLD_MS));
     }
 }

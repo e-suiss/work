@@ -7,7 +7,9 @@ use access_kernel::codec::Canonical as _;
 use access_kernel::combinator::{Capacity, Mode};
 use access_kernel::digest::Digest;
 use access_kernel::intent::{ContextRefs, IntentEnvelope, intent_digest};
-use access_kernel::meta::{ActorKind, ExerciseBasis, Payload, Root, core_action as kernel_action, kind, object_id};
+use access_kernel::meta::{
+    ActorKind, ExerciseBasis, Payload, Root, core_action as kernel_action, kind, object_id,
+};
 use access_kernel::model::{ActionRef, Id, ResourceRef, Window};
 use access_kernel::verify::cose::PublicKey;
 use access_kernel::verify::key_scope::thumbprint;

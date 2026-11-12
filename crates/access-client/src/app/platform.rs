@@ -1,4 +1,4 @@
-//! The platform routes and Work's pairing step (T-101 item 8, T-103): every request carries a fresh client assertion as `Authorization: Bearer` and nothing else, no TLS client certificate and no `DPoP`. [`run`] is the one code path of start-up, the hourly reconciliation, `tenant.created` and `work-cli access pair`: it stores each tenant's live realms and retires the others, asks for challenges where a realm is not paired under the service key, checks and signs them, sends every signed target in one request, retries once with a new challenge, counts failed runs, and keeps Work's SSF push stream open.
+//! The platform routes and Work's pairing step (T-101 item 8, T-103): every request carries a fresh client assertion as `Authorization: Bearer` and nothing else, no TLS client certificate and no `DPoP`. [`run`] is the one code path of start-up, the hourly reconciliation, `tenant.created` and `work-cli access pair`: it maps the organizations each tenant's snapshot lists (E-3), stores each tenant's live realms and retires the others, asks for challenges where a realm is not paired under the service key, checks and signs them, sends every signed target in one request, retries once with a new challenge, counts failed runs, and keeps Work's SSF push stream open.
 
 use std::collections::BTreeSet;
 
@@ -10,6 +10,9 @@ use work_proto::id::TenantId;
 use crate::app::Client;
 use crate::domain::assertion::{Claims, compact};
 use crate::domain::discovery::{Endpoint, Endpoints, Issuer, percent};
+use crate::domain::organizations::{
+    OrganizationChange, OrganizationId, OrganizationOutcome, unlisted,
+};
 use crate::domain::pairing::{
     Answer, MAX_TARGETS, PairState, Plan, RealmChange, RealmId, STALLED_RUNS, Signed, Statements,
     StoredRealm, Unsignable, needs_pairing, pairing_body, plan_challenges, plan_result, retryable,
@@ -282,6 +285,20 @@ pub enum Signal {
         /// What failed.
         error: AccessError,
     },
+    /// The tenant snapshot lists an organization Work had not mapped; it is mapped now (E-3).
+    OrganizationMapped {
+        /// The tenant.
+        tenant: TenantId,
+        /// The organization.
+        organization: OrganizationId,
+    },
+    /// A mapped organization the tenant snapshot's list no longer names; the row stays.
+    OrganizationUnlisted {
+        /// The tenant.
+        tenant: TenantId,
+        /// The organization.
+        organization: OrganizationId,
+    },
     /// Work opened its stream again.
     StreamRecreated {
         /// The new stream.
@@ -306,6 +323,8 @@ impl Signal {
             Self::Cleared { .. } => "access.realm_paired_again",
             Self::Unpaired { .. } => "access.realm_unpaired",
             Self::Failed { .. } => "access.pairing_failed",
+            Self::OrganizationMapped { .. } => "access.organization_mapped",
+            Self::OrganizationUnlisted { .. } => "access.organization_unlisted",
             Self::StreamRecreated { .. } => "access.event_stream_recreated",
             Self::StreamDown { .. } => "access.event_stream_down",
         }
@@ -365,6 +384,24 @@ impl std::fmt::Display for Signal {
                 tenant: None,
                 error,
             } => write!(f, "{error}"),
+            Self::OrganizationMapped {
+                tenant,
+                organization,
+            } => write!(
+                f,
+                "{} organization {} mapped",
+                tenant.as_str(),
+                organization.as_str()
+            ),
+            Self::OrganizationUnlisted {
+                tenant,
+                organization,
+            } => write!(
+                f,
+                "{} organization {} is no longer listed by Access",
+                tenant.as_str(),
+                organization.as_str()
+            ),
             Self::StreamRecreated { stream } => write!(f, "event stream {stream} opened again"),
             Self::StreamDown { stream, status } => {
                 write!(f, "event stream {stream} is {}", status.as_str())
@@ -380,6 +417,8 @@ pub struct Report {
     pub tenants: usize,
     /// Realms that ended paired in this step.
     pub paired: usize,
+    /// Organizations the snapshots listed that this step mapped (E-3).
+    pub organizations: usize,
     /// The signals, in order.
     pub signals: Vec<Signal>,
     /// `work_access_unpaired_realms`, when the store answered.
@@ -544,6 +583,40 @@ async fn count_failures<S: PairingStore>(
     Ok(())
 }
 
+/// Maps every organization `snapshot` lists and reports the mapped ones a list no longer
+/// names (E-3, T-96 item 4).
+pub(crate) async fn organization_step<S: PairingStore>(
+    store: &S,
+    snapshot: &TenantSnapshot,
+    now: u64,
+    report: &mut Report,
+) -> Result<(), AccessError> {
+    let tenant = &snapshot.tenant;
+    for organization in &snapshot.organizations {
+        let change = OrganizationChange::Listed {
+            organization: organization.clone(),
+        };
+        if store.map_organization(tenant, &change, now).await? == OrganizationOutcome::Mapped {
+            report.organizations = report.organizations.saturating_add(1);
+            report.signals.push(Signal::OrganizationMapped {
+                tenant: tenant.clone(),
+                organization: organization.clone(),
+            });
+        }
+    }
+    if snapshot.organizations.is_empty() {
+        return Ok(());
+    }
+    let known = store.organizations(tenant).await?;
+    for organization in unlisted(&known, &snapshot.organizations) {
+        report.signals.push(Signal::OrganizationUnlisted {
+            tenant: tenant.clone(),
+            organization,
+        });
+    }
+    Ok(())
+}
+
 async fn tenant_step<P, D, R, K, S, V>(
     platform: &Platform<P, D, R, K>,
     step: &Step<'_, S, V>,
@@ -562,6 +635,7 @@ where
 {
     let tenant = &snapshot.tenant;
     let now = platform.now_ms();
+    organization_step(step.store, snapshot, now, report).await?;
     for change in snapshot_changes(&snapshot.realms) {
         step.store.apply(tenant, &change, now).await?;
     }

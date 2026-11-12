@@ -1,14 +1,17 @@
 //! Port implementations (T-32): Work's Access realm table and stream row in the canonical database, written as `work_access`, behind the pairing step's [`PairingStore`] port (T-103 item 5), and the deduplication rows of Access events in `work.inbound_seen`, written as `work_sequencer` in one scope per tenant, behind [`InboundLog`] (T-102 item 4).
 
 use sha2::{Digest as _, Sha256};
+use work_access_client::domain::organizations::{
+    OrganizationChange, OrganizationId, OrganizationOutcome,
+};
 use work_access_client::domain::pairing::{PairState, RealmChange, RealmId, StoredRealm};
 use work_access_client::domain::streams::StreamStatus;
 use work_access_client::domain::{AccessError, b64url, fixed_b64url};
 use work_access_client::ports::{Arrival, InboundLog, PairingStore, StoredStream};
 use work_proto::id::TenantId;
 use work_store::{
-    AccessPool, InboundEvent, InboundSeen, LedgerId, Pairing, RealmRow, RealmState, SequencerPool,
-    StoreError, StreamRow, StreamState,
+    AccessPool, InboundEvent, InboundSeen, LedgerId, OrganizationWrite, Pairing, RealmRow,
+    RealmState, SequencerPool, StoreError, StreamRow, StreamState,
 };
 
 /// Work's realm table and stream row in PostgreSQL.
@@ -139,6 +142,58 @@ impl PairingStore for PgPairing {
 
     async fn stalled(&self, runs: u64) -> Result<u64, AccessError> {
         self.pool.stalled(runs).await.map_err(|e| store(&e))
+    }
+
+    async fn organizations(&self, tenant: &TenantId) -> Result<Vec<OrganizationId>, AccessError> {
+        self.pool
+            .organizations(tenant.as_str())
+            .await
+            .map_err(|e| store(&e))?
+            .iter()
+            .map(|row| OrganizationId::parse(&row.organization))
+            .collect()
+    }
+
+    async fn map_organization(
+        &self,
+        tenant: &TenantId,
+        change: &OrganizationChange,
+        at_ms: u64,
+    ) -> Result<OrganizationOutcome, AccessError> {
+        let t = tenant.as_str();
+        match change {
+            OrganizationChange::Listed { organization } => self
+                .pool
+                .organization_listed(t, organization.as_str(), at_ms)
+                .await
+                .map(|opened| {
+                    if opened {
+                        OrganizationOutcome::Mapped
+                    } else {
+                        OrganizationOutcome::Known
+                    }
+                }),
+            OrganizationChange::Event {
+                organization,
+                position,
+                at_ms: changed_at_ms,
+            } => self
+                .pool
+                .organization_event(
+                    t,
+                    organization.as_str(),
+                    (position.pos, position.idx),
+                    *changed_at_ms,
+                    at_ms,
+                )
+                .await
+                .map(|write| match write {
+                    OrganizationWrite::Mapped => OrganizationOutcome::Mapped,
+                    OrganizationWrite::Moved => OrganizationOutcome::Moved,
+                    OrganizationWrite::Stale => OrganizationOutcome::Known,
+                }),
+        }
+        .map_err(|e| store(&e))
     }
 
     async fn stream(&self) -> Result<Option<StoredStream>, AccessError> {

@@ -1,4 +1,4 @@
-//! Tenant snapshots and their reconciliation (T-96 item 4 and note; Access OP-149 m.4, m.15 (i), (j)): Access tenant ids are kept opaque in Access's spelling, a snapshot whose `version` did not change is no work, organizations stay unread until Access's organization model, and a tenant Work knows that Access no longer lists is reported, never removed.
+//! Tenant snapshots and their reconciliation (T-96 item 4 and note; Access OP-149 m.4, m.15 (i), (j)): Access tenant ids are kept opaque in Access's spelling, a snapshot whose `version` did not change is no work, the organizations it lists are Access's organization ids (E-3), and a tenant Work knows that Access no longer lists is reported, never removed.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -7,6 +7,7 @@ use work_proto::id::TenantId;
 
 use crate::domain::AccessError;
 use crate::domain::discovery::{Issuer, Template};
+use crate::domain::organizations::OrganizationId;
 use crate::domain::pairing::RealmId;
 
 /// How often the reconciliation runs, besides at start (T-96 item 4).
@@ -87,8 +88,9 @@ pub struct TenantSnapshot {
     pub status: TenantStatus,
     /// Changes exactly when the snapshot does.
     pub version: String,
-    /// Organization count; empty until Access's organization model, and unread by Work.
-    pub organizations: usize,
+    /// The organizations of the tenant, each a Work organization (E-3); Access serves the list
+    /// empty until its snapshot carries them.
+    pub organizations: Vec<OrganizationId>,
     /// The tenant's live realms; every realm Work pairs with (T-103).
     pub realms: Vec<SnapshotRealm>,
 }
@@ -118,7 +120,11 @@ fn snapshot(w: SnapshotWire) -> Result<TenantSnapshot, AccessError> {
         region: w.region,
         status,
         version: w.version,
-        organizations: w.organizations.len(),
+        organizations: w
+            .organizations
+            .iter()
+            .map(|o| OrganizationId::parse(o).map_err(|_| AccessError::Answer("organizations")))
+            .collect::<Result<_, _>>()?,
         realms: w.realms.into_iter().map(realm).collect::<Result<_, _>>()?,
     })
 }
@@ -230,14 +236,14 @@ mod tests {
             region: region.to_owned(),
             status: TenantStatus::Active,
             version: version.to_owned(),
-            organizations: 0,
+            organizations: Vec::new(),
             realms: Vec::new(),
         }
     }
 
     // T-96
     #[test]
-    fn t_96_tenant_ids_stay_opaque_and_organizations_unread() {
+    fn t_96_tenant_ids_stay_opaque_and_the_status_is_one_access_names() {
         let page = TenantPage::from_json(
             br#"{"tenants": [{"tenant": "tnt_01HZ", "organizations": [], "region": "eu-central", "status": "active", "version": "v1", "retention": {}}], "next_cursor": "tnt_01HZ"}"#,
         )
@@ -262,7 +268,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(household.tenant.as_str(), "tnt_home");
-        assert_eq!(household.organizations, 0);
+        assert_eq!(household.organizations, Vec::new());
         let company = tenant("tnt_acme", "v1", "eu-central");
         assert_eq!(
             plan(
@@ -279,6 +285,31 @@ mod tests {
         assert_eq!(
             plan(&known, std::slice::from_ref(&household), "eu-central"),
             Vec::new()
+        );
+    }
+
+    // E-3 T-96
+    #[test]
+    fn e_3_the_snapshot_s_organizations_are_access_s_organization_ids() {
+        let one = TenantSnapshot::from_json(
+            br#"{"tenant": "tnt_01", "organizations": ["019a0000-0000-7000-8000-0000000000b1", "019a0000-0000-7000-8000-0000000000b2"], "realms": [], "region": "eu-central", "status": "active", "version": "v1", "retention": {}}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            one.organizations
+                .iter()
+                .map(OrganizationId::as_str)
+                .collect::<Vec<_>>(),
+            [
+                "019a0000-0000-7000-8000-0000000000b1",
+                "019a0000-0000-7000-8000-0000000000b2"
+            ]
+        );
+        assert_eq!(
+            TenantSnapshot::from_json(
+                br#"{"tenant": "tnt_01", "organizations": ["org_1"], "realms": [], "region": "eu-central", "status": "active", "version": "v1", "retention": {}}"#,
+            ),
+            Err(AccessError::Answer("organizations"))
         );
     }
 

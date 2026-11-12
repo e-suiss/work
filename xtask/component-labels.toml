@@ -122,7 +122,7 @@ enforced_by = [
 name = "reconciler/input"
 label = "DERIVED"
 crates = ["crates/reconciler"]
-tables = ["derived.reconcile_queue", "work.access_event_stream", "work.access_realm"]
+tables = ["derived.reconcile_queue", "work.access_event_stream", "work.access_organization", "work.access_realm"]
 never = "no workflow engine owns Work state"
 open = "the reconciler is not written yet"
 

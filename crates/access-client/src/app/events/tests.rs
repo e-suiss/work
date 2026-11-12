@@ -1,6 +1,6 @@
 #![allow(clippy::arithmetic_side_effects, reason = "test code")]
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::future::ready;
 use std::sync::{Arc, Mutex};
 
@@ -18,6 +18,7 @@ use crate::domain::events::{CLOUDEVENTS_CONTENT_TYPE, SET_CONTENT_TYPE};
 use crate::domain::fixed_b64url;
 use crate::domain::keys::tests::domain_named;
 use crate::domain::keys::{AsOf, DomainId, verify_answer};
+use crate::domain::organizations::{AccessPosition, OrganizationId};
 use crate::domain::pairing::{RealmChange, RealmId, StoredRealm};
 use crate::domain::streams::StreamStatus;
 use crate::ports::{Request, Response, StoredStream};
@@ -42,9 +43,13 @@ impl Transport for Offline {
     }
 }
 
-/// Work's realm table with the tenants paired so far.
+/// Work's realm table with the tenants paired so far, and its organization map.
 #[derive(Default)]
-struct Realms(BTreeSet<String>);
+struct Realms(
+    BTreeSet<String>,
+    Mutex<BTreeMap<(String, OrganizationId), Option<AccessPosition>>>,
+    Mutex<bool>,
+);
 
 impl PairingStore for Realms {
     fn realms(
@@ -73,6 +78,48 @@ impl PairingStore for Realms {
 
     fn stalled(&self, _runs: u64) -> impl Future<Output = Result<u64, AccessError>> + Send {
         ready(Ok(0))
+    }
+
+    fn organizations(
+        &self,
+        tenant: &TenantId,
+    ) -> impl Future<Output = Result<Vec<OrganizationId>, AccessError>> + Send {
+        ready(Ok(self
+            .1
+            .lock()
+            .unwrap()
+            .keys()
+            .filter(|(t, _)| t == tenant.as_str())
+            .map(|(_, o)| o.clone())
+            .collect()))
+    }
+
+    fn map_organization(
+        &self,
+        tenant: &TenantId,
+        change: &OrganizationChange,
+        _at_ms: u64,
+    ) -> impl Future<Output = Result<OrganizationOutcome, AccessError>> + Send {
+        if *self.2.lock().unwrap() {
+            return ready(Err(AccessError::Transport("store".to_owned())));
+        }
+        let key = (tenant.as_str().to_owned(), change.organization().clone());
+        let mut map = self.1.lock().unwrap();
+        let at = match change {
+            OrganizationChange::Listed { .. } => None,
+            OrganizationChange::Event { position, .. } => Some(*position),
+        };
+        ready(Ok(match map.get(&key).copied() {
+            None => {
+                map.insert(key, at);
+                OrganizationOutcome::Mapped
+            }
+            Some(before) if at.is_some() && before < at => {
+                map.insert(key, at);
+                OrganizationOutcome::Moved
+            }
+            Some(_) => OrganizationOutcome::Known,
+        }))
     }
 
     fn stream(&self) -> impl Future<Output = Result<Option<StoredStream>, AccessError>> + Send {
@@ -127,6 +174,14 @@ impl Effects for Done {
             .push(format!("forget {}", domain.text()));
     }
 
+    fn disable_party(&self, tenant: &TenantId, party: [u8; 16]) {
+        self.1.disable_party(tenant, party).unwrap();
+        self.0
+            .lock()
+            .unwrap()
+            .push(format!("disable party {}", b64url(&party)));
+    }
+
     fn disable_client(&self) {
         self.1.disable().unwrap();
         self.0.lock().unwrap().push("disable".to_owned());
@@ -169,7 +224,11 @@ impl World {
             keys,
             done: Done(Mutex::new(Vec::new()), Arc::clone(&client)),
             client,
-            realms: Realms(BTreeSet::from([TENANT.to_owned()])),
+            realms: Realms(
+                BTreeSet::from([TENANT.to_owned()]),
+                Mutex::default(),
+                Mutex::new(false),
+            ),
             seen: Seen::default(),
         }
     }
@@ -385,23 +444,158 @@ async fn t_102_only_works_own_disabled_client_fails_closed() {
     assert_eq!(w.client.consequential(), Err(AccessError::Disabled));
 }
 
+// T-102 T-28
+#[tokio::test]
+async fn t_102_a_disabled_party_loses_its_cache_and_is_refused_as_a_caller() {
+    let w = World::new("t102-party-disabled");
+    let tenant = TenantId::new(TENANT).unwrap();
+    let party = b64url(&[2; 16]);
+    assert!(!w.client.party_disabled(&tenant, &[2; 16]));
+    let named = json!({"domain": DOMAIN, "source": {"exercise": DOMAIN}, "party": party, "at": NOW, "reason_class": "departed", "access_position": {"pos": 7, "idx": 0}});
+    let first = w
+        .push(
+            SET_CONTENT_TYPE,
+            &w.set("party.disabled", &named, Some(TENANT), 90),
+        )
+        .await;
+    assert!(matches!(first, Outcome::Accepted { .. }), "{first:?}");
+    assert_eq!(
+        w.done(),
+        vec![
+            forget(),
+            format!("disable party {party}"),
+            "access.party_disabled".to_owned()
+        ]
+    );
+    assert!(w.client.party_disabled(&tenant, &[2; 16]));
+    assert!(!w.client.party_disabled(&tenant, &[3; 16]));
+    assert!(
+        !w.client
+            .party_disabled(&TenantId::new("tnt_other").unwrap(), &[2; 16])
+    );
+    let bare = json!({"party": b64url(&[3; 16]), "at": NOW, "reason_class": "suspended", "access_position": {"pos": 8, "idx": 0}});
+    let second = w
+        .push(
+            SET_CONTENT_TYPE,
+            &w.set("party.disabled", &bare, Some(TENANT), 91),
+        )
+        .await;
+    assert!(matches!(second, Outcome::Accepted { .. }), "{second:?}");
+    assert_eq!(w.done().len(), 5);
+    assert!(w.client.party_disabled(&tenant, &[3; 16]));
+    let malformed = json!({"party": "not-a-party", "at": NOW, "reason_class": "other"});
+    let refused = w
+        .push(
+            SET_CONTENT_TYPE,
+            &w.set("party.disabled", &malformed, Some(TENANT), 92),
+        )
+        .await;
+    assert_eq!(refused, Outcome::Refused(Refusal::InvalidRequest("party")));
+}
+
 // T-102
 #[tokio::test]
-async fn t_102_organization_and_unknown_types_write_only_the_deduplication_row() {
+async fn t_102_an_unknown_type_writes_only_the_deduplication_row() {
     let w = World::new("t102-ignored");
-    let org = json!({"tenant": TENANT, "organization": "org_1", "at": NOW});
-    for (n, name) in ["organization.updated", "verification"]
-        .into_iter()
-        .enumerate()
-    {
+    let member = json!({"realm": "019a0000-0000-7000-8000-0000000000a1", "account": "usr_1", "organization": ORG, "at": NOW});
+    for (n, name) in ["membership.added", "verification"].into_iter().enumerate() {
         let jti = u8::try_from(n).unwrap() + 50;
         let pushed = w
-            .push(SET_CONTENT_TYPE, &w.set(name, &org, Some(TENANT), jti))
+            .push(SET_CONTENT_TYPE, &w.set(name, &member, Some(TENANT), jti))
             .await;
         assert!(matches!(pushed, Outcome::Accepted { .. }), "{name}");
     }
     assert_eq!(w.done(), Vec::<String>::new());
     assert_eq!(w.seen.0.lock().unwrap().len(), 2);
+    assert!(w.realms.1.lock().unwrap().is_empty());
+}
+
+const ORG: &str = "019a0000-0000-7000-8000-0000000000b1";
+
+fn organization(pos: u64) -> Value {
+    json!({"tenant": TENANT, "organization": ORG, "at": NOW, "access_position": {"pos": pos, "idx": 0}})
+}
+
+// E-3 T-102
+#[tokio::test]
+async fn e_3_an_organization_event_maps_the_organization_and_a_later_one_moves_it() {
+    let w = World::new("e3-organization");
+    let created = w.set("organization.created", &organization(42), Some(TENANT), 70);
+    let first = w.push(SET_CONTENT_TYPE, &created).await;
+    assert!(matches!(first, Outcome::Accepted { .. }), "{first:?}");
+    let again = w.push(SET_CONTENT_TYPE, &created).await;
+    assert!(matches!(again, Outcome::Repeat { .. }), "{again:?}");
+    let updated = w
+        .push(
+            SET_CONTENT_TYPE,
+            &w.set("organization.updated", &organization(43), Some(TENANT), 71),
+        )
+        .await;
+    assert!(matches!(updated, Outcome::Accepted { .. }), "{updated:?}");
+    let late = w
+        .push(
+            SET_CONTENT_TYPE,
+            &w.set("organization.updated", &organization(41), Some(TENANT), 72),
+        )
+        .await;
+    assert!(matches!(late, Outcome::Accepted { .. }), "{late:?}");
+    assert_eq!(
+        w.done(),
+        vec![
+            "access.organization_mapped".to_owned(),
+            "access.organization_changed".to_owned()
+        ]
+    );
+    let tenant = TenantId::new(TENANT).unwrap();
+    let mapped = w.realms.organizations(&tenant).await.unwrap();
+    assert_eq!(
+        mapped
+            .iter()
+            .map(OrganizationId::as_str)
+            .collect::<Vec<_>>(),
+        [ORG]
+    );
+    assert_eq!(
+        w.realms
+            .1
+            .lock()
+            .unwrap()
+            .values()
+            .copied()
+            .collect::<Vec<_>>(),
+        [Some(AccessPosition { pos: 43, idx: 0 })]
+    );
+}
+
+// E-3 T-102
+#[tokio::test]
+async fn e_3_an_organization_event_the_store_cannot_take_is_asked_again() {
+    let w = World::new("e3-organization-outage");
+    let created = w.set("organization.created", &organization(42), Some(TENANT), 73);
+    *w.realms.2.lock().unwrap() = true;
+    let down = w.push(SET_CONTENT_TYPE, &created).await;
+    assert!(matches!(down, Outcome::Unavailable(_)), "{down:?}");
+    assert_eq!(down.status(), 503);
+    assert!(w.seen.0.lock().unwrap().is_empty());
+    *w.realms.2.lock().unwrap() = false;
+    let back = w.push(SET_CONTENT_TYPE, &created).await;
+    assert!(matches!(back, Outcome::Accepted { .. }), "{back:?}");
+    assert_eq!(w.done(), vec!["access.organization_mapped".to_owned()]);
+    let elsewhere = w
+        .push(
+            SET_CONTENT_TYPE,
+            &w.set(
+                "organization.created",
+                &organization(44),
+                Some("tnt_other"),
+                74,
+            ),
+        )
+        .await;
+    assert_eq!(
+        elsewhere,
+        Outcome::Refused(Refusal::InvalidRequest("tenant"))
+    );
 }
 
 // T-102
@@ -435,4 +629,69 @@ async fn t_102_the_answer_follows_rfc_8935_and_relay_is_asked_to_deliver_again()
     );
     assert_eq!(unreadable.status(), 503);
     assert!(w.seen.0.lock().unwrap().is_empty());
+}
+
+// E-3 T-96
+#[tokio::test]
+async fn e_3_the_reconciliation_maps_the_organizations_the_snapshot_lists() {
+    use crate::app::platform::{Report, Signal as Step, organization_step};
+    use crate::domain::tenants::TenantSnapshot;
+
+    const OTHER: &str = "019a0000-0000-7000-8000-0000000000b2";
+    let w = World::new("e3-reconciliation");
+    let tenant = TenantId::new(TENANT).unwrap();
+    let snapshot = |organizations: &[&str]| {
+        TenantSnapshot::from_json(
+            json!({"tenant": TENANT, "organizations": organizations, "realms": [], "region": "local", "status": "active", "version": "v1", "retention": {}})
+                .to_string()
+                .as_bytes(),
+        )
+        .unwrap()
+    };
+    let mut report = Report::default();
+    organization_step(&w.realms, &snapshot(&[]), NOW, &mut report)
+        .await
+        .unwrap();
+    assert_eq!(report, Report::default());
+    organization_step(&w.realms, &snapshot(&[ORG, OTHER]), NOW, &mut report)
+        .await
+        .unwrap();
+    assert_eq!(report.organizations, 2);
+    assert_eq!(
+        report.signals,
+        [ORG, OTHER].map(|o| Step::OrganizationMapped {
+            tenant: tenant.clone(),
+            organization: OrganizationId::parse(o).unwrap(),
+        })
+    );
+    let mut again = Report::default();
+    organization_step(&w.realms, &snapshot(&[ORG, OTHER]), NOW, &mut again)
+        .await
+        .unwrap();
+    assert_eq!(again, Report::default());
+    let pushed = w
+        .push(
+            SET_CONTENT_TYPE,
+            &w.set("organization.updated", &organization(50), Some(TENANT), 75),
+        )
+        .await;
+    assert!(matches!(pushed, Outcome::Accepted { .. }), "{pushed:?}");
+    assert_eq!(w.done(), vec!["access.organization_changed".to_owned()]);
+    let mut dropped = Report::default();
+    organization_step(&w.realms, &snapshot(&[ORG]), NOW, &mut dropped)
+        .await
+        .unwrap();
+    assert_eq!(
+        dropped.signals,
+        [Step::OrganizationUnlisted {
+            tenant: tenant.clone(),
+            organization: OrganizationId::parse(OTHER).unwrap(),
+        }]
+    );
+    let mut empty = Report::default();
+    organization_step(&w.realms, &snapshot(&[]), NOW, &mut empty)
+        .await
+        .unwrap();
+    assert_eq!(empty, Report::default());
+    assert_eq!(w.realms.organizations(&tenant).await.unwrap().len(), 2);
 }

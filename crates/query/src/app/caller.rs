@@ -74,7 +74,8 @@ impl<T: Transport, C: Clock> Authenticator<T, C> {
     /// # Errors
     /// [`CallerRefusal::Unauthenticated`] for a missing, malformed, foreign, expired or unbound
     /// token, one whose `access_tenant` is not its realm's tenant (`token_tenant`), a proof that
-    /// does not fit, a replayed proof or a subject Access does not know;
+    /// does not fit, a replayed proof, a subject Access does not know or a Party Access
+    /// disabled (`party_disabled`, T-102 item 5);
     /// [`CallerRefusal::Unverifiable`] when Access does not answer.
     pub async fn caller(&self, presented: Presented<'_>) -> Result<Caller, CallerRefusal> {
         let token = dpop_token(presented.authorization)?;
@@ -128,6 +129,12 @@ impl<T: Transport, C: Clock> Authenticator<T, C> {
         ))
         .await?;
         let party = party_of(subject, claims.kind, &claims.client_id)?;
+        if party
+            .as_ref()
+            .is_some_and(|p| self.access.party_disabled(&realm.tenant, &p.id))
+        {
+            return Err(CallerRefusal::Unauthenticated("party_disabled"));
+        }
         Ok(Caller {
             tenant: realm.tenant,
             realm: realm.realm,

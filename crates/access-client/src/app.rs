@@ -37,7 +37,8 @@ use crate::domain::parties::{
 use crate::domain::realm::{OPENID_CONFIGURATION, jwks_uri, realm_keys};
 use crate::domain::relay::{RelayConfiguration, version_refused};
 use crate::domain::subjects::{
-    self, CACHE_ENTRIES, Direction, MAX_SUBJECTS, Resolution, Subject, SubjectCache,
+    self, CACHE_ENTRIES, Direction, DisabledParties, MAX_SUBJECTS, Resolution, Subject,
+    SubjectCache,
 };
 use crate::domain::tenants::{MAX_PAGES, TenantChange, TenantPage, TenantSnapshot, list_url, plan};
 use crate::domain::{AccessError, b64url, from_b64url};
@@ -77,6 +78,7 @@ struct State {
     disabled: bool,
     directory: Option<(BTreeMap<String, KnownRealm>, u64)>,
     subjects: SubjectCache,
+    disabled_parties: DisabledParties,
     evaluation: Option<String>,
     realm_endpoints: BTreeMap<Issuer, (Endpoints, u64)>,
 }
@@ -147,6 +149,7 @@ impl<T: Transport, C: Clock> Client<T, C> {
             pep_not_after_ms,
             state: Mutex::new(State {
                 subjects: SubjectCache::new(CACHE_ENTRIES),
+                disabled_parties: DisabledParties::new(CACHE_ENTRIES),
                 ..State::default()
             }),
         }
@@ -193,6 +196,29 @@ impl<T: Transport, C: Clock> Client<T, C> {
     #[must_use]
     pub fn disabled(&self) -> bool {
         !self.state().is_ok_and(|s| !s.disabled)
+    }
+
+    /// Drops what is cached of `party` of `tenant` and refuses it as a caller from now on, as
+    /// a `party.disabled` event asks (T-102 item 5, T-28).
+    ///
+    /// # Errors
+    /// [`AccessError::Transport`] when the client state is poisoned.
+    pub fn disable_party(&self, tenant: &TenantId, party: [u8; 16]) -> Result<(), AccessError> {
+        let now = self.clock.now_ms();
+        let mut state = self.state()?;
+        state.subjects.forget_party(tenant, &party);
+        state.disabled_parties.mark(tenant, party, now);
+        Ok(())
+    }
+
+    /// Whether Access disabled `party` of `tenant` recently enough that a token of it may still
+    /// verify; a poisoned state counts as disabled.
+    #[must_use]
+    pub fn party_disabled(&self, tenant: &TenantId, party: &[u8; 16]) -> bool {
+        let now = self.clock.now_ms();
+        !self
+            .state()
+            .is_ok_and(|s| !s.disabled_parties.holds(tenant, party, now))
     }
 
     /// Drops every cached key of `domain` at once (T-102 item 5, E-14).

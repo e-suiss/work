@@ -1,4 +1,4 @@
-//! Work's event entry for Access (T-102): the `Content-Type` picks the verifier, an Access SET is verified under the platform realm JWKS and its claims, an event of a tenant Work has not paired with is only logged (`tenant.created` and Work's own `api_client` events excepted), every other one writes its `(access_tenant, iss, jti)` deduplication row and, the first time only, has its effect. The answer follows RFC 8935: `202` for an accepted or repeated event, `400` with `{err, description}` for a refusal; `415` for another media type and `503` while the keys cannot be read, so that Access delivers again.
+//! Work's event entry for Access (T-102): the `Content-Type` picks the verifier, an Access SET is verified under the platform realm JWKS and its claims, an event of a tenant Work has not paired with is only logged (`tenant.created` and Work's own `api_client` events excepted), every other one writes its `(access_tenant, iss, jti)` deduplication row and, the first time only, has its effect; an `organization.*` event maps its organization before that row is written, so a delivery that fails there is delivered again (E-3). The answer follows RFC 8935: `202` for an accepted or repeated event, `400` with `{err, description}` for a refusal; `415` for another media type and `503` while the keys cannot be read, so that Access delivers again.
 
 use sha2::{Digest as _, Sha256};
 use work_proto::id::TenantId;
@@ -9,6 +9,7 @@ use crate::domain::events::{
     ClientChange, Compromise, Event, Expected, Refusal, Set, Signal, Verifier, claims, parse,
     verifier,
 };
+use crate::domain::organizations::{OrganizationChange, OrganizationOutcome};
 use crate::domain::pairing::PairState;
 use crate::ports::{Arrival, Clock, Effects, InboundLog, PairingStore, Transport};
 
@@ -177,6 +178,10 @@ where
                 Err(e) => return Outcome::Unavailable(e),
             }
         }
+        let mapped = match self.map(&set).await {
+            Ok(mapped) => mapped,
+            Err(e) => return Outcome::Unavailable(e),
+        };
         let digest: [u8; 32] = Sha256::digest(body).into();
         let arrival = Arrival {
             tenant: &set.tenant,
@@ -195,12 +200,47 @@ where
             }
             Err(e) => return Outcome::Unavailable(e),
         }
+        if let Some(signal) = mapped {
+            self.effects.signal(&signal);
+        }
         self.apply(&set, digest);
         Outcome::Accepted {
             name: set.event.name().to_owned(),
             tenant: set.tenant,
             jti: set.jti,
         }
+    }
+
+    async fn map(&self, set: &Set) -> Result<Option<Signal>, AccessError> {
+        let Event::Organization {
+            organization,
+            position,
+            at_ms,
+            ..
+        } = &set.event
+        else {
+            return Ok(None);
+        };
+        let change = OrganizationChange::Event {
+            organization: organization.clone(),
+            position: *position,
+            at_ms: *at_ms,
+        };
+        let outcome = self
+            .realms
+            .map_organization(&set.tenant, &change, self.client.now_ms())
+            .await?;
+        Ok(match outcome {
+            OrganizationOutcome::Mapped => Some(Signal::OrganizationMapped {
+                tenant: set.tenant.clone(),
+                organization: organization.clone(),
+            }),
+            OrganizationOutcome::Moved => Some(Signal::OrganizationChanged {
+                tenant: set.tenant.clone(),
+                organization: organization.clone(),
+            }),
+            OrganizationOutcome::Known => None,
+        })
     }
 
     fn apply(&self, set: &Set, digest: [u8; 32]) {
@@ -244,8 +284,11 @@ where
                 tenant: set.tenant.clone(),
                 party: party.clone(),
             }),
-            Event::PartyDisabled { domain, party } => {
-                e.forget_domain(*domain);
+            Event::PartyDisabled { domain, party, id } => {
+                if let Some(domain) = domain {
+                    e.forget_domain(*domain);
+                }
+                e.disable_party(&set.tenant, *id);
                 e.signal(&Signal::PartyDisabled {
                     tenant: set.tenant.clone(),
                     party: party.clone(),
@@ -264,7 +307,7 @@ where
                     });
                 }
             },
-            Event::ApiClient { .. } | Event::Organization(_) | Event::Unknown(_) => {}
+            Event::ApiClient { .. } | Event::Organization { .. } | Event::Unknown(_) => {}
         }
     }
 }

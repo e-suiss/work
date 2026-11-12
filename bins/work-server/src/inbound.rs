@@ -1,4 +1,4 @@
-//! The event entry of the process (T-102): `POST /v1/inbound/events` on its own TLS 1.3 listener, whose key signs inside the `[access]` token (T-56), handed to the Access intake over the process's Access client, Work's realm table and the tenant scoped deduplication rows; `tenant.created` runs the pairing step for its tenant, revocations and terminations drop the domain's cached keys at once, a compromise with its window has its SEC-36 notice written into every ledger of the tenant that holds a record of the window (WD-123), Work's own disabled client fails every consequential action closed, and every signal is a log event. While ledger time is unavailable nothing is verified and Access is asked to deliver again.
+//! The event entry of the process (T-102): `POST /v1/inbound/events` on its own TLS 1.3 listener, whose key signs inside the `[access]` token (T-56), handed to the Access intake over the process's Access client, Work's realm table and the tenant scoped deduplication rows; `tenant.created` runs the pairing step for its tenant, revocations and terminations drop the domain's cached keys at once, a disabled Party loses what is cached of it and is refused as a caller, an `organization.*` event maps its organization (E-3), a compromise with its window has its SEC-36 notice written into every ledger of the tenant that holds a record of the window (WD-123), Work's own disabled client fails every consequential action closed, and every signal is a log event. While ledger time is unavailable nothing is verified and Access is asked to deliver again.
 
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -54,6 +54,12 @@ impl Effects for ProcessEffects {
     fn forget_domain(&self, domain: DomainId) {
         if let Err(error) = self.client.forget_domain(domain) {
             tracing::error!(event = "access.cache_not_dropped", %error, "key cache not dropped");
+        }
+    }
+
+    fn disable_party(&self, tenant: &TenantId, party: [u8; 16]) {
+        if let Err(error) = self.client.disable_party(tenant, party) {
+            tracing::error!(event = "access.party_not_disabled", %error, "Party not disabled");
         }
     }
 

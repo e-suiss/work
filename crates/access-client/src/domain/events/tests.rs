@@ -460,11 +460,12 @@ fn t_102_every_type_of_the_access_catalog_is_read() {
     let keys = realm_keys("t102-catalog");
     let instance = json!({"domain": DOMAIN, "source": {"exercise": DOMAIN}, "subject": {"kind": "instance", "id": "BAQEBAQEBAQEBAQEBAQEBA"}, "at": NOW, "party": "AgICAgICAgICAgICAgICAg"});
     let disabled = json!({"domain": DOMAIN, "source": {"exercise": DOMAIN}, "party": "AgICAgICAgICAgICAgICAg", "at": NOW, "reason_class": "departed"});
-    let org = json!({"tenant": TENANT, "organization": "org_1", "at": NOW});
+    let org = json!({"tenant": TENANT, "organization": "019a0000-0000-7000-8000-0000000000b1", "at": NOW, "access_position": {"pos": 42, "idx": 0}});
     let cases = [
         ("instance-terminated", instance),
         ("party.disabled", disabled),
         ("organization.created", org.clone()),
+        ("organization.updated", org.clone()),
         ("verification", org),
     ];
     let names: Vec<String> = cases
@@ -492,6 +493,7 @@ fn t_102_every_type_of_the_access_catalog_is_read() {
             "instance-terminated",
             "party.disabled",
             "organization.created",
+            "organization.updated",
             "verification"
         ]
     );
@@ -512,5 +514,64 @@ fn t_102_every_type_of_the_access_catalog_is_read() {
         )
         .unwrap();
         assert!(matches!(set.event, Event::Revocation { .. }), "{name}");
+    }
+}
+
+// E-3 T-102
+#[test]
+fn e_3_an_organization_event_names_the_tenant_the_organization_and_its_access_position() {
+    const ORG: &str = "019a0000-0000-7000-8000-0000000000b1";
+    let keys = realm_keys("e3-organization-event");
+    let payload = |edit: &dyn Fn(&mut Value)| {
+        let mut p = json!({"tenant": TENANT, "organization": ORG, "at": NOW, "access_position": {"pos": 42, "idx": 3}});
+        edit(&mut p);
+        p
+    };
+    let of = |p: &Value, tenant: &str, jti: u8| {
+        read(
+            &signed(
+                &keys.es256,
+                "ES256",
+                &claims_of("organization.updated", p, Some(tenant), jti),
+            ),
+            &keys.set,
+        )
+    };
+    let set = of(&payload(&|_| {}), TENANT, 80).unwrap();
+    assert_eq!(
+        set.event,
+        Event::Organization {
+            name: "organization.updated".to_owned(),
+            organization: OrganizationId::parse(ORG).unwrap(),
+            position: AccessPosition { pos: 42, idx: 3 },
+            at_ms: NOW,
+        }
+    );
+    assert_eq!(set.event.name(), "organization.updated");
+    let cases: [(&str, Box<dyn Fn(&mut Value)>); 5] = [
+        (
+            "organization",
+            Box::new(|p| p["organization"] = json!("org_1")),
+        ),
+        (
+            "access_position",
+            Box::new(|p| {
+                p.as_object_mut().unwrap().remove("access_position");
+            }),
+        ),
+        (
+            "access_position",
+            Box::new(|p| p["access_position"] = json!({"pos": 42})),
+        ),
+        ("at", Box::new(|p| p["at"] = json!("now"))),
+        ("tenant", Box::new(|p| p["tenant"] = json!("tnt_other"))),
+    ];
+    for (n, (what, edit)) in cases.iter().enumerate() {
+        let jti = u8::try_from(n).unwrap() + 81;
+        assert_eq!(
+            of(&payload(edit.as_ref()), TENANT, jti),
+            Err(Refusal::InvalidRequest(what)),
+            "{what}"
+        );
     }
 }

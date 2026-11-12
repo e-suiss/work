@@ -8,6 +8,7 @@ use work_proto::id::TenantId;
 
 use crate::domain::events::{Compromise, Signal};
 use crate::domain::keys::{ActorKind, DomainId, KernelId};
+use crate::domain::organizations::{OrganizationChange, OrganizationId, OrganizationOutcome};
 use crate::domain::pairing::{RealmChange, StoredRealm};
 use crate::domain::streams::StreamStatus;
 use crate::domain::tenants::TenantChange;
@@ -218,6 +219,21 @@ pub trait PairingStore: Send + Sync {
     /// How many live realms have at least `runs` failed runs in a row.
     fn stalled(&self, runs: u64) -> impl Future<Output = Result<u64, AccessError>> + Send;
 
+    /// The mapped organizations of `tenant` (E-3).
+    fn organizations(
+        &self,
+        tenant: &TenantId,
+    ) -> impl Future<Output = Result<Vec<OrganizationId>, AccessError>> + Send;
+
+    /// Applies one organization change at `at_ms` (E-3, T-96 item 4); applying it again
+    /// changes nothing.
+    fn map_organization(
+        &self,
+        tenant: &TenantId,
+        change: &OrganizationChange,
+        at_ms: u64,
+    ) -> impl Future<Output = Result<OrganizationOutcome, AccessError>> + Send;
+
     /// The stored stream.
     fn stream(&self) -> impl Future<Output = Result<Option<StoredStream>, AccessError>> + Send;
 
@@ -284,6 +300,10 @@ pub trait Effects: Send + Sync {
 
     /// Drops every cached key of `domain` at once.
     fn forget_domain(&self, domain: DomainId);
+
+    /// Drops what is cached of `party` of `tenant` and refuses it as a caller (T-102 item 5,
+    /// T-28).
+    fn disable_party(&self, tenant: &TenantId, party: [u8; 16]);
 
     /// Fails every consequential action closed: Work's own Access client is disabled (T-28).
     fn disable_client(&self);

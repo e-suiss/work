@@ -72,7 +72,7 @@ partitioned_allowed (fq) AS (
 ),
 installation_scope_allowed (fq) AS (
     VALUES ('work.access_realm'), ('work.access_event_stream'), ('work.record_signer'),
-           ('work.approval_return')
+           ('work.approval_return'), ('work.access_organization')
 ),
 violations (check_id, object) AS (
     SELECT 'rls_enable_force', fq FROM tab

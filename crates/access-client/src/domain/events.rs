@@ -7,6 +7,7 @@ use work_proto::id::TenantId;
 
 use crate::domain::discovery::REFRESH_GRACE_MS;
 use crate::domain::keys::{DomainId, KernelId, Kid};
+use crate::domain::organizations::{AccessPosition, OrganizationId};
 use crate::domain::{fixed_b64url, from_b64url};
 
 /// The media type of an Access SET (RFC 8417 §2.3).
@@ -266,10 +267,12 @@ pub enum Event {
     },
     /// `party.disabled`.
     PartyDisabled {
-        /// The governing domain.
-        domain: DomainId,
+        /// The governing domain, when the event names it.
+        domain: Option<DomainId>,
         /// The Party, as Access wrote it.
         party: String,
+        /// The Party's 16-byte `PartyID`.
+        id: [u8; 16],
     },
     /// `tenant.created`.
     TenantCreated,
@@ -280,8 +283,18 @@ pub enum Event {
         /// The client.
         client_id: String,
     },
-    /// `organization.*`, ignored until Access's organization model (T-96 note item 4).
-    Organization(String),
+    /// `organization.created` or `organization.updated`: the organization is mapped, or moved
+    /// to this position (E-3, T-96 item 4).
+    Organization {
+        /// The event name.
+        name: String,
+        /// The organization.
+        organization: OrganizationId,
+        /// The event's `access_position`.
+        position: AccessPosition,
+        /// Access's time of the event, Unix milliseconds.
+        at_ms: u64,
+    },
     /// A type Work does not know; only its deduplication row is written.
     Unknown(String),
 }
@@ -291,9 +304,9 @@ impl Event {
     #[must_use]
     pub fn name(&self) -> &str {
         match self {
-            Self::Revocation { name, .. } | Self::Organization(name) | Self::Unknown(name) => {
-                name.as_str()
-            }
+            Self::Revocation { name, .. }
+            | Self::Organization { name, .. }
+            | Self::Unknown(name) => name.as_str(),
             Self::InstanceTerminated { .. } => "instance-terminated",
             Self::Compromised { .. } => "party.compromised",
             Self::PartyDisabled { .. } => "party.disabled",
@@ -402,6 +415,29 @@ fn compromised(payload: &Map<String, Value>) -> Result<Event, Refusal> {
     })
 }
 
+fn organization(name: &str, payload: &Map<String, Value>) -> Result<Event, Refusal> {
+    let position = payload
+        .get("access_position")
+        .and_then(Value::as_object)
+        .and_then(|p| {
+            Some(AccessPosition {
+                pos: p.get("pos")?.as_u64()?,
+                idx: p.get("idx")?.as_u64()?,
+            })
+        })
+        .ok_or(Refusal::InvalidRequest("access_position"))?;
+    Ok(Event::Organization {
+        name: name.to_owned(),
+        organization: OrganizationId::parse(text(payload, "organization")?)
+            .map_err(|_| Refusal::InvalidRequest("organization"))?,
+        position,
+        at_ms: payload
+            .get("at")
+            .and_then(Value::as_u64)
+            .ok_or(Refusal::InvalidRequest("at"))?,
+    })
+}
+
 fn event(name: &str, payload: &Map<String, Value>) -> Result<Event, Refusal> {
     Ok(match name {
         n if REVOCATIONS.contains(&n) => Event::Revocation {
@@ -412,10 +448,17 @@ fn event(name: &str, payload: &Map<String, Value>) -> Result<Event, Refusal> {
             domain: domain(payload)?,
         },
         "party.compromised" => compromised(payload)?,
-        "party.disabled" => Event::PartyDisabled {
-            domain: domain(payload)?,
-            party: text(payload, "party")?.to_owned(),
-        },
+        "party.disabled" => {
+            let party = text(payload, "party")?;
+            Event::PartyDisabled {
+                domain: match payload.get("domain") {
+                    None | Some(Value::Null) => None,
+                    Some(_) => Some(domain(payload)?),
+                },
+                id: fixed_b64url::<16>(party).map_err(|_| Refusal::InvalidRequest("party"))?,
+                party: party.to_owned(),
+            }
+        }
         "tenant.created" => Event::TenantCreated,
         "api_client.created" | "api_client.updated" | "api_client.disabled" => Event::ApiClient {
             change: match name {
@@ -425,7 +468,7 @@ fn event(name: &str, payload: &Map<String, Value>) -> Result<Event, Refusal> {
             },
             client_id: text(payload, "client_id")?.to_owned(),
         },
-        n if n.starts_with("organization.") => Event::Organization(n.to_owned()),
+        "organization.created" | "organization.updated" => organization(name, payload)?,
         n => Event::Unknown(n.to_owned()),
     })
 }
@@ -441,8 +484,8 @@ fn audience_ok(aud: Option<&Value>, audience: &str) -> bool {
 /// Reads verified claims (T-102 item 3, Access OP-149 m.26 (d)).
 ///
 /// The tenant is the signed `access_tenant`, which every SET of Work's platform stream carries;
-/// a SET without it is `invalid_request`, and so is an `api_client` event whose payload
-/// `tenant` names another tenant.
+/// a SET without it is `invalid_request`, and so is an `api_client` or `organization` event
+/// whose payload `tenant` names another tenant.
 ///
 /// # Errors
 /// [`Refusal`].
@@ -490,7 +533,7 @@ pub fn claims(payload: &[u8], expected: &Expected<'_>) -> Result<Set, Refusal> {
         .filter(|t| t.starts_with("tnt_"))
         .and_then(TenantId::new)
         .ok_or(Refusal::InvalidRequest("access_tenant"))?;
-    if matches!(event, Event::ApiClient { .. })
+    if matches!(event, Event::ApiClient { .. } | Event::Organization { .. })
         && member.get("tenant").and_then(Value::as_str) != Some(tenant.as_str())
     {
         return Err(Refusal::InvalidRequest("tenant"));
@@ -555,6 +598,20 @@ pub enum Signal {
         /// The Party.
         party: String,
     },
+    /// An Access organization is now a Work organization of the tenant (E-3).
+    OrganizationMapped {
+        /// The tenant.
+        tenant: TenantId,
+        /// The organization.
+        organization: OrganizationId,
+    },
+    /// A mapped organization changed in Access.
+    OrganizationChanged {
+        /// The tenant.
+        tenant: TenantId,
+        /// The organization.
+        organization: OrganizationId,
+    },
     /// Work's own Access client changed.
     ClientUpdated {
         /// The client.
@@ -575,6 +632,8 @@ impl Signal {
             Self::Compromised { .. } => "access.party_compromised",
             Self::CompromiseUnprocessed { .. } => "access.compromise_unprocessed",
             Self::PartyDisabled { .. } => "access.party_disabled",
+            Self::OrganizationMapped { .. } => "access.organization_mapped",
+            Self::OrganizationChanged { .. } => "access.organization_changed",
             Self::ClientUpdated { .. } => "access.client_updated",
             Self::ClientDisabled { .. } => "access.client_disabled",
         }
@@ -603,6 +662,24 @@ impl std::fmt::Display for Signal {
             Self::PartyDisabled { tenant, party } => {
                 write!(f, "{} party {party} disabled", tenant.as_str())
             }
+            Self::OrganizationMapped {
+                tenant,
+                organization,
+            } => write!(
+                f,
+                "{} organization {} mapped",
+                tenant.as_str(),
+                organization.as_str()
+            ),
+            Self::OrganizationChanged {
+                tenant,
+                organization,
+            } => write!(
+                f,
+                "{} organization {} changed",
+                tenant.as_str(),
+                organization.as_str()
+            ),
             Self::ClientUpdated { client_id } => write!(f, "Access client {client_id} updated"),
             Self::ClientDisabled { client_id } => write!(
                 f,
