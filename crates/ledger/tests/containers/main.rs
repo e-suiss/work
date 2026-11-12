@@ -714,17 +714,34 @@ async fn op_7_work_writes_never_refuse_each_other() {
 #[ignore = "needs Docker"]
 async fn t_32_a_dropped_submit_is_withdrawn_before_its_batch() {
     let env = Env::start().await;
-    let (pool, ledger, group, gate) = writer(&env, [0x41; 32]).await;
-    let first = admit_spawned(&group, comment(&ledger, 1));
-    tokio::time::sleep(Duration::from_millis(100)).await;
-    let dropped = admit_spawned(&group, comment(&ledger, 2));
-    tokio::time::sleep(Duration::from_millis(100)).await;
-    dropped.abort();
-    assert!(dropped.await.unwrap_err().is_cancelled());
-    gate.permits.add_permits(10);
-    assert_eq!(first.await.unwrap().unwrap().pos, 1);
-    let last = admit_spawned(&group, comment(&ledger, 3));
-    assert_eq!(last.await.unwrap().unwrap().pos, 2);
+    let pool = env.sequencer().await;
+    let g = opening([0x41; 32], Durability::Quorum);
+    Leader::open(&pool, &g, &cell()).await.unwrap();
+    let ledger = g.ledger;
+    let leader = Leader::acquire(pool.clone(), ledger, &node())
+        .await
+        .unwrap();
+    let permits = Arc::new(Semaphore::new(0));
+    let entered = Arc::new(Notify::new());
+    let clock = Entered {
+        gate: Gate {
+            permits: permits.clone(),
+            at: AT,
+        },
+        entered: entered.clone(),
+    };
+    let (group, task) = GroupCommit::spawn(leader, clock, GroupConfig::default());
+    drop(task);
+    let mut first = Box::pin(group.submit(pending(&ledger, &comment(&ledger, 1))));
+    queue_once(&mut first).await;
+    entered.notified().await;
+    let mut dropped = Box::pin(group.submit(pending(&ledger, &comment(&ledger, 2))));
+    queue_once(&mut dropped).await;
+    drop(dropped);
+    permits.add_permits(10);
+    assert_eq!(first.await.unwrap().pos, 1);
+    let last = group.submit(pending(&ledger, &comment(&ledger, 3))).await;
+    assert_eq!(last.unwrap().pos, 2);
     drop(group);
     assert_eq!(pointers(&env, &ledger).await.len(), 2);
     let head = Leader::acquire(pool, ledger, &node()).await.unwrap();
