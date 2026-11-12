@@ -133,9 +133,12 @@ pub enum Endpoint {
     ApprovalRequests,
     /// The realm's pushed authorization request endpoint (RFC 9126).
     PushedAuthorizationRequest,
+    /// `GET /access/v1/relay-status`, the delivery lag of Access's courier (Access OP-156 m.3
+    /// (c)).
+    RelayStatus,
 }
 
-const ENDPOINTS: [(&str, Endpoint, Option<&str>); 20] = [
+const ENDPOINTS: [(&str, Endpoint, Option<&str>); 21] = [
     ("adp", Endpoint::Adp, None),
     ("key_lookup", Endpoint::KeyLookup, Some("kid")),
     ("key_batch", Endpoint::KeyBatch, None),
@@ -172,6 +175,7 @@ const ENDPOINTS: [(&str, Endpoint, Option<&str>); 20] = [
         Endpoint::PushedAuthorizationRequest,
         None,
     ),
+    ("relay_status", Endpoint::RelayStatus, None),
 ];
 
 impl Endpoint {
@@ -578,7 +582,22 @@ mod tests {
             "https://access.example/access/v1/tenants/tnt_01/snapshot"
         );
         assert_eq!(
-            doc.endpoints.get(Endpoint::AuthContext),
+            doc.endpoints.get(Endpoint::RelayStatus).unwrap().as_str(),
+            "https://access.example/access/v1/relay-status"
+        );
+        assert_eq!(
+            doc.endpoints.get(Endpoint::AuthContext).unwrap().as_str(),
+            "https://acme.id.example/v1/me/auth-context"
+        );
+        let unserved = EXAMPLE.replace(
+            "\"auth_context\": \"https://acme.id.example/v1/me/auth-context\",",
+            "",
+        );
+        assert_eq!(
+            SuissConfiguration::from_json(unserved.as_bytes(), &acme())
+                .unwrap()
+                .endpoints
+                .get(Endpoint::AuthContext),
             Err(AccessError::Unserved(Endpoint::AuthContext))
         );
     }
@@ -586,11 +605,7 @@ mod tests {
     // T-96
     #[test]
     fn t_96_claim_ingest_and_the_status_list_are_read_once_served() {
-        let served = EXAMPLE.replace(
-            "\"adp\":",
-            "\"claim_ingest\": \"https://access.example/access/v1/claims:ingest\", \"status_list\": \"https://access.example/access/v1/status-lists/{list}\", \"adp\":",
-        );
-        let doc = SuissConfiguration::from_json(served.as_bytes(), &acme()).unwrap();
+        let doc = SuissConfiguration::from_json(EXAMPLE.as_bytes(), &acme()).unwrap();
         assert_eq!(
             doc.endpoints.get(Endpoint::ClaimIngest).unwrap().as_str(),
             "https://access.example/access/v1/claims:ingest"
@@ -602,10 +617,8 @@ mod tests {
                 .expand("l1"),
             "https://access.example/access/v1/status-lists/l1"
         );
-        let unnamed = EXAMPLE.replace(
-            "\"adp\":",
-            "\"status_list\": \"https://access.example/access/v1/status-lists\", \"adp\":",
-        );
+        let unnamed = EXAMPLE.replace("/status-lists/{list}", "/status-lists");
+        assert_ne!(unnamed, EXAMPLE);
         assert!(matches!(
             SuissConfiguration::from_json(unnamed.as_bytes(), &acme()),
             Err(AccessError::Endpoint(_))

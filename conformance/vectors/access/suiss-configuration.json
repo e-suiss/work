@@ -4,15 +4,34 @@
   "suiss_region": "eu-central",
   "suiss_relay": "https://relay.example",
   "suiss_management_api": "https://api.access.example",
-  "suiss_event_subscriptions": {},
+  "suiss_event_subscriptions": {
+    "ssf_configuration": "https://acme.id.example/.well-known/ssf-configuration",
+    "webhooks": "urn:suiss:access:delivery:webhook"
+  },
   "suiss_products": {
     "work": "https://work.example"
   },
   "endpoints": {
     "adp": "https://access.example/.well-known/authzen-configuration",
+    "approval": "https://acme.id.example/v1/approve",
+    "approval_requests": "https://acme.id.example/v1/approve/requests",
+    "auth_context": "https://acme.id.example/v1/me/auth-context",
+    "claim_ingest": "https://access.example/access/v1/claims:ingest",
     "eligibility": "https://access.example/access/v1/eligibility:check",
+    "exercise": "https://access.example/access/v1/exercises/{exercise}",
+    "exercise_agency": "https://access.example/access/v1/exercises/{exercise}/agency",
+    "instances": "https://acme.id.example/v1/me/instances",
     "key_batch": "https://access.example/access/v1/keys:batchGet",
     "key_lookup": "https://access.example/access/v1/keys/{kid}",
+    "pairing": "https://access.example/access/v1/tenants/{tenant}/pairing",
+    "pairing_challenges": "https://access.example/access/v1/tenants/{tenant}/pairing/challenges",
+    "party_batch": "https://access.example/access/v1/parties:batchGet",
+    "party_lookup": "https://access.example/access/v1/parties/{party}",
+    "platform_streams": "https://access.example/access/v1/platform/streams",
+    "pushed_authorization_request": "https://acme.id.example/par",
+    "relay_status": "https://access.example/access/v1/relay-status",
+    "status_list": "https://access.example/access/v1/status-lists/{list}",
+    "subject_resolution": "https://access.example/access/v1/tenants/{tenant}/subjects:resolve",
     "tenant_snapshot": "https://access.example/access/v1/tenants/{tenant}/snapshot"
   }
 }
