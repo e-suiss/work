@@ -80,6 +80,7 @@ fn log(report: &Report) {
         event = "access.pairing_ran",
         tenants = report.tenants,
         paired = report.paired,
+        organizations = report.organizations,
         signals = report.signals.len(),
         "Access pairing step ran"
     );

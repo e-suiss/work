@@ -86,9 +86,10 @@ pub(crate) fn command(tenant: Option<TenantId>) -> ExitCode {
                 eprintln!("{}: {signal}", signal.event());
             }
             println!(
-                "access pair: {} tenants, {} realms paired, event stream {}",
+                "access pair: {} tenants, {} realms paired, {} organizations mapped, event stream {}",
                 report.tenants,
                 report.paired,
+                report.organizations,
                 if report.stream_up { "up" } else { "down" }
             );
             if clean(&report) {
@@ -106,10 +107,14 @@ pub(crate) fn command(tenant: Option<TenantId>) -> ExitCode {
 
 /// Whether the step ended without a signal the operator has to act on.
 fn clean(report: &Report) -> bool {
-    report
-        .signals
-        .iter()
-        .all(|s| matches!(s, Signal::Cleared { .. } | Signal::StreamRecreated { .. }))
+    report.signals.iter().all(|s| {
+        matches!(
+            s,
+            Signal::Cleared { .. }
+                | Signal::StreamRecreated { .. }
+                | Signal::OrganizationMapped { .. }
+        )
+    })
 }
 
 #[cfg(test)]

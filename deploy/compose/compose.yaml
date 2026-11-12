@@ -765,7 +765,7 @@ services:
     image: ghcr.io/e-suiss/access@sha256:ae11d93ae606b29b097ebc16018e10bc47bb60deb2be1a8ec97caa86b289bbef
     entrypoint: ["sh", "-c"]
     command:
-      - "until curl -fsS http://work-server:8091/metrics | grep -qx 'work_access_event_stream_up 1'; do sleep 2; done; n=0; until access-server bootstrap /etc/work-access/bootstrap-work-organization.toml > /var/lib/access/bootstrap/organization.json.new; do n=$$((n + 1)); [ $$n -lt 30 ] || exit 1; sleep 2; done; mv /var/lib/access/bootstrap/organization.json.new /var/lib/access/bootstrap/organization.json && cat /var/lib/access/bootstrap/organization.json"
+      - "i=0; until curl -fsS http://work-server:8091/metrics | grep -qx 'work_access_event_stream_up 1'; do i=$$((i + 1)); [ $$i -lt 300 ] || exit 1; sleep 2; done; n=0; until access-server bootstrap /etc/work-access/bootstrap-work-organization.toml > /var/lib/access/bootstrap/organization.json.new; do n=$$((n + 1)); [ $$n -lt 30 ] || exit 1; sleep 2; done; mv /var/lib/access/bootstrap/organization.json.new /var/lib/access/bootstrap/organization.json && cat /var/lib/access/bootstrap/organization.json"
     environment:
       ACCESS_CONFIG: /etc/access/local/access.toml
       ACCESS_SUISS: *access-suiss
