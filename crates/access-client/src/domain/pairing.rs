@@ -7,9 +7,8 @@ use access_kernel::codec::Canonical as _;
 use access_kernel::combinator::{Capacity, Mode};
 use access_kernel::digest::Digest;
 use access_kernel::intent::{ContextRefs, IntentEnvelope, intent_digest};
-use access_kernel::meta::{ActorKind, ExerciseBasis, NAMESPACE, Payload, Root, kind, object_id};
+use access_kernel::meta::{ActorKind, ExerciseBasis, Payload, Root, core_action as kernel_action, kind, object_id};
 use access_kernel::model::{ActionRef, Id, ResourceRef, Window};
-use access_kernel::schema::{ActionSchema, EffectClass, action_digest};
 use access_kernel::verify::cose::PublicKey;
 use access_kernel::verify::key_scope::thumbprint;
 use serde::Deserialize;
@@ -390,22 +389,7 @@ fn hex(bytes: &[u8]) -> String {
 /// its reversible Action Schema.
 #[must_use]
 pub fn core_action(name: &str) -> ActionRef {
-    let schema = ActionSchema {
-        name: name.to_owned(),
-        major: 1,
-        effect: EffectClass::Reversible,
-        reserved: false,
-        consumption_bearing: false,
-        params: BTreeMap::new(),
-        resource_types: BTreeSet::new(),
-        render: None,
-    };
-    ActionRef {
-        namespace: NAMESPACE.to_owned(),
-        name: name.to_owned(),
-        major: 1,
-        schema: action_digest(&schema),
-    }
+    kernel_action(name)
 }
 
 /// The intent the service key signs for `payload` of `party` over `validity`:
@@ -432,6 +416,7 @@ pub fn self_signed_intent(
         recipient: None,
         purpose: None,
         context: ContextRefs::default(),
+        provenance: BTreeMap::new(),
         validity,
     })
 }

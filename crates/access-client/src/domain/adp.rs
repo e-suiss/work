@@ -154,6 +154,7 @@ pub fn commit_intent(
         recipient: None,
         purpose: None,
         context: ContextRefs::default(),
+        provenance: BTreeMap::new(),
         validity: Window {
             from: valid_from_ms,
             until: valid_until_ms,
@@ -222,6 +223,9 @@ fn param_json(p: &ParamValue) -> Value {
         ParamValue::Subject(id) => json!({"subject": b64url(&id.0)}),
         ParamValue::Purpose(p) => json!({"purpose": purpose_json(p)}),
         ParamValue::Flag(b) => json!({"flag": b}),
+        ParamValue::Origin { origin, write } => {
+            json!({"origin": {"origin": origin, "access": if *write { "write" } else { "read" }}})
+        }
     }
 }
 
@@ -232,6 +236,7 @@ fn context_json(c: &ContextRefs) -> Value {
         ("commitment", c.commitment),
         ("step", c.step),
         ("upstream_exercise", c.upstream_exercise),
+        ("plan", c.plan),
     ] {
         if let Some(d) = d {
             out.insert(name.to_owned(), Value::from(b64url(&d.0)));
@@ -292,6 +297,17 @@ pub fn intent_json(bytes: &[u8]) -> Result<Value, AccessError> {
     }
     if e.context != ContextRefs::default() {
         out.insert("context".to_owned(), context_json(&e.context));
+    }
+    if !e.provenance.is_empty() {
+        out.insert(
+            "provenance".to_owned(),
+            Value::Object(
+                e.provenance
+                    .iter()
+                    .map(|(k, p)| (k.clone(), Value::from(p.label())))
+                    .collect(),
+            ),
+        );
     }
     Ok(Value::Object(out))
 }

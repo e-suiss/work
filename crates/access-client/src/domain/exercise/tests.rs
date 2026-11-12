@@ -35,6 +35,7 @@ fn envelope(action: &str, from: u64, until: u64) -> Vec<u8> {
         recipient: None,
         purpose: None,
         context: ContextRefs::default(),
+        provenance: BTreeMap::new(),
         validity: Window { from, until },
     }
     .to_bytes()

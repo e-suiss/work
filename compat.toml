@@ -5,9 +5,9 @@ version = "0.1.0"
 
 [access]
 status = "build"
-version = "main-ab38b45-local"
+version = "main-ec24ede-local"
 image = "ghcr.io/e-suiss/access"
-digest = "sha256:19563606a2bd9e970cb8b1ab456721f0fcdfa04c235969bbd40d8b3fb662505c"
+digest = "sha256:ae11d93ae606b29b097ebc16018e10bc47bb60deb2be1a8ec97caa86b289bbef"
 
 [relay]
 status = "build"
@@ -17,8 +17,8 @@ digest = "sha256:c4795d358bb71147701a68af290f40b2aba2a720e1839d547fb9824b660bf9e
 
 # T-54
 [shared-crates]
-esuiss-crypto = "0.3.1"
-esuiss-ledger = "0.3.1"
-esuiss-restriction = "0.3.1"
-esuiss-retention = "0.3.1"
-esuiss-sandbox = "0.3.1"
+esuiss-crypto = "0.4.0"
+esuiss-ledger = "0.4.0"
+esuiss-restriction = "0.4.0"
+esuiss-retention = "0.4.0"
+esuiss-sandbox = "0.4.0"
