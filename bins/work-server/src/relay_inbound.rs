@@ -224,10 +224,12 @@ pub(crate) fn webhook(headers: WebhookHeaders) -> Option<Webhook> {
 
 fn logged(outcome: &Outcome) {
     match outcome {
-        Outcome::Accepted { .. } | Outcome::Repeat { .. } | Outcome::Unpaired { .. } => {
+        Outcome::Accepted(_) | Outcome::Repeat { .. } | Outcome::Unpaired { .. } => {
             tracing::info!(event = outcome.event(), %outcome, "Relay event");
         }
-        _ => tracing::warn!(event = outcome.event(), %outcome, "Relay event not taken"),
+        _ => {
+            tracing::warn!(event = outcome.event(), %outcome, "Relay event not taken");
+        }
     }
 }
 

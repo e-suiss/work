@@ -19,16 +19,20 @@ use crate::ports::{
 /// made because no key verified (T-100 item 4): the discovery interval.
 pub const KEYS_INTERVAL_MS: u64 = 300_000;
 
+/// A first arrival, with whose record it may become.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Taken {
+    /// The event.
+    pub event: Event,
+    /// The attribution.
+    pub attribution: Attribution,
+}
+
 /// What became of one delivery.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Outcome {
-    /// A first arrival, with whose record it may become.
-    Accepted {
-        /// The event.
-        event: Event,
-        /// The attribution.
-        attribution: Attribution,
-    },
+    /// A first arrival.
+    Accepted(Box<Taken>),
     /// An event seen before.
     Repeat {
         /// The tenant.
@@ -54,10 +58,19 @@ impl Outcome {
     #[must_use]
     pub const fn status(&self) -> u16 {
         match self {
-            Self::Accepted { .. } | Self::Repeat { .. } => 204,
+            Self::Accepted(_) | Self::Repeat { .. } => 204,
             Self::Unpaired { .. } => 404,
             Self::Refused(refusal) => refusal.status(),
             Self::Unavailable(_) => 503,
+        }
+    }
+
+    /// Whose record a first arrival may become; `None` for every other outcome.
+    #[must_use]
+    pub fn attribution(&self) -> Option<&Attribution> {
+        match self {
+            Self::Accepted(taken) => Some(&taken.attribution),
+            _ => None,
         }
     }
 
@@ -65,7 +78,7 @@ impl Outcome {
     #[must_use]
     pub const fn event(&self) -> &'static str {
         match self {
-            Self::Accepted { .. } => "relay.event_accepted",
+            Self::Accepted(_) => "relay.event_accepted",
             Self::Repeat { .. } => "relay.event_repeated",
             Self::Unpaired { .. } => "relay.event_unpaired",
             Self::Refused(_) => "relay.event_refused",
@@ -77,13 +90,13 @@ impl Outcome {
 impl std::fmt::Display for Outcome {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Accepted { event, attribution } => write!(
+            Self::Accepted(taken) => write!(
                 f,
                 "{} {} of {} ({})",
-                event.name,
-                event.id,
-                event.tenant.as_str(),
-                attribution.code()
+                taken.event.name,
+                taken.event.id,
+                taken.event.tenant.as_str(),
+                taken.attribution.code()
             ),
             Self::Repeat { tenant, id } => write!(f, "{id} of {} seen before", tenant.as_str()),
             Self::Unpaired { tenant, name } => {
@@ -314,7 +327,7 @@ where
             });
         }
         self.parts.effects.attributed(&event, &attribution);
-        Ok(Outcome::Accepted { event, attribution })
+        Ok(Outcome::Accepted(Box::new(Taken { event, attribution })))
     }
 
     /// Takes one delivery: its profile headers, when the request carried all three, and its body
@@ -367,7 +380,7 @@ mod tests {
             }
         }
 
-        fn publish(&self, keys: &[&SigningKey]) {
+        fn now_holds(&self, keys: &[&SigningKey]) {
             *self.published.lock().unwrap() = Some(jwks(keys));
         }
 
@@ -489,20 +502,14 @@ mod tests {
         let (webhook, body) = delivery(&k, "notification.delivered", "evt_1");
         let first = intake.receive(Some(&webhook), &body).await;
         assert_eq!(first.status(), 204, "{first}");
-        assert!(matches!(
-            &first,
-            Outcome::Accepted {
-                attribution: Attribution::ServiceParty,
-                ..
-            }
-        ));
+        assert_eq!(first.attribution(), Some(&Attribution::ServiceParty));
         let again = intake.receive(Some(&webhook), &body).await;
         assert_eq!(again.status(), 204);
         assert!(matches!(&again, Outcome::Repeat { id, .. } if id == "evt_1"));
         let (other, other_body) = delivery(&k, "notification.delivered", "evt_2");
         assert!(matches!(
             intake.receive(Some(&other), &other_body).await,
-            Outcome::Accepted { .. }
+            Outcome::Accepted(_)
         ));
         assert_eq!(
             *world.rows.lock().unwrap(),
@@ -553,7 +560,7 @@ mod tests {
         let (w1, b1) = delivery(&old, "waitpoint.expired", "evt_1");
         assert_eq!(intake.receive(Some(&w1), &b1).await.status(), 204);
         assert_eq!(world.reads.load(Ordering::SeqCst), 1);
-        world.publish(&[&old, &new]);
+        world.now_holds(&[&old, &new]);
         world.now_ms.fetch_add(1_000, Ordering::SeqCst);
         let b2 = body("waitpoint.expired", "evt_2", &json!({}));
         let w2 = signed(&[&new], "evt_2", NOW_MS + 1_000, &b2);
@@ -566,7 +573,7 @@ mod tests {
             Outcome::Refused(Refusal::Signature)
         );
         assert_eq!(world.reads.load(Ordering::SeqCst), 2);
-        world.publish(&[&new, &key(9)]);
+        world.now_holds(&[&new, &key(9)]);
         assert_eq!(
             intake.receive(Some(&w3), &b3).await,
             Outcome::Refused(Refusal::Signature)
@@ -666,34 +673,26 @@ mod tests {
             (signed(&[&k], id, NOW_MS, &body), body)
         };
         let (w, b) = send("evt_1", "relay_session");
-        let Outcome::Accepted { attribution, .. } = intake.receive(Some(&w), &b).await else {
-            panic!("accepted");
-        };
-        let Attribution::Responder { party, answer } = attribution else {
-            panic!("the responder");
+        let accepted = intake.receive(Some(&w), &b).await;
+        let Some(Attribution::Responder { party, answer }) = accepted.attribution() else {
+            panic!("the responder: {accepted}");
         };
         assert_eq!(party, "AAECAwQFBgcICQoLDA0ODw");
         assert!(matches!(answer.evidence, Evidence::RelaySession { .. }));
         let (w, b) = send("evt_2", "channel_claim");
-        assert!(matches!(
-            intake.receive(Some(&w), &b).await,
-            Outcome::Accepted {
-                attribution: Attribution::Unattributed(Unattributable::ChannelClaim),
-                ..
-            }
-        ));
+        assert_eq!(
+            intake.receive(Some(&w), &b).await.attribution(),
+            Some(&Attribution::Unattributed(Unattributable::ChannelClaim))
+        );
         let unknown = World {
             party: Some(None),
             ..World::with(&[&k])
         };
         let (w, b) = send("evt_3", "access_aas_ref");
-        assert!(matches!(
-            unknown.intake().receive(Some(&w), &b).await,
-            Outcome::Accepted {
-                attribution: Attribution::Unattributed(Unattributable::Unresolved),
-                ..
-            }
-        ));
+        assert_eq!(
+            unknown.intake().receive(Some(&w), &b).await.attribution(),
+            Some(&Attribution::Unattributed(Unattributable::Unresolved))
+        );
         let down = World {
             party: None,
             ..World::with(&[&k])
@@ -720,14 +719,9 @@ mod tests {
         {
             let id = format!("evt_{n}");
             let (w, b) = delivery(&k, name, &id);
-            assert!(
-                matches!(
-                    intake.receive(Some(&w), &b).await,
-                    Outcome::Accepted {
-                        attribution: Attribution::Nothing,
-                        ..
-                    }
-                ),
+            assert_eq!(
+                intake.receive(Some(&w), &b).await.attribution(),
+                Some(&Attribution::Nothing),
                 "{name}"
             );
         }
