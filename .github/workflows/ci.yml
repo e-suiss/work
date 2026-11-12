@@ -699,7 +699,9 @@ jobs:
           c logs work-server | grep 'access.event_accepted' | grep 'tenant.created' | grep "$beta"
           if c logs work-server | grep -q 'access.event_refused'; then c logs work-server | grep 'access.event_refused'; exit 1; fi
           scope="$(printf 'work/inbound/access-tenant/v1\000%s' "$beta" | sha256sum | cut -d' ' -f1)"
-          test "$(q -c "select set_config('app.ledger_id', '$scope', false)" -c "select count(*) from work.inbound_seen where source = 'https://access-server:8443/realms/platform'" | tail -n 1)" = 1
+          jti="$(c logs work-server | grep 'access.event_accepted' | grep 'tenant.created' | grep "$beta" | sed -n 's/.*accepted (\([A-Za-z0-9_-]*\)).*/\1/p' | head -n 1)"
+          test -n "$jti"
+          test "$(q -c "select set_config('app.ledger_id', '$scope', false)" -c "select count(*) from work.inbound_seen where source = 'https://access-server:8443/realms/platform' and source_id = '$jti'" | tail -n 1)" = 1
           for _ in $(seq 1 120); do test "$(q -c "select count(*) from work.access_realm where tenant = '$beta' and state = 'paired'")" -ge 1 && break; sleep 1; done
           test "$(q -c "select count(*) from work.access_realm where tenant = '$beta' and state = 'paired'")" -ge 1
       - name: The same bootstrap opens a second organization in acme, and Access's organization.created maps it beside the first (E-3, T-102)
