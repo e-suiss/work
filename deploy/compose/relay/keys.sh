@@ -53,13 +53,13 @@ secret "$KEY_STORE_KEK_LABEL" --key-type AES:32
 secret "$KEY_STORE_FINGERPRINT_LABEL" --key-type GENERIC:32 --usage-sign
 secret "$KEY_STORE_CURSOR_LABEL" --key-type GENERIC:32 --usage-sign
 
-# T-99
-pair relay-access-client EC:prime256v1
+# T-99, E-2
+pair access-client EC:prime256v1
 pair relay-access-service EC:edwards25519
 
-spki relay-access-client 91
-x="$(tail -c 64 /tmp/relay-access-client.der | head -c 32 | b64url)"
-y="$(tail -c 32 /tmp/relay-access-client.der | b64url)"
+spki access-client 91
+x="$(tail -c 64 /tmp/access-client.der | head -c 32 | b64url)"
+y="$(tail -c 32 /tmp/access-client.der | b64url)"
 printf '{"kty":"EC","crv":"P-256","use":"sig","x":"%s","y":"%s"}\n' "$x" "$y" > "$LOCAL_ACCESS_KEYS/relay-client.jwk"
 
 spki relay-access-service 44

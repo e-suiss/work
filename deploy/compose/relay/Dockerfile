@@ -1,5 +1,5 @@
 # T-51, T-56, T-41, MD-3, E-91
-FROM ghcr.io/e-suiss/relay@sha256:bf9fecbdf7296c456536e182e4403e3bb4bcce11b365671ff7823eb8dae58298
+FROM ghcr.io/e-suiss/relay@sha256:c4795d358bb71147701a68af290f40b2aba2a720e1839d547fb9824b660bf9e8
 
 USER root
 RUN apt-get update \

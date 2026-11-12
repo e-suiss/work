@@ -48,7 +48,7 @@ SQL
 }
 
 create_relay_logins() {
-    for role in relay_migrator relay_worker relay_queue relay_maint; do
+    for role in relay_migrator relay_worker relay_queue relay_maint relay_report; do
         psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname postgres \
             -v role="$role" -v password="$RELAY_APP_PASSWORD" <<'SQL'
 CREATE ROLE :"role" LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS

@@ -54,6 +54,8 @@ x-relay-env: &relay-env
   QUEUE_DATABASE_PASSWORD_FILE: /run/secrets/relay-db-password
   MAINT_DATABASE_URL: ecto://relay_maint@work-postgres:5432/relay
   MAINT_DATABASE_PASSWORD_FILE: /run/secrets/relay-db-password
+  REPORT_DATABASE_URL: ecto://relay_report@work-postgres:5432/relay
+  REPORT_DATABASE_PASSWORD_FILE: /run/secrets/relay-db-password
   VALKEY_URL: redis://valkey:6379
   SECRET_KEY_BASE_FILE: /run/secrets/relay-secret-key-base
   PKCS11_MODULE: /usr/lib/softhsm/libsofthsm2.so
