@@ -1312,9 +1312,9 @@ dependencies = [
 
 [[package]]
 name = "esuiss-access-kernel"
-version = "0.3.1"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ad80ef76a6a4dd61f90d1468385421bbc9b4b295d792178909ecc4e5ddd31ce6"
+checksum = "c8f9de3670a7e56b8e567b198f88289cca56b22f56870d6fc3cfa99754fd9ff2"
 dependencies = [
  "curve25519-dalek",
  "ed25519-dalek",
@@ -1326,9 +1326,9 @@ dependencies = [
 
 [[package]]
 name = "esuiss-crypto"
-version = "0.3.1"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9aa4a045bd3b97d5fc4e9b753578aa9b3c49ebe686b7bddf8817065058786c94"
+checksum = "72f230be275f87890603ceac6b88dede1632e759da062d89fd1e1b4cf567302c"
 dependencies = [
  "aws-lc-rs",
  "cryptoki",
@@ -1344,9 +1344,9 @@ dependencies = [
 
 [[package]]
 name = "esuiss-ledger"
-version = "0.3.1"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "69cb73c057b75cfda9737d7d069afd5c1cc58ebc677408fdf1606c20eb38c4a4"
+checksum = "656ec08c894ea485048aa30dca0c40ae3a3b234189210fc5f40e3dd444f24986"
 dependencies = [
  "esuiss-crypto",
  "sha2 0.11.1",
@@ -1355,9 +1355,9 @@ dependencies = [
 
 [[package]]
 name = "esuiss-restriction"
-version = "0.3.1"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cced4b7f96dd093291f6431f1ff27251ab02d579ded5df2d3f347745d288ef5b"
+checksum = "3f958dd8527a1c1c6b0603a672b74fa7d6ff73aff6a368331bdb196b5f10eede"
 dependencies = [
  "cedar-policy",
  "serde_json",
@@ -1366,18 +1366,18 @@ dependencies = [
 
 [[package]]
 name = "esuiss-retention"
-version = "0.3.1"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3b5ab7109feaf8e41f2d65c8811ea9134d24d4ce570c97b3dd472eefbf158878"
+checksum = "4aac3f3d0420168c8a0c83d9721d5ba224c685148955ce91ad52cf1f1538bc29"
 dependencies = [
  "thiserror 2.0.21",
 ]
 
 [[package]]
 name = "esuiss-sandbox"
-version = "0.3.1"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a9a06e0ad06ac6a2bb8a81e0d0202f046c024454591d70e2997dc5e2dfe63647"
+checksum = "37eb5cdc15d7bc013747f1a9e772d75612caf60db887c1442c68ef655831befd"
 dependencies = [
  "landlock",
  "libc",
