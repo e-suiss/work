@@ -76,6 +76,7 @@ pub(crate) fn unverifiable(error: &AccessError) -> WriteRefusal {
         AccessError::Unserved(_) => "access_unserved",
         AccessError::Expired => "pep_certificate_expired",
         AccessError::Disabled => "client_disabled",
+        AccessError::Answer(code) => code,
         _ => "access_answer",
     })
 }

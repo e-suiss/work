@@ -61,7 +61,12 @@ pub fn caller_problem(refusal: CallerRefusal) -> Response {
             );
             response
         }
-        CallerRefusal::Unverifiable(_) => {
+        CallerRefusal::Unverifiable(reason) => {
+            tracing::warn!(
+                event = "authority.unverifiable",
+                reason,
+                "a caller is not named: authority cannot be verified"
+            );
             Problem::new(ProblemCode::AuthorityUnverifiable).into_response()
         }
     }

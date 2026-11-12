@@ -780,84 +780,86 @@ mod tests {
         );
     }
 
+    const SERVED: &[(&str, &str)] = &[
+        (
+            "adp",
+            "https://access.example/.well-known/authzen-configuration",
+        ),
+        ("approval", "https://acme.id.example/v1/approve"),
+        (
+            "approval_requests",
+            "https://acme.id.example/v1/approve/requests",
+        ),
+        ("auth_context", "https://acme.id.example/v1/me/auth-context"),
+        (
+            "pushed_authorization_request",
+            "https://acme.id.example/par",
+        ),
+        (
+            "claim_ingest",
+            "https://access.example/access/v1/claims:ingest",
+        ),
+        (
+            "eligibility",
+            "https://access.example/access/v1/eligibility:check",
+        ),
+        (
+            "exercise",
+            "https://access.example/access/v1/exercises/{exercise}",
+        ),
+        (
+            "exercise_agency",
+            "https://access.example/access/v1/exercises/{exercise}/agency",
+        ),
+        ("instances", "https://acme.id.example/v1/me/instances"),
+        (
+            "key_batch",
+            "https://access.example/access/v1/keys:batchGet",
+        ),
+        ("key_lookup", "https://access.example/access/v1/keys/{kid}"),
+        (
+            "party_batch",
+            "https://access.example/access/v1/parties:batchGet",
+        ),
+        (
+            "party_lookup",
+            "https://access.example/access/v1/parties/{party}",
+        ),
+        (
+            "status_list",
+            "https://access.example/access/v1/status-lists/{list}",
+        ),
+        (
+            "pairing",
+            "https://access.example/access/v1/tenants/{tenant}/pairing",
+        ),
+        (
+            "pairing_challenges",
+            "https://access.example/access/v1/tenants/{tenant}/pairing/challenges",
+        ),
+        (
+            "platform_streams",
+            "https://access.example/access/v1/platform/streams",
+        ),
+        (
+            "subject_resolution",
+            "https://access.example/access/v1/tenants/{tenant}/subjects:resolve",
+        ),
+        (
+            "tenant_snapshot",
+            "https://access.example/access/v1/tenants/{tenant}/snapshot",
+        ),
+        (
+            "relay_status",
+            "https://access.example/access/v1/relay-status",
+        ),
+    ];
+
     // T-96
     #[test]
     fn t_96_every_endpoint_access_serves_is_read_with_its_variable() {
-        let served = [
-            (
-                "adp",
-                "https://access.example/.well-known/authzen-configuration",
-            ),
-            ("approval", "https://acme.id.example/v1/approve"),
-            (
-                "approval_requests",
-                "https://acme.id.example/v1/approve/requests",
-            ),
-            ("auth_context", "https://acme.id.example/v1/me/auth-context"),
-            (
-                "pushed_authorization_request",
-                "https://acme.id.example/par",
-            ),
-            (
-                "claim_ingest",
-                "https://access.example/access/v1/claims:ingest",
-            ),
-            (
-                "eligibility",
-                "https://access.example/access/v1/eligibility:check",
-            ),
-            (
-                "exercise",
-                "https://access.example/access/v1/exercises/{exercise}",
-            ),
-            (
-                "exercise_agency",
-                "https://access.example/access/v1/exercises/{exercise}/agency",
-            ),
-            ("instances", "https://acme.id.example/v1/me/instances"),
-            (
-                "key_batch",
-                "https://access.example/access/v1/keys:batchGet",
-            ),
-            ("key_lookup", "https://access.example/access/v1/keys/{kid}"),
-            (
-                "party_batch",
-                "https://access.example/access/v1/parties:batchGet",
-            ),
-            (
-                "party_lookup",
-                "https://access.example/access/v1/parties/{party}",
-            ),
-            (
-                "status_list",
-                "https://access.example/access/v1/status-lists/{list}",
-            ),
-            (
-                "pairing",
-                "https://access.example/access/v1/tenants/{tenant}/pairing",
-            ),
-            (
-                "pairing_challenges",
-                "https://access.example/access/v1/tenants/{tenant}/pairing/challenges",
-            ),
-            (
-                "platform_streams",
-                "https://access.example/access/v1/platform/streams",
-            ),
-            (
-                "subject_resolution",
-                "https://access.example/access/v1/tenants/{tenant}/subjects:resolve",
-            ),
-            (
-                "tenant_snapshot",
-                "https://access.example/access/v1/tenants/{tenant}/snapshot",
-            ),
-            (
-                "relay_status",
-                "https://access.example/access/v1/relay-status",
-            ),
-        ];
-        let endpoints = Endpoints::from_pairs(served).unwrap();
+        let served = SERVED;
+        let endpoints = Endpoints::from_pairs(served.iter().copied()).unwrap();
         assert_eq!(
             endpoints
                 .get(Endpoint::PairingChallenges)

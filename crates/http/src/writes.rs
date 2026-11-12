@@ -115,7 +115,14 @@ pub fn write_problem(refusal: WriteRefusal) -> Problem {
         WriteRefusal::Denied(code) => {
             Problem::new(ProblemCode::AccessDenied).with_code_detail(code)
         }
-        WriteRefusal::Unverifiable(_) => Problem::new(ProblemCode::AuthorityUnverifiable),
+        WriteRefusal::Unverifiable(reason) => {
+            tracing::warn!(
+                event = "authority.unverifiable",
+                reason,
+                "a write is refused: authority cannot be verified"
+            );
+            Problem::new(ProblemCode::AuthorityUnverifiable)
+        }
         WriteRefusal::Busy { retry_after_s } => {
             Problem::new(ProblemCode::Busy).with_retry_after(retry_after_s)
         }
