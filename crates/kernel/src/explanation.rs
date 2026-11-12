@@ -54,7 +54,8 @@ const PROOF_KINDS: &[&str] = &[
     "foreign_authority",
 ];
 const BINDINGS: &[&str] = &["actor_instance", "intent_digest", "resource"];
-const DISTINCT: &[&str] = &["party", "instance", "issuer"];
+const DISTINCT: &[&str] = &["party", "instance", "issuer", "surface"];
+const SURFACE: &str = "surface";
 const LEVELS: &[&str] = &["aal", "loa_eidas"];
 const FLAGS: &[&str] = &[
     "phishing_resistant",
@@ -295,6 +296,8 @@ fn assurance(v: &Value) -> Checked {
         };
         let fits = if LEVELS.contains(&k.as_str()) {
             (1..=3).contains(level)
+        } else if k == SURFACE {
+            *level <= 2
         } else {
             FLAGS.contains(&k.as_str()) && *level <= 1
         };
@@ -667,6 +670,30 @@ mod tests {
         ] {
             assert_eq!(Explanation::from_value(bad), Err(ExplanationError(why)));
         }
+        let term = |independence: &str, surface: u64| {
+            Value::Map(Vec::from([
+                entry("proof_kind", Value::text("contribution")),
+                entry("class", Value::text("approve")),
+                entry(
+                    "independence",
+                    Value::Map(Vec::from([entry("distinct", Value::text(independence))])),
+                ),
+                entry(
+                    "assurance",
+                    Value::Map(Vec::from([
+                        entry("phishing_resistant", Value::Unsigned(1)),
+                        entry("surface", Value::Unsigned(surface)),
+                    ])),
+                ),
+            ]))
+        };
+        assert_eq!(check_term(&term("surface", 2)), Ok(()));
+        assert_eq!(check_term(&term("party", 0)), Ok(()));
+        assert_eq!(
+            check_term(&term("party", 3)),
+            Err(ExplanationError("assurance"))
+        );
+        assert!(check_term(&term("origin", 2)).is_err());
         assert!(is_ident("a_1") && !is_ident("1a") && !is_ident("") && !is_ident("a-b"));
         assert_eq!(b64url(&[0xff, 0xee]), "_-4");
     }

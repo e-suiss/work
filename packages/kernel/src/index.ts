@@ -412,7 +412,7 @@ export interface RequirementTerm {
   readonly count?: number;
   readonly binding?: "actor_instance" | "intent_digest" | "resource";
   readonly freshness_ms?: number;
-  readonly independence?: { readonly distinct: "party" | "instance" | "issuer" };
+  readonly independence?: { readonly distinct: "party" | "instance" | "issuer" | "surface" };
   readonly consumption?: "single_use";
   readonly source?: JsonValue;
   readonly assurance?: Readonly<Record<string, number>>;
