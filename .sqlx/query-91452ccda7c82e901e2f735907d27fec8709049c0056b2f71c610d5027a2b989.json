@@ -1,0 +1,92 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT tenant, organization::text AS \"organization!\", origin, access_pos, access_idx,\n                      (extract(epoch FROM changed_at) * 1000)::bigint AS \"changed_at_ms?\",\n                      (extract(epoch FROM mapped_at) * 1000)::bigint AS \"mapped_at_ms!\",\n                      (extract(epoch FROM updated_at) * 1000)::bigint AS \"updated_at_ms!\"\n               FROM work.access_organization WHERE tenant = $1 ORDER BY organization",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "tenant",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "work.access_organization",
+            "name": "tenant"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "organization!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "origin",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "work.access_organization",
+            "name": "origin"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "access_pos",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "work.access_organization",
+            "name": "access_pos"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "access_idx",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "work.access_organization",
+            "name": "access_idx"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "changed_at_ms?",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "mapped_at_ms!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 7,
+        "name": "updated_at_ms!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      null,
+      false,
+      true,
+      true,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "91452ccda7c82e901e2f735907d27fec8709049c0056b2f71c610d5027a2b989"
+}

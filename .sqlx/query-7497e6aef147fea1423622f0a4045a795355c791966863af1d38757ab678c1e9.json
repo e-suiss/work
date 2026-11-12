@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE work.access_organization\n             SET access_pos = $3,\n                 access_idx = $4,\n                 changed_at = pg_catalog.to_timestamp(0) + interval '1 millisecond' * $5::bigint::double precision,\n                 updated_at = GREATEST(updated_at,\n                     pg_catalog.to_timestamp(0) + interval '1 millisecond' * $6::bigint::double precision)\n             WHERE tenant = $1 AND organization = $2::text::uuid\n               AND (access_pos IS NULL OR (access_pos, access_idx) < ($3::bigint, $4::bigint))",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "7497e6aef147fea1423622f0a4045a795355c791966863af1d38757ab678c1e9"
+}

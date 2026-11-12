@@ -520,6 +520,7 @@ fn t_102_every_type_of_the_access_catalog_is_read() {
 // E-3 T-102
 #[test]
 fn e_3_an_organization_event_names_the_tenant_the_organization_and_its_access_position() {
+    type Edit = Box<dyn Fn(&mut Value)>;
     const ORG: &str = "019a0000-0000-7000-8000-0000000000b1";
     let keys = realm_keys("e3-organization-event");
     let payload = |edit: &dyn Fn(&mut Value)| {
@@ -548,7 +549,7 @@ fn e_3_an_organization_event_names_the_tenant_the_organization_and_its_access_po
         }
     );
     assert_eq!(set.event.name(), "organization.updated");
-    let cases: [(&str, Box<dyn Fn(&mut Value)>); 5] = [
+    let cases: [(&str, Edit); 5] = [
         (
             "organization",
             Box::new(|p| p["organization"] = json!("org_1")),

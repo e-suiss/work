@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO work.access_organization (tenant, organization, origin, mapped_at, updated_at)\n             VALUES ($1, $2::text::uuid, 'snapshot',\n                     pg_catalog.to_timestamp(0) + interval '1 millisecond' * $3::bigint::double precision,\n                     pg_catalog.to_timestamp(0) + interval '1 millisecond' * $3::bigint::double precision)\n             ON CONFLICT (tenant, organization) DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4059f840d8ef98a9699ba8c8dad51085d38f7add0330c992093179b0094bb881"
+}

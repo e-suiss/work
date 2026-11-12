@@ -125,7 +125,7 @@ mod tests {
         assert_eq!(unlisted(&known, std::slice::from_ref(&a)), vec![b.clone()]);
         assert_eq!(unlisted(&known, &known), Vec::new());
         assert_eq!(unlisted(&known, &[]), Vec::new());
-        assert_eq!(unlisted(&[], &[a.clone()]), Vec::new());
+        assert_eq!(unlisted(&[], std::slice::from_ref(&a)), Vec::new());
         let change = OrganizationChange::Event {
             organization: b.clone(),
             position: AccessPosition { pos: 42, idx: 0 },
