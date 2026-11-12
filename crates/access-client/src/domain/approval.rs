@@ -308,6 +308,8 @@ struct PushedWire {
     request_uri: String,
     digest: String,
     expires_at: String,
+    #[serde(default)]
+    facts: Option<Value>,
 }
 
 /// A pushed request as Access names it.
@@ -322,14 +324,17 @@ pub struct Pushed {
 }
 
 impl Pushed {
-    /// Reads the `201` answer.
+    /// Reads the `201` answer; the ranking `facts` Access may add (Access OP-157 m.3 (m)) are
+    /// read as an object and not kept.
     ///
     /// # Errors
     /// [`AccessError::Answer`] (`pushed`).
     pub fn from_json(body: &[u8]) -> Result<Self, AccessError> {
         let bad = || AccessError::Answer("pushed");
         let wire: PushedWire = serde_json::from_slice(body).map_err(|_| bad())?;
-        if !wire.request_uri.starts_with(REQUEST_URI_PREFIX) {
+        if !wire.request_uri.starts_with(REQUEST_URI_PREFIX)
+            || wire.facts.is_some_and(|f| !f.is_object())
+        {
             return Err(bad());
         }
         Ok(Self {
@@ -481,6 +486,14 @@ mod tests {
         });
         let pushed = Pushed::from_json(answer.to_string().as_bytes()).unwrap();
         assert_eq!(pushed.digest, [6; 32]);
+        let mut ranked = answer.clone();
+        ranked["facts"] = json!({"class": "approve", "reserved": false});
+        assert_eq!(Pushed::from_json(ranked.to_string().as_bytes()), Ok(pushed));
+        ranked["facts"] = json!("approve");
+        assert!(Pushed::from_json(ranked.to_string().as_bytes()).is_err());
+        ranked["facts"] = json!({});
+        ranked["rank"] = json!(1);
+        assert!(Pushed::from_json(ranked.to_string().as_bytes()).is_err());
         let mut other = answer;
         other["request_uri"] = json!("r1");
         assert!(Pushed::from_json(other.to_string().as_bytes()).is_err());
