@@ -615,6 +615,24 @@ jobs:
         env:
           NEXTEST_PROFILE: ci
         run: just test-compose-signed "$RUNNER_TEMP/access-local" 600
+      - name: Work's entry takes a Relay event only with a signature under a product event key Relay publishes, and writes nothing for an unsigned one or one a stranger signed (T-100, P-114)
+        run: |
+          c() { docker compose -f deploy/compose/compose.yaml "$@"; }
+          post() { c exec -T relay curl -s -o /dev/null -w '%{http_code}' -X POST -H 'content-type: application/cloudevents+json' "$@" https://work-server:8443/v1/inbound/events; }
+          curl -fsS --cacert "$RUNNER_TEMP/access-ca.crt" https://relay/.well-known/relay-jwks.json | jq -e '.keys | type == "array"'
+          tenant="$(jq -er '.realms[] | select(.slug == "acme") | .tenant' "$RUNNER_TEMP/access-local/bootstrap.json")"
+          now="$(date +%s)"
+          id="evt_ci_$now"
+          body="{\"specversion\":\"1.0\",\"id\":\"$id\",\"source\":\"https://relay\",\"type\":\"notification.delivered\",\"time\":\"2026-11-12T00:00:00Z\",\"datacontenttype\":\"application/json\",\"accesstenant\":\"$tenant\",\"data\":{}}"
+          test "$(post --data-binary "$body")" = 401
+          openssl genpkey -algorithm ed25519 -out "$RUNNER_TEMP/stranger.pem"
+          printf '%s.%s.%s' "$id" "$now" "$body" > "$RUNNER_TEMP/stranger.signed"
+          signature="$(openssl pkeyutl -sign -rawin -inkey "$RUNNER_TEMP/stranger.pem" -in "$RUNNER_TEMP/stranger.signed" | base64 -w 0)"
+          test "$(post -H "webhook-id: $id" -H "webhook-timestamp: $now" -H "webhook-signature: v1a,$signature" --data-binary "$body")" = 401
+          test "$(post -H "webhook-id: $id" -H "webhook-timestamp: $now" -H "webhook-signature: v1,$signature" --data-binary "$body")" = 401
+          c logs work-server | grep 'relay.event_refused' | grep -q 'a webhook profile header is missing'
+          c logs work-server | grep 'relay.event_refused' | grep -q 'no signature verifies under a product event key'
+          if c logs work-server | grep -q 'relay.event_accepted'; then exit 1; fi
       - name: A ledger opens in work-server's cell, and work-server writes nothing into it for an intent that names no Work ledger (E-17, E-45, P-13)
         env:
           NEXTEST_PROFILE: ci
@@ -785,7 +803,7 @@ jobs:
           if c logs work-server | grep -q 'access.event_refused'; then c logs work-server | grep 'access.event_refused'; exit 1; fi
       - name: Logs on failure
         if: failure()
-        run: docker compose -f deploy/compose/compose.yaml logs --no-color --tail 200 work-access-keys work-access-pep work-server-tls work-access-client-id work-migrate access-init access-migrate access-bootstrap access-signer access-identity-signer access relay-keys relay-init relay nts-a nts-b roughtime-a roughtime-b roughtime-c s3 witness work-signer work-server
+        run: docker compose -f deploy/compose/compose.yaml logs --no-color --tail 200 work-access-keys work-access-pep work-server-tls work-access-client-id work-migrate access-init access-migrate access-bootstrap access-signer access-identity-signer access relay-keys relay-init relay relay-register nts-a nts-b roughtime-a roughtime-b roughtime-c s3 witness work-signer work-server
       - name: Stop
         if: always()
         run: just dev-down
