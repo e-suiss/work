@@ -5,12 +5,13 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::Duration;
 
 use tokio::task::JoinHandle;
-use work_access_client::app::platform::{Report, Scope};
+use work_access_client::app::platform::{Report, Scope, Signal};
 use work_access_client::domain::AccessError;
 use work_access_client::domain::tenants::RECONCILE_INTERVAL_MS;
 use work_access_client::ports::{Clock, Random};
 use work_ledger::time::{LedgerTime, ProcessMonotonic};
 use work_ledger::{Rng as _, SystemRng};
+use work_proto::id::TenantId;
 use work_reconciler::adapters::PgPairing;
 use work_reconciler::app::{AccessSettings, pair};
 
@@ -94,9 +95,23 @@ pub(crate) struct Pairer {
     pub(crate) stats: Arc<PairingStats>,
 }
 
+/// How many steps a `tenant.created` gets while Access is not ready for the new tenant (PD).
+const NEW_TENANT_STEPS: u32 = 6;
+
+/// How long a `tenant.created` step waits before it runs again (PD).
+const NEW_TENANT_WAIT: Duration = Duration::from_secs(5);
+
+/// Whether a step over `tenant` ended in an outage of that tenant's pairing, which the same
+/// step may get past a moment later: Access announces a tenant before its realms answer.
+fn deferred(report: &Report, tenant: &TenantId) -> bool {
+    report.signals.iter().any(|s| {
+        matches!(s, Signal::Failed { tenant: Some(t), error } if t == tenant && error.is_temporary())
+    })
+}
+
 impl Pairer {
     /// Runs one step over `scope`, logs its signals and keeps its gauges.
-    pub(crate) async fn run(&self, scope: &Scope) {
+    pub(crate) async fn run(&self, scope: &Scope) -> Report {
         let report = pair(
             &self.settings,
             &self.store,
@@ -107,6 +122,21 @@ impl Pairer {
         .await;
         log(&report);
         self.stats.record(&report);
+        report
+    }
+
+    /// The step of a `tenant.created` (T-102 item 5): over the new tenant at once, and again
+    /// every [`NEW_TENANT_WAIT`], at most [`NEW_TENANT_STEPS`] times, while its pairing ends in
+    /// an outage; after that the hourly step takes it.
+    pub(crate) async fn run_created(&self, tenant: TenantId) {
+        let scope = Scope::Tenant(tenant.clone());
+        for step in 1..=NEW_TENANT_STEPS {
+            let report = self.run(&scope).await;
+            if step == NEW_TENANT_STEPS || !deferred(&report, &tenant) {
+                break;
+            }
+            tokio::time::sleep(NEW_TENANT_WAIT).await;
+        }
     }
 }
 
@@ -126,14 +156,13 @@ pub(crate) fn spawn(pairer: Pairer) -> JoinHandle<()> {
         let mut hourly = tokio::time::interval(Duration::from_millis(RECONCILE_INTERVAL_MS));
         loop {
             hourly.tick().await;
-            pairer.run(&Scope::Due).await;
+            let _report = pairer.run(&Scope::Due).await;
         }
     })
 }
 
 #[cfg(test)]
 mod tests {
-    use work_access_client::app::platform::Signal;
     use work_access_client::domain::streams::StreamStatus;
 
     use super::*;
@@ -164,5 +193,36 @@ mod tests {
             (2, 1, false)
         );
         assert!(Os.fill(&mut [0; 32]).is_ok());
+    }
+
+    // T-102 T-103
+    #[test]
+    fn t_102_a_new_tenant_s_step_runs_again_only_after_an_outage_of_its_own_pairing() {
+        let beta = TenantId::new("tnt_beta").unwrap();
+        let failed = |tenant: Option<&str>, error: AccessError| Report {
+            signals: vec![Signal::Failed {
+                tenant: tenant.map(|t| TenantId::new(t).unwrap()),
+                error,
+            }],
+            ..Report::default()
+        };
+        assert!(deferred(
+            &failed(Some("tnt_beta"), AccessError::Timeout),
+            &beta
+        ));
+        assert!(deferred(
+            &failed(Some("tnt_beta"), AccessError::Stale),
+            &beta
+        ));
+        assert!(!deferred(
+            &failed(Some("tnt_acme"), AccessError::Timeout),
+            &beta
+        ));
+        assert!(!deferred(&failed(None, AccessError::Timeout), &beta));
+        assert!(!deferred(
+            &failed(Some("tnt_beta"), AccessError::Answer("pairing")),
+            &beta
+        ));
+        assert!(!deferred(&Report::default(), &beta));
     }
 }

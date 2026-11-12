@@ -255,7 +255,7 @@ mod tests {
         );
     }
 
-    // E-7 T-99 T-104
+    // E-7 T-99
     #[test]
     fn e_7_a_service_token_names_its_caller_in_work_s_sector_and_only_in_its_tenant() {
         let acme = TenantId::new("tnt_acme").unwrap();

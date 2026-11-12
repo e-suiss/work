@@ -11,7 +11,6 @@ use tokio_rustls::rustls::ServerConfig;
 use tokio_rustls::server::TlsStream;
 use work_access_client::adapters::{AccessKeys, TokenSigner};
 use work_access_client::app::events::{Intake, Outcome};
-use work_access_client::app::platform::Scope;
 use work_access_client::domain::b64url;
 use work_access_client::domain::events::{Compromise, Signal};
 use work_access_client::domain::keys::DomainId;
@@ -48,8 +47,8 @@ fn hex(bytes: &[u8]) -> String {
 impl Effects for ProcessEffects {
     fn pair(&self, tenant: &TenantId) {
         let pairer = self.pairer.clone();
-        let scope = Scope::Tenant(tenant.clone());
-        tokio::spawn(async move { pairer.run(&scope).await });
+        let tenant = tenant.clone();
+        tokio::spawn(async move { pairer.run_created(tenant).await });
     }
 
     fn forget_domain(&self, domain: DomainId) {

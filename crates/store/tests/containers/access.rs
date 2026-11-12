@@ -317,15 +317,11 @@ async fn e_17_an_approval_state_is_issued_once_used_once_and_never_deleted() {
         expires_at_ms: at(100),
     };
     assert!(access.issue_approval_state(&issued).await.unwrap());
-    assert!(
-        !access
-            .issue_approval_state(&NewApprovalState {
-                party: [9; 16],
-                ..issued
-            })
-            .await
-            .unwrap()
-    );
+    let other = NewApprovalState {
+        party: [9; 16],
+        ..issued
+    };
+    assert!(!access.issue_approval_state(&other).await.unwrap());
     let row = access.approval_state(&state).await.unwrap().unwrap();
     assert_eq!(
         row,

@@ -334,7 +334,7 @@ fn e_7_a_dpop_proof_binds_the_token_to_its_key_and_this_request() {
     assert_eq!(target_uri("https://w.example/a?b#c"), "https://w.example/a");
 }
 
-// E-7 T-99 T-104
+// E-7 T-99
 #[test]
 fn e_7_a_service_token_names_its_caller_and_tenant_and_carries_no_authority() {
     let k = keys("token-service");

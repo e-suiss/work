@@ -6225,6 +6225,7 @@ acceptance = "filled"
 title = ""
 tests = [
   "bins/work-server/src/config.rs::t_102_the_event_entry_listens_only_when_configured_with_a_token_key",
+  "bins/work-server/src/pairing.rs::t_102_a_new_tenant_s_step_runs_again_only_after_an_outage_of_its_own_pairing",
   "crates/access-client/src/app/events/tests.rs::t_102_a_compromise_without_window_from_marks_nothing",
   "crates/access-client/src/app/events/tests.rs::t_102_a_repeated_jti_is_accepted_once",
   "crates/access-client/src/app/events/tests.rs::t_102_a_revocation_drops_the_cache_at_once",
@@ -6259,6 +6260,7 @@ tests = [
   "bins/work-cli/src/access.rs::t_103_the_command_reads_the_server_settings_and_names_what_is_missing",
   "bins/work-server/src/config.rs::t_103_the_pairing_step_reads_the_access_settings_and_pushes_to_the_installation",
   "bins/work-server/src/health.rs::t_39_metrics_raise_the_nats_alarm_with_a_bounded_label_set",
+  "bins/work-server/src/pairing.rs::t_102_a_new_tenant_s_step_runs_again_only_after_an_outage_of_its_own_pairing",
   "bins/work-server/src/pairing.rs::t_103_the_gauges_keep_the_last_values_the_store_gave",
   "crates/access-client/src/adapters.rs::t_103_a_tampered_access_digest_is_never_signed",
   "crates/access-client/src/adapters.rs::t_103_the_service_key_signs_statements_access_verifies",

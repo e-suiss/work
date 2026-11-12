@@ -197,6 +197,12 @@ export interface components {
         /** @description What the approval return hands back. */
         ApprovalReturned: {
             /**
+             * @description The approver's `authentication` Claim Access put on the redirect, its `ClaimID` as
+             *     unpadded base64url of 16 bytes; the next authority request sends it as
+             *     `proofs[].claim_ref` when the first answer was `next: step_up`.
+             */
+            claim?: string | null;
+            /**
              * @description The contribution `ExerciseID` Access confirmed, unpadded base64url of 32 bytes; the next
              *     authority request sends it as `proofs[].contribution`.
              */
@@ -204,8 +210,9 @@ export interface components {
             /** @description The ledger, `led_…`, the next authority request names. */
             ledger: string;
             /**
-             * @description What the caller does next: `commit`, a new authority request with the contribution as
-             *     its proof, whose allowed Exercise the Declaration write then refers to.
+             * @description What the caller does next: `commit`, a new authority request with the contribution, and
+             *     the Claim when there is one, as its proofs, whose allowed Exercise the Declaration write
+             *     then refers to.
              */
             next: string;
             /**
@@ -240,9 +247,11 @@ export interface components {
             /** @description The allowed `ExerciseID`, unpadded base64url of 32 bytes. */
             exercise?: string | null;
             /**
-             * @description What the caller does next: `step_up` to authenticate at Access as the `step_up` terms
-             *     ask and send a new request, `approve` to have the request approved on the Approval
-             *     Surface and send a new request with the contribution as its proof.
+             * @description What the caller does next: `step_up` when Access also asks for the approver's fresh
+             *     authentication, which the passkey assertion on the Approval Surface meets beside the
+             *     approval, so the new request sends the returned Claim as `claim_ref` beside the
+             *     contribution; `approve` to have the request approved on the Approval Surface and send a
+             *     new request with the contribution as its proof.
              */
             next?: string | null;
             /** @description `allow` or `require_action`. */
@@ -471,13 +480,18 @@ export interface components {
             /** @description `https://suiss.app/ns/work/problems/<code>`. */
             type: string;
         };
-        /** @description An approval the commit relies on. */
+        /** @description A proof the commit relies on: exactly one of `contribution` and `claim_ref`. */
         ProofInput: {
             /**
-             * @description The contribution `ExerciseID` the Approval Surface returned, unpadded base64url of 32
+             * @description The approver's `authentication` Claim the approval return handed back as `claim`, its
+             *     `ClaimID` as unpadded base64url of 16 bytes, when Access asked for a step-up.
+             */
+            claim_ref?: string | null;
+            /**
+             * @description The contribution `ExerciseID` the approval return handed back, unpadded base64url of 32
              *     bytes.
              */
-            contribution: string;
+            contribution?: string | null;
         };
         /** @description A witness cosignature or time stamp of the covering checkpoint. */
         WitnessAnswer: {
@@ -536,6 +550,8 @@ export interface operations {
                 render_digest: string;
                 /** @description The `state` Work sent with the pushed request. */
                 state: string;
+                /** @description The approver's `authentication` Claim Access put on the redirect, unpadded base64url of 16 bytes. */
+                claim?: string;
             };
             header?: never;
             path?: never;
@@ -558,7 +574,7 @@ export interface operations {
                     "application/json": components["schemas"]["ApprovalReturned"];
                 };
             };
-            /** @description A query without exactly one exercise, render_digest and state. */
+            /** @description A query without exactly one exercise, render_digest and state, or with more than one claim. */
             400: {
                 headers: {
                     /** @description What is left of the quota. */
