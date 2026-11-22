@@ -1649,6 +1649,7 @@ mod commit {
     use suiss_crypto::signer::{Signer as _, sign_sign1};
     use work_access_client::domain::adp::{self, Action, Holding, Statement};
     use work_access_client::domain::approval::{APPROVE_CLASS, contribution_intent};
+    use work_access_client::domain::commitments::{Ended, Verdict};
     use work_access_client::domain::exercise::{
         Capacity as Held, ExerciseId, Intent, VerifiedExercise,
     };
@@ -2757,6 +2758,86 @@ mod commit {
             json!([{"kind": "party", "id": "party:globex:supplier"}]),
             "{view}"
         );
+        let release = golden_commitment(
+            local,
+            "commitment/release",
+            (&w.led, &w.receipt),
+            None,
+            Some(*opened.0.as_bytes()),
+        );
+        let body = w.body(local, &release, &w.commit.bytes).await;
+        let key = local.uuid7(local.access_now_s().await * 1000);
+        let path = format!("/v1/ledgers/{}/commitments/{cmt}/release", w.led);
+        let released = w.post(local, &path, body, &key, "\"1\"").await;
+        assert_eq!(released.status, 201, "{released:?}");
+        assert_eq!(released.json()["commitment"], cmt.as_str(), "{released:?}");
+        let read = local
+            .read(
+                &w.key,
+                &format!("/v1/ledgers/{}/commitments/{cmt}", w.led),
+                &w.token,
+            )
+            .await;
+        assert_eq!(read.status, 200, "{read:?}");
+        assert_eq!(read.header("etag"), Some("\"2\""), "{read:?}");
+        let view = read.json();
+        assert_eq!(view["summary"], "released", "{view}");
+        assert_eq!(
+            view["active_ends"],
+            json!([{
+                "obligor": "party:globex:supplier",
+                "record": record_id(&release).to_external(),
+                "cause": "closed",
+            }]),
+            "{view}"
+        );
+        assert_eq!(view["allowed"].as_array().map(Vec::len), Some(0), "{view}");
+    }
+
+    // E-12 E-8
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore = "needs the local environment with the commit ledger opened"]
+    async fn e_12_access_takes_the_commitment_active_false_claim_work_hands_it() {
+        let local = Local::open();
+        let domain = DomainId(fixed_b64url(text(allowed(&local), "domain")).unwrap());
+        let row = access_pool()
+            .await
+            .realm_of_domain(&domain.0)
+            .await
+            .unwrap()
+            .unwrap();
+        let ended = Ended {
+            domain,
+            issuer: KernelId(row.party.unwrap()),
+            subject: KernelId(fixed_b64url(&local.user("party")).unwrap()),
+            commitment: [0xc0; 32],
+            issued_at_ms: local.access_now_s().await * 1000,
+            pep: fixed_b64url(&local.pep().x5t_s256()).unwrap(),
+        };
+        let access = local.client().await;
+        let first = access.commitment_ended(&ended).await.unwrap();
+        let again = access.commitment_ended(&ended).await.unwrap();
+        match (&first, &again) {
+            (
+                Verdict::Admitted { claim, .. },
+                Verdict::Admitted {
+                    claim: same,
+                    replayed,
+                    ..
+                },
+            ) => {
+                assert_eq!(claim, same);
+                assert!(replayed);
+            }
+            (
+                Verdict::Quarantined { claim, reason, .. },
+                Verdict::Quarantined { claim: same, .. },
+            ) => {
+                assert_eq!(claim, same);
+                assert_eq!(reason, "source-not-accepted");
+            }
+            other => panic!("{other:?}"),
+        }
     }
 
     // SEC-36 C-4 T-102
