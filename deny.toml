@@ -18,7 +18,6 @@ ignore = [
     { id = "RUSTSEC-2026-0374", reason = "T-38: basic-toml is unmaintained since 2026-09-26 and reaches the graph only through askama, the template engine of uniffi_bindgen, which generates the Swift and Kotlin bindings and is in no server binary; askama 0.16.1, its latest release, still depends on it" },
     { id = "RUSTSEC-2026-0459", reason = "T-38: libsqlite3-sys 0.37.0 is in Cargo.lock only as the locked version of sqlx's optional SQLite driver, which Work does not enable and never builds (PostgreSQL only); sqlx-sqlite 0.9.0, the latest release, requires libsqlite3-sys < 0.38, so the fixed 0.39.0 cannot be locked" },
     { id = "RUSTSEC-2026-0592", reason = "T-38, T-60: url 2.5.8 overflows the stack in Url::origin() on nested blob: URLs; Work never calls Url::origin() and takes url only through its HTTP dependencies; the fixed 2.5.9 was published on 2026-11-20 and is locked once its seven-day cooldown ends on 2026-11-27" },
-    { id = "RUSTSEC-2026-0543", reason = "T-38: chrono is declared unmaintained with no replacement release; it reaches the graph only through cedar-policy-core 4.13.0, which esuiss-restriction 0.7.4 binds exactly (T-72), so Work cannot move it; it leaves with the cedar-policy release Access adopts" },
 ]
 
 # T-38
