@@ -51,7 +51,7 @@ pub struct Allowed {
 fn roles(view: &CommitmentView, caller: &Caller<'_>) -> Vec<Actor> {
     let party = caller.party;
     let obligor = matches!(&view.obligor, Obligor::Party(o) if o == party);
-    let proposed = [&view.pending.delegation, &view.pending.assignment]
+    let proposed = [&view.pending.delegation, &view.pending.transfer]
         .into_iter()
         .flatten()
         .any(|p| &p.to == party);
@@ -124,8 +124,8 @@ fn pending_for(view: &CommitmentView, op: Operation, permit: &Permit, party: &Pa
         }
         (Operation::Delegate, Transition::Opens) => pending.delegation.is_none(),
         (Operation::Delegate, _) => pending.delegation.as_ref().is_some_and(|p| &p.to == party),
-        (Operation::Assign, Transition::Opens) => pending.assignment.is_none(),
-        (Operation::Assign, _) => pending.assignment.as_ref().is_some_and(|p| &p.to == party),
+        (Operation::Assign, Transition::Opens) => pending.transfer.is_none(),
+        (Operation::Assign, _) => pending.transfer.as_ref().is_some_and(|p| &p.to == party),
         (Operation::Expire, _) => view.terms.respond_by.is_some() || view.precondition.is_some(),
         _ => true,
     }
@@ -270,7 +270,7 @@ pub fn next_moves(view: &CommitmentView, facts: &Facts<'_>) -> Vec<Mover> {
     if view.pending.amendment.is_some() {
         push(&mut out, obligor_mover(view));
     }
-    for proposal in [&view.pending.delegation, &view.pending.assignment]
+    for proposal in [&view.pending.delegation, &view.pending.transfer]
         .into_iter()
         .flatten()
     {

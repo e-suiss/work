@@ -938,7 +938,7 @@ fn plan_assign(view: &CommitmentView, record: &Record, who: &PartyRef) -> Result
     match step.ok_or(Refusal::MissingContent)? {
         ProposalStep::Proposal => {
             require(is_obligee(view, who), Refusal::WrongRole)?;
-            require(view.pending.assignment.is_none(), Refusal::AlreadyPending)?;
+            require(view.pending.transfer.is_none(), Refusal::AlreadyPending)?;
             let to = params::party(record, "obligee").ok_or(Refusal::MissingContent)?;
             require(!is_obligee(view, &to), Refusal::WrongTarget)?;
             Ok(Plan::new(whole(view, S::OPEN)?, Mode::Proposal))
@@ -946,7 +946,7 @@ fn plan_assign(view: &CommitmentView, record: &Record, who: &PartyRef) -> Result
         ProposalStep::Acceptance => {
             let proposal = view
                 .pending
-                .assignment
+                .transfer
                 .as_ref()
                 .ok_or(Refusal::NothingPending)?;
             require(
@@ -1497,11 +1497,11 @@ fn apply_delegate(view: &mut CommitmentView, record: &Record, id: RecordId, plan
 
 fn apply_assign(view: &mut CommitmentView, record: &Record, id: RecordId, plan: &Plan) {
     if plan.mode == Mode::Proposal {
-        view.pending.assignment =
+        view.pending.transfer =
             params::party(record, "obligee").map(|to| Proposal { record: id, to });
         return;
     }
-    if let Some(proposal) = view.pending.assignment.take() {
+    if let Some(proposal) = view.pending.transfer.take() {
         view.obligee = proposal.to;
     }
 }

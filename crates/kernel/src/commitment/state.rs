@@ -11,7 +11,7 @@ wire_enum! {
         ConditionallyPromised => "conditionally_promised",
         /// The obligor is bound; execution is expected or running.
         Promised => "promised",
-        /// The obligor said it is done; the acceptor decides.
+        /// The obligor stated the work; the acceptor decides.
         Stated => "stated",
         /// The result was accepted, explicitly or implicitly.
         Accepted => "accepted",

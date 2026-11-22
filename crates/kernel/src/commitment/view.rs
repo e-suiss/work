@@ -233,7 +233,7 @@ pub struct Pending {
     /// The open delegation proposal (CM-44).
     pub delegation: Option<Proposal>,
     /// The open assignment proposal (CM-43).
-    pub assignment: Option<Proposal>,
+    pub transfer: Option<Proposal>,
 }
 
 /// The statement in force (CM-25…CM-28).
