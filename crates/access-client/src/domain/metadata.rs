@@ -10,6 +10,17 @@ use suiss_crypto::sig::PureBackend;
 
 use crate::domain::b64url;
 
+const fn is_ml_dsa(alg: Algorithm) -> bool {
+    matches!(
+        alg,
+        Algorithm::MlDsa44 | Algorithm::MlDsa65 | Algorithm::MlDsa87
+    )
+}
+
+fn algorithm_of(sign1: &[u8]) -> Option<Algorithm> {
+    access_kernel::verify::ml_dsa::algorithm_of(sign1).ok()
+}
+
 /// Content type of the binding-signed excerpt.
 pub const EXCERPT_CONTENT_TYPE: &str = "application/access-key-excerpt+cbor";
 /// Content type of the binding-signed Domain Metadata.
@@ -88,6 +99,9 @@ pub enum KeyScopeError {
     /// The window is inverted, too long, or does not contain `iat`.
     #[error("outside the key window")]
     Window,
+    /// The domain retired its classical algorithm and Work pinned no post-quantum anchor.
+    #[error("post-quantum anchor missing")]
+    PqAnchorMissing,
 }
 
 impl KeyScopeError {
@@ -106,6 +120,7 @@ impl KeyScopeError {
             Self::Algorithm => "algorithm",
             Self::Usage => "usage",
             Self::Window => "window",
+            Self::PqAnchorMissing => "pq-anchor-missing",
         }
     }
 }
@@ -197,8 +212,11 @@ pub struct BindingKey {
     pub key: PublicKey,
     /// Scope.
     pub scope: BindingScope,
-    /// Set after a handover or recovery; such a key no longer signs.
+    /// Set after a re-anchor, a handover or a recovery; such a key no longer signs.
     pub superseded: bool,
+    /// Whether a re-anchor superseded it: what it signed up to the metadata's `issued_at`
+    /// still counts (Access L0-SIG-64).
+    pub re_anchored: bool,
 }
 
 /// The authority fields of Domain Metadata this client reads (Access CR-58 m.3); the others are
@@ -217,6 +235,12 @@ pub struct DomainMetadata {
     pub hybrid: Option<String>,
     /// The opaque discovery bytes (`suiss-discovery.cddl`).
     pub discovery: Option<Vec<u8>>,
+    /// When the metadata was issued; `0` when it names no time.
+    pub issued_at: u64,
+    /// Whether the domain published a post-quantum re-anchor (Access L0-SIG-81).
+    pub pq_reanchor: bool,
+    /// Whether the domain declares the FIPS profile (Access L0-SIG-82).
+    pub fips: bool,
 }
 
 impl DomainMetadata {
@@ -250,6 +274,12 @@ impl DomainMetadata {
             Some(Value::Bytes(b)) => Some(b.clone()),
             Some(_) => return Err(KeyScopeError::Payload),
         };
+        let fips = match f.opt("crypto_profile") {
+            None => false,
+            Some(Value::Text(t)) if t == "fips" => true,
+            Some(Value::Text(t)) if t == "standard" => false,
+            Some(_) => return Err(KeyScopeError::Payload),
+        };
         let out = Self {
             domain: digest(f.req("domain")?)?,
             binding,
@@ -257,6 +287,9 @@ impl DomainMetadata {
             operational_window_max_ms: uint(f.req("operational_window_max_ms")?)?,
             hybrid,
             discovery,
+            issued_at: f.opt("issued_at").map(uint).transpose()?.unwrap_or(0),
+            pq_reanchor: f.opt("pq_reanchor").is_some(),
+            fips,
         };
         if out.operational_window_max_ms > MAX_WINDOW_MS {
             return Err(KeyScopeError::Payload);
@@ -277,6 +310,22 @@ impl DomainMetadata {
             allowed: self.algorithms.clone(),
         }
     }
+
+    /// Whether the domain retired the classical `alg`: it left the allowlist, ML-DSA is in it
+    /// and a post-quantum re-anchor is published (Access L0-SIG-81).
+    #[must_use]
+    pub fn classical_retired(&self, alg: Algorithm) -> bool {
+        !is_ml_dsa(alg)
+            && !self.algorithms.contains(&alg)
+            && self.algorithms.iter().any(|a| is_ml_dsa(*a))
+            && self.pq_reanchor
+    }
+
+    /// Whether the metadata declares the FIPS profile and lists ML-DSA (Access L0-SIG-82).
+    #[must_use]
+    pub fn profile_conflict(&self) -> bool {
+        self.fips && self.algorithms.iter().any(|a| is_ml_dsa(*a))
+    }
 }
 
 /// Verifies binding-signed Domain Metadata against `trusted`, the binding keys the verifier
@@ -288,12 +337,18 @@ pub fn verify_metadata(bytes: &[u8], trusted: &KeySet) -> Read<DomainMetadata> {
     let verified = cose::verify_sign1(&PureBackend, bytes, trusted, METADATA_CONTENT_TYPE)
         .map_err(KeyScopeError::Signature)?;
     let metadata = DomainMetadata::from_bytes(&verified.payload)?;
+    if metadata.profile_conflict() {
+        return Err(KeyScopeError::Algorithm);
+    }
     let signer = metadata
         .binding
         .get(&verified.kid)
         .ok_or(KeyScopeError::Signature(CoseError::UnknownKid))?;
     if signer.superseded {
         return Err(KeyScopeError::Superseded);
+    }
+    if metadata.classical_retired(signer.alg) {
+        return Err(KeyScopeError::PqAnchorMissing);
     }
     if signer.alg != verified.algorithm || !metadata.algorithms.contains(&signer.alg) {
         return Err(KeyScopeError::Algorithm);
@@ -324,6 +379,12 @@ pub fn operational_key(
     usage: KeyUsage,
     iat: u64,
 ) -> Read<OperationalKey> {
+    if metadata.profile_conflict() {
+        return Err(KeyScopeError::Algorithm);
+    }
+    if algorithm_of(excerpt).is_some_and(|alg| metadata.classical_retired(alg)) {
+        return Err(KeyScopeError::PqAnchorMissing);
+    }
     let bindings = KeySet {
         keys: metadata
             .binding
@@ -341,7 +402,7 @@ pub fn operational_key(
     if binding.alg != verified.algorithm {
         return Err(KeyScopeError::Algorithm);
     }
-    if binding.superseded {
+    if binding.superseded && !(binding.re_anchored && iat <= metadata.issued_at) {
         return Err(KeyScopeError::Superseded);
     }
     let in_scope = match &binding.scope {
@@ -361,6 +422,9 @@ pub fn operational_key(
     }
     if key.kid != thumbprint(&key.key) {
         return Err(KeyScopeError::Thumbprint);
+    }
+    if metadata.classical_retired(key.alg) {
+        return Err(KeyScopeError::PqAnchorMissing);
     }
     let hybrid_classic = metadata.hybrid.as_deref().is_none_or(|h| h == "classic");
     if !metadata.algorithms.contains(&key.alg)
@@ -419,14 +483,20 @@ pub fn thumbprint(key: &PublicKey) -> [u8; 32] {
 
 fn binding_key(v: &Value) -> Read<BindingKey> {
     let f = Fields::of(v)?;
-    let superseded = match f.opt("superseded") {
-        None => false,
+    let (superseded, re_anchored) = match f.opt("superseded") {
+        None => (false, false),
         Some(s) => {
             let g = Fields::of(s)?;
             digest(g.req("at")?)?;
             digest(g.req("cited")?)?;
-            g.done(&["at", "cited"])?;
-            true
+            let re_anchored = match g.opt("cause") {
+                None => false,
+                Some(Value::Text(t)) if t == "re-anchor" => true,
+                Some(Value::Text(t)) if t == "handover" || t == "recovery" => false,
+                Some(_) => return Err(KeyScopeError::Payload),
+            };
+            g.done(&["at", "cited", "cause"])?;
+            (true, re_anchored)
         }
     };
     let scope = match f.req("scope")? {
@@ -447,6 +517,7 @@ fn binding_key(v: &Value) -> Read<BindingKey> {
         key: public_key(f.req("key")?)?,
         scope,
         superseded,
+        re_anchored,
     };
     f.done(&["kid", "alg", "key", "scope", "superseded"])?;
     if key.kid != thumbprint(&key.key) {
@@ -570,7 +641,7 @@ mod tests {
     fn t_101_the_operational_key_is_resolved_as_the_access_key_scope_vectors_say() {
         let vectors: serde_json::Value = serde_json::from_str(VECTORS).unwrap();
         let cases = vectors["cases"].as_array().unwrap();
-        assert!(cases.len() >= 29);
+        assert!(cases.len() >= 38);
         for case in cases {
             let id = case["id"].as_str().unwrap();
             let want = case["error"].as_str();
