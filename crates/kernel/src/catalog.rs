@@ -168,6 +168,18 @@ wire_enum! {
         Acknowledgement => "acknowledgement",
         /// `redact` (P-111, P-25).
         Redact => "redact",
+        /// `aim`: declares the criterion of what counts as met (C-10).
+        Aim => "aim",
+    }
+}
+
+wire_enum! {
+    /// How long an Aim holds: met once, or kept met (C-10).
+    AimDuration {
+        /// Met once.
+        OneShot => "one_shot",
+        /// Kept met over time.
+        Maintain => "maintain",
     }
 }
 
@@ -206,6 +218,42 @@ wire_enum! {
         Acceptance => "acceptance",
         /// A resource gate.
         Resource => "resource",
+    }
+}
+
+/// The two classes of Condition: met by Claims, or by an eligible Party's Declaration (C-12).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum ConditionClass {
+    /// Met by Claims.
+    Epistemic,
+    /// Met by an eligible Party's Declaration; the gate kind is fixed by the type declared when the Condition opens.
+    Gate(GateKind),
+}
+
+/// The two kinds of gate (C-12, ST-28).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum GateKind {
+    /// An authority gate, decided in Access.
+    Authority,
+    /// A coordination gate.
+    Coordination,
+}
+
+impl ConditionType {
+    /// The class each core Condition type maps to (C-12, P-71).
+    #[must_use]
+    pub const fn class(self) -> ConditionClass {
+        match self {
+            Self::Information
+            | Self::Commitment
+            | Self::ExternalEvent
+            | Self::Time
+            | Self::ThirdParty => ConditionClass::Epistemic,
+            Self::Authority => ConditionClass::Gate(GateKind::Authority),
+            Self::Decision | Self::Acceptance | Self::Resource => {
+                ConditionClass::Gate(GateKind::Coordination)
+            }
+        }
     }
 }
 
@@ -381,7 +429,7 @@ mod tests {
     // P-71 P-83 P-111
     #[test]
     fn p_71_core_declaration_catalog_is_closed() {
-        assert_eq!(DeclarationSubtype::ALL.len(), 53);
+        assert_eq!(DeclarationSubtype::ALL.len(), 54);
         assert_eq!(
             DeclarationSubtype::from_uri("https://suiss.app/ns/work/declaration/redact"),
             Some(DeclarationSubtype::Redact)
