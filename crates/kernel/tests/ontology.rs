@@ -296,7 +296,7 @@ fn c_43_a_split_or_merge_opens_new_works_derived_from_each_earlier_one() {
     let looped = claim(ALICE, vec![w1()], Some(vec![continues(w1())]));
     assert_eq!(rejected(&looped), Reason::Schema(Schema::Relation));
     let unanchored = mutate(claim(ALICE, vec![], Some(vec![continues(w1())])), |c| {
-        c.visibility = visibility(Audience::Author)
+        c.visibility = visibility(Audience::Author);
     });
     assert_eq!(rejected(&unanchored), Reason::Schema(Schema::Relation));
     let earlier = claim(ALICE, vec![w1()], None);
