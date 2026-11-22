@@ -1685,7 +1685,8 @@ mod commit {
     const AIS_TYPE: &str = "application/access-ais+cbor";
     const IDENTITY_PEP: &str = "access-identity";
     const CONTRIBUTION_TTL_MS: u64 = 600_000;
-    const RECORDS: &str = include_str!("../../../../conformance/vectors/records/records.json");
+    const COMMITMENTS: &str =
+        include_str!("../../../../conformance/vectors/records/commitments.json");
     const REASON: &str = "Work compose test: commit into the test ledger";
 
     fn ledger(local: &Local) -> String {
@@ -2073,16 +2074,35 @@ mod commit {
         panic!("{last:?}");
     }
 
-    /// The golden promise rewritten as the test user's own unsigned Declaration in `led`: the
-    /// user is the author, the capacity is `own` or, given, `FOR(p)` on behalf of `p`, and the
-    /// `authority` names the receipt's SHA-256 (P-13, P-21).
+    /// The golden commitment request rewritten as the test user's own unsigned Declaration in
+    /// `led`: the user is the author and so the obligee, the capacity is `own` or, given,
+    /// `FOR(p)` on behalf of `p`, and the `authority` names the receipt's SHA-256 (P-13, P-21,
+    /// CM-6).
     fn record(local: &Local, led: &str, receipt: &[u8], on_behalf_of: Option<&str>) -> Vec<u8> {
-        let records: Value = serde_json::from_str(RECORDS).unwrap();
-        let golden = records["records"]
+        golden_commitment(
+            local,
+            "commitment/request-offer",
+            (led, receipt),
+            on_behalf_of,
+            None,
+        )
+    }
+
+    /// The golden commitment case `case` rewritten as the test user's own unsigned
+    /// Declaration in `led` under `receipt`, continuing `supersedes` when given.
+    fn golden_commitment(
+        local: &Local,
+        case: &str,
+        (led, receipt): (&str, &[u8]),
+        on_behalf_of: Option<&str>,
+        supersedes: Option<[u8; 32]>,
+    ) -> Vec<u8> {
+        let cases: Value = serde_json::from_str(COMMITMENTS).unwrap();
+        let golden = cases["cases"]
             .as_array()
             .unwrap()
             .iter()
-            .find(|r| r["id"] == "record/declaration-promise-for-principal")
+            .find(|r| r["id"] == case)
             .unwrap();
         let Cbor::Map(fields) =
             dcbor::decode(&unhex(text(golden, "hex")), Limits::CEILING).unwrap()
@@ -2098,6 +2118,7 @@ mod commit {
             "on_behalf_of",
             "producer",
             "correlation",
+            "relations",
         ];
         let kept: Vec<(String, Cbor)> = fields
             .into_iter()
@@ -2127,6 +2148,18 @@ mod commit {
                 ));
                 entries.push(("on_behalf_of", Cbor::Array(vec![Cbor::text(p)])));
             }
+        }
+        if let Some(target) = supersedes {
+            entries.push((
+                "relations",
+                Cbor::Array(vec![map(vec![
+                    ("rel", Cbor::text("supersedes")),
+                    (
+                        "target",
+                        Cbor::Array(vec![Cbor::text("record"), digest(target)]),
+                    ),
+                ])]),
+            ));
         }
         dcbor::encode(&map(entries), Limits::CEILING).unwrap()
     }
@@ -2207,19 +2240,45 @@ mod commit {
                 "actor_types": {"author": "human", "on_behalf_of": on_behalf_of},
             }))
             .unwrap();
-            let url = format!("{WORK}/v1/ledgers/{}/declarations", self.led);
+            let path = format!("/v1/ledgers/{}/declarations", self.led);
+            let idempotency = local.uuid7(local.access_now_s().await * 1000);
+            self.post(local, &path, body, &idempotency, "\"0\"").await
+        }
+
+        /// The body of a write of `record` with its `auth_context`, under the Exercise and
+        /// `envelope`.
+        async fn body(&self, local: &Local, record: &[u8], envelope: &[u8]) -> Vec<u8> {
+            let ac = auth_context(local, &self.jar, record).await;
+            serde_json::to_vec(&json!({
+                "record": b64url(record),
+                "auth_context": {"artifact": ac["auth_context"], "digest": ac["digest"]},
+                "authority": {"exercise": self.exercise, "intent": b64url(envelope)},
+                "actor_types": {"author": "human"},
+            }))
+            .unwrap()
+        }
+
+        /// `POST {path}` of `body` with `key` and `if_match`, under a fresh `DPoP` proof.
+        async fn post(
+            &self,
+            local: &Local,
+            path: &str,
+            body: Vec<u8>,
+            key: &str,
+            if_match: &str,
+        ) -> Answer {
+            let url = format!("{WORK}{path}");
             let proof = local
                 .proof(&self.key, "POST", &url, None, Some(&self.token))
                 .await;
             let authorization = format!("DPoP {}", self.token);
-            let idempotency = local.uuid7(local.access_now_s().await * 1000);
             local
                 .send(
                     "POST",
                     &url,
                     &[
-                        ("idempotency-key", idempotency.as_str()),
-                        ("if-match", "\"0\""),
+                        ("idempotency-key", key),
+                        ("if-match", if_match),
                         ("authorization", authorization.as_str()),
                         ("dpop", proof.as_str()),
                     ],
@@ -2630,6 +2689,73 @@ mod commit {
             &local,
             WRITTEN_FILE,
             &json!({"record": rec.to_external(), "pos": pos}),
+        );
+        refused_and_read(&local, &w, rec).await;
+    }
+
+    /// The test user, the obligee of the commitment its request opened, promises it: the
+    /// kernel refuses the operation before anything is written, the refusal is answered with
+    /// its reason and kept under the request's key, so the same request answers it again; the
+    /// commitment then reads as its records derive it, with the transitions the user may make
+    /// and the obligor holding the next move (CM-19, P-55, CM-58, CM-2, C-6).
+    async fn refused_and_read(local: &Local, w: &Writer, opened: work_kernel::id::RecordId) {
+        let cmt = work_proto::id::CommitmentId(opened).to_external();
+        let promise = golden_commitment(
+            local,
+            "commitment/promise-items",
+            (&w.led, &w.receipt),
+            None,
+            Some(*opened.0.as_bytes()),
+        );
+        let body = w.body(local, &promise, &w.commit.bytes).await;
+        let key = local.uuid7(local.access_now_s().await * 1000);
+        let path = format!("/v1/ledgers/{}/commitments/{cmt}/promise", w.led);
+        for _ in 0..2 {
+            let answer = w.post(local, &path, body.clone(), &key, "\"1\"").await;
+            assert_eq!(answer.status, 422, "{answer:?}");
+            let problem = answer.json();
+            assert_eq!(problem["code"], "record_rejected", "{problem}");
+            assert_eq!(
+                problem["reason"],
+                json!(["commitment", "wrong_role"]),
+                "{problem}"
+            );
+        }
+        let wrong = format!("/v1/ledgers/{}/commitments/{cmt}/decline", w.led);
+        let other = local.uuid7(local.access_now_s().await * 1000);
+        let answer = w.post(local, &wrong, body, &other, "\"1\"").await;
+        assert_eq!(answer.status, 400, "{answer:?}");
+        assert_eq!(answer.json()["code_detail"], "operation", "{answer:?}");
+        let read = local
+            .read(
+                &w.key,
+                &format!("/v1/ledgers/{}/commitments/{cmt}", w.led),
+                &w.token,
+            )
+            .await;
+        assert_eq!(read.status, 200, "{read:?}");
+        assert_eq!(read.header("etag"), Some("\"1\""), "{read:?}");
+        let view = read.json();
+        assert_eq!(view["commitment"], cmt.as_str(), "{view}");
+        assert_eq!(view["summary"], "requested", "{view}");
+        assert_eq!(view["obligee"], local.user("party").as_str(), "{view}");
+        assert_eq!(view["obligor"], "party:globex:supplier", "{view}");
+        assert_eq!(view["steps"], json!([]), "{view}");
+        let allowed = view["allowed"].as_array().unwrap();
+        let release = allowed
+            .iter()
+            .find(|a| a["operation"] == "release")
+            .unwrap();
+        assert_eq!(release["action"], "work:commit", "{view}");
+        assert_eq!(release["access"], "require", "{view}");
+        assert!(
+            allowed.iter().all(|a| a["operation"] != "promise"),
+            "{view}"
+        );
+        assert_eq!(
+            view["next_move"],
+            json!([{"kind": "party", "id": "party:globex:supplier"}]),
+            "{view}"
         );
     }
 
