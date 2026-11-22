@@ -200,6 +200,7 @@ fn purpose_json(p: &PurposeRef) -> Value {
         PurposeRef::Code(c) => json!({"code": c}),
         PurposeRef::Work(d) => json!({"work": b64url(&d.0)}),
         PurposeRef::Aim(d) => json!({"aim": b64url(&d.0)}),
+        PurposeRef::Case(d) => json!({"case": b64url(&d.0)}),
     }
 }
 
