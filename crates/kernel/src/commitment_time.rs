@@ -8,7 +8,95 @@ use suiss_crypto::dcbor::{self, Limits, Value};
 pub const CONTRACT: &str = "work/commitment-time/1";
 
 /// The CDDL of the bodies, byte for byte `conformance/cddl/work-commitment-time.cddl`.
-pub const CDDL: &str = include_str!("../../../conformance/cddl/work-commitment-time.cddl");
+pub const CDDL: &str = r#"; CM-48 CM-49 CM-62 CM-63 E-35
+
+budget = effort-budget / money-budget / count-budget
+
+effort-budget = {
+  measure: "effort",
+  limit: uint .ge 1,
+  ? warnings: warnings,
+}
+
+money-budget = {
+  measure: "money",
+  currency: currency,
+  limit: uint .ge 1,
+  ? warnings: warnings,
+}
+
+count-budget = {
+  measure: "operations" / "tokens",
+  limit: uint .ge 1,
+  ? warnings: warnings,
+}
+
+consumption = effort-consumption / money-consumption / count-consumption
+
+effort-consumption = {
+  measure: "effort",
+  amount: uint,
+}
+
+money-consumption = {
+  measure: "money",
+  currency: currency,
+  amount: uint,
+}
+
+count-consumption = {
+  measure: "operations" / "tokens",
+  amount: uint,
+}
+
+; CM-50 CM-51 CM-52 CM-64
+
+clock = {
+  version: uint .ge 1,
+  target: "response" / "start" / "finish",
+  duration: uint .ge 1,
+  ? calendar: calendar,
+  ? warnings: warnings,
+  ? grace: uint .ge 1,
+  ? pause: [1*16 pause-condition],
+  start: [1*8 event],
+  stop: [1*8 event],
+}
+
+pause-condition = {
+  reason: tstr .size (1..256),
+  awaited: "creditor" / "obligor" / "acceptor" / "third_party",
+}
+
+event = tstr .size (1..256)
+
+; CM-53 CM-64
+
+periodic = {
+  version: uint .ge 1,
+  rule: tstr .size (1..512),
+  dtstart: local-datetime,
+  zone: zone,
+  tolerance: uint,
+  ? schema: tstr .size (1..256),
+}
+
+calendar = {
+  zone: zone,
+  week: [7*7 day],
+  ? holidays: [1*256 local-date],
+}
+
+day = [0*8 interval]
+interval = [uint .le 1439, uint .le 1440]
+
+warnings = [1*8 permille]
+permille = 1..999
+currency = tstr .regexp "[A-Z]{3}"
+zone = tstr .size (1..64)
+local-date = tstr .regexp "[0-9]{4}-[0-9]{2}-[0-9]{2}"
+local-datetime = tstr .regexp "[0-9]{8}T[0-9]{6}"
+"#;
 
 /// Most warning tiers one budget or clock declares.
 pub const MAX_WARNINGS: usize = 8;

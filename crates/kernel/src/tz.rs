@@ -390,57 +390,64 @@ impl Zone {
         if version.is_empty() || version.len() > MAX_VERSION {
             return Err(TzError("version"));
         }
-        let mut r = Reader { bytes, at: 0 };
-        let (v, first) = header(&mut r)?;
-        if v < b'2' {
+        let mut reader = Reader { bytes, at: 0 };
+        let (format, first) = header(&mut reader)?;
+        if format < b'2' {
             return Err(TzError("version"));
         }
-        r.take(first.block(4).ok_or(TRUNCATED)?)?;
-        let (_, c) = header(&mut r)?;
-        if c.leap != 0 {
+        reader.take(first.block(4).ok_or(TRUNCATED)?)?;
+        let (_, counts) = header(&mut reader)?;
+        if counts.leap != 0 {
             return Err(TzError("leap"));
         }
-        let typed = |n: usize| n == 0 || n == c.kind;
-        if c.kind == 0 || c.kind > MAX_TYPES || !typed(c.isstd) || !typed(c.isut) {
+        let typed = |n: usize| n == 0 || n == counts.kind;
+        if counts.kind == 0
+            || counts.kind > MAX_TYPES
+            || !typed(counts.isstd)
+            || !typed(counts.isut)
+        {
             return Err(TzError("count"));
         }
-        if r.rest().len() < c.block(8).ok_or(TRUNCATED)? {
+        if reader.rest().len() < counts.block(8).ok_or(TRUNCATED)? {
             return Err(TRUNCATED);
         }
-        let mut transitions = Vec::with_capacity(c.time);
-        for _ in 0..c.time {
-            transitions.push(i64::from_be_bytes(r.array()?));
+        let mut transitions = Vec::with_capacity(counts.time);
+        for _ in 0..counts.time {
+            transitions.push(i64::from_be_bytes(reader.array()?));
         }
-        if !transitions.windows(2).all(|w| matches!(w, [a, b] if a < b)) {
+        if !transitions
+            .windows(2)
+            .all(|pair| matches!(pair, [early, late] if early < late))
+        {
             return Err(TzError("transitions"));
         }
-        let mut kinds = Vec::with_capacity(c.time);
-        for _ in 0..c.time {
-            let [k] = r.array::<1>()?;
-            if usize::from(k) >= c.kind {
+        let mut kinds = Vec::with_capacity(counts.time);
+        for _ in 0..counts.time {
+            let [kind] = reader.array::<1>()?;
+            if usize::from(kind) >= counts.kind {
                 return Err(TzError("type"));
             }
-            kinds.push(k);
+            kinds.push(kind);
         }
-        let mut offsets = Vec::with_capacity(c.kind);
-        for _ in 0..c.kind {
-            let offset = i32::from_be_bytes(r.array()?);
-            r.take(2)?;
-            if offset.checked_abs().is_none_or(|a| a > MAX_OFFSET) {
+        let mut offsets = Vec::with_capacity(counts.kind);
+        for _ in 0..counts.kind {
+            let offset = i32::from_be_bytes(reader.array()?);
+            reader.take(2)?;
+            if offset.checked_abs().is_none_or(|size| size > MAX_OFFSET) {
                 return Err(TzError("type"));
             }
             offsets.push(offset);
         }
-        r.take(c.chars)?;
-        r.take(c.isstd)?;
-        r.take(c.isut)?;
+        reader.take(counts.chars)?;
+        reader.take(counts.isstd)?;
+        reader.take(counts.isut)?;
         Ok(Self {
             name: String::from(name),
             version: String::from(version),
             transitions,
             kinds,
             offsets,
-            footer: footer(r.rest())?,
+            footer: footer(reader.rest())?,
         })
     }
 

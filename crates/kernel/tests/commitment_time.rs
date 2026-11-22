@@ -786,7 +786,11 @@ fn cm_53_recurrence_rules_match_their_vectors() {
         let id = case["id"].as_str().unwrap();
         let text = case["rule"].as_str().unwrap();
         if let Some(part) = case["refused"].as_str() {
-            assert_eq!(Rule::parse(text), Err(RuleError(part)), "{id}");
+            assert_eq!(
+                Rule::parse(text).err().map(|RuleError(p)| p),
+                Some(part),
+                "{id}"
+            );
             continue;
         }
         let rule = Rule::parse(text).unwrap_or_else(|e| panic!("{id}: {e}"));
