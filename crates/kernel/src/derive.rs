@@ -115,7 +115,7 @@ impl<'a> Entry<'a> {
 
     /// The same unverified entry with the author's Access actor type and step-up the envelope would carry; only the kernel's own tests and benchmarks build such entries (T-10, P-12, P-21).
     #[must_use]
-    pub const fn with_author(self, actor: ActorType, step_up: bool) -> Self {
+    pub fn with_author(self, actor: ActorType, step_up: bool) -> Self {
         Self {
             author_actor: Some(actor),
             step_up,
