@@ -438,11 +438,7 @@ pub fn implicit_acceptance(
     let Some(terms) = &view.implicit else {
         return ImplicitAcceptance::NoTerms;
     };
-    let due = statement
-        .recorded_at
-        .0
-        .checked_add(terms.window)
-        .unwrap_or(u64::MAX);
+    let due = statement.recorded_at.0.saturating_add(terms.window);
     if now.0 < due {
         return ImplicitAcceptance::Waiting(Time(due));
     }
@@ -1229,11 +1225,11 @@ fn keep_statement(view: &mut CommitmentView) {
     }
 }
 
-fn closing(id: RecordId, initiator: Initiator) -> Option<Closing> {
-    Some(Closing {
+fn closing(id: RecordId, initiator: Initiator) -> Closing {
+    Closing {
         record: id,
         initiator,
-    })
+    }
 }
 
 fn apply(
@@ -1316,7 +1312,7 @@ fn apply_answer(
             view,
             targets,
             S::Declined,
-            closing(input.id, Initiator::Obligor),
+            Some(closing(input.id, Initiator::Obligor)),
         ),
     }
 }
@@ -1349,7 +1345,7 @@ fn apply_result(view: &mut CommitmentView, input: &Input<'_>, op: Operation, pla
             view,
             &plan.targets,
             S::Accepted,
-            closing(input.id, initiator),
+            Some(closing(input.id, initiator)),
         );
         view.rejections = 0;
     }
@@ -1366,7 +1362,12 @@ fn apply_close(view: &mut CommitmentView, input: &Input<'_>, op: Operation, plan
         Operation::Expire => (S::Expired, Initiator::WorkService),
         _ => (S::ClosedAdministratively, Initiator::Administrator),
     };
-    set_state(view, &plan.targets, state, closing(input.id, initiator));
+    set_state(
+        view,
+        &plan.targets,
+        state,
+        Some(closing(input.id, initiator)),
+    );
 }
 
 fn apply_marker(view: &mut CommitmentView, input: &Input<'_>, op: Operation, plan: &Plan) {
@@ -1512,10 +1513,20 @@ fn apply_allow(view: &mut CommitmentView, id: RecordId) {
     let open: Vec<u16> = view.open_items().map(|i| i.index).collect();
     match revocation.kind {
         RevocationKind::Request => {
-            set_state(view, &open, S::Withdrawn, closing(id, Initiator::Obligee));
+            set_state(
+                view,
+                &open,
+                S::Withdrawn,
+                Some(closing(id, Initiator::Obligee)),
+            );
         }
         RevocationKind::Promise => {
-            set_state(view, &open, S::Withdrawn, closing(id, Initiator::Obligor));
+            set_state(
+                view,
+                &open,
+                S::Withdrawn,
+                Some(closing(id, Initiator::Obligor)),
+            );
         }
         RevocationKind::Statement => {
             move_states(view, S::Stated, S::Promised);
