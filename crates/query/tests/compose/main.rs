@@ -1196,15 +1196,15 @@ mod disabled {
 
     /// `SHA-256(label ‖ 0x00 ‖ canonical)`, Access's digest under a context label.
     fn labelled(label: &str, canonical: &[u8]) -> [u8; 32] {
-        let mut h = Sha256::new();
-        h.update(label.as_bytes());
-        h.update([0]);
-        h.update(canonical);
-        h.finalize().into()
+        let mut hash = Sha256::new();
+        hash.update(label.as_bytes());
+        hash.update([0]);
+        hash.update(canonical);
+        hash.finalize().into()
     }
 
-    fn digest(d: &[u8; 32]) -> Cbor {
-        Cbor::Array(vec![Cbor::int(-16), Cbor::Bytes(d.to_vec())])
+    fn digest(sha256: &[u8; 32]) -> Cbor {
+        Cbor::Array(vec![Cbor::int(-16), Cbor::Bytes(sha256.to_vec())])
     }
 
     /// The identity anchor of `domain`, the basis the root's management statements declare:
@@ -1376,18 +1376,18 @@ mod disabled {
         let local = Local::open();
         let key = local.dpop();
         let identifier = local.operator("identifier");
-        let mut tokens = local.sign_in(&key, &identifier, false).await;
+        let mut signed_in = local.sign_in(&key, &identifier, false).await;
         for _ in 0..6 {
-            match &tokens {
+            match &signed_in {
                 Err(answer) if answer.status == 429 => {
                     tokio::time::sleep(std::time::Duration::from_secs(10)).await;
-                    tokens = local.sign_in(&key, &identifier, false).await;
+                    signed_in = local.sign_in(&key, &identifier, false).await;
                 }
                 _ => break,
             }
         }
-        let (tokens, _) = tokens.unwrap();
-        let token = tokens["access_token"].as_str().unwrap();
+        let (answer, _) = signed_in.unwrap();
+        let token = answer["access_token"].as_str().unwrap();
         let named = local.read(&key, &ledger_path().0, token).await;
         assert_eq!(named.status, UNSEEN.0, "{named:?}");
         std::fs::write(local.dir.join(DISABLED_TOKEN), token).unwrap();
@@ -1487,14 +1487,14 @@ mod service {
 
     impl Random for Fresh {
         fn fill(&self, out: &mut [u8]) -> Result<(), AccessError> {
-            let n = self.0.fetch_add(1, Ordering::SeqCst);
-            let mut h = Sha256::new();
-            h.update(self.1.to_be_bytes());
-            h.update(n.to_be_bytes());
-            h.update(PRODUCT.as_bytes());
-            let d = h.finalize();
-            for (o, b) in out.iter_mut().zip(d.iter().cycle()) {
-                *o = *b;
+            let count = self.0.fetch_add(1, Ordering::SeqCst);
+            let mut hash = Sha256::new();
+            hash.update(self.1.to_be_bytes());
+            hash.update(count.to_be_bytes());
+            hash.update(PRODUCT.as_bytes());
+            let bytes = hash.finalize();
+            for (to, from) in out.iter_mut().zip(bytes.iter().cycle()) {
+                *to = *from;
             }
             Ok(())
         }
@@ -1564,7 +1564,7 @@ mod service {
         let client_id = local.client_of(PRODUCT);
         let issuer = Issuer::parse(&local.issuer("platform")).unwrap();
         pair(&local, &client_id, &issuer, now).await;
-        let tokens = ServiceTokens::new(
+        let service = ServiceTokens::new(
             https(&local),
             At(now),
             Fresh(AtomicU64::new(1 << 32), now),
@@ -1578,7 +1578,7 @@ mod service {
         );
         let until = tokio::time::Instant::now() + PAIRING_WAIT;
         let token = loop {
-            match tokens.token().await {
+            match service.token().await {
                 Ok(t) => break t.expose().to_owned(),
                 Err(AccessError::Refused { code, .. })
                     if code == "unauthorized_client" && tokio::time::Instant::now() < until =>
@@ -1600,7 +1600,7 @@ mod service {
         assert!(claims.get("sid").is_none(), "{claims}");
         assert!(claims.get("scope").is_none(), "{claims}");
         let url = format!("{WORK}{}", ledger_path().0);
-        let headers = tokens.authorize("GET", &url).await.unwrap();
+        let headers = service.authorize("GET", &url).await.unwrap();
         let named = local
             .send(
                 "GET",

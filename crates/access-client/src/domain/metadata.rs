@@ -491,8 +491,8 @@ fn binding_key(v: &Value) -> Read<BindingKey> {
             digest(g.req("cited")?)?;
             let re_anchored = match g.opt("cause") {
                 None => false,
-                Some(Value::Text(t)) if t == "re-anchor" => true,
-                Some(Value::Text(t)) if t == "handover" || t == "recovery" => false,
+                Some(Value::Text(cause)) if cause == "re-anchor" => true,
+                Some(Value::Text(cause)) if cause == "handover" || cause == "recovery" => false,
                 Some(_) => return Err(KeyScopeError::Payload),
             };
             g.done(&["at", "cited", "cause"])?;
