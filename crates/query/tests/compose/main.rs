@@ -2817,27 +2817,25 @@ mod commit {
         let access = local.client().await;
         let first = access.commitment_ended(&ended).await.unwrap();
         let again = access.commitment_ended(&ended).await.unwrap();
-        match (&first, &again) {
-            (
-                Verdict::Admitted { claim, .. },
-                Verdict::Admitted {
-                    claim: same,
-                    replayed,
-                    ..
-                },
-            ) => {
-                assert_eq!(claim, same);
-                assert!(replayed);
-            }
-            (
-                Verdict::Quarantined { claim, reason, .. },
-                Verdict::Quarantined { claim: same, .. },
-            ) => {
-                assert_eq!(claim, same);
-                assert_eq!(reason, "source-not-accepted");
-            }
-            other => panic!("{other:?}"),
-        }
+        let (
+            Verdict::Quarantined {
+                claim,
+                position,
+                reason,
+            },
+            Verdict::Quarantined {
+                claim: same,
+                position: kept,
+                reason: again_reason,
+            },
+        ) = (&first, &again)
+        else {
+            panic!("{first:?} {again:?}");
+        };
+        assert_eq!(reason, "source-not-accepted", "{first:?}");
+        assert_eq!(again_reason, reason, "{again:?}");
+        assert_eq!(claim, same, "{first:?} {again:?}");
+        assert_eq!(position, kept, "{first:?} {again:?}");
     }
 
     // SEC-36 C-4 T-102
