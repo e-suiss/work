@@ -16,6 +16,7 @@ use crate::gateway::Limits;
 use crate::problem::{Problem, ProblemCode, ProblemType};
 use crate::rate::RatePolicy;
 use crate::reads::{self, ApiServices};
+use crate::works;
 use crate::writes;
 
 /// The major version every route starts with (P-54 item 1).
@@ -107,6 +108,7 @@ pub fn router_with(
             "/v1/ledgers/{ledger}/declarations",
             post(writes::create_declaration),
         )
+        .route("/v1/works", post(works::create_work))
         .route(
             "/v1/authority-requests",
             post(authority::create_authority_request),

@@ -12,6 +12,7 @@ pub mod caller;
 pub mod notices;
 pub mod reads;
 pub mod restriction;
+pub mod works;
 pub mod writes;
 
 /// The `freshness` value of a read answered before its view reached the asked position

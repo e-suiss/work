@@ -55,12 +55,14 @@ status = "canonical-invariant"
 stage = 2
 title = ""
 tests = [
+  "crates/http/src/works.rs::c_8_a_work_opens_with_no_required_field",
   "crates/kernel/src/codec/record.rs::c_8_a_record_names_a_work_only_by_its_id",
   "crates/kernel/src/relation.rs::c_43_continuity_derives_from_an_earlier_work_only_as_source_of_this_record",
   "crates/kernel/tests/ontology.rs::c_43_a_split_or_merge_opens_new_works_derived_from_each_earlier_one",
   "crates/kernel/tests/ontology.rs::c_8_pr_9_a_work_opens_without_practice_template_workflow_or_type",
   "crates/kernel/tests/ontology.rs::c_8_the_work_identity_outlives_its_close",
   "crates/kernel/tests/ontology.rs::pr_10_md_18_a_minimal_record_needs_no_unjustified_core_field",
+  "crates/query/src/domain/works.rs::c_8_a_work_opens_from_the_caller_and_its_key_alone",
 ]
 
 [[rule]]
@@ -2114,8 +2116,10 @@ status = "canonical-invariant"
 stage = 4
 title = ""
 tests = [
+  "crates/http/src/works.rs::c_8_a_work_opens_with_no_required_field",
   "crates/kernel/tests/ontology.rs::c_8_pr_9_a_work_opens_without_practice_template_workflow_or_type",
   "crates/kernel/tests/ontology.rs::c_8_the_work_identity_outlives_its_close",
+  "crates/query/src/domain/works.rs::c_8_a_work_opens_from_the_caller_and_its_key_alone",
 ]
 
 [[rule]]

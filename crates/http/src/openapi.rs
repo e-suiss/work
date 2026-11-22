@@ -14,6 +14,7 @@ use crate::reads::{
     AuthContextAnswer, AuthorSignature, ChangeEntry, ChangesAnswer, CheckpointAnswer,
     EvidenceAnswer, InclusionAnswer, LedgerAttestation, WitnessAnswer, WorkAnswer,
 };
+use crate::works::{NewWork, OpenedWork};
 use crate::writes::{
     ActorTypesInput, AuthContextInput, AuthorityInput, NewDeclaration, WrittenAnswer,
 };
@@ -49,6 +50,7 @@ fn security_scheme() -> Value {
         crate::reads::list_changes,
         crate::reads::get_record_evidence,
         crate::writes::create_declaration,
+        crate::works::create_work,
         crate::authority::create_authority_request,
         crate::authority::get_approval_return
     ),
@@ -72,6 +74,8 @@ fn security_scheme() -> Value {
         AuthorityInput,
         ActorTypesInput,
         WrittenAnswer,
+        NewWork,
+        OpenedWork,
         NewAuthorityRequest,
         BasisInput,
         HoldingInput,
