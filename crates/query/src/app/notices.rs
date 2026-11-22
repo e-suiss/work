@@ -184,6 +184,7 @@ impl<K: Signer + Send + Sync + 'static> Notices<K> {
             traceparent: "",
             idempotency: None,
             inbound: None,
+            areas: None,
         };
         let verifier = AuthorKeys {
             author: &input.author,

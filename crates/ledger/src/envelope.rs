@@ -107,6 +107,16 @@ impl PendingRecord {
         &self.items
     }
 
+    /// Whether the Access authentication context of an unsigned record carries a step-up (P-21,
+    /// CM-40); a signed record carries none.
+    #[must_use]
+    pub fn step_up(&self) -> bool {
+        matches!(
+            self.auth_context.as_ref().and_then(|c| c.get("step_up")),
+            Some(Value::Bool(true))
+        )
+    }
+
     /// The outbox pointers the record emits (T-81).
     #[must_use]
     pub fn outbox(&self) -> &[EventPointer] {

@@ -532,6 +532,7 @@ fn pending(
             traceparent: TRACE,
             idempotency: None,
             inbound: None,
+            areas: None,
         },
     )
     .unwrap()

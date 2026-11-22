@@ -22,8 +22,9 @@ use serde_json::Value as Json;
 use suiss_crypto::dcbor::{self, Limits, Value};
 use suiss_crypto::digest::{Digest, leaf_hash, sha256};
 use tokio::sync::{Notify, Semaphore};
+use work_kernel::codec::record_id;
 use work_kernel::cose::{Algorithm, AuthorKeys, KeySet, PublicKey, verify_record_signature};
-use work_kernel::id::PartyRef;
+use work_kernel::id::{PartyRef, RecordId};
 use work_kernel::limits::SemanticLimits;
 use work_kernel::reason::{Reason, Schema};
 use work_kernel::record::ProtocolVersion;
@@ -34,7 +35,7 @@ use work_kernel::verify::{
     ChainPoint, SignatureCheck, SignatureVerifier, StoredEntry, verify_entry,
 };
 use work_ledger::{
-    ActivationRequest, ActorBindings, Arrival, AuthContext, Clock, ClockError, Declared,
+    ActivationRequest, ActorBindings, Areas, Arrival, AuthContext, Clock, ClockError, Declared,
     DeclaredActors, GenesisInput, GroupCommit, GroupConfig, Leader, LedgerError, Ledgers, Node,
     PendingRecord, RebuildError, Rng, RngError, Submission, SubmitError, admit, genesis,
     rebuild_diff,
@@ -58,6 +59,7 @@ const AT: u64 = 1_792_749_600_123;
 const COSE: &str = include_str!("../../../../conformance/vectors/records/cose-sign1.json");
 const GENESIS: &str = include_str!("../../../../conformance/vectors/records/genesis.json");
 const RECORDS: &str = include_str!("../../../../conformance/vectors/records/records.json");
+const COMMITMENTS: &str = include_str!("../../../../conformance/vectors/records/commitments.json");
 const QUARANTINE: &str =
     include_str!("../../../../conformance/vectors/records/records-quarantine.json");
 const TARGET: &str = "work_rebuild";
@@ -313,6 +315,7 @@ fn submission<'a>(arrival: Arrival<'a>, actors: &'a Actors) -> Submission<'a> {
         traceparent: TRACE,
         idempotency: None,
         inbound: None,
+        areas: None,
     }
 }
 
@@ -923,6 +926,7 @@ async fn golden_ledger(env: &Env) -> LedgerId {
     Leader::open(&pool, &opened, &cell()).await.unwrap();
     let mut leader = Leader::acquire(pool, ledger, &node()).await.unwrap();
     let directory = Directory::golden();
+    let mut areas = Areas::default();
     for g in &entries {
         let arrival = g
             .cose
@@ -931,11 +935,13 @@ async fn golden_ledger(env: &Env) -> LedgerId {
         let mut s = submission(arrival, &g.actors);
         s.origin = g.origin;
         s.understood_extensions = &g.understood;
+        s.areas = Some(&areas);
         let record = admit(&directory, &ledger, s).unwrap();
         leader
             .commit(recorded_at(&g.envelope), &[record])
             .await
             .unwrap();
+        areas.replay(&g.record);
     }
     ledger
 }
@@ -970,7 +976,7 @@ async fn op_1_the_rebuilt_golden_ledger_equals_the_live_rows() {
     let live_rows = live_snapshot(&live, &ledger).await;
     assert_eq!(live_rows, rebuilt_snapshot(&target, &ledger).await);
     assert_eq!(live_rows.rows("ledger.log").unwrap().len(), 19);
-    assert_eq!(live_rows.rows("work.item_head").unwrap().len(), 2);
+    assert_eq!(live_rows.rows("work.item_head").unwrap().len(), 4);
     assert_eq!(live_rows.rows("work.record_header").unwrap().len(), 17);
     assert_eq!(live_rows.rows("work.one_time_flag").unwrap().len(), 0);
     assert!(matches!(
@@ -1023,6 +1029,135 @@ async fn op_1_a_tampered_row_is_a_sev_1_diff_and_never_a_rebuild_input() {
         .unwrap();
     assert_eq!(heads.missing.len(), heads.unexpected.len());
     assert_eq!(rebuilt_snapshot(&target, &ledger).await, before);
+}
+
+/// The golden commitment case `id` declared in `ledger` by the golden human author, superseding
+/// `target` when given, for `items` when given.
+fn commitment(ledger: &LedgerId, id: &str, target: Option<RecordId>, items: &[u64]) -> Vec<u8> {
+    let cases = json(COMMITMENTS);
+    let case = cases["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["id"] == id)
+        .unwrap();
+    let mut v = dcbor::decode(&unhex(case["hex"].as_str().unwrap()), Limits::CEILING).unwrap();
+    let Value::Map(fields) = &mut v else {
+        panic!("record")
+    };
+    for (key, value) in fields.iter_mut() {
+        match key {
+            Value::Text(k) if k == "ledger" => *value = Digest(*ledger.as_bytes()).to_value(),
+            Value::Text(k) if k == "author" => *value = Value::text("party:acme:alice"),
+            Value::Text(k) if k == "relations" => {
+                if let Some(target) = target {
+                    *value = Value::Array(vec![Value::Map(vec![
+                        (Value::text("rel"), Value::text("supersedes")),
+                        (
+                            Value::text("target"),
+                            Value::Array(vec![
+                                Value::text("record"),
+                                Digest(*target.0.as_bytes()).to_value(),
+                            ]),
+                        ),
+                    ])]);
+                }
+            }
+            Value::Text(k) if k == "params" && !items.is_empty() => {
+                *value = Value::Map(vec![(
+                    Value::text("items"),
+                    Value::Array(items.iter().map(|i| Value::Unsigned(*i)).collect()),
+                )]);
+            }
+            _ => {}
+        }
+    }
+    dcbor::encode(&v, Limits::CEILING).unwrap()
+}
+
+/// Admits `record` over the areas the ledger's records left.
+fn admitted(ledger: &LedgerId, record: &[u8], areas: &Areas) -> PendingRecord {
+    let actors = human();
+    let mut s = submission(unsigned(record), &actors);
+    s.areas = Some(areas);
+    admit(&Directory::golden(), ledger, s).unwrap()
+}
+
+// OP-7 T-89 P-28 CM-19
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs Docker"]
+async fn op_7_no_conflict_on_a_commitment_is_ever_missed() {
+    let env = Env::start().await;
+    let pool = env.sequencer().await;
+    let opened = opening([0x6c; 32], Durability::SingleNode);
+    let ledger = opened.ledger;
+    Leader::open(&pool, &opened, &cell()).await.unwrap();
+    let mut leader = Leader::acquire(pool, ledger, &node()).await.unwrap();
+    let mut areas = Areas::default();
+    let request = commitment(&ledger, "commitment/request-offer", None, &[]);
+    let root = record_id(&request);
+    let area = ItemRef::Commitment(*root.0.as_bytes());
+    let opening_record = admitted(&ledger, &request, &areas);
+    leader
+        .commit(AT, std::slice::from_ref(&opening_record))
+        .await
+        .unwrap();
+    areas.replay(&request);
+    let first = commitment(&ledger, "commitment/promise-items", Some(root), &[0, 1]);
+    let second = commitment(&ledger, "commitment/promise-items", Some(root), &[0]);
+    let seen_by_both = [
+        admitted(&ledger, &first, &areas),
+        admitted(&ledger, &second, &areas),
+    ];
+    leader
+        .commit(AT.checked_add(1).unwrap(), &seen_by_both[..1])
+        .await
+        .unwrap();
+    assert!(matches!(
+        leader.commit(AT.checked_add(2).unwrap(), &seen_by_both[1..]).await,
+        Err(LedgerError::Refused(StoreError::ItemConflict(item))) if item == area
+    ));
+    areas.replay(&first);
+    let third = commitment(
+        &ledger,
+        "commitment/promise-items",
+        Some(record_id(&first)),
+        &[1],
+    );
+    leader
+        .commit(
+            AT.checked_add(3).unwrap(),
+            &[admitted(&ledger, &third, &areas)],
+        )
+        .await
+        .unwrap();
+    areas.replay(&third);
+    let blind = commitment(&ledger, "commitment/promise-items", Some(root), &[1]);
+    leader
+        .commit(
+            AT.checked_add(4).unwrap(),
+            &[admitted(&ledger, &blind, &areas)],
+        )
+        .await
+        .unwrap();
+    areas.replay(&blind);
+    assert_eq!(
+        areas.area_of(&record_id(&blind)).map(|a| a.heads),
+        Some(vec![record_id(&third), record_id(&blind)])
+    );
+    let mut tx = env.read("work_app", &ledger).await;
+    assert_eq!(tx.item_version(&area).await.unwrap(), Some(4));
+    tx.rollback().await.unwrap();
+    let target = env.target().await;
+    let live = env.pool(Cluster::Canonical, "work_app");
+    let outcome = rebuild_diff(&live, &target, &node(), ledger, Durability::SingleNode)
+        .await
+        .unwrap();
+    assert!(outcome.is_clean(), "{outcome:?}");
+    assert_eq!(
+        live_snapshot(&live, &ledger).await,
+        rebuilt_snapshot(&target, &ledger).await
+    );
 }
 
 // OP-28 T-85 P-87

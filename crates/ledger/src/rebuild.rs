@@ -4,14 +4,13 @@ use suiss_crypto::dcbor::Value;
 use suiss_crypto::digest::{leaf_hash, sha256};
 use work_kernel::codec::{Decoded, decode_record, record_id};
 use work_kernel::envelope::{AuthContextRef, Envelope, EnvelopeIngest, decode_envelope};
-use work_kernel::items;
 use work_store::{
     CanonicalEntry, CanonicalLog, Durability, Genesis, LedgerId, LedgerTx, Pool, RebuildDiff,
     SequencerPool, StoreError, diff,
 };
 
 use crate::admit::{Binding, actor_types, auth_context_value, ingest, skeleton, touch};
-use crate::{ActivationRequest, Leader, LedgerError, Node, PendingRecord};
+use crate::{ActivationRequest, Areas, Leader, LedgerError, Node, PendingRecord};
 
 /// Entries read from the log at a time; at most the engine's batch ceiling, since one page's
 /// entries of one ledger time are appended as one batch.
@@ -78,10 +77,12 @@ fn context(a: &AuthContextRef) -> Value {
 /// The pending record a stored entry of `ledger` was appended from, built from the stored bytes
 /// alone by the kernel and the admission mapping (T-89, T-90, P-11, P-87): the envelope gives
 /// the actor types, the author binding and the ingest, the record its skeleton and touched
-/// items. It carries no outbox pointer, idempotency key or inbound event.
+/// items over `areas`, which it then keeps. It carries no outbox pointer, idempotency key or
+/// inbound event.
 pub(crate) fn replayed(
     ledger: &LedgerId,
     e: &CanonicalEntry,
+    areas: &mut Areas,
 ) -> Result<PendingRecord, RebuildError> {
     let bad = || RebuildError::Entry(e.pos);
     let Ok(Envelope::Ledger(env)) = decode_envelope(&e.envelope_bytes) else {
@@ -105,7 +106,9 @@ pub(crate) fn replayed(
     };
     let (skeleton, touches, effective_at) = match decode_record(&e.record_bytes) {
         Ok(Decoded::Record(record)) => {
-            let touches = items::touched(&record)
+            let found = areas.touches(&record, env.record);
+            areas.keep(env.record, &found);
+            let touches = found
                 .iter()
                 .map(touch)
                 .collect::<Result<Vec<_>, _>>()
@@ -166,6 +169,7 @@ pub async fn rebuild(
         .await
         .map_err(replay(0))?;
     let mut next: u64 = 1;
+    let mut areas = Areas::default();
     while next <= through {
         let page = live.entries(&ledger, next, REBUILD_PAGE).await?;
         if page.is_empty() {
@@ -182,7 +186,7 @@ pub async fn rebuild(
                 }
                 next = next.checked_add(1).ok_or(RebuildError::Gap(next))?;
                 let Some(request) = activation_of(&ledger, e)? else {
-                    records.push(replayed(&ledger, e)?);
+                    records.push(replayed(&ledger, e, &mut areas)?);
                     continue;
                 };
                 if !records.is_empty() {

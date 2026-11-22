@@ -17,11 +17,11 @@ use std::time::Duration;
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 use tokio::time::MissedTickBehavior;
-use work_store::{CheckpointerPool, LedgerId, Seat, SequencerPool};
+use work_store::{CheckpointerPool, LedgerId, Seat, SequencerPool, StoredKey, StoredOutcome};
 
 use crate::{
-    AnyReplica, Checkpointer, Clock, Committed, Declaration, GroupCommit, GroupConfig, Leader,
-    LedgerError, Node, PendingRecord, Replica as _, SignerClient, SubmitError,
+    AnyReplica, Checkpointer, Clock, Committed, Declaration, GroupCommit, GroupConfig, KeyClaim,
+    Leader, LedgerError, Node, PendingRecord, Replica as _, SignerClient, SubmitError,
 };
 
 /// Ledger time between checkpoints of a ledger with new records (OP-33 item 4; POLICY DEFAULT,
@@ -231,6 +231,33 @@ impl<C: Clock + Clone + Sync + 'static> Ledgers<C> {
         let committed = entry.commit.submit(record).await?;
         bump(&entry.pending);
         Ok(committed)
+    }
+
+    /// Keeps the refusal of the request `claim` names under its idempotency key, with the
+    /// protocol `reason` at ledger time `at_ms`, so the refusal stays recorded and the same
+    /// request answers it again (CM-19, OP-8, P-93); nothing enters the log.
+    ///
+    /// # Errors
+    /// [`LedgerError::Store`] when the row is not written, among them a key already used.
+    pub async fn reject(
+        &self,
+        ledger: &LedgerId,
+        claim: &KeyClaim,
+        reason: &str,
+        at_ms: u64,
+    ) -> Result<(), LedgerError> {
+        let mut tx = self.pool.begin(ledger).await?;
+        let row = StoredKey {
+            request_digest: claim.request_digest,
+            outcome: StoredOutcome::Rejected {
+                reason: reason.to_owned(),
+            },
+            created_at_ms: i64::try_from(at_ms).unwrap_or(i64::MAX),
+        };
+        tx.insert_idempotency_key(&claim.caller, &claim.key, &row)
+            .await?;
+        tx.commit().await?;
+        Ok(())
     }
 
     /// The ledgers led now, in id order.

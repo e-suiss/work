@@ -266,6 +266,7 @@ fn admitted_comment(ledger: &LedgerId) -> PendingRecord {
             traceparent: TRACE,
             idempotency: None,
             inbound: None,
+            areas: None,
         },
     )
     .unwrap()
@@ -541,6 +542,7 @@ async fn op_33_a_led_ledger_is_checkpointed_on_its_cadence_and_mirrored() {
             traceparent: TRACE,
             idempotency: None,
             inbound: None,
+            areas: None,
         },
     )
     .unwrap();

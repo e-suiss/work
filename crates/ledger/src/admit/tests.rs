@@ -268,6 +268,7 @@ fn submit(
             traceparent: TRACE,
             idempotency: None,
             inbound: None,
+            areas: None,
         },
     )
 }
@@ -336,7 +337,7 @@ fn t_90_a_signed_record_keeps_its_cose_sign1_and_an_unsigned_one_its_context() {
 
 // T-89 T-81 T-91 C-34 OP-13
 #[test]
-fn t_89_the_items_and_pointers_come_from_the_concerned_works() {
+fn t_89_the_items_and_pointers_come_from_the_concerned_works_and_the_opened_area() {
     for g in &golden() {
         let (ledger, _) = slot_of(&g.envelope);
         let record = pending(g, &ledger).unwrap();
@@ -345,9 +346,20 @@ fn t_89_the_items_and_pointers_come_from_the_concerned_works() {
             .map(|s| s.concerns.clone())
             .unwrap_or_default();
         let items: Vec<ItemRef> = record.items().iter().map(|t| t.item).collect();
-        let works: Vec<ItemRef> = concerns.iter().map(|w| ItemRef::Work(*w)).collect();
+        let mut works: Vec<ItemRef> = concerns.iter().map(|w| ItemRef::Work(*w)).collect();
+        let opens = matches!(
+            decode_record(&record.record_bytes),
+            Ok(Decoded::Record(r)) if work_kernel::ontology::Concept::opened_by(&r)
+                == Some(work_kernel::ontology::Concept::Condition)
+        );
+        if opens {
+            works.push(ItemRef::Condition(record.record_id()));
+        }
         assert_eq!(items, works, "{}", g.id);
-        assert!(record.items().iter().all(|t| t.expect == Expect::Next));
+        assert!(record.items().iter().all(|t| match t.item {
+            ItemRef::Work(_) => t.expect == Expect::Next,
+            _ => t.expect == Expect::Version(0),
+        }));
         let pointed: Vec<ItemRef> = record.outbox().iter().map(|p| p.item).collect();
         assert_eq!(pointed, works, "{}", g.id);
         let id = hex(&record.record_id());
@@ -626,21 +638,22 @@ fn op_1_the_golden_ledger_replays_from_its_stored_bytes_to_the_admitted_records(
             envelope_bytes: g.envelope.clone(),
             received: admitted.received().to_vec(),
         };
-        let replayed = crate::rebuild::replayed(&ledger, &stored).unwrap();
+        let replayed =
+            crate::rebuild::replayed(&ledger, &stored, &mut crate::Areas::default()).unwrap();
         admitted.outbox.clear();
         admitted.kid = None;
         assert_eq!(replayed, admitted, "{}", g.id);
         let mut other = stored.clone();
         other.pos = slot.pos.checked_add(1).unwrap();
         assert!(
-            crate::rebuild::replayed(&ledger, &other).is_err(),
+            crate::rebuild::replayed(&ledger, &other, &mut crate::Areas::default()).is_err(),
             "{}",
             g.id
         );
         let mut foreign = stored.clone();
         foreign.record_bytes.push(0);
         assert!(
-            crate::rebuild::replayed(&ledger, &foreign).is_err(),
+            crate::rebuild::replayed(&ledger, &foreign, &mut crate::Areas::default()).is_err(),
             "{}",
             g.id
         );

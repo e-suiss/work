@@ -36,6 +36,7 @@ use work_store::{
 };
 
 use crate::actors::{ActorBindings, DeclaredActors};
+use crate::areas::Areas;
 use crate::auth_context::{self, AuthContext, AuthContextInvalid};
 use crate::{
     BodyError, BodyOpening, BodyWriter, Committed, EventPointer, GroupCommit, Inbound, ItemTouch,
@@ -128,6 +129,9 @@ pub struct Submission<'a> {
     pub idempotency: Option<KeyClaim>,
     /// The inbound event the record answers (OP-8).
     pub inbound: Option<Inbound>,
+    /// The Commitment and Condition conflict areas the ledger's records left; `None` for a
+    /// ledger whose records touched none (T-89 items 3, 6).
+    pub areas: Option<&'a Areas>,
 }
 
 fn hex(bytes: &[u8]) -> String {
@@ -566,7 +570,11 @@ fn check(
         Outcome::Quarantined(q) => Some(q.to_string()),
         Outcome::Rejected(reason) => return Err(reason),
     };
-    let touches = items::touched(&record)
+    let none = Areas::default();
+    let touches = s
+        .areas
+        .unwrap_or(&none)
+        .touches(&record, record_id(&a.record_bytes))
         .iter()
         .map(touch)
         .collect::<Result<Vec<_>, _>>()?;
@@ -618,7 +626,7 @@ pub(crate) fn pointer_types(
 /// artifact bound to it, verified before the kernel and kept as received (P-116); the record
 /// must declare `ledger`; a valid record is admitted or quarantined, a record of a protocol
 /// version without a rule set is quarantined when signed and refused when unsigned, since its
-/// author cannot be read (P-108); the items come from [`items::touched`] and one pointer is
+/// author cannot be read (P-108); the items come from [`Areas::touches`] and one pointer is
 /// emitted per item.
 ///
 /// # Errors

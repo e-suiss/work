@@ -35,6 +35,7 @@ mod adapters;
 mod admit;
 #[cfg(feature = "s3")]
 mod archive;
+mod areas;
 pub mod auth_context;
 mod body;
 mod checkpoint;
@@ -62,6 +63,7 @@ pub use adapters::SystemRng;
 pub use admit::{AdmitError, Arrival, AuthorityProofMismatch, MAX_RECEIVED, Submission, admit};
 #[cfg(feature = "s3")]
 pub use archive::{ArchiveError, archive_cold, archive_key, archive_manifest, archive_partition};
+pub use areas::Areas;
 pub use auth_context::{AuthContext, AuthContextInvalid};
 #[cfg(feature = "s3")]
 pub use body::S3Store;
