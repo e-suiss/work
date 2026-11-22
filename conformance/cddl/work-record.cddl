@@ -160,6 +160,26 @@ DeclarationTyped = (
   (type: DeclarationStopResponse, params: StopResponseParams) //
   (type: DeclarationOpenCondition, params: OpenConditionParams) //
   (type: DeclarationRedact, params: RedactParams) //
+  (type: DeclarationPromise, ? params: PromiseParams) //
+  (type: DeclarationPromiseConditional, params: PromiseConditionalParams) //
+  (type: DeclarationCounter, ? params: CounterParams) //
+  (type: DeclarationAcceptCounter, params: AcceptCounterParams) //
+  (type: DeclarationState, ? params: StateParams) //
+  (type: DeclarationAccept, params: AcceptParams) //
+  (type: DeclarationReject, params: RejectParams) //
+  (type: DeclarationDelegate, params: DelegateParams) //
+  (type: DeclarationAssign, params: AssignParams) //
+  (type: DeclarationHandoffNote, params: HandoffNoteParams) //
+  (type: DeclarationDispute, params: DisputeParams) //
+  (type: DeclarationDefer, params: DeferParams) //
+  (type: DeclarationResume, params: ResumeParams) //
+  (type: DeclarationRevoke, params: RevokeParams) //
+  (type: DeclarationAllow, params: AllowParams) //
+  (type: DeclarationRefuse, params: RefuseParams) //
+  (type: DeclarationAmend, ? params: AmendParams) //
+  (type: DeclarationDeclareObsolete, params: DeclareObsoleteParams) //
+  (type: DeclarationImplicitAcceptanceTerms, params: ImplicitAcceptanceTermsParams) //
+  (type: DeclarationParamless, ? params: EffectiveOnly) //
   (type: DeclarationType, ? params: Params)
 )
 DeclarationRequest = "https://suiss.app/ns/work/declaration/request"
@@ -171,6 +191,31 @@ DeclarationStopRequest = "https://suiss.app/ns/work/declaration/stop_request"
 DeclarationStopResponse = "https://suiss.app/ns/work/declaration/stop_response"
 DeclarationOpenCondition = "https://suiss.app/ns/work/declaration/open_condition"
 DeclarationRedact = "https://suiss.app/ns/work/declaration/redact"
+DeclarationPromise = "https://suiss.app/ns/work/declaration/promise"
+DeclarationPromiseConditional = "https://suiss.app/ns/work/declaration/promise_conditional"
+DeclarationCounter = "https://suiss.app/ns/work/declaration/counter"
+DeclarationAcceptCounter = "https://suiss.app/ns/work/declaration/accept_counter"
+DeclarationState = "https://suiss.app/ns/work/declaration/state"
+DeclarationAccept = "https://suiss.app/ns/work/declaration/accept"
+DeclarationReject = "https://suiss.app/ns/work/declaration/reject"
+DeclarationDelegate = "https://suiss.app/ns/work/declaration/delegate"
+DeclarationAssign = "https://suiss.app/ns/work/declaration/assign"
+DeclarationHandoffNote = "https://suiss.app/ns/work/declaration/handoff_note"
+DeclarationDispute = "https://suiss.app/ns/work/declaration/dispute"
+DeclarationDefer = "https://suiss.app/ns/work/declaration/defer"
+DeclarationResume = "https://suiss.app/ns/work/declaration/resume"
+DeclarationRevoke = "https://suiss.app/ns/work/declaration/revoke_request"
+                  / "https://suiss.app/ns/work/declaration/revoke_promise"
+                  / "https://suiss.app/ns/work/declaration/revoke_statement"
+                  / "https://suiss.app/ns/work/declaration/revoke_acceptance"
+DeclarationAllow = "https://suiss.app/ns/work/declaration/allow"
+DeclarationRefuse = "https://suiss.app/ns/work/declaration/refuse"
+DeclarationAmend = "https://suiss.app/ns/work/declaration/amend"
+DeclarationDeclareObsolete = "https://suiss.app/ns/work/declaration/declare_obsolete"
+DeclarationImplicitAcceptanceTerms = "https://suiss.app/ns/work/declaration/implicit_acceptance_terms"
+DeclarationParamless = "https://suiss.app/ns/work/declaration/release"
+                     / "https://suiss.app/ns/work/declaration/expire"
+                     / "https://suiss.app/ns/work/declaration/administrative_close"
 
 ; P-71 C-16
 ClaimType = CoreClaimType / TypeURI
@@ -432,7 +477,7 @@ ParamValue = ParamScalar / [1*256 ParamScalar]
 ParamScalar = uint / bool / Time / Digest / WorkID / CatalogCode / CatalogURI / TypeURI / PartyRef / NoDeadline
 
 ; P-80 P-85 CM-20 P-92
-DeclineParams = { reason: DeclineReasonCode, ? effective_at: Time }
+DeclineParams = { reason: DeclineReasonCode, ? items: ItemSelection, ? effective_at: Time }
 
 ; P-80 P-85 CM-30 P-92
 CancelParams = { reason: CancelReasonCode, ? effective_at: Time }
@@ -471,15 +516,141 @@ RedactParams = {
 }
 RedactReason = "personal_data" / "secret_exposure" / "legal_order" / "author_request"
 
-; C-11 CM-4 CM-6 C-44 RC-10
+; C-11 CM-4 CM-6 CM-7 CM-8 CM-9 CM-24 CM-27 CM-39 CM-54 CM-55 CM-57 CM-60 C-44 RC-10
 RequestParams = {
   RequestDebtor,
   acceptor: PartyRef,
   ? aim: Digest,
   ? conditions: [1*256 Digest],
+  ? commitment_kind: CommitmentKind,
+  ? item_count: ItemCount,
+  ? due: Time,
+  ? respond_by: Time,
+  ? high_impact: true,
+  ? four_eyes_waived: true,
+  ? evidence_required: true,
+  ? change_policy: ChangePolicy,
+  ? Aggregation,
   ? effective_at: Time,
 }
 RequestDebtor = (obligor: PartyRef // queue: Digest)
+Aggregation = (
+  (aggregation: "all" / "any" / "sequential", participants: Participants, ? aggregation_veto: true) //
+  (aggregation: "k_of_n", aggregation_k: uint .ge 1, participants: Participants, ? aggregation_veto: true) //
+  (aggregation: "percentage", aggregation_percent: 1..100, participants: Participants, ? aggregation_veto: true)
+)
+Participants = [1*256 PartyRef]
+ItemCount = 1..256
+ItemSelection = [1*256 (0..255)]
+
+; CM-17 CM-21 CM-22 CM-23 CM-56
+PromiseParams = { ? items: ItemSelection, ? amendment: Digest, ? effective_at: Time }
+PromiseConditionalParams = {
+  precondition: Digest,
+  valid_until: Time,
+  ? items: ItemSelection,
+  ? effective_at: Time,
+}
+CounterParams = {
+  ? acceptor: PartyRef,
+  ? amendment: Digest,
+  ? conditions: [1*256 Digest],
+  ? due: Time,
+  ? evidence_required: bool,
+  ? high_impact: bool,
+  ? item_count: ItemCount,
+  ? respond_by: Time,
+  ? effective_at: Time,
+}
+AcceptCounterParams = { counter: Digest, ? effective_at: Time }
+
+; CM-23 CM-25 CM-26 CM-27 CM-40 CM-41 CM-61
+StateParams = { ? items: ItemSelection, ? effective_at: Time }
+AcceptParams = {
+  statement: Digest,
+  ? items: ItemSelection,
+  ? implicit: true,
+  ? criterion_undefined: true,
+  ? effective_at: Time,
+}
+RejectParams = {
+  statement: Digest,
+  reason: RejectReasonCode,
+  ? items: ItemSelection,
+  ? effective_at: Time,
+}
+
+; CM-43 CM-44 CM-45
+DelegateParams = {
+  step: "proposal",
+  obligor: PartyRef,
+  HandoverNote,
+  ? effective_at: Time,
+} / {
+  step: "acceptance",
+  proposal: Digest,
+  ? effective_at: Time,
+}
+AssignParams = {
+  step: "proposal",
+  obligee: PartyRef,
+  ? effective_at: Time,
+} / {
+  step: "acceptance",
+  proposal: Digest,
+  ? effective_at: Time,
+}
+HandoffNoteParams = { HandoverNote, ? effective_at: Time }
+HandoverNote = (
+  handover_reason: HandoverReasonCode,
+  stateful: bool,
+  ? context: [1*256 Digest],
+)
+
+; CM-17 CM-35 CM-36 CM-61
+DisputeParams = { disputed: Digest, reason: DisputeReasonCode, ? effective_at: Time }
+DeferParams = {
+  reason: DeferReasonCode,
+  ? (resume_at: Time // resume_on: Digest),
+  ? effective_at: Time,
+}
+ResumeParams = { deferral: Digest, ? effective_at: Time }
+RevokeParams = { reason: RevokeReasonCode, ? effective_at: Time }
+AllowParams = { revocation: Digest, ? effective_at: Time }
+RefuseParams = {
+  (revocation: Digest // amendment: Digest),
+  reason: RefuseReasonCode,
+  ? effective_at: Time,
+}
+
+; CM-39 CM-56 CM-57 CM-60
+AmendParams = {
+  ? high_impact: true,
+  ? four_eyes_waived: bool,
+  ? change_policy: ChangePolicy,
+  ? effective_at: Time,
+} / {
+  change: "terms",
+  ? acceptor: PartyRef,
+  ? conditions: [1*256 Digest],
+  ? due: Time,
+  ? evidence_required: bool,
+  ? high_impact: bool,
+  ? item_count: ItemCount,
+  ? effective_at: Time,
+}
+
+; CM-32 CM-41
+DeclareObsoleteParams = { parent: Digest, ? effective_at: Time }
+ImplicitAcceptanceTermsParams = {
+  window: uint .ge 1,
+  ? items: ItemSelection,
+  ? effective_at: Time,
+} / {
+  withdrawn: true,
+  ? effective_at: Time,
+}
+EffectiveOnly = { effective_at: Time }
 
 ; C-10 C-44
 AimParams = {
@@ -490,13 +661,33 @@ AimParams = {
 }
 AimDuration = "one_shot" / "maintain"
 
-; P-71 P-85 P-93
+; P-71 P-85 P-93 CM-45 CM-61
 DeclineReasonCode = DeclineReason / tstr .regexp "(no_capacity|no_authority|out_of_scope|missing_information|unacceptable_terms|other):https://[a-z0-9.-]+(:[0-9]+)?/[!-~]*"
 CancelReasonCode = CancelReason / tstr .regexp "(cannot_complete|failed|abandoned|other):https://[a-z0-9.-]+(:[0-9]+)?/[!-~]*"
 NoticeTypeCode = NoticeType / tstr .regexp "(at_risk|cannot_complete|obsolete_suggested):https://[a-z0-9.-]+(:[0-9]+)?/[!-~]*"
+RejectReasonCode = RejectReason / tstr .regexp "(criteria_not_met|incomplete|wrong_deliverable|evidence_missing|other):https://[a-z0-9.-]+(:[0-9]+)?/[!-~]*"
+RefuseReasonCode = RefuseReason / tstr .regexp "(irreversible_effect|already_relied_on|cost|disagree|other):https://[a-z0-9.-]+(:[0-9]+)?/[!-~]*"
+RevokeReasonCode = RevokeReason / tstr .regexp "(mistake|circumstances_changed|duplicate|other):https://[a-z0-9.-]+(:[0-9]+)?/[!-~]*"
+DisputeReasonCode = DisputeReason / tstr .regexp "(criteria_met|rejection_unfounded|revocation_unfounded|other):https://[a-z0-9.-]+(:[0-9]+)?/[!-~]*"
+DeferReasonCode = DeferReason / tstr .regexp "(waiting_external|priority|capacity|schedule|other):https://[a-z0-9.-]+(:[0-9]+)?/[!-~]*"
+HandoverReasonCode = HandoverReason / tstr .regexp "(capacity|competence|escalation|departure|control_transfer|other):https://[a-z0-9.-]+(:[0-9]+)?/[!-~]*"
 
-; P-85 P-71 CM-17 CM-20 CM-30 RC-36 ST-11 ST-27 C-10
+; P-85 P-71 CM-9 CM-17 CM-20 CM-30 CM-45 CM-54 CM-57 CM-61 RC-36 ST-11 ST-27 C-10
 CatalogCode = DeclineReason / CancelReason / NoticeType / StopType / StopResponse / WaitReason / GateForm / AimDuration
+            / CommitmentKind / RejectReason / RefuseReason / RevokeReason / DisputeReason / DeferReason
+            / ForwardReason / HandoverReason / ChangePolicy / AggregationRule / ProposalStep / AmendmentChange
+CommitmentKind = "standard" / "sub_commitment" / "periodic_update" / "follow_up" / "help_request"
+RejectReason = "criteria_not_met" / "incomplete" / "wrong_deliverable" / "evidence_missing" / "other"
+RefuseReason = "irreversible_effect" / "already_relied_on" / "cost" / "disagree" / "other"
+RevokeReason = "mistake" / "circumstances_changed" / "duplicate" / "other"
+DisputeReason = "criteria_met" / "rejection_unfounded" / "revocation_unfounded" / "other"
+DeferReason = "waiting_external" / "priority" / "capacity" / "schedule" / "other"
+ForwardReason = "wrong_recipient" / "expertise" / "capacity" / "other"
+HandoverReason = "capacity" / "competence" / "escalation" / "departure" / "control_transfer" / "other"
+ChangePolicy = "queue" / "reject" / "interrupt" / "rollback"
+AggregationRule = "all" / "any" / "k_of_n" / "sequential" / "percentage"
+ProposalStep = "proposal" / "acceptance"
+AmendmentChange = "terms"
 DeclineReason = "no_capacity" / "no_authority" / "out_of_scope" / "missing_information"
               / "unacceptable_terms" / "other"
 CancelReason = "cannot_complete" / "failed" / "abandoned" / "other"

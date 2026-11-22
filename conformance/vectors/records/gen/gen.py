@@ -432,7 +432,9 @@ REDACT_KEYS = {"target", "parts", "reason"}
 REQUEST_KEYS = {"obligor", "queue", "acceptor", "aim", "conditions", "effective_at"}
 AIM_KEYS = {"duration", "judge", "criterion", "effective_at"}
 AIM_DURATIONS = {"one_shot", "maintain"}
-ATTRIBUTED_KEYS = {"request": ("acceptor", "obligor"), "aim": ("judge",)}
+ATTRIBUTED_KEYS = {"request": ("acceptor", "obligor", "participants"), "aim": ("judge",),
+                   "delegate": ("obligor",), "assign": ("obligee",), "counter": ("acceptor",),
+                   "amend": ("acceptor",)}
 CORE_ROLES = {ROLE + n for n in ("source", "fulfills", "supports")}
 CORE_EVIDENCE = {EVIDENCE + n for n in ("artifact", "external_event", "measurement", "human_verification")}
 CONSENT = CLINIC + "ext/patient_consent"
@@ -632,17 +634,9 @@ def party_text(v):
 
 
 def request_params_ok(params):
-    if not set(params) <= REQUEST_KEYS or "acceptor" not in params:
+    if not commitment_keys_ok("request", params):
         return False
-    if ("obligor" in params) == ("queue" in params):
-        return False
-    if not all(party_text(params[k]) for k in ("obligor", "acceptor") if k in params):
-        return False
-    if not all(is_digest(params[k]) for k in ("queue", "aim") if k in params):
-        return False
-    c = params.get("conditions")
-    return c is None or (isinstance(c, list) and not is_digest(c) and len(c) >= 1
-                         and all(is_digest(x) for x in c) and ordered(c))
+    return (("obligor" in params) != ("queue" in params)) and aggregation_ok(params)
 
 
 def aim_params_ok(params):
@@ -687,6 +681,183 @@ def continuity_broken(rec):
     return bool(works) and (not rec["concerns"] or any(w in rec["concerns"] for w in works))
 
 
+# CM-17 CM-21 CM-23 CM-43 CM-45 CM-54 CM-56 CM-57 CM-60 CM-61
+REJECT_REASONS = {"criteria_not_met", "incomplete", "wrong_deliverable", "evidence_missing", "other"}
+REFUSE_REASONS = {"irreversible_effect", "already_relied_on", "cost", "disagree", "other"}
+REVOKE_REASONS = {"mistake", "circumstances_changed", "duplicate", "other"}
+DISPUTE_REASONS = {"criteria_met", "rejection_unfounded", "revocation_unfounded", "other"}
+DEFER_REASONS = {"waiting_external", "priority", "capacity", "schedule", "other"}
+HANDOVER_REASONS = {"capacity", "competence", "escalation", "departure", "control_transfer", "other"}
+DECLINE_REASONS = {"no_capacity", "no_authority", "out_of_scope", "missing_information", "unacceptable_terms",
+                   "other"}
+COMMITMENT_KINDS = {"standard", "sub_commitment", "periodic_update", "follow_up", "help_request"}
+CHANGE_POLICIES = {"queue", "reject", "interrupt", "rollback"}
+AGGREGATION_RULES = {"all", "any", "k_of_n", "sequential", "percentage"}
+ITEMS = ("items", "items", False)
+COMMITMENT_KEYS = {
+    "request": [("acceptor", "party", True), ("aggregation", AGGREGATION_RULES, False),
+                ("aggregation_k", "count", False), ("aggregation_percent", "percent", False),
+                ("aggregation_veto", "flag", False), ("aim", "digest", False),
+                ("change_policy", CHANGE_POLICIES, False), ("commitment_kind", COMMITMENT_KINDS, False),
+                ("conditions", "digest_set", False), ("due", "time", False), ("evidence_required", "flag", False),
+                ("four_eyes_waived", "flag", False), ("high_impact", "flag", False),
+                ("item_count", "item_count", False), ("obligor", "party", False),
+                ("participants", "party_list", False), ("queue", "digest", False), ("respond_by", "time", False)],
+    "promise": [("amendment", "digest", False), ITEMS],
+    "promise_conditional": [ITEMS, ("precondition", "digest", True), ("valid_until", "time", True)],
+    "decline": [ITEMS, ("reason", ("reason", DECLINE_REASONS), True)],
+    "counter": [("acceptor", "party", False), ("amendment", "digest", False), ("conditions", "digest_set", False),
+                ("due", "time", False), ("evidence_required", "bool", False), ("high_impact", "bool", False),
+                ("item_count", "item_count", False), ("respond_by", "time", False)],
+    "accept_counter": [("counter", "digest", True)],
+    "state": [ITEMS],
+    "accept": [("criterion_undefined", "flag", False), ("implicit", "flag", False), ITEMS,
+               ("statement", "digest", True)],
+    "reject": [ITEMS, ("reason", ("reason", REJECT_REASONS), True), ("statement", "digest", True)],
+    "delegate": [("context", "digest_set", False), ("handover_reason", ("reason", HANDOVER_REASONS), False),
+                 ("obligor", "party", False), ("proposal", "digest", False), ("stateful", "bool", False),
+                 ("step", {"proposal", "acceptance"}, True)],
+    "assign": [("obligee", "party", False), ("proposal", "digest", False), ("step", {"proposal", "acceptance"}, True)],
+    "handoff_note": [("context", "digest_set", False), ("handover_reason", ("reason", HANDOVER_REASONS), True),
+                     ("stateful", "bool", True)],
+    "dispute": [("disputed", "digest", True), ("reason", ("reason", DISPUTE_REASONS), True)],
+    "defer": [("reason", ("reason", DEFER_REASONS), True), ("resume_at", "time", False),
+              ("resume_on", "digest", False)],
+    "resume": [("deferral", "digest", True)],
+    "revoke_request": [("reason", ("reason", REVOKE_REASONS), True)],
+    "revoke_promise": [("reason", ("reason", REVOKE_REASONS), True)],
+    "revoke_statement": [("reason", ("reason", REVOKE_REASONS), True)],
+    "revoke_acceptance": [("reason", ("reason", REVOKE_REASONS), True)],
+    "allow": [("revocation", "digest", True)],
+    "refuse": [("amendment", "digest", False), ("reason", ("reason", REFUSE_REASONS), True),
+               ("revocation", "digest", False)],
+    "amend": [("acceptor", "party", False), ("change", {"terms"}, False), ("change_policy", CHANGE_POLICIES, False),
+              ("conditions", "digest_set", False), ("due", "time", False), ("evidence_required", "bool", False),
+              ("four_eyes_waived", "bool", False), ("high_impact", "bool", False),
+              ("item_count", "item_count", False)],
+    "declare_obsolete": [("parent", "digest", True)],
+    "implicit_acceptance_terms": [ITEMS, ("window", "count", False), ("withdrawn", "flag", False)],
+}
+TERM_KEYS = ("acceptor", "conditions", "due", "evidence_required", "high_impact", "item_count", "respond_by")
+HANDOVER_PARTS = ("summary", "done", "changed", "open_questions", "next_steps")
+
+
+def is_uint(v):
+    return isinstance(v, int) and not isinstance(v, bool) and v >= 0
+
+
+def is_list(v):
+    return isinstance(v, list) and v[:1] != [-16]
+
+
+def kind_ok(kind, v):
+    if isinstance(kind, tuple):
+        return reason_code(v, kind[1])
+    if isinstance(kind, set):
+        return isinstance(v, str) and v in kind
+    if kind == "party":
+        return party_text(v)
+    if kind == "digest":
+        return is_digest(v)
+    if kind == "time":
+        return is_uint(v)
+    if kind == "flag":
+        return v is True
+    if kind == "bool":
+        return isinstance(v, bool)
+    if kind == "count":
+        return is_uint(v) and v >= 1
+    if kind == "percent":
+        return is_uint(v) and 1 <= v <= 100
+    if kind == "item_count":
+        return is_uint(v) and 1 <= v <= 256
+    if kind == "items":
+        return is_list(v) and len(v) >= 1 and all(is_uint(x) and x < 256 for x in v) and v == sorted(set(v))
+    if kind == "digest_set":
+        return is_list(v) and len(v) >= 1 and all(is_digest(x) for x in v) and ordered(v)
+    if kind == "party_list":
+        return is_list(v) and len(v) >= 1 and all(party_text(x) for x in v) and not repeated(v)
+    raise ValueError(kind)
+
+
+def commitment_keys_ok(name, params):
+    schema = {k: (kind, req) for k, kind, req in COMMITMENT_KEYS[name]}
+    for k, v in params.items():
+        if k == "effective_at":
+            continue
+        if k not in schema or not kind_ok(schema[k][0], v):
+            return False
+    return all(k in params for k, (_, req) in schema.items() if req)
+
+
+def aggregation_ok(params):
+    rule, n = params.get("aggregation"), params.get("participants")
+    k, percent, veto = params.get("aggregation_k"), "aggregation_percent" in params, "aggregation_veto" in params
+    if rule is None and n is None:
+        return k is None and not percent and not veto
+    if rule is None or n is None:
+        return False
+    if rule == "k_of_n":
+        return not percent and k is not None and k <= len(n)
+    if rule == "percentage":
+        return percent and k is None
+    return k is None and not percent
+
+
+def has_part(rec, name):
+    return any(b["part"] == name for b in rec.get("body", []))
+
+
+def commitment_params_ok(name, params, rec):
+    def count(keys):
+        return sum(1 for k in keys if k in params)
+    if name == "request":
+        return aggregation_ok(params)
+    if name == "counter":
+        return count(TERM_KEYS) > 0 or "body" in rec
+    if name == "delegate":
+        if params.get("step") == "proposal":
+            return count(("obligor", "handover_reason", "stateful")) == 3 and "proposal" not in params
+        return "proposal" in params and count(("obligor", "handover_reason", "stateful", "context")) == 0
+    if name == "assign":
+        if params.get("step") == "proposal":
+            return "obligee" in params and "proposal" not in params
+        return "proposal" in params and "obligee" not in params
+    if name == "defer":
+        return count(("resume_at", "resume_on")) <= 1
+    if name == "refuse":
+        return count(("revocation", "amendment")) == 1
+    if name == "amend":
+        if "change" in params:
+            return count(("change_policy", "four_eyes_waived")) == 0 and count(TERM_KEYS) > 0
+        return count(("acceptor", "conditions", "due", "evidence_required", "item_count")) == 0 and \
+            params.get("high_impact", True) is not False
+    if name == "implicit_acceptance_terms":
+        return count(("window", "withdrawn")) == 1 and ("items" not in params or "window" in params)
+    return True
+
+
+def fulfils(rec):
+    return any(r["rel"] == "derived_from" and "source" in r and r["target"][0] == "record"
+               and r.get("qualifier") == ROLE + "fulfills" for r in rec.get("relations", []))
+
+
+def commitment_shape(rec):
+    if not rec["type"].startswith(DECLARATION):
+        return None
+    name = rec["type"][len(DECLARATION):]
+    params = rec.get("params", {})
+    handover = name == "handoff_note" or (name == "delegate" and params.get("step") == "proposal")
+    other = any(params.get(k) == "other" for k in ("reason", "handover_reason"))
+    missing = (handover and not all(has_part(rec, x) for x in HANDOVER_PARTS)) or \
+        ((other or name == "administrative_close") and not has_part(rec, "note"))
+    if missing or (name == "expire" and not rec.get("basis")):
+        return "schema:required_field"
+    if name == "state" and not fulfils(rec):
+        return "schema:relation"
+    return None
+
+
 def params_ok(rec):
     params = rec.get("params")
     if params is None and not rec["type"].startswith(DECLARATION):
@@ -707,6 +878,8 @@ def params_ok(rec):
         return request_params_ok(params)
     if name == "aim":
         return aim_params_ok(params)
+    if name in COMMITMENT_KEYS:
+        return commitment_keys_ok(name, params) and commitment_params_ok(name, params, rec)
     schema = PARAMS.get(name, {})
     if not set(PARAM_REQUIRED.get(name, ())) <= set(params):
         return False
@@ -795,6 +968,9 @@ def semantic(rec, ctx):
         return ("reject", "schema:relation")
     if not params_ok(rec):
         return ("reject", "schema:params")
+    shape = commitment_shape(rec)
+    if shape is not None:
+        return ("reject", shape)
     if rec.get("params", {}).get("effective_at", ctx.get("recorded_at", 0)) < ctx.get("recorded_at", 0):
         return ("reject", "retroactive_declaration")
     if ctx["origin"] == "automation" and (
@@ -1968,6 +2144,235 @@ write_json("records-reject.json", {
               "context holds verifier inputs that are not record bytes (origin, actor_type as the envelope ActorTypeAnnotation with one entry per on_behalf_of party and one per evidence presenter, understood_extensions, recorded_at)"],
     "cases": out_rej})
 
+# CM-17 CM-61 P-80 P-92
+def commitment(name, author=ALICE, params=None, body=None, basis=(), relations=None, n=0):
+    rec = {
+        "kind": "declaration",
+        "type": DECLARATION + name,
+        "author": author,
+        "capacity": "own",
+        "basis": sorted(basis, key=enc),
+        "visibility": vis(),
+        "ledger": LEDGER,
+        "concerns": [W1],
+        "authority": {"proof": "decision_receipt", "digest": label("access:decision-receipt:cm-%s-%d" % (name, n))},
+        "versions": {"protocol": [1, 0], "schema": label("schema:declaration." + name)},
+    }
+    if params is not None:
+        rec["params"] = params
+    if body:
+        rec["body"] = [{"part": p, "commit": label("body:%s:%s" % (p, name))} for p in body]
+    if relations:
+        rec["relations"] = relations
+    return rec
+
+
+def supersedes(target):
+    return [{"rel": "supersedes", "target": ["record", target]}]
+
+
+OFFER_PARTS = ["purpose", "delivery", "scope", "acceptance_criterion"]
+HANDOVER = ["summary", "done", "changed", "open_questions", "next_steps"]
+c_request = commitment("request", params={
+    "obligor": SUPPLIER, "acceptor": ALICE, "aim": AIM_ID, "commitment_kind": "standard", "item_count": 2,
+    "due": 1793000000000, "respond_by": 1792500000000, "high_impact": True, "evidence_required": True,
+    "change_policy": "queue"}, body=OFFER_PARTS)
+C_REQ = [-16, sha(enc(c_request))]
+C_HEAD = label("record:commitment.head")
+C_ACT = label("record:act.delivery")
+c_accept_cases = [
+    ("request-offer", c_request, {}, ["CM-6", "CM-7", "CM-8", "CM-9", "CM-24", "CM-27", "CM-57", "CM-60"]),
+    ("request-k-of-n", commitment("request", params={
+        "obligor": SUPPLIER, "acceptor": ALICE, "aggregation": "k_of_n", "aggregation_k": 2,
+        "aggregation_veto": True, "participants": [BUYER, SUPPLIER, AGENT]}, n=1), {}, ["CM-54", "CM-55"]),
+    ("request-percentage", commitment("request", params={
+        "obligor": SUPPLIER, "acceptor": ALICE, "aggregation": "percentage", "aggregation_percent": 60,
+        "participants": [BUYER, SUPPLIER]}, n=2), {}, ["CM-54"]),
+    ("request-sub-commitment", commitment("request", params={
+        "obligor": SUPPLIER, "acceptor": ALICE, "commitment_kind": "sub_commitment", "four_eyes_waived": True},
+        relations=[{"rel": "derived_from", "target": ["record", C_REQ], "qualifier": ROLE + "supports"}], n=3),
+     {}, ["CM-46", "C-28", "CM-39"]),
+    ("promise-items", commitment("promise", SUPPLIER, {"items": [0, 1]}, relations=supersedes(C_REQ)), {},
+     ["CM-17", "CM-23"]),
+    ("promise-conditional", commitment("promise_conditional", SUPPLIER, {
+        "precondition": label("record:condition.budget"), "valid_until": 1792700000000, "items": [1]},
+        relations=supersedes(C_REQ)), {}, ["CM-22"]),
+    ("decline-other-with-note", commitment("decline", SUPPLIER, {"reason": "other", "items": [0]}, body=["note"],
+                                           relations=supersedes(C_REQ)), {}, ["CM-20", "CM-61"]),
+    ("counter-due", commitment("counter", SUPPLIER, {"due": 1793100000000, "respond_by": 1792600000000},
+                               relations=supersedes(C_REQ)), {}, ["CM-21", "CM-24"]),
+    ("counter-body-only", commitment("counter", SUPPLIER, body=["scope"], relations=supersedes(C_REQ), n=1), {},
+     ["CM-21"]),
+    ("accept-counter", commitment("accept_counter", params={"counter": C_HEAD}, relations=supersedes(C_HEAD)), {},
+     ["CM-21"]),
+    ("state-fulfilment", commitment("state", SUPPLIER, {"items": [0]}, relations=supersedes(C_HEAD) + [
+        {"rel": "derived_from", "source": ["record", C_ACT], "target": ["record", C_REQ],
+         "qualifier": ROLE + "fulfills"}]), {}, ["CM-25", "C-29"]),
+    ("accept-statement", commitment("accept", params={"statement": C_HEAD, "criterion_undefined": True},
+                                    relations=supersedes(C_HEAD)), {}, ["CM-26", "CM-40", "CM-7"]),
+    ("accept-implicit", commitment("accept", SYS, {"statement": C_HEAD, "implicit": True},
+                                   basis=[label("record:implicit-terms")], relations=supersedes(C_HEAD), n=1),
+     {"origin": "automation"}, ["CM-41", "P-81"]),
+    ("reject-with-reason", commitment("reject", params={"statement": C_HEAD, "reason": "criteria_not_met"},
+                                      relations=supersedes(C_HEAD)), {}, ["CM-26", "CM-61"]),
+    ("release", commitment("release", relations=supersedes(C_HEAD)), {}, ["CM-29"]),
+    ("delegate-proposal", commitment("delegate", SUPPLIER, {
+        "step": "proposal", "obligor": AGENT, "handover_reason": "capacity", "stateful": True,
+        "context": [label("record:context.spec")]}, body=HANDOVER, relations=supersedes(C_HEAD)), {},
+     ["CM-44", "CM-45"]),
+    ("delegate-acceptance", commitment("delegate", ALICE, {"step": "acceptance", "proposal": C_HEAD},
+                                       relations=supersedes(C_HEAD), n=1), {}, ["CM-44"]),
+    ("assign-proposal", commitment("assign", params={"step": "proposal", "obligee": BUYER},
+                                   relations=supersedes(C_HEAD)), {}, ["CM-43"]),
+    ("assign-acceptance", commitment("assign", ALICE, {"step": "acceptance", "proposal": C_HEAD},
+                                     relations=supersedes(C_HEAD), n=1), {}, ["CM-43"]),
+    ("handoff-note", commitment("handoff_note", SUPPLIER, {"handover_reason": "control_transfer", "stateful": False},
+                                body=HANDOVER), {}, ["CM-45"]),
+    ("dispute", commitment("dispute", SUPPLIER, {"disputed": C_HEAD, "reason": "rejection_unfounded"},
+                           relations=supersedes(C_HEAD)), {}, ["CM-36", "CM-61"]),
+    ("defer-until", commitment("defer", SUPPLIER, {"reason": "waiting_external", "resume_at": 1792900000000},
+                               relations=supersedes(C_HEAD)), {}, ["CM-17", "CM-61"]),
+    ("resume", commitment("resume", SUPPLIER, {"deferral": C_HEAD}, relations=supersedes(C_HEAD)), {},
+     ["CM-17"]),
+    ("revoke-request", commitment("revoke_request", params={"reason": "duplicate"}, relations=supersedes(C_HEAD)),
+     {}, ["CM-35", "CM-61"]),
+    ("revoke-promise", commitment("revoke_promise", SUPPLIER, {"reason": "circumstances_changed"},
+                                  relations=supersedes(C_HEAD)), {}, ["CM-35"]),
+    ("revoke-statement", commitment("revoke_statement", SUPPLIER, {"reason": "mistake"},
+                                    relations=supersedes(C_HEAD)), {}, ["CM-35"]),
+    ("revoke-acceptance", commitment("revoke_acceptance", params={"reason": "other"}, body=["note", "cost"],
+                                     relations=supersedes(C_HEAD)), {}, ["CM-35", "CM-36"]),
+    ("allow", commitment("allow", SUPPLIER, {"revocation": C_HEAD}, relations=supersedes(C_HEAD)), {}, ["CM-35"]),
+    ("refuse-revocation", commitment("refuse", SUPPLIER, {"revocation": C_HEAD, "reason": "already_relied_on"},
+                                     relations=supersedes(C_HEAD)), {}, ["CM-35", "CM-61"]),
+    ("refuse-amendment", commitment("refuse", SUPPLIER, {"amendment": C_HEAD, "reason": "disagree"},
+                                    relations=supersedes(C_HEAD), n=1), {}, ["CM-56"]),
+    ("amend-instruction", commitment("amend", params={"high_impact": True, "four_eyes_waived": False,
+                                                      "change_policy": "interrupt"}, body=["instruction"],
+                                     relations=supersedes(C_HEAD)), {}, ["CM-56", "CM-57", "CM-60", "CM-39"]),
+    ("amend-terms", commitment("amend", params={"change": "terms", "due": 1793200000000, "high_impact": False,
+                                                "item_count": 3}, relations=supersedes(C_HEAD), n=1), {},
+     ["CM-56", "CM-60"]),
+    ("notice", commitment("notice", SUPPLIER, {"notice_type": "obsolete_suggested"}, relations=supersedes(C_HEAD)),
+     {}, ["CM-58", "CM-32"]),
+    ("declare-obsolete", commitment("declare_obsolete", params={"parent": label("record:parent.request")},
+                                    relations=supersedes(C_HEAD)), {}, ["CM-32"]),
+    ("expire", commitment("expire", SYS, basis=[C_REQ], relations=supersedes(C_HEAD)), {"origin": "automation"},
+     ["CM-31", "P-81"]),
+    ("administrative-close", commitment("administrative_close", ALICE, body=["note"], relations=supersedes(C_HEAD)),
+     {}, ["CM-33"]),
+    ("implicit-terms", commitment("implicit_acceptance_terms", params={"window": 259200000, "items": [0]},
+                                  relations=supersedes(C_HEAD)), {}, ["CM-41"]),
+    ("implicit-terms-withdrawn", commitment("implicit_acceptance_terms", params={"withdrawn": True},
+                                            relations=supersedes(C_HEAD), n=1), {}, ["CM-41"]),
+]
+c_reject_cases = [
+    ("promise-conditional-without-validity", commitment("promise_conditional", SUPPLIER, {
+        "precondition": label("record:condition.budget")}), "schema:params", ["CM-22"]),
+    ("decline-bare-other-without-note", commitment("decline", SUPPLIER, {"reason": "other"}),
+     "schema:required_field", ["CM-61"]),
+    ("reject-unknown-reason", commitment("reject", params={"statement": C_HEAD, "reason": "too_late"}),
+     "schema:params", ["CM-61"]),
+    ("reject-without-statement", commitment("reject", params={"reason": "incomplete"}), "schema:params",
+     ["CM-40"]),
+    ("refuse-both-targets", commitment("refuse", SUPPLIER, {"revocation": C_HEAD, "amendment": C_HEAD,
+                                                            "reason": "cost"}), "schema:params", ["CM-35"]),
+    ("refuse-without-target", commitment("refuse", SUPPLIER, {"reason": "cost"}), "schema:params", ["CM-35"]),
+    ("delegate-proposal-without-handover-parts", commitment("delegate", SUPPLIER, {
+        "step": "proposal", "obligor": AGENT, "handover_reason": "capacity", "stateful": True}, body=["summary"]),
+     "schema:required_field", ["CM-44", "CM-45"]),
+    ("delegate-proposal-without-obligor", commitment("delegate", SUPPLIER, {
+        "step": "proposal", "handover_reason": "capacity", "stateful": True}, body=HANDOVER), "schema:params",
+     ["CM-44"]),
+    ("delegate-acceptance-names-obligor", commitment("delegate", ALICE, {
+        "step": "acceptance", "proposal": C_HEAD, "obligor": BUYER}), "schema:params", ["CM-44"]),
+    ("delegate-obligor-is-a-reference", commitment("delegate", SUPPLIER, {
+        "step": "proposal", "obligor": "https://tools.example/bot", "handover_reason": "capacity",
+        "stateful": True}, body=HANDOVER), "envelope_mismatch:actor_type", ["C-44", "CM-44"]),
+    ("assign-acceptance-without-proposal", commitment("assign", ALICE, {"step": "acceptance"}), "schema:params",
+     ["CM-43"]),
+    ("defer-both-returns", commitment("defer", SUPPLIER, {"reason": "priority", "resume_at": 1,
+                                                          "resume_on": label("record:condition.x")}),
+     "schema:params", ["CM-17"]),
+    ("amend-instruction-changes-terms", commitment("amend", params={"due": 1793200000000}), "schema:params",
+     ["CM-56"]),
+    ("amend-instruction-lowers-high-impact", commitment("amend", params={"high_impact": False}), "schema:params",
+     ["CM-60"]),
+    ("amend-terms-without-terms", commitment("amend", params={"change": "terms"}), "schema:params", ["CM-56"]),
+    ("amend-terms-waives-four-eyes", commitment("amend", params={"change": "terms", "due": 1,
+                                                                 "four_eyes_waived": True}),
+     "schema:params", ["CM-39"]),
+    ("implicit-terms-window-and-withdrawal", commitment("implicit_acceptance_terms", params={
+        "window": 1, "withdrawn": True}), "schema:params", ["CM-41"]),
+    ("implicit-terms-zero-window", commitment("implicit_acceptance_terms", params={"window": 0}),
+     "schema:params", ["CM-41"]),
+    ("request-k-of-n-without-k", commitment("request", params={
+        "obligor": SUPPLIER, "acceptor": ALICE, "aggregation": "k_of_n", "participants": [BUYER, AGENT]}),
+     "schema:params", ["CM-54"]),
+    ("request-k-above-n", commitment("request", params={
+        "obligor": SUPPLIER, "acceptor": ALICE, "aggregation": "k_of_n", "aggregation_k": 3,
+        "participants": [BUYER, AGENT]}), "schema:params", ["CM-54", "CM-55"]),
+    ("request-percentage-out-of-range", commitment("request", params={
+        "obligor": SUPPLIER, "acceptor": ALICE, "aggregation": "percentage", "aggregation_percent": 101,
+        "participants": [BUYER, AGENT]}), "schema:params", ["CM-54"]),
+    ("request-participants-repeated", commitment("request", params={
+        "obligor": SUPPLIER, "acceptor": ALICE, "aggregation": "all", "participants": [BUYER, BUYER]}),
+     "schema:params", ["CM-55", "P-78"]),
+    ("request-participant-is-a-reference", commitment("request", params={
+        "obligor": SUPPLIER, "acceptor": ALICE, "aggregation": "any",
+        "participants": [BUYER, "https://tools.example/bot"]}), "envelope_mismatch:actor_type", ["C-44"]),
+    ("request-veto-without-policy", commitment("request", params={
+        "obligor": SUPPLIER, "acceptor": ALICE, "aggregation_veto": True}), "schema:params", ["CM-54"]),
+    ("request-zero-items", commitment("request", params={"obligor": SUPPLIER, "acceptor": ALICE, "item_count": 0}),
+     "schema:params", ["CM-23"]),
+    ("request-high-impact-false", commitment("request", params={"obligor": SUPPLIER, "acceptor": ALICE,
+                                                                "high_impact": False}), "schema:params",
+     ["CM-60"]),
+    ("request-unknown-kind", commitment("request", params={"obligor": SUPPLIER, "acceptor": ALICE,
+                                                           "commitment_kind": "ticket"}), "schema:params",
+     ["CM-9"]),
+    ("request-unknown-change-policy", commitment("request", params={"obligor": SUPPLIER, "acceptor": ALICE,
+                                                                    "change_policy": "merge"}), "schema:params",
+     ["CM-57"]),
+    ("state-without-fulfilment", commitment("state", SUPPLIER, relations=supersedes(C_HEAD)), "schema:relation",
+     ["CM-25"]),
+    ("expire-without-basis", commitment("expire", ALICE, relations=supersedes(C_HEAD)), "schema:required_field",
+     ["CM-31"]),
+    ("administrative-close-without-note", commitment("administrative_close", ALICE, relations=supersedes(C_HEAD)),
+     "schema:required_field", ["CM-33"]),
+    ("items-unsorted", commitment("promise", SUPPLIER, {"items": [1, 0]}), "schema:params", ["CM-23", "P-72"]),
+    ("items-out-of-range", commitment("promise", SUPPLIER, {"items": [256]}), "schema:params", ["CM-23"]),
+    ("counter-without-change", commitment("counter", SUPPLIER, relations=supersedes(C_REQ)), "schema:params",
+     ["CM-21"]),
+    ("dispute-without-disputed", commitment("dispute", SUPPLIER, {"reason": "criteria_met"}), "schema:params",
+     ["CM-36"]),
+    ("accept-implicit-false", commitment("accept", params={"statement": C_HEAD, "implicit": False}),
+     "schema:params", ["CM-41"]),
+    ("release-with-reason", commitment("release", params={"reason": "other"}, body=["note"]), "schema:params",
+     ["CM-29"]),
+]
+out_cm = []
+for name, rec, kw, rules in c_accept_cases:
+    b = enc(rec)
+    c = ctx(rec, **kw)
+    assert semantic(rec, c) == ("accept", None), (name, semantic(rec, c))
+    write_cbor("SignedRecord", "commitment-" + name, b, "pass")
+    out_cm.append({"id": "commitment/" + name, "rules": rules, "hex": b.hex(), "decoded": decoded(b, rec),
+                   "context": c, "cddl": "pass", "expect": {"outcome": "accept"}})
+for name, rec, reason, rules in c_reject_cases:
+    b = enc(rec)
+    c = ctx(rec)
+    assert semantic(rec, c) == ("reject", reason), (name, semantic(rec, c))
+    write_cbor("SignedRecord", "commitment-reject-" + name, b, "pass")
+    out_cm.append({"id": "commitment-reject/" + name, "rules": rules, "hex": b.hex(), "decoded": decoded(b, rec),
+                   "context": c, "cddl": "pass", "expect": {"outcome": "reject", "reason": reason}})
+write_json("commitments.json", {
+    "file": "commitments.json",
+    "notes": ["one record per commitment operation of the closed set (CM-17) with its params, body parts and relations, then single-rule rejections; the commitment lifecycle rules that need the ledger are in conformance/vectors/kernel/commitment-lifecycle.json",
+              "a free-text note, the handover note's text, the offer's purpose, delivery, scope and acceptance criterion are body parts (P-80): params carry no free text",
+              "cddl is pass for every case: the open alternative of DeclarationTyped also matches core subtypes, so the kernel decides each rejection"],
+    "cases": out_cm})
+
 V2 = dict(rec_comment["versions"], protocol=[2, 0])
 v2_new_field = variant(rec_comment, versions=V2)
 v2_new_field["priority"] = 3
@@ -2170,12 +2575,16 @@ mapping_only = [
      "The opening record of a Work merged from two earlier Works: derived_from each earlier Work in the source role; the earlier Works keep their identities."),
     ("declaration-counter", variant(rec_promise, type=DECLARATION + "counter"),
      ["P-51", "CM-17"], "A counter-offer maps to a new AS2 Offer."),
-    ("declaration-promise-conditional", variant(rec_promise, type=DECLARATION + "promise_conditional"),
+    ("declaration-promise-conditional", variant(rec_promise, type=DECLARATION + "promise_conditional",
+                                                params={"precondition": label("record:condition.budget"),
+                                                        "valid_until": 1792800000000}),
      ["P-51", "CM-17"], "A conditional yes maps to an AS2 TentativeAccept."),
-    ("declaration-revoke-promise", variant(rec_decline, type=DECLARATION + "revoke_promise", params=None,
+    ("declaration-revoke-promise", variant(rec_decline, type=DECLARATION + "revoke_promise",
+                                           params={"reason": "mistake"},
                                            visibility=vis()),
      ["P-51", "CM-35"], "A revocation request maps to an AS2 Undo."),
-    ("declaration-assign", variant(rec_decline, type=DECLARATION + "assign", params=None, visibility=vis()),
+    ("declaration-assign", variant(rec_decline, type=DECLARATION + "assign",
+                                   params={"step": "proposal", "obligee": ALICE}, visibility=vis()),
      ["P-51", "CM-17"], "An assignment maps to the ForgeFed Assign activity."),
     ("declaration-open-condition-information", information_wait,
      ["P-51", "ST-10", "ST-12"], "A wait for information maps to an AS2 Question."),
