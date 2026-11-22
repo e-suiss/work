@@ -847,7 +847,11 @@ family = "E"
 status = "canonical-invariant"
 stage = 5
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/commitment_time.rs::cm_48_budget_and_consumption_bodies_match_their_vectors",
+  "crates/kernel/tests/commitment_time.rs::cm_48_consumption_comes_from_executor_claims_and_children_roll_up",
+  "crates/kernel/tests/commitment_time.rs::cm_49_an_exhausted_budget_asks_the_accountable_party_and_changes_nothing",
+]
 
 [[rule]]
 id = "E-39"
@@ -1046,7 +1050,12 @@ family = "CM"
 status = "canonical-invariant"
 stage = 5
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/commitment_time.rs::cm_50_clock_and_periodic_bodies_match_their_vectors",
+  "crates/kernel/tests/commitment_time.rs::cm_52_an_undeclared_unaddressed_or_one_sided_wait_does_not_pause",
+  "crates/kernel/tests/commitment_time.rs::cm_52_muting_the_attention_item_never_pauses_the_clock",
+  "crates/kernel/tests/commitment_time.rs::cm_52_only_a_declared_wait_on_an_addressed_party_pauses_the_clock",
+]
 
 [[rule]]
 id = "RC-1"

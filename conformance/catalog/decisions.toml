@@ -2232,7 +2232,12 @@ id = "CM-48"
 family = "CM"
 status = "frozen-product"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/commitment_time.rs::cm_48_budget_and_consumption_bodies_match_their_vectors",
+  "crates/kernel/tests/commitment_time.rs::cm_48_consumption_comes_from_executor_claims_and_children_roll_up",
+  "crates/kernel/tests/commitment_time.rs::cm_48_consumption_overflow_is_a_typed_error",
+  "crates/kernel/tests/commitment_time.rs::cm_48_money_takes_a_list_one_currency_with_a_minor_unit_and_no_fund",
+]
 
 [[rule]]
 id = "CM-49"
@@ -2241,6 +2246,9 @@ status = "frozen-product"
 stage = 5
 title = ""
 tests = [
+  "crates/kernel/tests/commitment_time.rs::cm_48_budget_and_consumption_bodies_match_their_vectors",
+  "crates/kernel/tests/commitment_time.rs::cm_49_a_budget_never_widens_the_access_limit",
+  "crates/kernel/tests/commitment_time.rs::cm_49_an_exhausted_budget_asks_the_accountable_party_and_changes_nothing",
   "crates/kernel/tests/commitments.rs::cm_58_the_next_move_follows_the_state",
 ]
 
@@ -2250,7 +2258,13 @@ family = "CM"
 status = "frozen-product"
 stage = 7
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/commitment_time.rs::cm_50_a_business_calendar_counts_working_intervals_and_skips_holidays",
+  "crates/kernel/tests/commitment_time.rs::cm_50_clock_and_periodic_bodies_match_their_vectors",
+  "crates/kernel/tests/commitment_time.rs::cm_50_working_time_advance_and_count_agree",
+  "crates/kernel/tests/commitment_time.rs::cm_50_zone_data_outside_tzif_version_2_is_refused",
+  "crates/kernel/tests/commitment_time.rs::cm_50_zone_offsets_and_local_times_match_tzdb",
+]
 
 [[rule]]
 id = "CM-51"
@@ -2259,14 +2273,22 @@ status = "frozen-technical"
 stage = 5
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/commitment_time.rs::cm_50_clock_and_periodic_bodies_match_their_vectors",
+  "crates/kernel/tests/commitment_time.rs::cm_50_working_time_advance_and_count_agree",
+  "crates/kernel/tests/commitment_time.rs::cm_51_a_redefinition_applies_forward_without_rewriting_reached_tiers",
+  "crates/kernel/tests/commitment_time.rs::cm_51_the_clock_is_recomputed_from_history_at_any_time",
+]
 
 [[rule]]
 id = "CM-53"
 family = "CM"
 status = "frozen-product"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/commitment_time.rs::cm_53_a_report_missing_beyond_the_tolerance_is_a_breach_signal",
+  "crates/kernel/tests/commitment_time.rs::cm_53_recurrence_rules_match_their_vectors",
+]
 
 [[rule]]
 id = "CM-54"
