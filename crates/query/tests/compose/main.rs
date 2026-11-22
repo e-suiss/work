@@ -502,11 +502,11 @@ impl Local {
             .await
     }
 
-    /// The sign-in of [`Local::session`] for the `acme` account `identifier`.
+    /// The sign-in of [`Local::session`] for the `acme` account that signs in as `account`.
     async fn sign_in(
         &self,
         key: &HsmSigner,
-        identifier: &str,
+        account: &str,
         passkey_first: bool,
     ) -> Result<(Value, Jar), Answer> {
         let issuer = self.issuer("acme");
@@ -548,7 +548,7 @@ impl Local {
                     started.json()["action"].as_str().unwrap_or_default()
                 ),
                 &mut jar,
-                Some(json!({"method": "identifier", "fields": {"identifier": identifier}})),
+                Some(json!({"method": "identifier", "fields": {"identifier": account}})),
             )
             .await;
         if identified.status != 200 || identified.json()["step"] != "authenticate" {
