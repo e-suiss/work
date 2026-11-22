@@ -175,7 +175,7 @@ struct Parts<'a> {
 impl<'a> Parts<'a> {
     fn read(&mut self, key: &'a str, value: &str) -> Result<(), RuleError> {
         if let Some(refused) = REFUSED.iter().find(|r| **r == key) {
-            return Err(RuleError(*refused));
+            return Err(RuleError(refused));
         }
         if self.seen.contains(&key) {
             return Err(RuleError("duplicate"));
