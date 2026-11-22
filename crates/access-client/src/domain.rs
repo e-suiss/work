@@ -4,6 +4,7 @@ pub mod adp;
 pub mod approval;
 pub mod assertion;
 pub mod cache;
+pub mod commitments;
 pub mod directory;
 pub mod discovery;
 pub mod eligibility;

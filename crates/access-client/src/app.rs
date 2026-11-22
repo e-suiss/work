@@ -8,6 +8,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{Mutex, MutexGuard};
 
 use suiss_crypto::cose::KeySet;
+use suiss_crypto::digest::sha256;
 
 use work_proto::id::TenantId;
 
@@ -16,6 +17,7 @@ use crate::domain::approval::{
     ApprovalRequest, Pushed, State as ApprovalState, approval_url, push_body,
 };
 use crate::domain::cache::{CachePolicy, CachedKey, KeyCache};
+use crate::domain::commitments::{Ended, Verdict, claim_bytes, submission};
 use crate::domain::directory::{KnownRealm, by_issuer, page_realms};
 use crate::domain::discovery::{
     AuthzenConfiguration, Endpoint, Endpoints, Issuer, SUISS_CONFIGURATION, SuissConfiguration,
@@ -614,6 +616,24 @@ impl<T: Transport, C: Clock> Client<T, C> {
             etag_position(answer.header("etag")),
         )
         .map(Some)
+    }
+
+    /// Hands Access the `commitment_active = false` Claim of `ended` over the PEP certificate
+    /// (E-8, E-12, Access L2-CLM-5): the Claim is the same for the same end, so it is handed
+    /// over under its own digest as the idempotency key and a second hand-over is a replay.
+    ///
+    /// # Errors
+    /// [`AccessError::Unserved`] while Access names no Claim Ingest endpoint, Access's refusal,
+    /// and every error that keeps a consequential action from Access.
+    pub async fn commitment_ended(&self, ended: &Ended) -> Result<Verdict, AccessError> {
+        self.consequential()?;
+        let url = self.endpoints()?.get(Endpoint::ClaimIngest)?.expand("");
+        let key = b64url(&sha256(&claim_bytes(ended)?));
+        let answer = self
+            .transport
+            .send(Request::post(url, JSON, submission(ended)?).with("idempotency-key", &key))
+            .await?;
+        Verdict::from_json(answer.ok()?)
     }
 
     /// Asks whether a subject is in a set at the moment of approval; Access records nothing and
