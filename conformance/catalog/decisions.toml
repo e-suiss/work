@@ -50,6 +50,8 @@ stage = 5
 title = ""
 tests = [
   "crates/kernel/src/policy_default.rs::f_26_security_switch_turns_off_only_with_a_recorded_declaration",
+  "crates/kernel/tests/commitments.rs::cm_1_cm_28_a_statement_or_an_executor_report_is_never_an_acceptance",
+  "crates/kernel/tests/commitments.rs::cm_37_cm_38_four_eyes_guards_an_agents_output",
 ]
 
 [[rule]]
@@ -193,7 +195,9 @@ family = "MD"
 status = "central-decision"
 stage = 5
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/commitments.rs::cm_34_a_terminal_outcome_never_changes_and_a_late_statement_is_kept",
+]
 
 [[rule]]
 id = "F-1"
@@ -260,6 +264,7 @@ status = "frozen-product"
 stage = 0
 title = "The must-never list is binding"
 tests = [
+  "crates/kernel/tests/commitments.rs::cm_1_cm_28_a_statement_or_an_executor_report_is_never_an_acceptance",
   "xtask/src/policy.rs::md_15_f_9_p_2_paid_or_cloud_only_names_are_rejected",
   "xtask/src/rules_migrations.rs::sec_24_credential_and_payment_columns_are_rejected",
 ]
@@ -1225,7 +1230,9 @@ family = "C"
 status = "frozen-product"
 stage = 5
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/commitments.rs::cm_7_an_offer_with_an_agent_side_needs_its_six_fields",
+]
 
 [[rule]]
 id = "C-7"
@@ -1411,6 +1418,7 @@ tests = [
   "crates/kernel/tests/ontology.rs::c_20_a_tool_output_is_the_calling_party_s_claim_about_a_reference",
   "crates/kernel/tests/ontology.rs::c_44_every_attributed_slot_is_a_party_never_a_reference",
   "crates/kernel/tests/ontology.rs::c_44_the_obligor_acceptor_and_judge_are_parties",
+  "crates/kernel/tests/record_vectors.rs::cm_17_commitment_record_vectors",
 ]
 
 [[rule]]
@@ -1868,7 +1876,9 @@ stage = 5
 acceptance = "to-fill"
 title = ""
 tests = [
+  "crates/kernel/tests/commitments.rs::cm_7_an_offer_with_an_agent_side_needs_its_six_fields",
   "crates/kernel/tests/ontology.rs::c_11_a_commitment_is_two_sided_and_names_its_acceptor",
+  "crates/kernel/tests/record_vectors.rs::cm_17_commitment_record_vectors",
 ]
 
 [[rule]]
@@ -1877,7 +1887,9 @@ family = "CM"
 status = "frozen-product"
 stage = 5
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/commitments.rs::cm_7_an_offer_with_an_agent_side_needs_its_six_fields",
+]
 
 [[rule]]
 id = "CM-8"
@@ -1892,35 +1904,45 @@ id = "CM-9"
 family = "CM"
 status = "frozen-product"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/commitments.rs::cm_9_commitment_types_keep_their_own_rule_on_one_lifecycle",
+]
 
 [[rule]]
 id = "CM-10"
 family = "CM"
 status = "frozen-product"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/commitments.rs::cm_9_commitment_types_keep_their_own_rule_on_one_lifecycle",
+]
 
 [[rule]]
 id = "CM-11"
 family = "CM"
 status = "frozen-product"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/commitments.rs::cm_9_commitment_types_keep_their_own_rule_on_one_lifecycle",
+]
 
 [[rule]]
 id = "CM-12"
 family = "CM"
 status = "frozen-product"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/commitments.rs::cm_9_commitment_types_keep_their_own_rule_on_one_lifecycle",
+]
 
 [[rule]]
 id = "CM-13"
 family = "CM"
 status = "frozen-product"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/commitments.rs::cm_13_a_pool_request_binds_whoever_promises",
+]
 
 [[rule]]
 id = "CM-14"
@@ -1929,7 +1951,9 @@ status = "frozen-protocol"
 stage = 5
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/commitments.rs::cm_14_cm_15_thirteen_closed_states_and_promised_is_not_accepted",
+]
 
 [[rule]]
 id = "CM-15"
@@ -1938,7 +1962,9 @@ status = "frozen-protocol"
 stage = 5
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/commitments.rs::cm_14_cm_15_thirteen_closed_states_and_promised_is_not_accepted",
+]
 
 [[rule]]
 id = "CM-16"
@@ -1946,7 +1972,9 @@ family = "CM"
 status = "frozen-product"
 stage = 5
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/commitments.rs::cm_16_cm_31_only_a_declared_validity_expires_and_a_promise_never_does",
+]
 
 [[rule]]
 id = "CM-17"
@@ -1956,6 +1984,10 @@ stage = 5
 acceptance = "to-fill"
 title = ""
 tests = [
+  "crates/kernel/tests/commitments.rs::cm_17_defer_and_notice_never_change_the_state",
+  "crates/kernel/tests/commitments.rs::cm_17_the_closed_operation_set_has_one_table_row_each",
+  "crates/kernel/tests/commitments.rs::cm_26_a_rejection_returns_to_execution_and_counts_until_acceptance",
+  "crates/kernel/tests/record_vectors.rs::cm_17_commitment_record_vectors",
   "crates/kernel/tests/records.rs::p_80_core_subtypes_require_their_reason_and_type_keys",
 ]
 
@@ -1973,7 +2005,10 @@ status = "frozen-protocol"
 stage = 5
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/commitments.rs::cm_19_an_invalid_operation_is_refused_with_its_reason_and_kept",
+  "crates/kernel/tests/commitments.rs::cm_19_p_55_allowed_transitions_follow_role_state_and_access",
+]
 
 [[rule]]
 id = "CM-20"
@@ -1981,6 +2016,8 @@ family = "CM"
 status = "frozen-product"
 title = ""
 tests = [
+  "crates/kernel/tests/commitments.rs::cm_20_a_decline_closes_the_request_without_execution",
+  "crates/kernel/tests/commitments.rs::cm_21_a_counter_offer_versions_the_offer_and_its_acceptance_is_a_promise",
   "crates/kernel/tests/records.rs::p_80_core_subtypes_require_their_reason_and_type_keys",
 ]
 
@@ -1990,7 +2027,9 @@ family = "CM"
 status = "frozen-protocol"
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/commitments.rs::cm_21_a_counter_offer_versions_the_offer_and_its_acceptance_is_a_promise",
+]
 
 [[rule]]
 id = "CM-22"
@@ -1998,7 +2037,9 @@ family = "CM"
 status = "frozen-protocol"
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/commitments.rs::cm_22_a_conditional_promise_becomes_a_promise_from_the_meeting_record_or_expires",
+]
 
 [[rule]]
 id = "CM-23"
@@ -2006,14 +2047,20 @@ family = "CM"
 status = "frozen-protocol"
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/commitments.rs::cm_23_items_derive_their_own_states_and_the_summary_is_mixed",
+  "crates/kernel/tests/record_vectors.rs::cm_17_commitment_record_vectors",
+]
 
 [[rule]]
 id = "CM-24"
 family = "CM"
 status = "frozen-product"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/commitments.rs::cm_16_cm_31_only_a_declared_validity_expires_and_a_promise_never_does",
+  "crates/kernel/tests/commitments.rs::cm_21_a_counter_offer_versions_the_offer_and_its_acceptance_is_a_promise",
+]
 
 [[rule]]
 id = "CM-25"
@@ -2022,14 +2069,19 @@ status = "frozen-protocol"
 stage = 5
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/commitments.rs::cm_1_cm_28_a_statement_or_an_executor_report_is_never_an_acceptance",
+  "crates/kernel/tests/commitments.rs::cm_25_one_act_may_fulfil_several_commitments",
+]
 
 [[rule]]
 id = "CM-26"
 family = "CM"
 status = "frozen-product"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/commitments.rs::cm_26_a_rejection_returns_to_execution_and_counts_until_acceptance",
+]
 
 [[rule]]
 id = "CM-27"
@@ -2037,7 +2089,9 @@ family = "CM"
 status = "frozen-product"
 stage = 8
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/commitments.rs::cm_27_an_acceptance_that_needs_evidence_is_invalid_without_it",
+]
 
 [[rule]]
 id = "CM-30"
@@ -2046,6 +2100,7 @@ status = "frozen-protocol"
 acceptance = "to-fill"
 title = ""
 tests = [
+  "crates/kernel/tests/commitments.rs::cm_29_cm_30_cancel_and_release_differ_and_end_commitment_active",
   "crates/kernel/tests/records.rs::p_80_core_subtypes_require_their_reason_and_type_keys",
 ]
 
@@ -2056,21 +2111,27 @@ status = "frozen-protocol"
 stage = 5
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/commitments.rs::cm_16_cm_31_only_a_declared_validity_expires_and_a_promise_never_does",
+]
 
 [[rule]]
 id = "CM-32"
 family = "CM"
 status = "frozen-product"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/commitments.rs::cm_32_cm_33_obsolete_and_administrative_close_name_their_initiator",
+]
 
 [[rule]]
 id = "CM-33"
 family = "CM"
 status = "frozen-product"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/commitments.rs::cm_32_cm_33_obsolete_and_administrative_close_name_their_initiator",
+]
 
 [[rule]]
 id = "CM-35"
@@ -2079,14 +2140,21 @@ status = "frozen-protocol"
 stage = 5
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/commitments.rs::cm_35_an_allowed_revocation_of_acceptance_keeps_the_outcome_and_allows_reopening",
+  "crates/kernel/tests/commitments.rs::cm_35_revocations_are_requests_the_counterparty_answers",
+]
 
 [[rule]]
 id = "CM-36"
 family = "CM"
 status = "frozen-product"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/commitments.rs::cm_26_a_rejection_returns_to_execution_and_counts_until_acceptance",
+  "crates/kernel/tests/commitments.rs::cm_35_an_allowed_revocation_of_acceptance_keeps_the_outcome_and_allows_reopening",
+  "crates/kernel/tests/commitments.rs::cm_35_revocations_are_requests_the_counterparty_answers",
+]
 
 [[rule]]
 id = "CM-38"
@@ -2095,21 +2163,29 @@ status = "policy-default"
 stage = 5
 pd = "set"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/commitments.rs::cm_37_cm_38_four_eyes_guards_an_agents_output",
+  "crates/kernel/tests/commitments.rs::cm_39_a_recorded_waiver_lifts_four_eyes_unless_policy_forbids_it",
+  "crates/kernel/tests/commitments.rs::cm_42_an_implicit_acceptance_blocked_by_four_eyes_or_step_up_awaits_acceptance",
+]
 
 [[rule]]
 id = "CM-39"
 family = "CM"
 status = "frozen-product"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/commitments.rs::cm_39_a_recorded_waiver_lifts_four_eyes_unless_policy_forbids_it",
+]
 
 [[rule]]
 id = "CM-40"
 family = "CM"
 status = "frozen-product"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/commitments.rs::cm_40_cm_60_a_high_impact_acceptance_needs_a_step_up",
+]
 
 [[rule]]
 id = "CM-43"
@@ -2117,7 +2193,10 @@ family = "CM"
 status = "frozen-product"
 stage = 5
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/commitments.rs::cm_43_an_assignment_changes_the_obligee_and_never_the_acceptor",
+  "crates/kernel/tests/commitments.rs::cm_43_cm_44_delegation_is_two_records_and_the_old_obligor_stays_until_acceptance",
+]
 
 [[rule]]
 id = "CM-45"
@@ -2125,7 +2204,9 @@ family = "CM"
 status = "frozen-protocol"
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/record_vectors.rs::cm_17_commitment_record_vectors",
+]
 
 [[rule]]
 id = "CM-46"
@@ -2133,14 +2214,18 @@ family = "CM"
 status = "frozen-protocol"
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/commitments.rs::cm_46_cm_47_a_sub_commitment_supports_its_parent_and_signals_its_risk",
+]
 
 [[rule]]
 id = "CM-47"
 family = "CM"
 status = "frozen-product"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/commitments.rs::cm_46_cm_47_a_sub_commitment_supports_its_parent_and_signals_its_risk",
+]
 
 [[rule]]
 id = "CM-48"
@@ -2155,7 +2240,9 @@ family = "CM"
 status = "frozen-product"
 stage = 5
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/commitments.rs::cm_58_the_next_move_follows_the_state",
+]
 
 [[rule]]
 id = "CM-50"
@@ -2186,7 +2273,10 @@ id = "CM-54"
 family = "CM"
 status = "frozen-product"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/commitments.rs::cm_54_cm_55_aggregation_counts_only_acceptances",
+  "crates/kernel/tests/record_vectors.rs::cm_17_commitment_record_vectors",
+]
 
 [[rule]]
 id = "CM-55"
@@ -2194,7 +2284,9 @@ family = "CM"
 status = "frozen-product"
 stage = 5
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/commitments.rs::cm_54_cm_55_aggregation_counts_only_acceptances",
+]
 
 [[rule]]
 id = "CM-56"
@@ -2203,7 +2295,10 @@ status = "frozen-protocol"
 stage = 5
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/commitments.rs::cm_56_a_terms_amendment_needs_the_obligors_renewed_promise",
+  "crates/kernel/tests/commitments.rs::cm_56_p_74_the_same_author_writing_the_same_version_twice_is_refused",
+]
 
 [[rule]]
 id = "CM-57"
@@ -2211,14 +2306,19 @@ family = "CM"
 status = "policy-default"
 pd = "set"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/commitments.rs::cm_56_a_terms_amendment_needs_the_obligors_renewed_promise",
+  "crates/kernel/tests/commitments.rs::cm_57_interrupt_and_rollback_need_the_executors_control_capability",
+]
 
 [[rule]]
 id = "CM-58"
 family = "CM"
 status = "frozen-product"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/commitments.rs::cm_58_the_next_move_follows_the_state",
+]
 
 [[rule]]
 id = "CM-59"
@@ -2226,6 +2326,52 @@ family = "CM"
 status = "frozen-protocol"
 stage = 12
 acceptance = "to-fill"
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-60"
+family = "CM"
+status = "frozen-protocol"
+stage = 5
+title = ""
+tests = [
+  "crates/kernel/tests/commitments.rs::cm_40_cm_60_a_high_impact_acceptance_needs_a_step_up",
+  "crates/kernel/tests/commitments.rs::cm_56_a_terms_amendment_needs_the_obligors_renewed_promise",
+  "crates/kernel/tests/record_vectors.rs::cm_17_commitment_record_vectors",
+]
+
+[[rule]]
+id = "CM-61"
+family = "CM"
+status = "frozen-protocol"
+stage = 5
+title = ""
+tests = [
+  "crates/kernel/tests/record_vectors.rs::cm_17_commitment_record_vectors",
+]
+
+[[rule]]
+id = "CM-62"
+family = "CM"
+status = "frozen-technical"
+stage = 5
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-63"
+family = "CM"
+status = "frozen-product"
+stage = 5
+title = ""
+tests = []
+
+[[rule]]
+id = "CM-64"
+family = "CM"
+status = "frozen-protocol"
+stage = 5
 title = ""
 tests = []
 
@@ -2256,7 +2402,9 @@ family = "RC"
 status = "frozen-protocol"
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/commitments.rs::cm_13_a_pool_request_binds_whoever_promises",
+]
 
 [[rule]]
 id = "RC-11"
@@ -2500,7 +2648,9 @@ family = "ST"
 status = "frozen-product"
 stage = 7
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/commitments.rs::cm_17_defer_and_notice_never_change_the_state",
+]
 
 [[rule]]
 id = "ST-8"
@@ -3712,7 +3862,11 @@ family = "P"
 status = "frozen-product"
 stage = 5
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/commitments.rs::cm_19_an_invalid_operation_is_refused_with_its_reason_and_kept",
+  "crates/kernel/tests/commitments.rs::cm_19_p_55_allowed_transitions_follow_role_state_and_access",
+  "crates/kernel/tests/commitments.rs::cm_40_cm_60_a_high_impact_acceptance_needs_a_step_up",
+]
 
 [[rule]]
 id = "P-57"
@@ -3878,6 +4032,7 @@ title = ""
 tests = [
   "crates/kernel/src/catalog.rs::p_71_core_declaration_catalog_is_closed",
   "crates/kernel/src/reason.rs::p_71_unknown_namespaced_sub_code_reads_as_its_parent",
+  "crates/kernel/tests/commitments.rs::cm_17_the_closed_operation_set_has_one_table_row_each",
   "crates/kernel/tests/ontology.rs::c_15_every_named_declaration_kind_is_a_typed_subtype",
   "crates/kernel/tests/records.rs::c_5_unmapped_extension_values_are_rejected",
   "crates/kernel/tests/records.rs::p_80_core_subtypes_require_their_reason_and_type_keys",
@@ -3928,6 +4083,8 @@ stage = 1
 acceptance = "filled"
 title = ""
 tests = [
+  "crates/kernel/tests/commitments.rs::cm_56_a_terms_amendment_needs_the_obligors_renewed_promise",
+  "crates/kernel/tests/commitments.rs::cm_56_p_74_the_same_author_writing_the_same_version_twice_is_refused",
   "crates/kernel/tests/derivation.rs::p_28_p_74_concurrent_transitions_by_different_authors_conflict",
   "crates/kernel/tests/derivation.rs::p_28_the_same_author_missing_its_own_head_is_stale",
   "crates/kernel/tests/derivation.rs::p_74_same_author_same_chain_same_version_is_rejected",
@@ -4039,6 +4196,7 @@ stage = 1
 acceptance = "filled"
 title = ""
 tests = [
+  "crates/kernel/tests/record_vectors.rs::cm_17_commitment_record_vectors",
   "crates/kernel/tests/record_vectors.rs::p_11_accepted_record_vectors",
   "crates/kernel/tests/record_vectors.rs::p_72_rejected_record_vectors",
   "crates/kernel/tests/records.rs::inv_4_effect_starting_exactly_at_recorded_at_is_not_retroactive",
@@ -4127,6 +4285,7 @@ class = "BS"
 acceptance = "filled"
 title = ""
 tests = [
+  "crates/kernel/tests/commitments.rs::cm_56_a_terms_amendment_needs_the_obligors_renewed_promise",
   "crates/kernel/tests/derivation.rs::p_24_cross_kind_supersession_is_rejected",
   "crates/kernel/tests/derivation.rs::p_24_terminal_outcome_never_changes_and_consumes_no_version",
   "crates/kernel/tests/derivation.rs::p_28_target_order_does_not_change_what_a_record_saw",
@@ -4175,7 +4334,9 @@ class = "BS"
 stage = 1
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/commitments.rs::t_89_a_commitment_record_touches_its_conflict_area",
+]
 
 [[rule]]
 id = "P-89"
@@ -4214,6 +4375,7 @@ stage = 1
 acceptance = "to-fill"
 title = ""
 tests = [
+  "crates/kernel/tests/record_vectors.rs::cm_17_commitment_record_vectors",
   "crates/kernel/tests/records.rs::p_80_open_condition_address_deadline_and_criterion_are_typed",
   "crates/kernel/tests/records.rs::p_80_open_condition_gate_form_follows_the_condition_type",
 ]
@@ -6016,6 +6178,7 @@ title = ""
 tests = [
   "crates/kernel/src/items.rs::t_89_a_record_that_concerns_no_work_touches_nothing",
   "crates/kernel/src/items.rs::t_89_each_concerned_work_is_touched_once_in_concerns_order",
+  "crates/kernel/tests/commitments.rs::t_89_a_commitment_record_touches_its_conflict_area",
   "crates/kernel/tests/items.rs::t_89_every_golden_record_touches_the_works_it_concerns",
   "crates/ledger/src/admit/tests.rs::op_1_the_golden_ledger_replays_from_its_stored_bytes_to_the_admitted_records",
   "crates/ledger/src/admit/tests.rs::p_100_the_admission_path_seals_the_golden_ledger_byte_for_byte",
