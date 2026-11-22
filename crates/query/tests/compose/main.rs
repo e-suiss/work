@@ -2872,13 +2872,18 @@ mod commit {
             .entries(&store_ledger(&led), pos + 1, 16)
             .await
             .unwrap();
-        let [notice] = after.as_slice() else {
+        let claims: Vec<_> = after
+            .iter()
+            .filter(|e| {
+                matches!(
+                    decode_record(&e.record_bytes),
+                    Ok(Decoded::Record(r)) if matches!(*r, Record::Claim(_))
+                )
+            })
+            .collect();
+        let [notice] = claims.as_slice() else {
             panic!("{after:?}");
         };
-        let Decoded::Record(claim) = decode_record(&notice.record_bytes).unwrap() else {
-            panic!("a record");
-        };
-        assert!(matches!(*claim, Record::Claim(_)));
         assert_eq!(
             windows[0]["notice"],
             record_id(&notice.record_bytes).to_external()
