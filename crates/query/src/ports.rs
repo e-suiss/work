@@ -8,6 +8,7 @@ use work_proto::id::{Cursor, PositionToken};
 
 use crate::domain::authority::{ApprovalReturned, AuthorityAnswer, AuthorityAsk};
 use crate::domain::caller::{Caller, CallerRefusal, Presented};
+use crate::domain::commitments::CommitmentRead;
 use crate::domain::reads::{Changes, Evidence, ReadRefusal, WorkView};
 use crate::domain::writes::{DeclarationRequest, WriteRefusal, Written};
 
@@ -50,6 +51,16 @@ pub trait WorkReads: Send + Sync {
         ledger: &'a LedgerId,
         record: &'a RecordId,
     ) -> Pending<'a, Result<Evidence, ReadRefusal>>;
+
+    /// The commitment of `ledger` its `request` `root` opened, as `caller` may read it (CM-2,
+    /// CM-19, P-55, P-56); `min` is a `Work-Min-Position` token.
+    fn commitment<'a>(
+        &'a self,
+        caller: &'a Caller,
+        ledger: &'a LedgerId,
+        root: &'a RecordId,
+        min: Option<&'a PositionToken>,
+    ) -> Pending<'a, Result<CommitmentRead, ReadRefusal>>;
 }
 
 /// The consequential writes of a named caller (P-13, P-21, E-45).
@@ -90,4 +101,14 @@ pub trait Sequence: Send + Sync {
         ledger: &'a work_store::LedgerId,
         record: work_ledger::PendingRecord,
     ) -> Pending<'a, Result<work_ledger::Committed, work_ledger::SubmitError>>;
+
+    /// Keeps the refusal of the request `claim` names in `ledger` with its protocol `reason`
+    /// at ledger time `at_ms` (CM-19, OP-8).
+    fn reject<'a>(
+        &'a self,
+        ledger: &'a work_store::LedgerId,
+        claim: &'a work_ledger::KeyClaim,
+        reason: &'a str,
+        at_ms: u64,
+    ) -> Pending<'a, Result<(), work_ledger::LedgerError>>;
 }

@@ -16,22 +16,24 @@ use work_kernel::cose::{AuthorKeys, KeySet, parse_container};
 use work_kernel::id::{Digest, LedgerId, PartyRef, RecordId};
 use work_kernel::items::{ItemKey, touched};
 use work_kernel::limits::SemanticLimits;
+use work_kernel::ontology::{Commitment, Obligor};
 use work_kernel::record::{AuthorityProofKind, Record};
 use work_kernel::validate::{ActorType, Origin};
 use work_ledger::{
     ActorBindings, AdmitError, Arrival, AuthContext, Committed, Declared, DeclaredActors, KeyClaim,
-    Ledgers, PendingRecord, Submission, SubmitError, admit,
+    LedgerError, Ledgers, PendingRecord, Submission, SubmitError, admit,
 };
 use work_store::{
     AccessPool, CallerRef, IdempotencyDecision, ItemRef, LedgerTx, Pool, RealmState, StoreError,
-    StoredOutcome,
+    StoredLogEntry, StoredOutcome,
 };
 
 use crate::app::caller::ACCESS_BOUND;
 use crate::domain::caller::Caller;
+use crate::domain::commitments::{Asked, Folded, LOG_PAGE, action_of, facts, fold, operation_of};
 use crate::domain::writes::{
     AuthContextGiven, AuthorityGiven, DeclarationRequest, WriteRefusal, Written, actor_type,
-    check_authority, check_intent, commit_operation, header_kid, party_ref, signer,
+    check_action, check_authority, header_kid, party_ref, signer,
 };
 use crate::ports::{Pending, RecordWrites, Sequence};
 
@@ -45,6 +47,16 @@ impl<C: work_ledger::Clock + Clone + Send + Sync + 'static> Sequence for Ledgers
         record: PendingRecord,
     ) -> Pending<'a, Result<Committed, SubmitError>> {
         Box::pin(Ledgers::submit(self, ledger, record))
+    }
+
+    fn reject<'a>(
+        &'a self,
+        ledger: &'a work_store::LedgerId,
+        claim: &'a KeyClaim,
+        reason: &'a str,
+        at_ms: u64,
+    ) -> Pending<'a, Result<(), LedgerError>> {
+        Box::pin(Ledgers::reject(self, ledger, claim, reason, at_ms))
     }
 }
 
@@ -132,6 +144,27 @@ fn admit_refusal(error: &AdmitError) -> WriteRefusal {
     }
 }
 
+/// Every stored entry of the ledger in position order, read in the transaction's snapshot.
+pub(crate) async fn log_of(tx: &mut LedgerTx<'_>) -> Result<Vec<StoredLogEntry>, StoreError> {
+    let mut out: Vec<StoredLogEntry> = Vec::new();
+    loop {
+        let from = out.last().map_or(0, |e| e.pos.saturating_add(1));
+        let page = tx.entries(from, LOG_PAGE).await?;
+        let full = page.len() >= usize::try_from(LOG_PAGE).unwrap_or(usize::MAX);
+        out.extend(page);
+        if !full {
+            return Ok(out);
+        }
+    }
+}
+
+/// Whether the write of `record` reads the ledger's commitments: a commitment operation, whose
+/// validity the kernel checks, or a continuation, whose conflict area the records give (CM-19,
+/// T-89).
+fn folds(record: &Record) -> bool {
+    operation_of(record).is_some() || record.supersedes().next().is_some()
+}
+
 async fn decide(
     tx: &mut LedgerTx<'_>,
     caller: &CallerRef,
@@ -173,20 +206,34 @@ async fn decide(
             .unwrap_or(0),
         None => 0,
     };
-    if version != request.if_match {
-        return Err(WriteRefusal::PreconditionFailed);
-    }
-    Ok(Precheck::Fresh(KeyClaim {
-        caller: caller.clone(),
-        key,
-        request_digest: request.digest,
-    }))
+    let log = if folds(record) {
+        Some(log_of(tx).await.map_err(|_| WriteRefusal::NotRecorded)?)
+    } else {
+        None
+    };
+    Ok(Precheck::Fresh(Box::new(Fresh {
+        claim: KeyClaim {
+            caller: caller.clone(),
+            key,
+            request_digest: request.digest,
+        },
+        version,
+        log,
+    })))
+}
+
+/// A new request as the ledger's snapshot found it: its key, the version of the first Work
+/// it touches and, for a write that reads the commitments, every stored entry.
+struct Fresh {
+    claim: KeyClaim,
+    version: u64,
+    log: Option<Vec<StoredLogEntry>>,
 }
 
 /// What the ledger's rows decide before Access is asked.
 enum Precheck {
     /// A new request under this key.
-    Fresh(KeyClaim),
+    Fresh(Box<Fresh>),
     /// The answer of the request first sent under this key (OP-8).
     Done(Result<Written, WriteRefusal>),
 }
@@ -258,9 +305,9 @@ fn authority_of<'a>(
     ledger: &LedgerId,
     now_ms: u64,
 ) -> Result<(&'a AuthorityGiven, Intent), WriteRefusal> {
-    if !commit_operation(record) {
-        return Err(WriteRefusal::Invalid("operation"));
-    }
+    let action = operation_of(record)
+        .and_then(action_of)
+        .ok_or(WriteRefusal::Invalid("operation"))?;
     if record.core().authority.is_none() {
         return Err(WriteRefusal::Rejected("authority_missing".to_owned()));
     }
@@ -269,8 +316,39 @@ fn authority_of<'a>(
         .as_ref()
         .ok_or(WriteRefusal::Invalid("authority"))?;
     let intent = Intent::from_bytes(&given.intent).map_err(|_| WriteRefusal::Invalid("intent"))?;
-    check_intent(&intent, ledger, now_ms).map_err(WriteRefusal::Denied)?;
+    check_action(&intent, ledger, now_ms, action).map_err(WriteRefusal::Denied)?;
     Ok((given, intent))
+}
+
+/// The record a typed commitment endpoint carries must be the operation it names (C-6).
+fn expected_operation(record: &Record, request: &DeclarationRequest) -> Result<(), WriteRefusal> {
+    match &request.expected {
+        Some(expected) if operation_of(record) != Some(expected.operation) => {
+            Err(WriteRefusal::Invalid("operation"))
+        }
+        _ => Ok(()),
+    }
+}
+
+/// The version `If-Match` names: the commitment or Condition a continuation touches, otherwise
+/// the first Work the record concerns; a typed endpoint's continuation must continue the
+/// commitment it names (P-54 item 5, T-89, C-6).
+fn expected_version(
+    record: &Record,
+    request: &DeclarationRequest,
+    folded: Option<&Folded>,
+    work_version: u64,
+) -> Result<(), WriteRefusal> {
+    let area = folded.and_then(|f| f.area_for(record));
+    if let Some(commitment) = request.expected.and_then(|e| e.commitment)
+        && area.as_ref().map(|a| a.item) != Some(ItemKey::Commitment(commitment))
+    {
+        return Err(WriteRefusal::Invalid("commitment"));
+    }
+    if area.map_or(work_version, |a| a.version) != request.if_match {
+        return Err(WriteRefusal::PreconditionFailed);
+    }
+    Ok(())
 }
 
 /// The governing domain of `caller`'s realm and the issuers of the realms of its tenant Work is
@@ -306,6 +384,13 @@ struct Admission<'a> {
     domain: DomainId,
     paired: &'a BTreeSet<String>,
     now_ms: u64,
+    folded: Option<&'a Folded>,
+}
+
+/// An admitted record and its author's Access actor type.
+struct Admitted {
+    pending: PendingRecord,
+    author_actor: ActorType,
 }
 
 fn kernel_id(party: &PartyRef) -> Option<KernelId> {
@@ -427,7 +512,7 @@ where
         at: &Admission<'_>,
         given: &AuthContextGiven,
         claim: Option<KeyClaim>,
-    ) -> Result<PendingRecord, WriteRefusal> {
+    ) -> Result<Admitted, WriteRefusal> {
         let record = &at.carried.record;
         let named = at.caller.party().map_err(WriteRefusal::Denied)?;
         if record.core().author != named.reference {
@@ -462,13 +547,19 @@ where
             traceparent: &at.request.traceparent,
             idempotency: claim,
             inbound: None,
+            areas: at.folded.map(Folded::areas),
         };
         let none = KeySet::default();
         let verifier = AuthorKeys {
             author: &record.core().author,
             keys: &none,
         };
-        admit(&verifier, &store_ledger(at.ledger), submission).map_err(|e| admit_refusal(&e))
+        let pending = admit(&verifier, &store_ledger(at.ledger), submission)
+            .map_err(|e| admit_refusal(&e))?;
+        Ok(Admitted {
+            pending,
+            author_actor: ActorType::Human,
+        })
     }
 
     /// Admits a signed record against the key Access binds to its `kid` now, whose Party's
@@ -477,7 +568,7 @@ where
         &self,
         at: &Admission<'_>,
         claim: Option<KeyClaim>,
-    ) -> Result<PendingRecord, WriteRefusal> {
+    ) -> Result<Admitted, WriteRefusal> {
         let record = &at.carried.record;
         let kid = header_kid(&at.request.record)
             .ok_or_else(|| WriteRefusal::Rejected("signature:header_profile".to_owned()))?;
@@ -510,8 +601,82 @@ where
             traceparent: &at.request.traceparent,
             idempotency: claim,
             inbound: None,
+            areas: at.folded.map(Folded::areas),
         };
-        admit(&verifier, &store_ledger(at.ledger), submission).map_err(|e| admit_refusal(&e))
+        let pending = admit(&verifier, &store_ledger(at.ledger), submission)
+            .map_err(|e| admit_refusal(&e))?;
+        let author_actor = signed.party.as_ref().map_or(ActorType::Human, |(_, a)| *a);
+        Ok(Admitted {
+            pending,
+            author_actor,
+        })
+    }
+
+    /// Whether a side of the commitment a `request` opens is an agent: its author, or its
+    /// obligor or acceptor as Access binds them (CM-7).
+    async fn agent_side(
+        &self,
+        domain: DomainId,
+        record: &Record,
+        author_actor: ActorType,
+    ) -> Result<bool, WriteRefusal> {
+        if author_actor == ActorType::Agent {
+            return Ok(true);
+        }
+        let Some(opened) = Commitment::of(record) else {
+            return Ok(false);
+        };
+        let mut sides: Vec<KernelId> = kernel_id(&opened.acceptor).into_iter().collect();
+        if let Obligor::Party(obligor) = &opened.obligor {
+            sides.extend(kernel_id(obligor));
+        }
+        if sides.is_empty() {
+            return Ok(false);
+        }
+        let kinds = bounded(self.parties.kinds(domain, &sides))
+            .await
+            .map_err(|e| unverifiable(&e))?;
+        Ok(kinds.values().any(|k| actor_type(*k) == ActorType::Agent))
+    }
+
+    /// The kernel's validity check of a commitment operation before it is written (CM-19): a
+    /// refused operation writes nothing into the log, its refusal is kept under the request's
+    /// idempotency key and answered with the kernel's reason; a refusal that cannot be kept is
+    /// `not_recorded`, and the same request asks again.
+    async fn gate(
+        &self,
+        at: &Admission<'_>,
+        admitted: &Admitted,
+        claim: Option<&KeyClaim>,
+    ) -> Result<(), WriteRefusal> {
+        let record = &at.carried.record;
+        if operation_of(record).is_none() {
+            return Ok(());
+        }
+        let folded = at.folded.ok_or(WriteRefusal::NotRecorded)?;
+        let asked = Asked {
+            record,
+            id: record_id(&at.carried.bytes),
+            author_actor: admitted.author_actor,
+            step_up: admitted.pending.step_up(),
+            agent_side: self
+                .agent_side(at.domain, record, admitted.author_actor)
+                .await?,
+            now_ms: at.now_ms,
+        };
+        let refusal = match folded.check(&asked, &facts()) {
+            Ok(Ok(_)) => return Ok(()),
+            Ok(Err(refusal)) => refusal,
+            Err(_) => return Err(WriteRefusal::NotRecorded),
+        };
+        let reason = format!("commitment:{}", refusal.wire_name());
+        if let Some(claim) = claim {
+            self.sequence
+                .reject(&store_ledger(at.ledger), claim, &reason, at.now_ms)
+                .await
+                .map_err(|_| WriteRefusal::NotRecorded)?;
+        }
+        Err(WriteRefusal::Rejected(reason))
     }
 
     async fn write(
@@ -527,6 +692,7 @@ where
         let now_ms = self.access.now_ms();
         let carried = carried(request)?;
         let record = &carried.record;
+        expected_operation(record, request)?;
         let caller_ref = CallerRef::new(
             caller
                 .party()
@@ -535,17 +701,24 @@ where
                 .as_str(),
         )
         .ok_or(WriteRefusal::Unverifiable("access_answer"))?;
-        let claim = match self
+        let fresh = match self
             .precheck(&caller_ref, ledger, record, request, now_ms)
             .await?
         {
-            Precheck::Fresh(claim) => Some(claim),
+            Precheck::Fresh(fresh) => *fresh,
             Precheck::Done(answer) => return answer,
         };
         let (given, intent) = authority_of(record, request, ledger, now_ms)?;
         let (domain, paired) = self.realm(caller).await?;
         let exercise = self.exercise(domain, given, &intent, audience).await?;
         check_authority(record.core(), &exercise).map_err(WriteRefusal::Denied)?;
+        let folded = fresh
+            .log
+            .as_deref()
+            .map(|log| fold(ledger, log))
+            .transpose()
+            .map_err(|_| WriteRefusal::NotRecorded)?;
+        expected_version(record, request, folded.as_ref(), fresh.version)?;
         let at = Admission {
             caller,
             ledger,
@@ -555,11 +728,16 @@ where
             domain,
             paired: &paired,
             now_ms,
+            folded: folded.as_ref(),
         };
-        let mut pending = match &request.auth_context {
+        let claim = Some(fresh.claim);
+        let kept = claim.clone();
+        let admitted = match &request.auth_context {
             Some(given) => self.unsigned(&at, given, claim).await?,
             None => self.signed(&at, claim).await?,
         };
+        self.gate(&at, &admitted, kept.as_ref()).await?;
+        let mut pending = admitted.pending;
         pending
             .keep_authority_proof(AuthorityProofKind::DecisionReceipt, &exercise.receipt)
             .map_err(|_| WriteRefusal::Denied("authority_digest"))?;

@@ -5,12 +5,15 @@ use std::sync::Arc;
 
 use work_kernel::id::{Digest, LedgerId, RecordId, WorkId};
 use work_kernel::proof::verify_inclusion;
+use work_kernel::validate::ActorType;
 use work_proto::id::{Cursor, PositionToken};
 use work_proto::position::Positions;
 use work_store::{LedgerTx, Pool, StoreError};
 
 use crate::adapters::{OpenError, PositionKeys};
-use crate::domain::caller::Caller;
+use crate::app::writes::log_of;
+use crate::domain::caller::{Caller, CallerKind};
+use crate::domain::commitments::{self, CommitmentRead, fold};
 use crate::domain::reads::{
     Attestation, Change, Changes, CheckpointRef, CursorAt, Evidence, Inclusion, MAX_CHANGES,
     MAX_PROOF_LEAVES, Opened, ReadRefusal, WorkView, audit_path, compromise_marks,
@@ -123,6 +126,38 @@ impl Reads {
             updated_at_ms: row.updated_at_ms,
             position: self.position(caller, ledger, head)?,
         })
+    }
+
+    /// The commitment of `ledger` its `request` `root` opened, as `caller` may read it: derived
+    /// by the kernel from the records in one snapshot, with the transitions the caller may make
+    /// now and who holds the next move (CM-2, CM-19, P-55, P-56, CM-58).
+    ///
+    /// # Errors
+    /// [`ReadRefusal`].
+    pub async fn read_commitment(
+        &self,
+        caller: &Caller,
+        ledger: &LedgerId,
+        root: &RecordId,
+        min: Option<&PositionToken>,
+    ) -> Result<CommitmentRead, ReadRefusal> {
+        let party = caller.party().map_err(|_| ReadRefusal::NotFound)?;
+        let (mut tx, head) = self.snapshot(ledger).await?;
+        let log = log_of(&mut tx).await.map_err(ReadRefusal::from);
+        let _closed = tx.rollback().await;
+        self.check_min(caller, ledger, head, min)?;
+        let folded = fold(ledger, &log?).map_err(|_| ReadRefusal::Unavailable)?;
+        let actor = match caller.kind {
+            CallerKind::User => ActorType::Human,
+            CallerKind::Service => ActorType::Agent,
+        };
+        commitments::read(
+            &folded,
+            root,
+            &party.reference,
+            actor,
+            self.position(caller, ledger, head)?,
+        )
     }
 
     /// The Works of `ledger` visible to `caller` changed after `cursor`, at most `limit` (P-57,
@@ -328,5 +363,15 @@ impl WorkReads for Reads {
         record: &'a RecordId,
     ) -> Pending<'a, Result<Evidence, ReadRefusal>> {
         Box::pin(self.read_evidence(caller, ledger, record))
+    }
+
+    fn commitment<'a>(
+        &'a self,
+        caller: &'a Caller,
+        ledger: &'a LedgerId,
+        root: &'a RecordId,
+        min: Option<&'a PositionToken>,
+    ) -> Pending<'a, Result<CommitmentRead, ReadRefusal>> {
+        Box::pin(self.read_commitment(caller, ledger, root, min))
     }
 }

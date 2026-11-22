@@ -9,6 +9,7 @@ use work_access_client::domain::exercise::{Capacity as Held, Intent, VerifiedExe
 use work_access_client::domain::keys::{ActorKind, InstanceKey, KernelId, KeyState};
 use work_access_client::domain::{b64url, from_b64url};
 use work_kernel::catalog::DeclarationSubtype;
+use work_kernel::commitment::Operation;
 use work_kernel::cose::{Algorithm, KeySet, parse_container};
 use work_kernel::id::{LedgerId, PartyRef, RecordId};
 use work_kernel::record::{AuthorityProofKind, Capacity, Record, RecordCore};
@@ -99,6 +100,19 @@ pub struct DeclarationRequest {
     pub if_match: u64,
     /// The request's W3C `traceparent`.
     pub traceparent: String,
+    /// The operation and commitment a typed commitment endpoint names; `None` for the
+    /// Declaration endpoint, which takes any commitment operation (C-6).
+    pub expected: Option<Expected>,
+}
+
+/// What a typed commitment endpoint names: the record must be this operation, and a
+/// continuation must continue this commitment (C-6, CM-17).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Expected {
+    /// The operation.
+    pub operation: Operation,
+    /// The commitment, by its `request`; `None` for a `request`.
+    pub commitment: Option<RecordId>,
 }
 
 /// A written record.
@@ -247,8 +261,22 @@ pub fn commit_operation(record: &Record) -> bool {
 /// The stable reason: `intent_action` for another action, `intent_expired` outside its
 /// validity, `intent_resource` when it does not name the ledger.
 pub fn check_intent(intent: &Intent, ledger: &LedgerId, now_ms: u64) -> Result<(), &'static str> {
+    check_action(intent, ledger, now_ms, COMMIT)
+}
+
+/// Whether `intent` is the `work:<action>` intent of `ledger` valid at `now_ms` (E-45 items 2,
+/// 3).
+///
+/// # Errors
+/// As [`check_intent`].
+pub fn check_action(
+    intent: &Intent,
+    ledger: &LedgerId,
+    now_ms: u64,
+    action: &str,
+) -> Result<(), &'static str> {
     if intent.namespace != ACTION_NAMESPACE
-        || intent.action != COMMIT
+        || intent.action != action
         || intent.major != ACTION_MAJOR
     {
         return Err("intent_action");

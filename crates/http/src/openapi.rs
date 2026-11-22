@@ -9,6 +9,11 @@ use crate::authority::{
     ApprovalAnswer, ApprovalReturned, AuthorityDecision, BasisInput, HoldingInput,
     NewAuthorityRequest, ProofInput,
 };
+use crate::commitments::{
+    ActiveEndAnswer, AllowedAnswer, CommitmentAnswer, CommitmentWritten, ImplicitAnswer,
+    ItemAnswer, MoverAnswer, NoticeAnswer, PendingAnswer, SignalAnswer, StatementAnswer,
+    StepAnswer, TermsAnswer,
+};
 use crate::problem::{FieldError, Problem, ProblemCode, ProblemType};
 use crate::reads::{
     AuthContextAnswer, AuthorSignature, ChangeEntry, ChangesAnswer, CheckpointAnswer,
@@ -52,7 +57,35 @@ fn security_scheme() -> Value {
         crate::writes::create_declaration,
         crate::works::create_work,
         crate::authority::create_authority_request,
-        crate::authority::get_approval_return
+        crate::authority::get_approval_return,
+        crate::commitments::create_commitment,
+        crate::commitments::get_commitment,
+        crate::commitments::promise,
+        crate::commitments::promise_conditional,
+        crate::commitments::decline,
+        crate::commitments::counter,
+        crate::commitments::accept_counter,
+        crate::commitments::state,
+        crate::commitments::accept,
+        crate::commitments::reject,
+        crate::commitments::cancel,
+        crate::commitments::release,
+        crate::commitments::delegate,
+        crate::commitments::assign,
+        crate::commitments::dispute,
+        crate::commitments::defer,
+        crate::commitments::resume,
+        crate::commitments::revoke_request,
+        crate::commitments::revoke_promise,
+        crate::commitments::revoke_statement,
+        crate::commitments::revoke_acceptance,
+        crate::commitments::allow,
+        crate::commitments::refuse,
+        crate::commitments::amend,
+        crate::commitments::notice,
+        crate::commitments::declare_obsolete,
+        crate::commitments::administrative_close,
+        crate::commitments::implicit_acceptance_terms
     ),
     components(schemas(
         Problem,
@@ -82,7 +115,20 @@ fn security_scheme() -> Value {
         ProofInput,
         AuthorityDecision,
         ApprovalAnswer,
-        ApprovalReturned
+        ApprovalReturned,
+        CommitmentWritten,
+        CommitmentAnswer,
+        ItemAnswer,
+        TermsAnswer,
+        PendingAnswer,
+        StatementAnswer,
+        NoticeAnswer,
+        ActiveEndAnswer,
+        StepAnswer,
+        AllowedAnswer,
+        MoverAnswer,
+        SignalAnswer,
+        ImplicitAnswer
     ))
 )]
 struct Api;

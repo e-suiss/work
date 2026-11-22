@@ -195,6 +195,7 @@ pub fn declaration_request(
         idempotency_key,
         if_match,
         traceparent,
+        expected: None,
     })
 }
 
