@@ -94,7 +94,7 @@ pub const CATALOG: &[EventType] = &[
         "work.updated",
         Item::Work,
         Data::Thin,
-        &["observation", "assessment", "assumption", "action"],
+        &["observation", "assessment", "assumption", "action", "aim"],
     ),
     event(
         "commitment.requested",

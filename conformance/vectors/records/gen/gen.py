@@ -398,7 +398,7 @@ DECLARATIONS = (
     "offer reassign renew_lease gate_decision stop_request stop_response open_condition withdraw_condition "
     "resume_after_stop practice_adoption disclosure queue_definition control_lease handoff_note "
     "conflict_resolution admission autonomy_policy implicit_acceptance_terms waiver attention_request "
-    "acknowledgement redact"
+    "acknowledgement redact aim"
 ).split()
 CORE_TYPES = ({DECLARATION + n for n in DECLARATIONS} | {ACT + "action"}
               | {CLAIM + n for n in ("observation", "assessment", "assumption")})
@@ -428,6 +428,11 @@ REASON_KEYS = {"reason", "notice_type"}
 # P-111
 REDACT_REASONS = {"personal_data", "secret_exposure", "legal_order", "author_request"}
 REDACT_KEYS = {"target", "parts", "reason"}
+# C-11 C-10 C-44
+REQUEST_KEYS = {"obligor", "queue", "acceptor", "aim", "conditions", "effective_at"}
+AIM_KEYS = {"duration", "judge", "criterion", "effective_at"}
+AIM_DURATIONS = {"one_shot", "maintain"}
+ATTRIBUTED_KEYS = {"request": ("acceptor", "obligor"), "aim": ("judge",)}
 CORE_ROLES = {ROLE + n for n in ("source", "fulfills", "supports")}
 CORE_EVIDENCE = {EVIDENCE + n for n in ("artifact", "external_event", "measurement", "human_verification")}
 CONSENT = CLINIC + "ext/patient_consent"
@@ -617,6 +622,71 @@ def redact_params_ok(params):
             and isinstance(params["reason"], str) and params["reason"] in REDACT_REASONS)
 
 
+# C-11 CM-4 CM-6 C-10
+def is_digest(v):
+    return isinstance(v, list) and v[:1] == [-16]
+
+
+def party_text(v):
+    return isinstance(v, str) and text_len_ok(v, 255)
+
+
+def request_params_ok(params):
+    if not set(params) <= REQUEST_KEYS or "acceptor" not in params:
+        return False
+    if ("obligor" in params) == ("queue" in params):
+        return False
+    if not all(party_text(params[k]) for k in ("obligor", "acceptor") if k in params):
+        return False
+    if not all(is_digest(params[k]) for k in ("queue", "aim") if k in params):
+        return False
+    c = params.get("conditions")
+    return c is None or (isinstance(c, list) and not is_digest(c) and len(c) >= 1
+                         and all(is_digest(x) for x in c) and ordered(c))
+
+
+def aim_params_ok(params):
+    if not set(params) <= AIM_KEYS or params.get("duration") not in AIM_DURATIONS:
+        return False
+    if "judge" in params and not party_text(params["judge"]):
+        return False
+    return "criterion" not in params or is_type_uri(params["criterion"])
+
+
+# C-44 C-20
+def attributed_reference(rec):
+    parties = [rec["author"]] + rec.get("on_behalf_of", [])
+    cap = rec.get("capacity")
+    if isinstance(cap, list):
+        parties.append(cap[1])
+    parties += [e["presenter"] for e in rec.get("evidence", [])]
+    for r in rec.get("relations", []):
+        ends = {"engaged_in": [r.get("source")], "on_behalf_of": [r.get("source"), r.get("target")]}
+        for end in ends.get(r["rel"], []):
+            if end[0] == "external":
+                return True
+            parties.append(end[1])
+    if any(is_type_uri(p) for p in parties):
+        return True
+    if not rec["type"].startswith(DECLARATION):
+        return False
+    for k in ATTRIBUTED_KEYS.get(rec["type"][len(DECLARATION):], ()):
+        v = rec.get("params", {}).get(k)
+        if v is None:
+            continue
+        for x in (v if isinstance(v, list) and not is_digest(v) else [v]):
+            if is_type_uri(x) or is_digest(x) or isinstance(x, bytes):
+                return True
+    return False
+
+
+# C-43 C-8
+def continuity_broken(rec):
+    works = [r["target"][1] for r in rec.get("relations", [])
+             if r["rel"] == "derived_from" and r["target"][0] == "work"]
+    return bool(works) and (not rec["concerns"] or any(w in rec["concerns"] for w in works))
+
+
 def params_ok(rec):
     params = rec.get("params")
     if params is None and not rec["type"].startswith(DECLARATION):
@@ -633,6 +703,10 @@ def params_ok(rec):
     name = rec["type"][len(DECLARATION):]
     if name == "redact":
         return redact_params_ok(params)
+    if name == "request":
+        return request_params_ok(params)
+    if name == "aim":
+        return aim_params_ok(params)
     schema = PARAMS.get(name, {})
     if not set(PARAM_REQUIRED.get(name, ())) <= set(params):
         return False
@@ -692,6 +766,8 @@ def semantic(rec, ctx):
         return ("reject", "envelope_mismatch:actor_type")
     if len(ctx["actor_type"].get("evidence", [])) != len(rec.get("evidence", [])):
         return ("reject", "envelope_mismatch:actor_type")
+    if attributed_reference(rec):
+        return ("reject", "envelope_mismatch:actor_type")
     if rec["kind"] == "declaration" and "authority" not in rec:
         return ("reject", "authority_missing")
     if rec["kind"] == "declaration" and cap is None:
@@ -713,6 +789,8 @@ def semantic(rec, ctx):
     for e in rec.get("evidence", []):
         if e["type"] not in CORE_EVIDENCE and not pinned(e["type"], rec):
             return ("reject", "unmapped_extension_value")
+    if continuity_broken(rec):
+        return ("reject", "schema:relation")
     if rec["type"] == DECLARATION + "redact" and any(r["rel"] == "supersedes" for r in rec.get("relations", [])):
         return ("reject", "schema:relation")
     if not params_ok(rec):
@@ -959,6 +1037,56 @@ rec_after_redact = {
     "relations": [{"rel": "supersedes", "target": ["record", REDACT_ID]}],
     "authority": {"proof": "decision_receipt", "digest": label("access:decision-receipt:8")},
     "versions": {"protocol": [1, 0], "schema": label("schema:declaration.amend")},
+}
+
+# C-10 C-11 C-43 C-44
+rec_aim = {
+    "kind": "declaration",
+    "type": DECLARATION + "aim",
+    "author": ALICE,
+    "capacity": "own",
+    "basis": [],
+    "visibility": vis(),
+    "ledger": LEDGER,
+    "concerns": [W1],
+    "authority": {"proof": "decision_receipt", "digest": label("access:decision-receipt:9")},
+    "params": {"duration": "one_shot", "judge": BUYER, "criterion": PROC + "criterion/signed_po"},
+    "versions": {"protocol": [1, 0], "schema": label("schema:declaration.aim")},
+}
+AIM_ID = [-16, sha(enc(rec_aim))]
+rec_aim_maintained = dict(rec_aim, params={"duration": "maintain"},
+                          relations=[{"rel": "serves", "target": ["record", AIM_ID]}],
+                          authority={"proof": "decision_receipt", "digest": label("access:decision-receipt:10")})
+rec_request = {
+    "kind": "declaration",
+    "type": DECLARATION + "request",
+    "author": ALICE,
+    "capacity": "own",
+    "basis": [],
+    "visibility": vis(),
+    "ledger": LEDGER,
+    "concerns": [W1],
+    "authority": {"proof": "decision_receipt", "digest": label("access:decision-receipt:11")},
+    "params": {"obligor": SUPPLIER, "acceptor": ALICE, "aim": AIM_ID,
+               "conditions": sorted([label("record:condition.budget"), label("record:condition.customs")],
+                                    key=enc)},
+    "versions": {"protocol": [1, 0], "schema": label("schema:declaration.request")},
+}
+rec_request_queue = dict(rec_request, params={"queue": label("record:queue_definition:triage"),
+                                              "acceptor": BUYER},
+                         authority={"proof": "decision_receipt", "digest": label("access:decision-receipt:12")})
+W3 = bytes.fromhex("019a2f4c8e1b7c3da5e6f708aabbccdd")
+rec_merge = {
+    "kind": "claim",
+    "type": CLAIM + "observation",
+    "occurred_at": 1792109080000,
+    "author": ALICE,
+    "visibility": vis(),
+    "ledger": LEDGER,
+    "concerns": [W3],
+    "relations": [{"rel": "derived_from", "target": ["work", W1], "qualifier": ROLE + "source"},
+                  {"rel": "derived_from", "target": ["work", W2], "qualifier": ROLE + "source"}],
+    "versions": {"protocol": [1, 0], "schema": label("schema:claim.observation")},
 }
 
 records = [
@@ -1433,6 +1561,7 @@ amend_top_ext = variant(rec_amend, ext=None)
 amend_top_ext[PROC + "ext/cost_center"] = "CC-4410"
 two_critical = sorted([CONSENT, WARD], key=enc)
 X = label("x")
+TOOL = "https://tools.example/agents/summarizer"
 AMEND_AT = 1792109103000
 AUTO = {"origin": "automation"}
 
@@ -1466,6 +1595,8 @@ FAMILY_PARAMS = {
     "stop_response": {"response": "accept"},
     "open_condition": {"condition_type": CORE + "condition/information", "wait_reason": "internal",
                        "address": BUYER, "deadline": "none", "criterion": PROC + "criterion/information_received"},
+    "request": {"obligor": SUPPLIER, "acceptor": BUYER},
+    "aim": {"duration": "one_shot"},
 }
 AUTHORITY_FAMILIES = (
     ("request", "CM-17"), ("cancel", "CM-30"), ("notice", "CM-17"), ("assign", "RC-17"),
@@ -1475,7 +1606,7 @@ AUTHORITY_FAMILIES = (
     ("queue_definition", "RC-10"), ("control_lease", "RC-33"), ("handoff_note", "RC-34"),
     ("conflict_resolution", "P-28"), ("admission", "FD-21"), ("autonomy_policy", "RC-27"),
     ("implicit_acceptance_terms", "CM-41"), ("waiver", "RC-9"), ("attention_request", "RC-31"),
-    ("acknowledgement", "ST-48"),
+    ("acknowledgement", "ST-48"), ("aim", "C-10"),
 )
 
 
@@ -1628,6 +1759,53 @@ rejects = [
      ["EV-35", "P-12"], "envelope_mismatch:actor_type"),
     ("actor-type-presenter-without-evidence", rec_promise, {"presenters": [["organization", "access_binding"]]},
      ["EV-35", "P-12"], "envelope_mismatch:actor_type"),
+    ("author-is-a-reference", variant(rec_comment, author=TOOL), {"actor": ["human", "access_binding"]},
+     ["C-44", "C-20", "C-13"], "envelope_mismatch:actor_type"),
+    ("on-behalf-of-ring-is-a-reference", variant(rec_promise, on_behalf_of=[TOOL], capacity=["for", TOOL]), {},
+     ["C-44", "C-20", "E-13"], "envelope_mismatch:actor_type"),
+    ("presenter-is-a-reference", variant(rec_act, evidence=[dict(rec_act["evidence"][0], presenter=TOOL)]), {},
+     ["C-44", "C-20", "EV-35"], "envelope_mismatch:actor_type"),
+    ("request-obligor-is-a-reference", variant(rec_request, params=dict(rec_request["params"], obligor=TOOL)), {},
+     ["C-44", "C-20", "C-11"], "envelope_mismatch:actor_type"),
+    ("request-obligor-is-a-record", variant(rec_request, params=dict(rec_request["params"], obligor=label("record:tool-run"))),
+     {}, ["C-44", "C-20", "C-11"], "envelope_mismatch:actor_type"),
+    ("request-acceptor-is-a-reference", variant(rec_request, params=dict(rec_request["params"], acceptor=TOOL)), {},
+     ["C-44", "C-20", "C-11"], "envelope_mismatch:actor_type"),
+    ("aim-judge-is-a-reference", variant(rec_aim, params=dict(rec_aim["params"], judge=TOOL)), {},
+     ["C-44", "C-10"], "envelope_mismatch:actor_type"),
+    ("engaged-in-source-is-a-reference", variant(rec_obs, relations=[
+        {"rel": "engaged_in", "source": ["external", "mcp:tool/search"], "target": ["work", W1]}]), AUTO,
+     ["C-44", "C-21", "C-25"], "envelope_mismatch:actor_type"),
+    ("on-behalf-of-target-is-a-reference", variant(rec_obs, relations=[
+        {"rel": "on_behalf_of", "source": ["party", BUYER], "target": ["external", "mcp:tool/search"]}]), AUTO,
+     ["C-44", "C-25", "E-13"], "envelope_mismatch:actor_type"),
+    ("request-acceptor-missing", variant(rec_request, params={"obligor": SUPPLIER}), {},
+     ["C-11", "CM-6", "P-80"], "schema:params"),
+    ("request-obligor-and-queue", variant(rec_request, params=dict(rec_request["params"], queue=X)), {},
+     ["C-11", "CM-4", "P-80"], "schema:params"),
+    ("request-one-sided", variant(rec_request, params={"acceptor": ALICE}), {},
+     ["C-11", "CM-4", "P-80"], "schema:params"),
+    ("request-conditions-unsorted", variant(rec_request, params=dict(
+        rec_request["params"], conditions=list(reversed(rec_request["params"]["conditions"])))), {},
+     ["C-11", "P-72", "P-80"], "schema:params"),
+    ("request-condition-not-a-list", variant(rec_request, params=dict(rec_request["params"], conditions=X)), {},
+     ["C-11", "P-5", "P-80"], "schema:params"),
+    ("aim-duration-missing", variant(rec_aim, params={"judge": BUYER}), {},
+     ["C-10", "P-80"], "schema:params"),
+    ("aim-duration-outside-catalog", variant(rec_aim, params=dict(rec_aim["params"], duration="forever")), {},
+     ["C-10", "P-80", "P-85"], "schema:params"),
+    ("aim-judge-not-text", variant(rec_aim, params=dict(rec_aim["params"], judge=42)), {},
+     ["C-10", "P-80"], "schema:params"),
+    ("continuity-from-a-concerned-work", variant(rec_merge, concerns=[W1]), {},
+     ["C-43", "C-8"], "schema:relation"),
+    ("continuity-without-a-new-work", variant(rec_merge, concerns=[], visibility=vis("author")), {},
+     ["C-43", "C-8"], "schema:relation"),
+    ("continuity-work-in-fulfills-role", variant(rec_merge, relations=[
+        {"rel": "derived_from", "target": ["work", W1], "qualifier": ROLE + "fulfills"}]), {},
+     ["C-43", "C-27", "P-73"], "schema:relation"),
+    ("continuity-work-from-another-record", variant(rec_merge, relations=[
+        {"rel": "derived_from", "source": ["record", X], "target": ["work", W1], "qualifier": ROLE + "source"}]), {},
+     ["C-43", "P-73"], "schema:relation"),
     ("unpinned-practice-act-subtype", variant(rec_act, type=PROC + "act/delivery"), {},
      ["P-71", "P-82", "C-5", "PR-3"], "unmapped_extension_value"),
     ("unpinned-practice-derived-from-role", variant(rec_act, relations=derived(PROC + "role/backs")), {},
@@ -1765,8 +1943,10 @@ rejects = [
 ]
 CDDL_FAIL = ("schema:empty", "schema:relation", "schema:required_field", "schema:unknown_core_field",
              "schema:ext_key", "schema:type_uri", "schema:kind", "limit_exceeded:", "capacity_missing")
-CDDL_FAIL_CASES = {"params-map-value", "practice-param-text-too-long", "redact-parts-empty"}
-CDDL_PASS_CASES = {"core-qualifier-on-references", "redact-supersedes"}
+CDDL_FAIL_CASES = {"params-map-value", "practice-param-text-too-long", "redact-parts-empty",
+                   "engaged-in-source-is-a-reference", "on-behalf-of-target-is-a-reference"}
+CDDL_PASS_CASES = {"core-qualifier-on-references", "redact-supersedes", "continuity-from-a-concerned-work",
+                   "continuity-without-a-new-work"}
 DECODER_REASONS = ("schema:empty", "schema:relation", "schema:required_field", "schema:unknown_core_field",
                    "schema:ext_key", "schema:type_uri", "schema:kind", "limit_exceeded:items",
                    "limit_exceeded:string", "limit_exceeded:depth")
@@ -1970,8 +2150,24 @@ def mapping_context(c, withheld=()):
 
 information_wait = variant(rec_open_gate, params=dict(FAMILY_PARAMS["open_condition"]))
 mapping_only = [
-    ("declaration-request", variant(rec_promise, type=DECLARATION + "request", relations=None),
-     ["P-51", "CM-17"], "A request maps to an AS2 Offer."),
+    ("declaration-request", variant(rec_promise, type=DECLARATION + "request", relations=None,
+                                    params={"obligor": SUPPLIER, "acceptor": BUYER}),
+     ["P-51", "CM-17", "C-11"], "A request maps to an AS2 Offer."),
+    ("declaration-request-commitment-core", rec_request,
+     ["C-11", "C-7", "C-30", "C-44", "CM-6", "P-51"],
+     "A request opens a commitment with both sides, its Aim, the Conditions it is under and the acceptor written explicitly; it carries no state."),
+    ("declaration-request-to-a-queue", rec_request_queue,
+     ["C-11", "C-36", "CM-4", "RC-10"],
+     "A request whose debtor side is a queue while no Party has promised; the acceptor is named."),
+    ("declaration-aim-judgment", rec_aim,
+     ["C-10", "C-15", "C-44"],
+     "A one-shot Aim judged by the buyer's Declaration, with a Practice criterion; it names no one who must do the work."),
+    ("declaration-aim-maintained-serves", rec_aim_maintained,
+     ["C-10", "C-25"],
+     "A maintained, truth-based Aim that serves the judged Aim: a contribution, not an obligation."),
+    ("claim-merge-continuity", rec_merge,
+     ["C-43", "C-8", "C-27"],
+     "The opening record of a Work merged from two earlier Works: derived_from each earlier Work in the source role; the earlier Works keep their identities."),
     ("declaration-counter", variant(rec_promise, type=DECLARATION + "counter"),
      ["P-51", "CM-17"], "A counter-offer maps to a new AS2 Offer."),
     ("declaration-promise-conditional", variant(rec_promise, type=DECLARATION + "promise_conditional"),

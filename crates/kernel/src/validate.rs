@@ -4,9 +4,9 @@ use alloc::vec::Vec;
 use core::cmp::Ordering;
 
 use crate::catalog::{
-    ActSubtype, CancelReason, ClaimSubtype, ConditionType, Consequence, CoreEvidenceType,
-    DeclarationSubtype, DeclineReason, GateForm, NoticeType, RedactReason, StopAnswer, StopType,
-    WaitReason, consequence,
+    ActSubtype, AimDuration, CancelReason, ClaimSubtype, ConditionType, Consequence,
+    CoreEvidenceType, DeclarationSubtype, DeclineReason, GateForm, NoticeType, RedactReason,
+    StopAnswer, StopType, WaitReason, consequence,
 };
 use crate::id::{PartyRef, Time, canonical_text_cmp};
 use crate::limits::SemanticLimits;
@@ -135,10 +135,12 @@ fn check_v1_0(record: &Record, ctx: &ValidationContext<'_>) -> Result<(), Reason
     critical_present(core)?;
     capacity(core)?;
     actor_rings(core, ctx.actor_types)?;
+    attributed(record)?;
     authority(record)?;
     capacity_present(record)?;
     producer(core, ctx.actor_types)?;
     mapped(record)?;
+    continuity(core)?;
     params(record)?;
     retroactive(record, ctx.recorded_at)?;
     attribution(record, ctx)
@@ -235,6 +237,10 @@ enum ParamKind {
     RedactTarget,
     RedactParts,
     RedactReason,
+    Party,
+    RecordRef,
+    RecordSet,
+    AimDuration,
 }
 
 struct ParamKey {
@@ -273,8 +279,35 @@ const REDACT: &[ParamKey] = &[
     key("target", ParamKind::RedactTarget, true),
 ];
 
+// C-11 CM-4 CM-6 C-44
+const REQUEST: &[ParamKey] = &[
+    key("acceptor", ParamKind::Party, true),
+    key("aim", ParamKind::RecordRef, false),
+    key("conditions", ParamKind::RecordSet, false),
+    key("obligor", ParamKind::Party, false),
+    key("queue", ParamKind::RecordRef, false),
+];
+
+// C-10 C-44
+const AIM: &[ParamKey] = &[
+    key("criterion", ParamKind::Criterion, false),
+    key("duration", ParamKind::AimDuration, true),
+    key("judge", ParamKind::Party, false),
+];
+
+/// The `params` keys of a core Declaration that name a Party in an attributed slot (C-44).
+const fn attributed_keys(subtype: DeclarationSubtype) -> &'static [&'static str] {
+    match subtype {
+        DeclarationSubtype::Request => &["acceptor", "obligor"],
+        DeclarationSubtype::Aim => &["judge"],
+        _ => &[],
+    }
+}
+
 const fn param_keys(subtype: DeclarationSubtype) -> &'static [ParamKey] {
     match subtype {
+        DeclarationSubtype::Request => REQUEST,
+        DeclarationSubtype::Aim => AIM,
         DeclarationSubtype::Decline => DECLINE,
         DeclarationSubtype::Cancel => CANCEL,
         DeclarationSubtype::Notice => NOTICE,
@@ -332,7 +365,26 @@ fn kind_ok(kind: ParamKind, value: &ParamValue, practices: &[PracticePin]) -> bo
         ParamKind::RedactTarget => matches!(value, ParamValue::Scalar(ParamScalar::Digest(_))),
         ParamKind::RedactParts => part_names_ok(value),
         ParamKind::RedactReason => catalog_text(value, RedactReason::from_wire_name),
+        ParamKind::Party => catalog_text(value, PartyRef::new),
+        ParamKind::RecordRef => matches!(value, ParamValue::Scalar(ParamScalar::Digest(_))),
+        ParamKind::RecordSet => record_set_ok(value),
+        ParamKind::AimDuration => catalog_text(value, AimDuration::from_wire_name),
     }
+}
+
+// C-11 P-72
+fn record_set_ok(value: &ParamValue) -> bool {
+    let ParamValue::List(items) = value else {
+        return false;
+    };
+    let digests: Option<Vec<_>> = items
+        .iter()
+        .map(|s| match s {
+            ParamScalar::Digest(d) => Some(*d),
+            _ => None,
+        })
+        .collect();
+    digests.is_some_and(|d| strictly_ascending(&d, Ord::cmp))
 }
 
 fn scalars(value: &ParamValue) -> &[ParamScalar] {
@@ -421,7 +473,12 @@ fn params(record: &Record) -> Result<(), Reason> {
             .iter()
             .all(|k| !k.required || record.param(k.name).is_some());
         let gate_ok = d != DeclarationSubtype::OpenCondition || gate_form_ok(record);
-        reject_if(!(complete && gate_ok), Reason::Schema(Schema::Params))?;
+        let two_sided = d != DeclarationSubtype::Request
+            || record.param("obligor").is_some() != record.param("queue").is_some();
+        reject_if(
+            !(complete && gate_ok && two_sided),
+            Reason::Schema(Schema::Params),
+        )?;
     }
     Ok(())
 }
@@ -585,6 +642,7 @@ fn relation_key(relation: &Relation) -> (RelationName, &[u8]) {
             DerivedTarget::Record(r) => r.0.as_bytes(),
             DerivedTarget::Evidence(d) => d.as_bytes(),
             DerivedTarget::External(e) => e.as_str().as_bytes(),
+            DerivedTarget::Work(w) => w.as_bytes(),
         },
         Relation::OnBehalfOf { target, .. } => target.as_str().as_bytes(),
         Relation::References { target, .. } => match target {
@@ -684,6 +742,84 @@ pub(crate) fn actor_rings(core: &RecordCore, actor_types: &ActorTypes) -> Result
     reject_if(
         actor_types.on_behalf_of.len() != rings || actor_types.evidence.len() != presenters,
         Reason::EnvelopeMismatch(EnvelopeField::ActorType),
+    )
+}
+
+/// True when a Party slot holds a Reference: an absolute HTTPS URI names a type or an external object, never a Party (C-44, C-13, P-70).
+fn names_reference(party: &str) -> bool {
+    TypeUri::parse(party).is_some()
+}
+
+fn reference_scalar(scalar: &ParamScalar) -> bool {
+    match scalar {
+        ParamScalar::Text(t) => names_reference(t),
+        ParamScalar::Digest(_) | ParamScalar::WorkId(_) => true,
+        ParamScalar::Uint(_) | ParamScalar::Bool(_) => false,
+    }
+}
+
+/// Checks that every attributed slot is a Party, never a Reference: the author, each `on_behalf_of` ring, the capacity principal, each evidence presenter, the Party ends of `engaged_in` and `on_behalf_of`, and the obligor, acceptor and judge of a core `request` or `aim` (C-44, C-20).
+///
+/// # Errors
+///
+/// `envelope_mismatch:actor_type`: the slot cannot carry the Access actor type the envelope annotates.
+fn attributed(record: &Record) -> Result<(), Reason> {
+    let core = record.core();
+    let principal = match &core.capacity {
+        Some(Capacity::For(p)) => Some(p),
+        Some(Capacity::Own) | None => None,
+    };
+    let relation_parties = core.relations.iter().flatten().flat_map(|r| match r {
+        Relation::EngagedIn { source, .. } => [Some(source), None],
+        Relation::OnBehalfOf { source, target, .. } => [Some(source), Some(target)],
+        _ => [None, None],
+    });
+    let field_reference = core::iter::once(&core.author)
+        .chain(core.on_behalf_of.iter().flatten())
+        .chain(principal)
+        .chain(core.evidence.iter().flatten().map(|e| &e.presenter))
+        .chain(relation_parties.flatten())
+        .any(|p| names_reference(p.as_str()));
+    let keys = match record {
+        Record::Declaration(d) => {
+            DeclarationSubtype::from_uri(d.subtype.as_str()).map_or(&[][..], attributed_keys)
+        }
+        Record::Act(_) | Record::Claim(_) => &[],
+    };
+    let param_reference = keys.iter().any(|k| {
+        record
+            .param(k)
+            .is_some_and(|v| scalars(v).iter().any(reference_scalar))
+    });
+    reject_if(
+        field_reference || param_reference,
+        Reason::EnvelopeMismatch(EnvelopeField::ActorType),
+    )
+}
+
+/// Checks the continuity of a split or merge: the record concerns the new Work and none of the earlier Works it derives from (C-43, C-8).
+///
+/// # Errors
+///
+/// `schema:relation`.
+fn continuity(core: &RecordCore) -> Result<(), Reason> {
+    let mut earlier = core
+        .relations
+        .iter()
+        .flatten()
+        .filter_map(|r| match r {
+            Relation::DerivedFrom {
+                target: DerivedTarget::Work(w),
+                ..
+            } => Some(w),
+            _ => None,
+        })
+        .peekable();
+    let derives = earlier.peek().is_some();
+    let looped = earlier.any(|w| core.concerns.contains(w));
+    reject_if(
+        looped || (derives && core.concerns.is_empty()),
+        Reason::Schema(Schema::Relation),
     )
 }
 

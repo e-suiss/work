@@ -288,6 +288,7 @@ fn relation(r: &Relation) -> RelationRow {
                 DerivedTarget::Record(id) => record_endpoint(id),
                 DerivedTarget::Evidence(d) => EndpointRow::Evidence(*d.as_bytes()),
                 DerivedTarget::External(e) => external_endpoint(e),
+                DerivedTarget::Work(w) => work_endpoint(w),
             };
             let role = match role {
                 DerivedRole::Core(c) => core_uri("derived_from", c.wire_name()),

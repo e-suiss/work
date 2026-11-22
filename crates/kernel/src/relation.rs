@@ -2,7 +2,7 @@
 
 use crate::catalog::{BASIS_ROLE_URI, CoreDerivedRole};
 use crate::id::{Digest, PartyRef, RecordId, WorkId};
-use crate::reason::{Reason, Schema, wire_enum};
+use crate::reason::{EnvelopeField, Reason, Schema, wire_enum};
 use crate::uri::{ExternalRef, TypeUri};
 
 wire_enum! {
@@ -60,6 +60,8 @@ pub enum DerivedTarget {
     Evidence(Digest),
     /// An external object.
     External(ExternalRef),
+    /// An earlier Work a split or merge continues, only from the record itself in the core `source` role (C-43).
+    Work(WorkId),
 }
 
 /// The target of a `references` relation (C-13).
@@ -157,12 +159,15 @@ pub enum Relation {
 
 const MISMATCH: Reason = Reason::Schema(Schema::Relation);
 
+/// A Reference written where only a Party may stand (C-44).
+pub const PARTY_SLOT_REFERENCE: Reason = Reason::EnvelopeMismatch(EnvelopeField::ActorType);
+
 impl Relation {
-    /// Builds a relation from its decoded wire parts, rejecting a ninth name, an endpoint type the relation does not allow and a qualifier that belongs to another relation: a core URI qualifies only `derived_from` (C-25, C-26, C-27, P-14, P-73).
+    /// Builds a relation from its decoded wire parts, rejecting a ninth name, an endpoint type the relation does not allow and a qualifier that belongs to another relation: a core URI qualifies only `derived_from`, and a Work is a `derived_from` target only from the record itself in the core `source` role (C-25, C-26, C-27, C-43, P-14, P-73).
     ///
     /// # Errors
     ///
-    /// Returns `schema:relation` as the reason the record is rejected.
+    /// Returns `schema:relation` as the reason the record is rejected, or `envelope_mismatch:actor_type` for an external Reference in the Party endpoint of `engaged_in` or `on_behalf_of` (C-44).
     pub fn from_wire(
         rel: &str,
         source: Option<Endpoint>,
@@ -172,11 +177,13 @@ impl Relation {
         let name = RelationName::from_wire_name(rel).ok_or(MISMATCH)?;
         if name == RelationName::DerivedFrom {
             let role = derived_role(qualifier.ok_or(MISMATCH)?)?;
+            let continues = source.is_none() && role == DerivedRole::Core(CoreDerivedRole::Source);
             let source = optional_record(source.as_ref())?;
             let target = match target {
                 Endpoint::Record(r) => DerivedTarget::Record(r),
                 Endpoint::Evidence(d) => DerivedTarget::Evidence(d),
                 Endpoint::External(e) => DerivedTarget::External(e),
+                Endpoint::Work(w) if continues => DerivedTarget::Work(w),
                 Endpoint::Work(_) | Endpoint::Party(_) => return Err(MISMATCH),
             };
             return Ok(Self::DerivedFrom {
@@ -188,6 +195,18 @@ impl Relation {
         let qualifier = qualifier
             .map(|q| TypeUri::parse(q).filter(|u| !u.is_core()).ok_or(MISMATCH))
             .transpose()?;
+        let party_slots = match name {
+            RelationName::EngagedIn => [source.as_ref(), None],
+            RelationName::OnBehalfOf => [source.as_ref(), Some(&target)],
+            _ => [None, None],
+        };
+        if party_slots
+            .iter()
+            .flatten()
+            .any(|e| matches!(e, Endpoint::External(_)))
+        {
+            return Err(PARTY_SLOT_REFERENCE);
+        }
         match (name, source, target) {
             (RelationName::EngagedIn, Some(Endpoint::Party(source)), Endpoint::Work(target)) => {
                 Ok(Self::EngagedIn {
@@ -422,6 +441,79 @@ mod tests {
             .is_ok_and(|r| r.qualifier().map(TypeUri::as_str)
                 == Some("https://procurement.example/ns/role/buyer"))
         );
+    }
+
+    // C-43 C-8 C-27
+    #[test]
+    fn c_43_continuity_derives_from_an_earlier_work_only_as_source_of_this_record() {
+        const SOURCE: &str = "https://suiss.app/ns/work/derived_from/source";
+        assert_eq!(
+            Relation::from_wire("derived_from", None, work(), Some(SOURCE)),
+            Ok(Relation::DerivedFrom {
+                source: None,
+                target: DerivedTarget::Work(WorkId::from_bytes([2; 16])),
+                role: DerivedRole::Core(CoreDerivedRole::Source),
+            })
+        );
+        assert_eq!(
+            Relation::from_wire("derived_from", Some(record()), work(), Some(SOURCE)),
+            Err(MISMATCH)
+        );
+        for role in [
+            FULFILLS,
+            "https://suiss.app/ns/work/derived_from/supports",
+            "https://procurement.example/ns/role/split_from",
+        ] {
+            assert_eq!(
+                Relation::from_wire("derived_from", None, work(), Some(role)),
+                Err(MISMATCH),
+                "{role}"
+            );
+        }
+        assert_eq!(
+            Relation::from_wire("supersedes", None, work(), None),
+            Err(MISMATCH)
+        );
+    }
+
+    // C-44 C-20 C-13
+    #[test]
+    fn c_44_an_external_reference_in_a_party_endpoint_is_an_envelope_mismatch() {
+        let tool = || Endpoint::External(ExternalRef::parse("mcp:tool/search").unwrap());
+        assert_eq!(
+            Relation::from_wire("engaged_in", Some(tool()), work(), None),
+            Err(PARTY_SLOT_REFERENCE)
+        );
+        assert_eq!(
+            Relation::from_wire("on_behalf_of", Some(tool()), party(), None),
+            Err(PARTY_SLOT_REFERENCE)
+        );
+        assert_eq!(
+            Relation::from_wire("on_behalf_of", Some(party()), tool(), None),
+            Err(PARTY_SLOT_REFERENCE)
+        );
+        assert!(Relation::from_wire("references", None, tool(), None).is_ok());
+        assert_eq!(
+            Relation::from_wire("engaged_in", Some(record()), work(), None),
+            Err(MISMATCH)
+        );
+    }
+
+    // C-25 L-86
+    #[test]
+    fn c_25_part_of_joins_two_works_and_nothing_else() {
+        assert!(Relation::from_wire("part_of", Some(work()), work(), None).is_ok());
+        for (source, target) in [
+            (Some(party()), work()),
+            (Some(record()), work()),
+            (None, work()),
+            (Some(work()), party()),
+        ] {
+            assert_eq!(
+                Relation::from_wire("part_of", source, target, None),
+                Err(MISMATCH)
+            );
+        }
     }
 
     // P-73

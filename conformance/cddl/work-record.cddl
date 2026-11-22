@@ -147,9 +147,12 @@ CoreDeclarationType = "https://suiss.app/ns/work/declaration/request"
                     / "https://suiss.app/ns/work/declaration/attention_request"
                     / "https://suiss.app/ns/work/declaration/acknowledgement"
                     / "https://suiss.app/ns/work/declaration/redact"
+                    / "https://suiss.app/ns/work/declaration/aim"
 
-; P-80 P-84 P-85 P-92
+; P-80 P-84 P-85 P-92 C-10 C-11
 DeclarationTyped = (
+  (type: DeclarationRequest, params: RequestParams) //
+  (type: DeclarationAim, params: AimParams) //
   (type: DeclarationDecline, params: DeclineParams) //
   (type: DeclarationCancel, params: CancelParams) //
   (type: DeclarationNotice, params: NoticeParams) //
@@ -159,6 +162,8 @@ DeclarationTyped = (
   (type: DeclarationRedact, params: RedactParams) //
   (type: DeclarationType, ? params: Params)
 )
+DeclarationRequest = "https://suiss.app/ns/work/declaration/request"
+DeclarationAim = "https://suiss.app/ns/work/declaration/aim"
 DeclarationDecline = "https://suiss.app/ns/work/declaration/decline"
 DeclarationCancel = "https://suiss.app/ns/work/declaration/cancel"
 DeclarationNotice = "https://suiss.app/ns/work/declaration/notice"
@@ -320,12 +325,20 @@ Supersedes = {
   ? qualifier: TypeURI,
 }
 
-; C-27 C-28 C-29 EV-2 P-71 P-81
-DerivedFrom = {
+; C-27 C-28 C-29 C-43 EV-2 P-71 P-81
+DerivedFrom = DerivedFromRecord / DerivedFromWork
+DerivedFromRecord = {
   rel: "derived_from",
   ? source: RecordTarget,
   target: RecordTarget / EvidenceTarget / ExternalTarget,
   qualifier: DerivedRole,
+}
+
+; C-43 C-8
+DerivedFromWork = {
+  rel: "derived_from",
+  target: WorkTarget,
+  qualifier: "https://suiss.app/ns/work/derived_from/source",
 }
 DerivedRole = CoreDerivedRole / (TypeURI .ne "https://suiss.app/ns/work/derived_from/basis")
 CoreDerivedRole = "https://suiss.app/ns/work/derived_from/source"
@@ -458,13 +471,32 @@ RedactParams = {
 }
 RedactReason = "personal_data" / "secret_exposure" / "legal_order" / "author_request"
 
+; C-11 CM-4 CM-6 C-44 RC-10
+RequestParams = {
+  RequestDebtor,
+  acceptor: PartyRef,
+  ? aim: Digest,
+  ? conditions: [1*256 Digest],
+  ? effective_at: Time,
+}
+RequestDebtor = (obligor: PartyRef // queue: Digest)
+
+; C-10 C-44
+AimParams = {
+  duration: AimDuration,
+  ? judge: PartyRef,
+  ? criterion: TypeURI,
+  ? effective_at: Time,
+}
+AimDuration = "one_shot" / "maintain"
+
 ; P-71 P-85 P-93
 DeclineReasonCode = DeclineReason / tstr .regexp "(no_capacity|no_authority|out_of_scope|missing_information|unacceptable_terms|other):https://[a-z0-9.-]+(:[0-9]+)?/[!-~]*"
 CancelReasonCode = CancelReason / tstr .regexp "(cannot_complete|failed|abandoned|other):https://[a-z0-9.-]+(:[0-9]+)?/[!-~]*"
 NoticeTypeCode = NoticeType / tstr .regexp "(at_risk|cannot_complete|obsolete_suggested):https://[a-z0-9.-]+(:[0-9]+)?/[!-~]*"
 
-; P-85 P-71 CM-17 CM-20 CM-30 RC-36 ST-11 ST-27
-CatalogCode = DeclineReason / CancelReason / NoticeType / StopType / StopResponse / WaitReason / GateForm
+; P-85 P-71 CM-17 CM-20 CM-30 RC-36 ST-11 ST-27 C-10
+CatalogCode = DeclineReason / CancelReason / NoticeType / StopType / StopResponse / WaitReason / GateForm / AimDuration
 DeclineReason = "no_capacity" / "no_authority" / "out_of_scope" / "missing_information"
               / "unacceptable_terms" / "other"
 CancelReason = "cannot_complete" / "failed" / "abandoned" / "other"
