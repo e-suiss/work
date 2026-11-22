@@ -1143,7 +1143,7 @@ fn cm_23_items_derive_their_own_states_and_the_summary_is_mixed() {
         Some(root),
         &[("items", items(&[0]))],
     ));
-    ledger.push(decl(
+    let decline = ledger.push(decl(
         SUPPLIER,
         "decline",
         Some(promise),
@@ -1156,7 +1156,7 @@ fn cm_23_items_derive_their_own_states_and_the_summary_is_mixed() {
     let unknown = ledger.push(decl(
         SUPPLIER,
         "promise",
-        Some(promise),
+        Some(decline),
         &[("items", items(&[5]))],
     ));
     assert_eq!(

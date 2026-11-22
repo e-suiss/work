@@ -212,7 +212,7 @@ fn p_80_params_follow_the_core_subtype_schema() {
         decline.clone(),
         vec![
             ("effective_at", ParamValue::Scalar(ParamScalar::Uint(5))),
-            ("reason", text("other")),
+            ("reason", text("missing_information")),
         ],
     );
     assert_eq!(direct(&effective), Outcome::Accepted);

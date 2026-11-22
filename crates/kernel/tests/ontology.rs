@@ -270,7 +270,9 @@ fn c_8_pr_9_a_work_opens_without_practice_template_workflow_or_type() {
 // C-8 PR-9 C-35
 #[test]
 fn c_8_the_work_identity_outlives_its_close() {
-    let close = core_declaration("administrative_close", vec![]);
+    let close = mutate(core_declaration("administrative_close", vec![]), |c| {
+        c.body = Some(vec![body("note", 0x41)]);
+    });
     assert_eq!(direct(&close), Outcome::Accepted);
     let after = claim(ALICE, vec![w1()], None);
     assert_eq!(direct(&after), Outcome::Accepted);
