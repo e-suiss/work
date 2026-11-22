@@ -61,6 +61,7 @@ export const recordFiles = [
   "records.json",
   "records-reject.json",
   "records-quarantine.json",
+  "commitments.json",
 ] as const;
 
 /** Record vector files the browser runs only through the byte entry points and the derivation. */
@@ -115,12 +116,14 @@ export const policy = await json<PolicyVectors>(kernelDir, "policy-default.json"
 const records = await json<{ records: RecordCase[] }>(recordsDir, "records.json");
 const rejects = await json<{ cases: RecordCase[] }>(recordsDir, "records-reject.json");
 const quarantine = await json<{ cases: RecordCase[] }>(recordsDir, "records-quarantine.json");
+const commitments = await json<{ cases: RecordCase[] }>(recordsDir, "commitments.json");
 
 /** Record cases per vector file, in file order. */
 export const recordCases: Readonly<Record<(typeof recordFiles)[number], readonly RecordCase[]>> = {
   "records.json": records.records,
   "records-reject.json": rejects.cases,
   "records-quarantine.json": quarantine.cases,
+  "commitments.json": commitments.cases,
 };
 
 /** The stored entries of the `records.json` records chained from the genesis, as the derivation golden feeds them. */
