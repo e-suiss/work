@@ -1,0 +1,225 @@
+{
+  "tzdb": "2026f",
+  "cases": [
+    {
+      "id": "daily-across-the-spring-gap",
+      "rule": "FREQ=DAILY;COUNT=3",
+      "dtstart": "20260328T023000",
+      "zone": "Europe/Berlin",
+      "expect": [
+        1774661400000,
+        1774747800000,
+        1774830600000
+      ]
+    },
+    {
+      "id": "daily-across-the-autumn-fold",
+      "rule": "FREQ=DAILY;COUNT=2",
+      "dtstart": "20261024T023000",
+      "zone": "Europe/Berlin",
+      "expect": [
+        1792801800000,
+        1792888200000
+      ]
+    },
+    {
+      "id": "weekly-two-days",
+      "rule": "FREQ=WEEKLY;BYDAY=MO,WE;BYHOUR=9;BYMINUTE=0;COUNT=4",
+      "dtstart": "20261102T090000",
+      "zone": "Europe/Istanbul",
+      "expect": [
+        1793599200000,
+        1793772000000,
+        1794204000000,
+        1794376800000
+      ]
+    },
+    {
+      "id": "monthly-last-friday",
+      "rule": "FREQ=MONTHLY;BYDAY=-1FR;COUNT=3",
+      "dtstart": "20260101T170000",
+      "zone": "America/New_York",
+      "expect": [
+        1769810400000,
+        1772229600000,
+        1774645200000
+      ]
+    },
+    {
+      "id": "monthly-31st-skips-short-months",
+      "rule": "FREQ=MONTHLY;BYMONTHDAY=31;COUNT=3",
+      "dtstart": "20260131T120000",
+      "zone": "Europe/Istanbul",
+      "expect": [
+        1769850000000,
+        1774947600000,
+        1780218000000
+      ]
+    },
+    {
+      "id": "monthly-last-day",
+      "rule": "FREQ=MONTHLY;BYMONTHDAY=-1;COUNT=3",
+      "dtstart": "20260101T120000",
+      "zone": "Europe/Istanbul",
+      "expect": [
+        1769850000000,
+        1772269200000,
+        1774947600000
+      ]
+    },
+    {
+      "id": "yearly-first-monday-of-march-until",
+      "rule": "FREQ=YEARLY;BYMONTH=3;BYDAY=1MO;UNTIL=20290101T000000Z",
+      "dtstart": "20260302T080000",
+      "zone": "Australia/Sydney",
+      "expect": [
+        1772398800000,
+        1803848400000,
+        1835902800000
+      ]
+    },
+    {
+      "id": "every-other-tuesday",
+      "rule": "FREQ=WEEKLY;INTERVAL=2;BYDAY=TU;WKST=SU;COUNT=3",
+      "dtstart": "20261103T100000",
+      "zone": "Europe/Berlin",
+      "expect": [
+        1793696400000,
+        1794906000000,
+        1796115600000
+      ]
+    },
+    {
+      "id": "yearly-leap-day",
+      "rule": "FREQ=YEARLY;COUNT=3",
+      "dtstart": "20280229T090000",
+      "zone": "Europe/Istanbul",
+      "expect": [
+        1835416800000,
+        1961647200000,
+        2087877600000
+      ]
+    },
+    {
+      "id": "daily-hours-and-minutes",
+      "rule": "FREQ=DAILY;BYHOUR=9,17;BYMINUTE=0,30;COUNT=5",
+      "dtstart": "20261102T080000",
+      "zone": "Europe/Istanbul",
+      "expect": [
+        1793599200000,
+        1793601000000,
+        1793628000000,
+        1793629800000,
+        1793685600000
+      ]
+    },
+    {
+      "id": "yearly-twentieth-monday",
+      "rule": "FREQ=YEARLY;BYDAY=20MO;COUNT=2",
+      "dtstart": "20260101T090000",
+      "zone": "Europe/Istanbul",
+      "expect": [
+        1779084000000,
+        1810533600000
+      ]
+    },
+    {
+      "id": "window-of-an-endless-rule",
+      "rule": "FREQ=DAILY",
+      "dtstart": "20260101T090000",
+      "zone": "Europe/Istanbul",
+      "from_ms": 1772323200000,
+      "to_ms": 1772582400000,
+      "expect": [
+        1772344800000,
+        1772431200000,
+        1772517600000
+      ]
+    },
+    {
+      "id": "sub-daily",
+      "rule": "FREQ=HOURLY",
+      "refused": "FREQ"
+    },
+    {
+      "id": "count-and-until",
+      "rule": "FREQ=DAILY;COUNT=2;UNTIL=20270101T000000Z",
+      "refused": "COUNT"
+    },
+    {
+      "id": "setpos",
+      "rule": "FREQ=MONTHLY;BYSETPOS=1;BYDAY=MO",
+      "refused": "BYSETPOS"
+    },
+    {
+      "id": "weekno",
+      "rule": "FREQ=YEARLY;BYWEEKNO=1",
+      "refused": "BYWEEKNO"
+    },
+    {
+      "id": "yearday",
+      "rule": "FREQ=YEARLY;BYYEARDAY=1",
+      "refused": "BYYEARDAY"
+    },
+    {
+      "id": "second",
+      "rule": "FREQ=DAILY;BYSECOND=0",
+      "refused": "BYSECOND"
+    },
+    {
+      "id": "exdate",
+      "rule": "FREQ=DAILY;EXDATE=20270101T000000",
+      "refused": "EXDATE"
+    },
+    {
+      "id": "ordinal-in-daily",
+      "rule": "FREQ=DAILY;BYDAY=1MO",
+      "refused": "BYDAY"
+    },
+    {
+      "id": "ordinal-past-five-in-monthly",
+      "rule": "FREQ=MONTHLY;BYDAY=6MO",
+      "refused": "BYDAY"
+    },
+    {
+      "id": "monthday-in-weekly",
+      "rule": "FREQ=WEEKLY;BYMONTHDAY=1",
+      "refused": "BYMONTHDAY"
+    },
+    {
+      "id": "repeated-part",
+      "rule": "FREQ=DAILY;FREQ=WEEKLY",
+      "refused": "duplicate"
+    },
+    {
+      "id": "no-frequency",
+      "rule": "INTERVAL=2",
+      "refused": "FREQ"
+    },
+    {
+      "id": "floating-until",
+      "rule": "FREQ=DAILY;UNTIL=20270101T000000",
+      "refused": "UNTIL"
+    },
+    {
+      "id": "unknown-part",
+      "rule": "FREQ=DAILY;X-NAME=1",
+      "refused": "key"
+    },
+    {
+      "id": "hour-24",
+      "rule": "FREQ=DAILY;BYHOUR=24",
+      "refused": "BYHOUR"
+    },
+    {
+      "id": "zero-interval",
+      "rule": "FREQ=DAILY;INTERVAL=0",
+      "refused": "INTERVAL"
+    },
+    {
+      "id": "empty-value",
+      "rule": "FREQ=DAILY;COUNT=",
+      "refused": "rule"
+    }
+  ]
+}

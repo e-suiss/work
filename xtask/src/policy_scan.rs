@@ -405,6 +405,10 @@ pub(crate) const GENERATORS: &[Generator] = &[
         name: "asyncapi",
         check: crate::contracts::asyncapi::check,
     },
+    Generator {
+        name: "iso4217",
+        check: crate::iso4217::check,
+    },
 ];
 
 const RECORD_VECTORS: &str = "conformance/vectors/records";

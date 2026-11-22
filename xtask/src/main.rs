@@ -17,6 +17,7 @@ mod bench_accepted;
 mod catalog;
 mod contracts;
 mod counterparts;
+mod iso4217;
 mod policy;
 mod rules;
 mod sha256;
@@ -120,6 +121,9 @@ fn usage() -> ExitCode {
     eprintln!("  check openapi|asyncapi       regenerate and compare the API contracts (T-98)");
     eprintln!("  openapi                      write sdks/openapi/work-v1.json (T-98)");
     eprintln!("  asyncapi                     write sdks/asyncapi from the event catalog (T-98)");
+    eprintln!(
+        "  iso4217                      write the kernel currency table from the vendored List One (CM-62)"
+    );
     eprintln!("  watch-report                 list WATCH rows for the scheduled review (F-25)");
     eprintln!(
         "  bench-accepted               print the Bench-Accepted trailers since $BENCH_BASE (T-77)"
@@ -169,6 +173,7 @@ fn main() -> ExitCode {
         },
         Some("openapi") => report("openapi", contracts::openapi::write_document(&root)),
         Some("asyncapi") => report("asyncapi", contracts::asyncapi::write_documents(&root)),
+        Some("iso4217") => report("iso4217", iso4217::write(&root)),
         Some("list") => {
             for check in checks() {
                 println!("{}", check.name);

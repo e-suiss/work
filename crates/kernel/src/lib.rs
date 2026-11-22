@@ -6,11 +6,16 @@
 extern crate alloc;
 
 pub mod activation;
+pub mod budget;
+pub mod calendar;
 pub mod catalog;
+pub mod clock;
 pub mod codec;
 pub mod commitment;
+pub mod commitment_time;
 pub mod compromise;
 pub mod cose;
+pub mod currency;
 pub mod derive;
 pub mod envelope;
 pub mod explanation;
@@ -23,7 +28,9 @@ pub mod proof;
 pub mod reason;
 pub mod record;
 pub mod relation;
+pub mod rrule;
 pub mod rules;
+pub mod tz;
 pub mod uri;
 pub mod validate;
 pub mod verify;

@@ -1,0 +1,180 @@
+{
+  "tzdb": "2026f",
+  "zones": {
+    "Europe/Berlin": "Europe_Berlin.tzif",
+    "America/New_York": "America_New_York.tzif",
+    "Europe/Istanbul": "Europe_Istanbul.tzif",
+    "Australia/Sydney": "Australia_Sydney.tzif"
+  },
+  "offsets": [
+    {
+      "zone": "Europe/Berlin",
+      "utc_ms": 1774745999000,
+      "offset_s": 3600
+    },
+    {
+      "zone": "Europe/Berlin",
+      "utc_ms": 1774746000000,
+      "offset_s": 7200
+    },
+    {
+      "zone": "Europe/Berlin",
+      "utc_ms": 1792889999000,
+      "offset_s": 7200
+    },
+    {
+      "zone": "Europe/Berlin",
+      "utc_ms": 1792890000000,
+      "offset_s": 3600
+    },
+    {
+      "zone": "Europe/Berlin",
+      "utc_ms": 328665600000,
+      "offset_s": 7200
+    },
+    {
+      "zone": "Europe/Berlin",
+      "utc_ms": 2382523200000,
+      "offset_s": 7200
+    },
+    {
+      "zone": "Europe/Berlin",
+      "utc_ms": 2395742400000,
+      "offset_s": 3600
+    },
+    {
+      "zone": "America/New_York",
+      "utc_ms": 1772953200000,
+      "offset_s": -14400
+    },
+    {
+      "zone": "America/New_York",
+      "utc_ms": 1793512799000,
+      "offset_s": -14400
+    },
+    {
+      "zone": "America/New_York",
+      "utc_ms": 1793512800000,
+      "offset_s": -18000
+    },
+    {
+      "zone": "America/New_York",
+      "utc_ms": 2258928000000,
+      "offset_s": -14400
+    },
+    {
+      "zone": "Europe/Istanbul",
+      "utc_ms": 1433116800000,
+      "offset_s": 10800
+    },
+    {
+      "zone": "Europe/Istanbul",
+      "utc_ms": 1793599200000,
+      "offset_s": 10800
+    },
+    {
+      "zone": "Europe/Istanbul",
+      "utc_ms": 2524608000000,
+      "offset_s": 10800
+    },
+    {
+      "zone": "Australia/Sydney",
+      "utc_ms": 1768435200000,
+      "offset_s": 39600
+    },
+    {
+      "zone": "Australia/Sydney",
+      "utc_ms": 1784073600000,
+      "offset_s": 36000
+    },
+    {
+      "zone": "Australia/Sydney",
+      "utc_ms": 2336428800000,
+      "offset_s": 39600
+    },
+    {
+      "zone": "Australia/Sydney",
+      "utc_ms": 2352153600000,
+      "offset_s": 36000
+    }
+  ],
+  "to_utc": [
+    {
+      "zone": "Europe/Berlin",
+      "local": "20260329T023000",
+      "kind": "gap",
+      "utc_ms": 1774747800000,
+      "fold1_ms": 1774744200000
+    },
+    {
+      "zone": "Europe/Berlin",
+      "local": "20260329T013000",
+      "kind": "single",
+      "utc_ms": 1774744200000,
+      "fold1_ms": 1774744200000
+    },
+    {
+      "zone": "Europe/Berlin",
+      "local": "20261025T023000",
+      "kind": "fold",
+      "utc_ms": 1792888200000,
+      "fold1_ms": 1792891800000
+    },
+    {
+      "zone": "Europe/Berlin",
+      "local": "20261025T033000",
+      "kind": "single",
+      "utc_ms": 1792895400000,
+      "fold1_ms": 1792895400000
+    },
+    {
+      "zone": "America/New_York",
+      "local": "20260308T023000",
+      "kind": "gap",
+      "utc_ms": 1772955000000,
+      "fold1_ms": 1772951400000
+    },
+    {
+      "zone": "America/New_York",
+      "local": "20261101T013000",
+      "kind": "fold",
+      "utc_ms": 1793511000000,
+      "fold1_ms": 1793514600000
+    },
+    {
+      "zone": "Australia/Sydney",
+      "local": "20261004T023000",
+      "kind": "gap",
+      "utc_ms": 1791045000000,
+      "fold1_ms": 1791041400000
+    },
+    {
+      "zone": "Australia/Sydney",
+      "local": "20260405T023000",
+      "kind": "fold",
+      "utc_ms": 1775316600000,
+      "fold1_ms": 1775320200000
+    },
+    {
+      "zone": "Europe/Berlin",
+      "local": "20450326T023000",
+      "kind": "gap",
+      "utc_ms": 2374104600000,
+      "fold1_ms": 2374101000000
+    },
+    {
+      "zone": "Europe/Berlin",
+      "local": "20451029T023000",
+      "kind": "fold",
+      "utc_ms": 2392849800000,
+      "fold1_ms": 2392853400000
+    },
+    {
+      "zone": "Europe/Istanbul",
+      "local": "20261102T090000",
+      "kind": "single",
+      "utc_ms": 1793599200000,
+      "fold1_ms": 1793599200000
+    }
+  ]
+}

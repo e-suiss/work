@@ -354,6 +354,16 @@ cddl:
       if [ "$got" != "$want" ]; then echo "compromise-window/$name: CDDL $got, expected $want"; grep -v 'Unused rule' <<< "$out" | head -20; bad=1; fi
     done < "$cw/manifest"
     [ "$bad" = 0 ] && echo "CDDL: $(wc -l < "$cw/manifest" | tr -d ' ') compromise-window vectors match their cddl expectation"
+    tv="$dir/commitment-time"
+    mkdir -p "$tv"
+    python3 -I -c 'import json, pathlib, sys; v = json.loads(pathlib.Path(sys.argv[1]).read_text()); out = pathlib.Path(sys.argv[2]); [(out / (c["id"] + ".cbor")).write_bytes(bytes.fromhex(c["cbor"])) for c in v["cases"]]; (out / "manifest").write_text("".join(c["id"] + " " + c["root"] + " " + ("pass" if c["schema_valid"] else "fail") + "\n" for c in v["cases"]))' conformance/vectors/time/bodies.json "$tv"
+    while read -r name root want; do
+      schema="$tv/$root.cddl"
+      [ -e "$schema" ] || { printf 'root = %s\n' "$root"; cat conformance/cddl/work-commitment-time.cddl; } > "$schema"
+      if out="$("${cddl[@]}" "$schema" validate "$tv/$name.cbor" < /dev/null 2>&1)"; then got=pass; else got=fail; fi
+      if [ "$got" != "$want" ]; then echo "commitment-time/$name: CDDL $got, expected $want"; grep -v 'Unused rule' <<< "$out" | head -20; bad=1; fi
+    done < "$tv/manifest"
+    [ "$bad" = 0 ] && echo "CDDL: $(wc -l < "$tv/manifest" | tr -d ' ') commitment-time vectors match their cddl expectation"
     exit "$bad"
 
 sqlx_db_port := "5499"
