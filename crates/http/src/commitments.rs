@@ -6,7 +6,7 @@ use axum::body::Bytes;
 use axum::extract::{Path, State};
 use axum::http::{HeaderMap, HeaderValue, Method, StatusCode, Uri, header};
 use axum::response::{IntoResponse, Response};
-use axum::routing::{get, post};
+use axum::routing::{MethodRouter, get, post};
 use axum::{Extension, Router};
 use serde::Serialize;
 use utoipa::ToSchema;
@@ -1073,116 +1073,48 @@ pub async fn get_commitment(
 
 /// The commitment routes: the typed write of every operation a caller writes and the read.
 pub fn routes() -> Router<Arc<ApiServices>> {
-    Router::new()
-        .route("/v1/ledgers/{ledger}/commitments", post(create_commitment))
-        .route(
-            "/v1/ledgers/{ledger}/commitments/{commitment}",
-            get(get_commitment),
-        )
-        .route(
-            "/v1/ledgers/{ledger}/commitments/{commitment}/promise",
-            post(promise),
-        )
-        .route(
-            "/v1/ledgers/{ledger}/commitments/{commitment}/promise-conditional",
-            post(promise_conditional),
-        )
-        .route(
-            "/v1/ledgers/{ledger}/commitments/{commitment}/decline",
-            post(decline),
-        )
-        .route(
-            "/v1/ledgers/{ledger}/commitments/{commitment}/counter",
-            post(counter),
-        )
-        .route(
-            "/v1/ledgers/{ledger}/commitments/{commitment}/accept-counter",
-            post(accept_counter),
-        )
-        .route(
-            "/v1/ledgers/{ledger}/commitments/{commitment}/state",
-            post(state),
-        )
-        .route(
-            "/v1/ledgers/{ledger}/commitments/{commitment}/accept",
-            post(accept),
-        )
-        .route(
-            "/v1/ledgers/{ledger}/commitments/{commitment}/reject",
-            post(reject),
-        )
-        .route(
-            "/v1/ledgers/{ledger}/commitments/{commitment}/cancel",
-            post(cancel),
-        )
-        .route(
-            "/v1/ledgers/{ledger}/commitments/{commitment}/release",
-            post(release),
-        )
-        .route(
-            "/v1/ledgers/{ledger}/commitments/{commitment}/delegate",
-            post(delegate),
-        )
-        .route(
-            "/v1/ledgers/{ledger}/commitments/{commitment}/assign",
-            post(assign),
-        )
-        .route(
-            "/v1/ledgers/{ledger}/commitments/{commitment}/dispute",
-            post(dispute),
-        )
-        .route(
-            "/v1/ledgers/{ledger}/commitments/{commitment}/defer",
-            post(defer),
-        )
-        .route(
-            "/v1/ledgers/{ledger}/commitments/{commitment}/resume",
-            post(resume),
-        )
-        .route(
-            "/v1/ledgers/{ledger}/commitments/{commitment}/revoke-request",
-            post(revoke_request),
-        )
-        .route(
-            "/v1/ledgers/{ledger}/commitments/{commitment}/revoke-promise",
-            post(revoke_promise),
-        )
-        .route(
-            "/v1/ledgers/{ledger}/commitments/{commitment}/revoke-statement",
-            post(revoke_statement),
-        )
-        .route(
-            "/v1/ledgers/{ledger}/commitments/{commitment}/revoke-acceptance",
-            post(revoke_acceptance),
-        )
-        .route(
-            "/v1/ledgers/{ledger}/commitments/{commitment}/allow",
-            post(allow),
-        )
-        .route(
-            "/v1/ledgers/{ledger}/commitments/{commitment}/refuse",
-            post(refuse),
-        )
-        .route(
-            "/v1/ledgers/{ledger}/commitments/{commitment}/amend",
-            post(amend),
-        )
-        .route(
-            "/v1/ledgers/{ledger}/commitments/{commitment}/notice",
-            post(notice),
-        )
-        .route(
-            "/v1/ledgers/{ledger}/commitments/{commitment}/declare-obsolete",
-            post(declare_obsolete),
-        )
-        .route(
-            "/v1/ledgers/{ledger}/commitments/{commitment}/administrative-close",
-            post(administrative_close),
-        )
-        .route(
-            "/v1/ledgers/{ledger}/commitments/{commitment}/implicit-acceptance-terms",
-            post(implicit_acceptance_terms),
-        )
+    let typed: [(&str, MethodRouter<Arc<ApiServices>>); 26] = [
+        ("promise", post(promise)),
+        ("promise-conditional", post(promise_conditional)),
+        ("decline", post(decline)),
+        ("counter", post(counter)),
+        ("accept-counter", post(accept_counter)),
+        ("state", post(state)),
+        ("accept", post(accept)),
+        ("reject", post(reject)),
+        ("cancel", post(cancel)),
+        ("release", post(release)),
+        ("delegate", post(delegate)),
+        ("assign", post(assign)),
+        ("dispute", post(dispute)),
+        ("defer", post(defer)),
+        ("resume", post(resume)),
+        ("revoke-request", post(revoke_request)),
+        ("revoke-promise", post(revoke_promise)),
+        ("revoke-statement", post(revoke_statement)),
+        ("revoke-acceptance", post(revoke_acceptance)),
+        ("allow", post(allow)),
+        ("refuse", post(refuse)),
+        ("amend", post(amend)),
+        ("notice", post(notice)),
+        ("declare-obsolete", post(declare_obsolete)),
+        ("administrative-close", post(administrative_close)),
+        ("implicit-acceptance-terms", post(implicit_acceptance_terms)),
+    ];
+    typed.into_iter().fold(
+        Router::new()
+            .route("/v1/ledgers/{ledger}/commitments", post(create_commitment))
+            .route(
+                "/v1/ledgers/{ledger}/commitments/{commitment}",
+                get(get_commitment),
+            ),
+        |router, (operation, route)| {
+            router.route(
+                &format!("/v1/ledgers/{{ledger}}/commitments/{{commitment}}/{operation}"),
+                route,
+            )
+        },
+    )
 }
 
 #[cfg(test)]
