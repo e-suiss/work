@@ -6,12 +6,14 @@ use std::sync::Arc;
 
 use tokio::time::timeout;
 use work_access_client::app::{Client, Looked};
-use work_access_client::domain::AccessError;
+use work_access_client::domain::commitments::{Ended, Verdict};
 use work_access_client::domain::discovery::Issuer;
 use work_access_client::domain::exercise::{Intent, VerifiedExercise};
 use work_access_client::domain::keys::{AsOf, DomainId, KernelId, Kid};
+use work_access_client::domain::{AccessError, from_b64url};
 use work_access_client::ports::{Clock, PartyKinds, Transport};
 use work_kernel::codec::{Decoded, decode_record, record_id};
+use work_kernel::commitment::Operation;
 use work_kernel::cose::{AuthorKeys, KeySet, parse_container};
 use work_kernel::id::{Digest, LedgerId, PartyRef, RecordId};
 use work_kernel::items::{ItemKey, touched};
@@ -747,11 +749,113 @@ where
             .submit(&store_ledger(ledger), pending)
             .await
             .map_err(|e| submit_refusal(&e))?;
-        Ok(Written {
+        let written = Written {
             record: record_id(&carried.bytes),
             pos: committed.pos,
             replayed: false,
-        })
+        };
+        if operation_of(record).is_some_and(|op| op != Operation::Request) {
+            self.publish_ends(caller, ledger, domain, &written, committed.recorded_at_ms)
+                .await;
+        }
+        Ok(written)
+    }
+
+    /// The ends of `commitment.active` the record `written` gave, read back from the ledger
+    /// with it, as Claims of Work's service Party in `domain` issued at `at_ms` (E-8, E-12).
+    async fn ends(
+        &self,
+        caller: &Caller,
+        ledger: &LedgerId,
+        domain: DomainId,
+        written: &Written,
+        at_ms: u64,
+    ) -> Result<Vec<Ended>, &'static str> {
+        let pep = self
+            .audience
+            .as_deref()
+            .and_then(|a| from_b64url(a).ok())
+            .and_then(|a| <[u8; 32]>::try_from(a).ok())
+            .ok_or("audience")?;
+        let issuer = self
+            .realms
+            .realms(caller.tenant.as_str())
+            .await
+            .map_err(|_| "realm_unreadable")?
+            .into_iter()
+            .find(|r| r.realm == caller.realm && r.state == RealmState::Paired)
+            .and_then(|r| r.party)
+            .ok_or("service_party")?;
+        let mut tx = LedgerTx::begin_snapshot(&self.canonical, &store_ledger(ledger))
+            .await
+            .map_err(|_| "ledger_unreadable")?;
+        let log = log_of(&mut tx).await;
+        let _closed = tx.rollback().await;
+        let folded =
+            fold(ledger, &log.map_err(|_| "ledger_unreadable")?).map_err(|_| "ledger_unfolded")?;
+        let views = folded.views(&facts()).map_err(|_| "ledger_unfolded")?;
+        Ok(views
+            .iter()
+            .flat_map(|v| {
+                v.active_ends
+                    .iter()
+                    .filter(|e| e.record == written.record)
+                    .filter_map(move |e| {
+                        Some(Ended {
+                            domain,
+                            issuer: KernelId(issuer),
+                            subject: kernel_id(&e.obligor)?,
+                            commitment: *v.root.0.as_bytes(),
+                            issued_at_ms: at_ms,
+                            pep,
+                        })
+                    })
+            })
+            .collect())
+    }
+
+    /// Hands Access the `commitment.active = false` Claim of every end the record `written`
+    /// gave (E-8, E-12): Work only ends commitment-scoped authority and never starts it. The
+    /// record is written whatever Access answers; every end stays derivable from the records,
+    /// and the same end gives the same Claim, so handing it over again is a replay.
+    async fn publish_ends(
+        &self,
+        caller: &Caller,
+        ledger: &LedgerId,
+        domain: DomainId,
+        written: &Written,
+        at_ms: u64,
+    ) {
+        let ends = match self.ends(caller, ledger, domain, written, at_ms).await {
+            Ok(ends) => ends,
+            Err(reason) => {
+                tracing::warn!(
+                    event = "commitment.active_end_unread",
+                    reason,
+                    "the ends of commitment.active a record gave are not read"
+                );
+                return;
+            }
+        };
+        for ended in &ends {
+            match bounded(self.access.commitment_ended(ended)).await {
+                Ok(Verdict::Admitted { replayed, .. }) => tracing::info!(
+                    event = "commitment.active_ended",
+                    replayed,
+                    "Access admitted the commitment.active = false Claim"
+                ),
+                Ok(Verdict::Quarantined { reason, .. }) => tracing::warn!(
+                    event = "commitment.active_end_held",
+                    reason = reason.as_str(),
+                    "Access holds the commitment.active = false Claim"
+                ),
+                Err(error) => tracing::warn!(
+                    event = "commitment.active_end_unsent",
+                    error = %error,
+                    "the commitment.active = false Claim did not reach Access"
+                ),
+            }
+        }
     }
 }
 
