@@ -2334,6 +2334,7 @@ id = "CM-60"
 family = "CM"
 status = "frozen-protocol"
 stage = 5
+acceptance = "to-fill"
 title = ""
 tests = [
   "crates/kernel/tests/commitments.rs::cm_40_cm_60_a_high_impact_acceptance_needs_a_step_up",
@@ -2346,6 +2347,7 @@ id = "CM-61"
 family = "CM"
 status = "frozen-protocol"
 stage = 5
+acceptance = "to-fill"
 title = ""
 tests = [
   "crates/kernel/tests/record_vectors.rs::cm_17_commitment_record_vectors",
@@ -2356,6 +2358,7 @@ id = "CM-62"
 family = "CM"
 status = "frozen-technical"
 stage = 5
+acceptance = "to-fill"
 title = ""
 tests = []
 
@@ -2372,6 +2375,7 @@ id = "CM-64"
 family = "CM"
 status = "frozen-protocol"
 stage = 5
+acceptance = "to-fill"
 title = ""
 tests = []
 
