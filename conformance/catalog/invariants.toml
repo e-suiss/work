@@ -712,6 +712,7 @@ status = "canonical-invariant"
 stage = 3
 title = ""
 tests = [
+  "crates/access-client/src/domain/commitments.rs::e_12_the_end_of_a_commitment_reads_back_as_an_unsigned_false_claim_over_work_s_pep",
   "crates/kernel/tests/commitments.rs::cm_29_cm_30_cancel_and_release_differ_and_end_commitment_active",
   "crates/kernel/tests/commitments.rs::cm_43_cm_44_delegation_is_two_records_and_the_old_obligor_stays_until_acceptance",
 ]
@@ -723,6 +724,7 @@ status = "canonical-invariant"
 stage = 5
 title = ""
 tests = [
+  "crates/access-client/src/domain/commitments.rs::e_12_the_end_of_a_commitment_reads_back_as_an_unsigned_false_claim_over_work_s_pep",
   "crates/kernel/tests/commitments.rs::cm_29_cm_30_cancel_and_release_differ_and_end_commitment_active",
   "crates/kernel/tests/commitments.rs::cm_43_cm_44_delegation_is_two_records_and_the_old_obligor_stays_until_acceptance",
 ]
