@@ -751,14 +751,14 @@ jobs:
           dir="$RUNNER_TEMP/access-local"
           acme="$(jq -er '.realms[] | select(.slug == "acme") | .tenant' "$dir/bootstrap.json")"
           party="$(jq -er '.support_operator.party' "$dir/organization.json")"
-          just test-compose-only "$dir" disabled::t_102_before_access_suspends_the_support_operator_it_is_named
+          just test-compose-only "$dir" suspension::t_102_before_access_suspends_the_support_operator_it_is_named
           if c logs work-server | grep -q 'access.party_disabled'; then exit 1; fi
-          just test-compose-only "$dir" disabled::t_102_access_s_root_suspends_the_support_operator
+          just test-compose-only "$dir" suspension::t_102_access_s_root_suspends_the_support_operator
           for _ in $(seq 1 180); do c logs work-server | grep 'access.party_disabled' | grep -qF -e "$party" && break; sleep 1; done
           c logs work-server | grep 'access.event_accepted' | grep 'party.disabled' | grep "$acme"
           c logs work-server | grep 'access.party_disabled' | grep -F -e "$party"
-          just test-compose-only "$dir" disabled::t_102_a_disabled_party_is_refused_as_a_caller
-          if c logs work-server | grep -q 'access.party_not_disabled\|access.event_refused'; then c logs work-server | grep 'access.party_not_disabled\|access.event_refused'; exit 1; fi
+          just test-compose-only "$dir" suspension::t_102_a_disabled_party_is_refused_as_a_caller
+          if c logs work-server | grep -q 'access.event_refused\|access.party_not_disabled'; then c logs work-server | grep 'access.event_refused\|access.party_not_disabled'; exit 1; fi
       - name: A compromise declaration reaches the entry as party.compromised with its window, which drops the domain's keys and raises a signal (T-102)
         run: |
           c() { docker compose -f deploy/compose/compose.yaml "$@"; }

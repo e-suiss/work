@@ -1162,7 +1162,7 @@ mod retired {
 /// account on the management API with Actor Intent Statements of its own key, as Access's
 /// command line signs a write; once `party.disabled` arrived at `work-server`, the token the
 /// operator still holds names no caller.
-mod disabled {
+mod suspension {
     use serde_json::{Value, json};
     use sha2::{Digest as _, Sha256};
     use suiss_crypto::cose::PublicKey;
