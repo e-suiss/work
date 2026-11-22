@@ -1995,6 +1995,7 @@ tests = [
   "crates/kernel/tests/commitments.rs::cm_26_a_rejection_returns_to_execution_and_counts_until_acceptance",
   "crates/kernel/tests/record_vectors.rs::cm_17_commitment_record_vectors",
   "crates/kernel/tests/records.rs::p_80_core_subtypes_require_their_reason_and_type_keys",
+  "crates/ledger/src/admit/tests.rs::t_98_a_commitment_record_names_its_event_on_the_commitment_and_changes_its_work",
   "crates/query/src/domain/commitments/tests.rs::e_45_every_commitment_operation_a_caller_writes_names_one_action",
 ]
 
@@ -3719,6 +3720,7 @@ acceptance = "to-fill"
 title = ""
 tests = [
   "crates/dispatch/src/domain.rs::p_39_an_event_type_outside_the_catalog_is_never_published",
+  "crates/ledger/src/admit/tests.rs::t_98_a_commitment_record_names_its_event_on_the_commitment_and_changes_its_work",
   "crates/ledger/src/admit/tests.rs::t_98_the_item_a_record_is_about_takes_its_type_and_every_other_item_changed",
   "crates/proto/src/events.rs::p_35_subject_and_dataschema_come_from_the_item_and_the_type",
   "crates/proto/src/events.rs::t_98_the_primary_type_of_a_gate_condition_is_a_gate_type",
@@ -6221,6 +6223,7 @@ tests = [
   "crates/ledger/src/admit/tests.rs::op_1_the_golden_ledger_replays_from_its_stored_bytes_to_the_admitted_records",
   "crates/ledger/src/admit/tests.rs::p_100_the_admission_path_seals_the_golden_ledger_byte_for_byte",
   "crates/ledger/src/admit/tests.rs::t_89_the_items_and_pointers_come_from_the_concerned_works_and_the_opened_area",
+  "crates/ledger/src/admit/tests.rs::t_98_a_commitment_record_names_its_event_on_the_commitment_and_changes_its_work",
   "crates/ledger/src/admit/tests.rs::t_98_the_item_a_record_is_about_takes_its_type_and_every_other_item_changed",
   "crates/ledger/src/areas.rs::t_89_an_area_keeps_the_version_and_heads_the_sequencer_stores",
   "crates/ledger/src/leader.rs::op_7_each_touch_reaches_the_store_with_its_expectation_and_no_version",
@@ -6437,6 +6440,7 @@ tests = [
   "crates/http/src/problem.rs::t_98_every_problem_has_a_stable_code_and_type",
   "crates/http/tests/openapi.rs::e_45_every_api_operation_names_exactly_one_action",
   "crates/http/tests/openapi.rs::t_98_the_committed_openapi_document_is_the_generated_one",
+  "crates/ledger/src/admit/tests.rs::t_98_a_commitment_record_names_its_event_on_the_commitment_and_changes_its_work",
   "crates/ledger/src/admit/tests.rs::t_98_the_item_a_record_is_about_takes_its_type_and_every_other_item_changed",
   "crates/ledger/src/auth_context/tests.rs::p_116_every_refusal_is_auth_context_invalid",
   "crates/proto/src/events.rs::t_98_event_names_are_the_item_and_a_past_tense_once_each",

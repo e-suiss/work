@@ -2477,6 +2477,7 @@ stage = 2
 title = ""
 tests = [
   "crates/kernel/tests/commitments.rs::t_89_a_commitment_record_touches_its_conflict_area",
+  "crates/ledger/src/admit/tests.rs::t_98_a_commitment_record_names_its_event_on_the_commitment_and_changes_its_work",
   "crates/ledger/src/areas.rs::t_89_an_area_keeps_the_version_and_heads_the_sequencer_stores",
   "crates/ledger/src/leader.rs::op_7_each_touch_reaches_the_store_with_its_expectation_and_no_version",
 ]

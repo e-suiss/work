@@ -791,3 +791,111 @@ fn p_13_the_authority_proof_is_kept_only_when_the_record_refers_to_it() {
         Err(AuthorityProofMismatch::Unnamed)
     );
 }
+
+const COMMITMENTS: &str = include_str!("../../../../conformance/vectors/records/commitments.json");
+
+/// The golden commitment case `id` as the golden human author's own unsigned record.
+fn commitment_case(id: &str) -> Golden {
+    let cases = json(COMMITMENTS);
+    let case = cases["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["id"] == id)
+        .unwrap()
+        .clone();
+    let mut v = decode(&unhex(case["hex"].as_str().unwrap()), Limits::CEILING).unwrap();
+    let Value::Map(fields) = &mut v else {
+        panic!("a record")
+    };
+    for (key, value) in fields.iter_mut() {
+        if matches!(key, Value::Text(k) if k == "author") {
+            *value = Value::text("party:acme:alice");
+        }
+    }
+    let record = suiss_crypto::dcbor::encode(&v, Limits::CEILING).unwrap();
+    let human = serde_json::json!({"author": ["human", "access_binding"]});
+    let (declared, bindings) = actor_inputs(&record, &human);
+    Golden {
+        id: id.to_owned(),
+        record,
+        envelope: Vec::new(),
+        cose: None,
+        declared,
+        bindings,
+        origin: Origin::Direct,
+        understood: Vec::new(),
+    }
+}
+
+// T-98 T-89 P-38 OP-7 CM-17
+#[test]
+fn t_98_a_commitment_record_names_its_event_on_the_commitment_and_changes_its_work() {
+    let request = commitment_case("commitment/request-offer");
+    let ledger = match decode(&request.record, Limits::CEILING)
+        .unwrap()
+        .get("ledger")
+    {
+        Some(v) => LedgerId::from_bytes(Digest::from_value(v).unwrap().0),
+        None => panic!("a ledger"),
+    };
+    let opened = pending(&request, &ledger).unwrap();
+    let root = opened.record_id();
+    let work = opened.items()[0].item;
+    let pointed = |p: &PendingRecord| -> Vec<(ItemRef, String)> {
+        p.outbox()
+            .iter()
+            .map(|e| (e.item, e.event_type.clone()))
+            .collect()
+    };
+    assert_eq!(
+        pointed(&opened),
+        vec![
+            (work, "work.changed".to_owned()),
+            (ItemRef::Commitment(root), "commitment.requested".to_owned()),
+        ]
+    );
+    let mut areas = Areas::default();
+    areas.replay(&request.record);
+    let promise = commitment_case("commitment/promise-items");
+    let artifact = artifact_of(&promise.record);
+    let paired = realm::paired();
+    let promised = REALM.with(|r| {
+        admit(
+            &Directory::golden(),
+            &ledger,
+            Submission {
+                arrival: Arrival::Unsigned {
+                    record: &promise.record,
+                    auth_context: AuthContext {
+                        bytes: &artifact.cose,
+                        digest: &artifact.digest,
+                        realm_keys: r.keys(),
+                        issuer: ISSUER,
+                        paired: &paired,
+                        now_ms: ADMITTED_AT,
+                    },
+                },
+                declared: &promise.declared,
+                bindings: &promise.bindings,
+                origin: Origin::Direct,
+                understood_extensions: &[],
+                limits: SemanticLimits::default(),
+                event_type: "work.updated",
+                traceparent: TRACE,
+                idempotency: None,
+                inbound: None,
+                areas: Some(&areas),
+            },
+        )
+        .unwrap()
+    });
+    assert_eq!(
+        pointed(&promised),
+        vec![
+            (work, "work.changed".to_owned()),
+            (ItemRef::Commitment(root), "commitment.promised".to_owned()),
+        ]
+    );
+    assert_eq!(promised.items()[1].expect, Expect::Version(1));
+}
