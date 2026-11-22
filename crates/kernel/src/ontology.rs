@@ -407,7 +407,7 @@ pub const COUNTERPARTS: &[(&str, Counterpart)] = &[
     ("signal", Counterpart::Claim(ClaimSubtype::Observation)),
     ("agent_session", Counterpart::Reference),
     (
-        "agent_approved_message",
+        "agent_to_agent_message",
         Counterpart::Claim(ClaimSubtype::Observation),
     ),
     (
