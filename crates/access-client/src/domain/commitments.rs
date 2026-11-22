@@ -189,6 +189,7 @@ mod tests {
     // E-12 E-8
     #[test]
     fn e_12_the_end_of_a_commitment_reads_back_as_an_unsigned_false_claim_over_work_s_pep() {
+        assert!(work_proto::action::CLAIM_CLASSES.contains(&CLASS));
         let bytes = claim_bytes(&ended()).unwrap();
         let read = unsigned(&bytes, &Digest([1; 32]), &Channel::Pep([5; 32])).unwrap();
         let s = &read.statement;

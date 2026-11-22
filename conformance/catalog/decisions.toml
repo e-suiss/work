@@ -1696,6 +1696,7 @@ tests = [
   "crates/query/src/domain/commitments/tests.rs::e_45_every_commitment_operation_a_caller_writes_names_one_action",
   "crates/query/src/domain/writes/tests.rs::e_45_the_exercise_is_the_work_commit_intent_of_this_ledger_and_valid_now",
   "crates/query/src/domain/writes/tests.rs::e_45_the_route_writes_only_operations_work_commit_covers",
+  "crates/query/src/domain/writes/tests.rs::e_45_work_s_pep_commits_the_intent_of_every_commitment_write_action_and_no_other",
   "xtask/src/contracts_openapi.rs::e_45_every_mutating_operation_names_one_action",
 ]
 
@@ -2139,6 +2140,7 @@ status = "frozen-product"
 title = ""
 tests = [
   "crates/kernel/tests/commitments.rs::cm_32_cm_33_obsolete_and_administrative_close_name_their_initiator",
+  "crates/query/src/domain/writes/tests.rs::e_45_work_s_pep_commits_the_intent_of_every_commitment_write_action_and_no_other",
 ]
 
 [[rule]]
@@ -2193,6 +2195,7 @@ status = "frozen-product"
 title = ""
 tests = [
   "crates/kernel/tests/commitments.rs::cm_40_cm_60_a_high_impact_acceptance_needs_a_step_up",
+  "crates/query/src/domain/writes/tests.rs::e_45_work_s_pep_commits_the_intent_of_every_commitment_write_action_and_no_other",
 ]
 
 [[rule]]
@@ -6602,6 +6605,7 @@ tests = [
   "crates/query/src/domain/authority.rs::e_17_an_approval_state_is_used_once_by_its_own_caller_before_it_expires",
   "crates/query/src/domain/authority.rs::t_101_a_request_s_access_keys_and_state_are_its_caller_s_alone",
   "crates/query/src/domain/writes/tests.rs::e_45_the_exercise_is_the_work_commit_intent_of_this_ledger_and_valid_now",
+  "crates/query/src/domain/writes/tests.rs::e_45_work_s_pep_commits_the_intent_of_every_commitment_write_action_and_no_other",
   "crates/query/src/domain/writes/tests.rs::p_105_a_record_whose_author_is_not_the_key_s_party_is_kid_unknown",
   "crates/query/src/domain/writes/tests.rs::sec_19_a_record_signed_after_a_compromise_or_with_an_ended_key_is_kid_unknown",
   "xtask/src/rules_deps.rs::t_101_clients_verify_and_keep_keys_through_the_shared_crypto_crate",

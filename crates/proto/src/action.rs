@@ -9,6 +9,11 @@ pub const CATALOG_VERSION: u32 = 1;
 /// The major version of every action (E-45 item 1).
 pub const ACTION_MAJOR: u32 = 1;
 
+/// The Claim classes the package declares: `commitment_active`, a `bytes` value used as a
+/// `predicate-input`, whose `false` ends a Grant held while the commitment is active and never
+/// starts one (E-8, E-12, Access OP-156 m.3 (b)).
+pub const CLAIM_CLASSES: [&str; 1] = ["commitment_active"];
+
 /// The Access `effect_class` of an action (E-45 item 2).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum EffectClass {

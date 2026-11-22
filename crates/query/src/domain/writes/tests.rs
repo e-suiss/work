@@ -287,3 +287,30 @@ fn e_45_the_route_writes_only_operations_work_commit_covers() {
     assert!(!commit_operation(&record("record/claim-comment-private")));
     assert!(!commit_operation(&record("record/act-action-fulfills")));
 }
+
+// E-45 T-101 CM-40 CM-33
+#[test]
+fn e_45_work_s_pep_commits_the_intent_of_every_commitment_write_action_and_no_other() {
+    let ledger = record("record/declaration-cancel-reason-sub-code")
+        .core()
+        .ledger;
+    for action in WRITE_ACTIONS {
+        assert_eq!(
+            check_write_intent(&intent(action, &ledger), &ledger, 150),
+            Ok(()),
+            "{action}"
+        );
+    }
+    for action in ["redact", "read", "disclose"] {
+        assert_eq!(
+            check_write_intent(&intent(action, &ledger), &ledger, 150),
+            Err("intent_action"),
+            "{action}"
+        );
+    }
+    let close = intent("close", &ledger);
+    assert_eq!(
+        check_write_intent(&close, &ledger, 201),
+        Err("intent_expired")
+    );
+}

@@ -25,7 +25,7 @@ use crate::domain::authority::{
     expires_at, forwarded_key, state_refusal,
 };
 use crate::domain::caller::Caller;
-use crate::domain::writes::{WriteRefusal, check_intent};
+use crate::domain::writes::{WriteRefusal, check_write_intent};
 use crate::ports::{AuthorityRequests, Pending};
 
 /// The authority requests over the Access client, the canonical rows read as `work_app` and
@@ -180,7 +180,7 @@ where
         let intent =
             Intent::from_bytes(&ask.intent).map_err(|_| WriteRefusal::Invalid("intent"))?;
         let request_expires_at_ms = expires_at(now_ms, intent.valid_until_ms);
-        check_intent(&intent, ledger, now_ms).map_err(WriteRefusal::Denied)?;
+        check_write_intent(&intent, ledger, now_ms).map_err(WriteRefusal::Denied)?;
         self.exists(ledger).await?;
         let (domain, _) = caller_realm(&self.realms, caller).await?;
         let statement = Statement {

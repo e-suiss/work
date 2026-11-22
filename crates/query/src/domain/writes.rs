@@ -264,6 +264,33 @@ pub fn check_intent(intent: &Intent, ledger: &LedgerId, now_ms: u64) -> Result<(
     check_action(intent, ledger, now_ms, COMMIT)
 }
 
+/// The actions of the commitment operations a caller writes, which Work's PEP commits an intent
+/// for (E-45 item 2).
+pub const WRITE_ACTIONS: [&str; 5] = [
+    COMMIT,
+    "close",
+    "assign",
+    "administrative_close",
+    "autonomy_policy_set",
+];
+
+/// Whether `intent` is the intent of one of [`WRITE_ACTIONS`] on `ledger` valid at `now_ms`
+/// (E-45 items 2, 3, T-101 item 2).
+///
+/// # Errors
+/// As [`check_intent`].
+pub fn check_write_intent(
+    intent: &Intent,
+    ledger: &LedgerId,
+    now_ms: u64,
+) -> Result<(), &'static str> {
+    let action = WRITE_ACTIONS
+        .into_iter()
+        .find(|a| intent.action == *a)
+        .ok_or("intent_action")?;
+    check_action(intent, ledger, now_ms, action)
+}
+
 /// Whether `intent` is the `work:<action>` intent of `ledger` valid at `now_ms` (E-45 items 2,
 /// 3).
 ///
