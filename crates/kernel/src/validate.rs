@@ -234,7 +234,6 @@ enum ParamKind {
     Address,
     Deadline,
     Criterion,
-    RedactTarget,
     RedactParts,
     RedactReason,
     Party,
@@ -276,7 +275,7 @@ const OPEN_CONDITION: &[ParamKey] = &[
 const REDACT: &[ParamKey] = &[
     key("parts", ParamKind::RedactParts, true),
     key("reason", ParamKind::RedactReason, true),
-    key("target", ParamKind::RedactTarget, true),
+    key("target", ParamKind::RecordRef, true),
 ];
 
 // C-11 CM-4 CM-6 C-44
@@ -362,7 +361,6 @@ fn kind_ok(kind: ParamKind, value: &ParamValue, practices: &[PracticePin]) -> bo
                 || matches!(value, ParamValue::Scalar(ParamScalar::Text(t)) if t == DEADLINE_NONE)
         }
         ParamKind::Criterion => catalog_text(value, TypeUri::parse),
-        ParamKind::RedactTarget => matches!(value, ParamValue::Scalar(ParamScalar::Digest(_))),
         ParamKind::RedactParts => part_names_ok(value),
         ParamKind::RedactReason => catalog_text(value, RedactReason::from_wire_name),
         ParamKind::Party => catalog_text(value, PartyRef::new),
