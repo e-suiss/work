@@ -688,7 +688,7 @@ fn cm_52_only_a_declared_wait_on_an_addressed_party_pauses_the_clock() {
     assert_eq!(resumed.state, ClockState::Running);
     assert_eq!(resumed.paused_since, None);
     assert_eq!(resumed.elapsed, 3 * HOUR);
-    assert!(resumed.refused.is_empty());
+    assert_eq!(resumed.refused, Vec::new());
 }
 
 // CM-52
