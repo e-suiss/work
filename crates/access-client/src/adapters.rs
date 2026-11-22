@@ -352,7 +352,9 @@ impl std::fmt::Debug for TokenSigner {
 }
 
 impl TokenSigner {
-    fn of(signer: HsmSigner) -> Self {
+    /// The key of `signer`, shared behind a lock.
+    #[must_use]
+    pub fn of(signer: HsmSigner) -> Self {
         Self {
             key: signer.public_key(),
             algorithm: signer.algorithm(),

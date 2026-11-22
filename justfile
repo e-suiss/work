@@ -31,7 +31,7 @@ test-containers:
 # OP-32, OP-42, OP-43, T-41, T-96, T-101
 test-compose:
     dir="$(mktemp -d)"; just dev-access "$dir"; \
-    WORK_ACCESS_LOCAL="$dir" SOFTHSM2_CONF="$dir/softhsm2.conf" cargo nextest run --workspace --locked --no-tests=fail --run-ignored only -E 'binary(=compose) & not test(/^(signed|upkeep|status|retired|commit)::/)'
+    WORK_ACCESS_LOCAL="$dir" SOFTHSM2_CONF="$dir/softhsm2.conf" cargo nextest run --workspace --locked --no-tests=fail --run-ignored only -E 'binary(=compose) & not test(/^(signed|upkeep|status|retired|commit|disabled|service)::/)'
 
 # T-103: disables Work's platform stream as its owner, for the CI job to check that work-server
 # opens it again after a restart
@@ -186,13 +186,15 @@ dev:
     @echo "Witness        http://127.0.0.1:${WORK_DEV_WITNESS_PORT:-7390}  (litewitness, C2SP tlog-witness)"
     @echo "Work server    http://127.0.0.1:${WORK_DEV_SERVER_PORT:-8190}  (health http://127.0.0.1:${WORK_DEV_SERVER_INTERNAL_PORT:-8191}/readyz, signer socket in volume signer-socket)"
 
-# T-96, T-101, T-103, T-56: Access's CA, bootstrap.json, Work's PEP certificate, a copy of the
+# T-96, T-101, T-103, T-56: Access's CA, bootstrap.json, the summary of the synthetic
+# organization once the environment opened it, Work's PEP certificate, a copy of the
 # work-dev token that holds its key and of Access's token that holds the test user's passkey with
 # its PIN, and a SoftHSM configuration for those copies
 dev-access dir:
     mkdir -p "{{dir}}/tokens"
     {{compose}} exec -T access cat /var/lib/access/certs/ca.crt > "{{dir}}/ca.crt"
     {{compose}} exec -T access cat /var/lib/access/bootstrap/bootstrap.json > "{{dir}}/bootstrap.json"
+    {{compose}} exec -T access sh -c 'cat /var/lib/access/bootstrap/organization.json 2>/dev/null || true' > "{{dir}}/organization.json"
     {{compose}} run --rm --no-deps -T --entrypoint cat work-access-pep /var/lib/access/product-tls/work-pep.crt > "{{dir}}/work-pep.crt"
     {{compose}} exec -T softhsm tar -C /var/lib/softhsm/tokens -cf - . | tar -C "{{dir}}/tokens" -xf -
     {{compose}} cp access:/var/lib/softhsm/tokens/. "{{dir}}/tokens/"

@@ -536,7 +536,7 @@ jobs:
           printf 'directories.tokendir = %s\nobjectstore.backend = file\nlog.level = ERROR\n' \
             "$RUNNER_TEMP/softhsm/tokens" > "$RUNNER_TEMP/softhsm/softhsm2.conf"
           echo "SOFTHSM2_CONF=$RUNNER_TEMP/softhsm/softhsm2.conf" >> "$GITHUB_ENV"
-          echo "127.0.0.1 access-server" | sudo tee -a /etc/hosts
+          echo "127.0.0.1 access-server access-server.local" | sudo tee -a /etc/hosts
           echo "127.0.0.1 relay" | sudo tee -a /etc/hosts
       - name: Local environment starts (T-41, T-51, T-56, T-57)
         run: just dev
@@ -716,6 +716,49 @@ jobs:
           test "$(q -c "select count(distinct (access_pos, access_idx)) from work.access_organization where tenant = '$acme'")" = 2
           test "$(c logs work-server | grep 'access.organization_mapped' | grep -c "$acme")" = 2
           if c logs work-server | grep -q 'access.event_refused'; then c logs work-server | grep 'access.event_refused'; exit 1; fi
+      - name: Access's bootstrap root renames the synthetic organization on the management API, and organization.updated moves its mapping to the later Access position (E-3, T-96, T-102)
+        run: |
+          c() { docker compose -f deploy/compose/compose.yaml "$@"; }
+          q() { c exec -T -e PGPASSWORD=local-only-not-a-secret work-postgres psql -h 127.0.0.1 -U work_app -d work -tA "$@"; }
+          dir="$RUNNER_TEMP/access-local"
+          acme="$(jq -er '.realms[] | select(.slug == "acme") | .tenant' "$dir/bootstrap.json")"
+          issuer="$(jq -er '.realms[] | select(.slug == "acme") | .issuer' "$dir/bootstrap.json")"
+          domain="$(jq -er '.realms[] | select(.slug == "acme") | .domain' "$dir/bootstrap.json")"
+          party="$(jq -er '.support_operator.organisation_party' "$dir/organization.json")"
+          anchor="$(python3 -I -c 'import base64, hashlib, sys; d = base64.urlsafe_b64decode(sys.argv[1] + "=="); named = bytes([0x83, 0x82, 0x2f, 0x58, 0x20]) + d + b"\x66anchor\x01"; print(base64.urlsafe_b64encode(hashlib.sha256(b"access/object/v1\x00" + named).digest()[:16]).rstrip(b"=").decode())' "$domain")"
+          positions() { q -c "select organization, access_pos, access_idx from work.access_organization where tenant = '$acme' order by organization"; }
+          positions > "$RUNNER_TEMP/organization-positions"
+          c run --rm --no-deps -T --entrypoint sh access-bootstrap -c 'printf %s "{\"display_name\":\"Acme Support Desk\"}" > /tmp/organization.json && access-cli admin --api https://access-server.local:9443 --realm acme --issuer "$1" --ca /var/lib/access/certs/ca.crt --pkcs11 "pkcs11:token=access-server;object=access%2Fbootstrap%2Froot?module-path=/usr/lib/softhsm/libsofthsm2.so&pin-source=file:/var/lib/access/secrets/hsm-access-server" --basis "anchor:$2" update organizations "$3" --patch --body /tmp/organization.json' sh "$issuer" "$anchor" "$party"
+          for _ in $(seq 1 180); do c logs work-server | grep 'access.event_accepted' | grep 'organization.updated' | grep -q "$acme" && break; sleep 1; done
+          c logs work-server | grep 'access.event_accepted' | grep 'organization.updated' | grep "$acme"
+          c logs work-server | grep 'access.organization_changed' | grep "$acme"
+          positions
+          test "$(positions | diff "$RUNNER_TEMP/organization-positions" - | grep -c '^>')" = 1
+          test "$(q -c "select count(*) from work.access_organization where tenant = '$acme' and origin = 'event'")" = 2
+          if c logs work-server | grep -q 'access.event_refused'; then c logs work-server | grep 'access.event_refused'; exit 1; fi
+      - name: Another platform product pairs with the platform realm with keys of its own in the token, and work-server names the service token Access gives it for Work by its service Party (E-7, T-99, T-104)
+        env:
+          NEXTEST_PROFILE: ci
+        run: |
+          dir="$RUNNER_TEMP/access-local"
+          jq -er '.clients[] | select(.product == "one") | .client_id' "$dir/bootstrap.json"
+          just test-compose-only "$dir" service::e_7_a_product_s_service_token_names_its_service_party_at_work_server
+      - name: Access's bootstrap root suspends the support operator's account, party.disabled reaches work-server, which drops the Party and refuses the token it still holds (T-102, T-28)
+        env:
+          NEXTEST_PROFILE: ci
+        run: |
+          c() { docker compose -f deploy/compose/compose.yaml "$@"; }
+          dir="$RUNNER_TEMP/access-local"
+          acme="$(jq -er '.realms[] | select(.slug == "acme") | .tenant' "$dir/bootstrap.json")"
+          party="$(jq -er '.support_operator.party' "$dir/organization.json")"
+          just test-compose-only "$dir" disabled::t_102_before_access_suspends_the_support_operator_it_is_named
+          if c logs work-server | grep -q 'access.party_disabled'; then exit 1; fi
+          just test-compose-only "$dir" disabled::t_102_access_s_root_suspends_the_support_operator
+          for _ in $(seq 1 180); do c logs work-server | grep 'access.party_disabled' | grep -qF -e "$party" && break; sleep 1; done
+          c logs work-server | grep 'access.event_accepted' | grep 'party.disabled' | grep "$acme"
+          c logs work-server | grep 'access.party_disabled' | grep -F -e "$party"
+          just test-compose-only "$dir" disabled::t_102_a_disabled_party_is_refused_as_a_caller
+          if c logs work-server | grep -q 'access.party_not_disabled\|access.event_refused'; then c logs work-server | grep 'access.party_not_disabled\|access.event_refused'; exit 1; fi
       - name: A compromise declaration reaches the entry as party.compromised with its window, which drops the domain's keys and raises a signal (T-102)
         run: |
           c() { docker compose -f deploy/compose/compose.yaml "$@"; }

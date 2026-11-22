@@ -58,6 +58,7 @@ const ACCESS_TOKEN: &str = "access-server";
 const ACCESS_PIN_FILE: &str = "access-hsm-pin";
 const PASSKEY_LABEL: &str = "access/bootstrap/test-user-passkey";
 const RETIRED_TOKEN: &str = "retired-token";
+const ORGANIZATION_FILE: &str = "organization.json";
 const POLL: Duration = Duration::from_secs(30);
 
 struct At(u64);
@@ -213,6 +214,30 @@ impl Local {
             .iter()
             .find(|c| c["product"] == "work")
             .unwrap()["client_id"]
+            .as_str()
+            .unwrap()
+            .to_owned()
+    }
+
+    /// The support operator of the organization the local environment opens once Work's stream
+    /// is up, from the summary `just dev-access` copied beside `bootstrap.json`.
+    fn operator(&self, key: &str) -> String {
+        let summary: Value =
+            serde_json::from_slice(&std::fs::read(self.dir.join(ORGANIZATION_FILE)).unwrap())
+                .unwrap();
+        summary["support_operator"][key]
+            .as_str()
+            .unwrap_or_else(|| panic!("support_operator.{key}"))
+            .to_owned()
+    }
+
+    fn client_of(&self, product: &str) -> String {
+        self.bootstrap["clients"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|c| c["product"] == product)
+            .unwrap_or_else(|| panic!("no {product} client in the bootstrap"))["client_id"]
             .as_str()
             .unwrap()
             .to_owned()
@@ -473,6 +498,17 @@ impl Local {
     /// The sign-in of [`Local::login`], with the password and the passkey as its second factor
     /// or, `passkey_first`, with the passkey alone (AAL2), and the realm session's cookies.
     async fn session(&self, key: &HsmSigner, passkey_first: bool) -> Result<(Value, Jar), Answer> {
+        self.sign_in(key, &self.user("identifier"), passkey_first)
+            .await
+    }
+
+    /// The sign-in of [`Local::session`] for the `acme` account `identifier`.
+    async fn sign_in(
+        &self,
+        key: &HsmSigner,
+        identifier: &str,
+        passkey_first: bool,
+    ) -> Result<(Value, Jar), Answer> {
         let issuer = self.issuer("acme");
         let client_id = self.user("client_id");
         let redirect = self.user("redirect_uri");
@@ -507,9 +543,12 @@ impl Local {
         }
         let identified = self
             .post_json(
-                &format!("{issuer}{}", started.json()["action"].as_str().unwrap_or_default()),
+                &format!(
+                    "{issuer}{}",
+                    started.json()["action"].as_str().unwrap_or_default()
+                ),
                 &mut jar,
-                Some(json!({"method": "identifier", "fields": {"identifier": self.user("identifier")}})),
+                Some(json!({"method": "identifier", "fields": {"identifier": identifier}})),
             )
             .await;
         if identified.status != 200 || identified.json()["step"] != "authenticate" {
@@ -1118,6 +1157,475 @@ mod retired {
     }
 }
 
+/// Around Access suspending an account (T-102 item 5): the support operator the local
+/// environment opens signs in and is named by its Party; Access's bootstrap root suspends the
+/// account on the management API with Actor Intent Statements of its own key, as Access's
+/// command line signs a write; once `party.disabled` arrived at `work-server`, the token the
+/// operator still holds names no caller.
+mod disabled {
+    use serde_json::{Value, json};
+    use sha2::{Digest as _, Sha256};
+    use suiss_crypto::cose::PublicKey;
+    use suiss_crypto::dcbor::{self, Limits, Value as Cbor};
+    use suiss_crypto::pkcs11::{HsmSigner, KeyStore};
+    use suiss_crypto::secret::Secret;
+    use suiss_crypto::signer::{Signer as _, sign_sign1};
+    use work_access_client::domain::metadata::thumbprint;
+    use work_access_client::domain::token::token_hash;
+    use work_access_client::domain::{b64url, fixed_b64url, from_b64url};
+
+    use super::commit::map;
+    use super::{ACCESS_PIN_FILE, ACCESS_TOKEN, Local, UNSEEN, form, ledger_path, module, payload};
+
+    const DISABLED_TOKEN: &str = "disabled-token";
+    const ROOT_LABEL: &str = "access/bootstrap/root";
+    const AIS_TYPE: &str = "application/access-ais+cbor";
+    const IDENTITY_PEP: &str = "access-identity";
+    const MANAGEMENT: &str = "https://access-server.local:9443/admin/v1/realms/acme";
+    const AUDIENCE: &str = "access-admin:realm:acme";
+    const READ_SCOPE: &str = "realm.read";
+
+    /// Access's bootstrap root key, in the copy of Access's token (T-56).
+    fn root(local: &Local) -> HsmSigner {
+        let pin = std::fs::read_to_string(local.dir.join(ACCESS_PIN_FILE)).unwrap();
+        KeyStore::open(&module(), ACCESS_TOKEN, &Secret::new(pin.trim().to_owned()))
+            .unwrap()
+            .signer(ROOT_LABEL)
+            .unwrap()
+    }
+
+    /// `SHA-256(label ‖ 0x00 ‖ canonical)`, Access's digest under a context label.
+    fn labelled(label: &str, canonical: &[u8]) -> [u8; 32] {
+        let mut h = Sha256::new();
+        h.update(label.as_bytes());
+        h.update([0]);
+        h.update(canonical);
+        h.finalize().into()
+    }
+
+    fn digest(d: &[u8; 32]) -> Cbor {
+        Cbor::Array(vec![Cbor::int(-16), Cbor::Bytes(d.to_vec())])
+    }
+
+    /// The identity anchor of `domain`, the basis the root's management statements declare:
+    /// the second anchor Genesis opens.
+    fn anchor(domain: &[u8; 32]) -> Vec<u8> {
+        let named = Cbor::Array(vec![
+            digest(domain),
+            Cbor::text("anchor"),
+            Cbor::Unsigned(1),
+        ]);
+        let id = labelled(
+            "access/object/v1",
+            &dcbor::encode(&named, Limits::CEILING).unwrap(),
+        );
+        id[..16].to_vec()
+    }
+
+    /// The root's Actor Intent Statement over `intent` in `mode`, addressed to `pep`, as a
+    /// tagged `COSE_Sign1`, unpadded base64url.
+    fn statement(
+        key: &HsmSigner,
+        domain: &[u8; 32],
+        (mode, pep): (&str, &str),
+        intent: &[u8; 32],
+        nonce: &[u8],
+        now_ms: u64,
+    ) -> String {
+        let payload = map(vec![
+            ("domain", digest(domain)),
+            ("nonce", Cbor::Bytes(nonce.to_vec())),
+            ("intent", digest(intent)),
+            ("mode", Cbor::text(mode)),
+            ("pep", Cbor::text(pep)),
+            ("capacity", Cbor::text("own")),
+            ("basis", map(vec![("anchor", Cbor::Bytes(anchor(domain)))])),
+            ("iat", Cbor::Unsigned(now_ms)),
+        ]);
+        let bytes = dcbor::encode(&payload, Limits::CEILING).unwrap();
+        b64url(&sign_sign1(key, thumbprint(&key.public_key()), AIS_TYPE, &bytes).unwrap())
+    }
+
+    /// A `DPoP` proof of the root's Ed25519 key.
+    fn proof(
+        local: &Local,
+        key: &HsmSigner,
+        (method, url): (&str, &str),
+        now_s: u64,
+        nonce: Option<&str>,
+        token: Option<&str>,
+    ) -> String {
+        let PublicKey::Ed25519(x) = key.public_key() else {
+            panic!("the bootstrap root key is Ed25519");
+        };
+        let header = json!({
+            "typ": "dpop+jwt",
+            "alg": "Ed25519",
+            "jwk": {"crv": "Ed25519", "kty": "OKP", "x": b64url(&x)},
+        });
+        let mut claims = json!({"jti": local.random(), "htm": method, "htu": url, "iat": now_s});
+        if let Some(n) = nonce {
+            claims["nonce"] = json!(n);
+        }
+        if let Some(t) = token {
+            claims["ath"] = json!(token_hash(t));
+        }
+        let input = format!(
+            "{}.{}",
+            b64url(header.to_string().as_bytes()),
+            b64url(claims.to_string().as_bytes())
+        );
+        let signature = key.sign(input.as_bytes()).unwrap();
+        format!("{input}.{}", b64url(&signature))
+    }
+
+    /// The management read token of the root: an RFC 8693 exchange of its own `check`
+    /// statement at the realm's token endpoint, bound to its key.
+    async fn read_token(local: &Local, key: &HsmSigner, domain: &[u8; 32], now_s: u64) -> String {
+        let url = format!("{}/token", local.issuer("acme"));
+        let intent = labelled(
+            "access/management-read/v1",
+            format!("{AUDIENCE}\0{READ_SCOPE}").as_bytes(),
+        );
+        let mut nonce: Option<String> = None;
+        loop {
+            let fresh = from_b64url(&local.random()).unwrap();
+            let subject = statement(
+                key,
+                domain,
+                ("check", IDENTITY_PEP),
+                &intent,
+                &fresh,
+                now_s * 1000,
+            );
+            let body = form(&[
+                (
+                    "grant_type",
+                    "urn:ietf:params:oauth:grant-type:token-exchange",
+                ),
+                ("subject_token_type", "urn:suiss:access:token-type:ais"),
+                ("subject_token", &subject),
+                (
+                    "requested_token_type",
+                    "urn:ietf:params:oauth:token-type:access_token",
+                ),
+                ("audience", AUDIENCE),
+                ("scope", READ_SCOPE),
+            ]);
+            let dpop = proof(local, key, ("POST", &url), now_s, nonce.as_deref(), None);
+            let answer = local
+                .send(
+                    "POST",
+                    &url,
+                    &[("dpop", &dpop)],
+                    Some(("application/x-www-form-urlencoded", body.into_bytes())),
+                )
+                .await;
+            if answer.status == 200 {
+                return answer.json()["access_token"].as_str().unwrap().to_owned();
+            }
+            match answer.header("dpop-nonce") {
+                Some(n) if nonce.is_none() => nonce = Some(n.to_owned()),
+                _ => panic!("no management read token: {answer:?}"),
+            }
+        }
+    }
+
+    /// The draft of one management write, which changes nothing.
+    async fn drafted(
+        local: &Local,
+        key: &HsmSigner,
+        token: &str,
+        now_s: u64,
+        asked: &Value,
+    ) -> Value {
+        let url = format!("{MANAGEMENT}/intents");
+        let authorization = format!("DPoP {token}");
+        let mut nonce: Option<String> = None;
+        loop {
+            let dpop = proof(
+                local,
+                key,
+                ("POST", &url),
+                now_s,
+                nonce.as_deref(),
+                Some(token),
+            );
+            let answer = local
+                .send(
+                    "POST",
+                    &url,
+                    &[("authorization", &authorization), ("dpop", &dpop)],
+                    Some(("application/json", asked.to_string().into_bytes())),
+                )
+                .await;
+            if answer.status == 200 {
+                return answer.json();
+            }
+            match answer.header("dpop-nonce") {
+                Some(n) if nonce.is_none() => nonce = Some(n.to_owned()),
+                _ => panic!("no draft: {answer:?}"),
+            }
+        }
+    }
+
+    // T-102 T-104
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore = "needs the local environment with its support operator and its realms signing"]
+    async fn t_102_before_access_suspends_the_support_operator_it_is_named() {
+        let local = Local::open();
+        let key = local.dpop();
+        let identifier = local.operator("identifier");
+        let mut tokens = local.sign_in(&key, &identifier, false).await;
+        for _ in 0..6 {
+            match &tokens {
+                Err(answer) if answer.status == 429 => {
+                    tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+                    tokens = local.sign_in(&key, &identifier, false).await;
+                }
+                _ => break,
+            }
+        }
+        let (tokens, _) = tokens.unwrap();
+        let token = tokens["access_token"].as_str().unwrap();
+        let named = local.read(&key, &ledger_path().0, token).await;
+        assert_eq!(named.status, UNSEEN.0, "{named:?}");
+        std::fs::write(local.dir.join(DISABLED_TOKEN), token).unwrap();
+    }
+
+    // T-102
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore = "needs the local environment with its support operator"]
+    async fn t_102_access_s_root_suspends_the_support_operator() {
+        let local = Local::open();
+        let key = root(&local);
+        let domain: [u8; 32] =
+            fixed_b64url(local.realm("acme")["domain"].as_str().unwrap()).unwrap();
+        let now_s = local.access_now_s().await;
+        let token = read_token(&local, &key, &domain, now_s).await;
+        let account = local.operator("subject");
+        let asked = json!({"operation": "suspendAccount", "key": account, "body": {}});
+        let draft = drafted(&local, &key, &token, now_s, &asked).await;
+        assert_eq!(draft["operation"], "suspendAccount", "{draft}");
+        let intent: [u8; 32] = fixed_b64url(draft["intent_digest"].as_str().unwrap()).unwrap();
+        let nonce = from_b64url(&local.random()).unwrap();
+        let ais = statement(
+            &key,
+            &domain,
+            ("commit", draft["pep"].as_str().unwrap()),
+            &intent,
+            &nonce,
+            now_s * 1000,
+        );
+        let idempotency = b64url(&nonce);
+        let written = local
+            .send(
+                "POST",
+                &format!("{MANAGEMENT}/accounts/{account}/suspend"),
+                &[("x-access-ais", &ais), ("idempotency-key", &idempotency)],
+                Some(("application/json", draft["body"].to_string().into_bytes())),
+            )
+            .await;
+        assert!(matches!(written.status, 200 | 201), "{written:?}");
+    }
+
+    // T-102 T-28
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore = "needs the local environment with the support operator suspended"]
+    async fn t_102_a_disabled_party_is_refused_as_a_caller() {
+        let local = Local::open();
+        let key = local.dpop();
+        let token = std::fs::read_to_string(local.dir.join(DISABLED_TOKEN)).unwrap();
+        assert!(
+            payload(&token)["exp"].as_u64().unwrap() > local.access_now_s().await + 30,
+            "the token is still good at Access's now"
+        );
+        let refused = local.read(&key, &ledger_path().0, &token).await;
+        assert_eq!(refused.status, 401, "{refused:?}");
+        assert!(
+            refused
+                .header("www-authenticate")
+                .is_some_and(|c| c.starts_with("DPoP")),
+            "{refused:?}"
+        );
+    }
+}
+
+/// Another platform product calls `work-server` with a service token (E-7, T-99 item 4): the
+/// local environment registers the product `one` with keys born in Work's token copy, it pairs
+/// with the platform realm the way Work pairs, asks the realm for a token whose `resource` is
+/// Work's `client_id`, and `work-server` names it by its service Party in Work's own sector.
+mod service {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::time::Duration;
+
+    use sha2::{Digest as _, Sha256};
+    use suiss_crypto::pkcs11::KeyStore;
+    use suiss_crypto::secret::Secret;
+    use suiss_crypto::signer::Signer as _;
+    use work_access_client::adapters::{
+        DEFAULT_TIMEOUT, HttpsTransport, TokenSigner, public_config,
+    };
+    use work_access_client::app::platform::{Platform, sign_challenge};
+    use work_access_client::app::service::{ServiceTokens, Target};
+    use work_access_client::domain::AccessError;
+    use work_access_client::domain::discovery::Issuer;
+    use work_access_client::domain::pairing::{Target as Realm, plan_challenges};
+    use work_access_client::ports::Random;
+    use work_proto::id::TenantId;
+
+    use super::{At, Local, PIN, TOKEN, UNSEEN, WORK, ledger_path, module, names, payload};
+
+    const PRODUCT: &str = "one";
+    const CLIENT_LABEL: &str = "one-access-client";
+    const SERVICE_LABEL: &str = "one-access-service";
+    const DPOP_LABEL: &str = "one-access-dpop";
+    const PAIRING_WAIT: Duration = Duration::from_secs(120);
+
+    /// Fresh bytes: the hash of the test's start and a counter.
+    struct Fresh(AtomicU64, u64);
+
+    impl Random for Fresh {
+        fn fill(&self, out: &mut [u8]) -> Result<(), AccessError> {
+            let n = self.0.fetch_add(1, Ordering::SeqCst);
+            let mut h = Sha256::new();
+            h.update(self.1.to_be_bytes());
+            h.update(n.to_be_bytes());
+            h.update(PRODUCT.as_bytes());
+            let d = h.finalize();
+            for (o, b) in out.iter_mut().zip(d.iter().cycle()) {
+                *o = *b;
+            }
+            Ok(())
+        }
+    }
+
+    /// A key of the product, born in Work's token by the local environment (T-56).
+    fn key(label: &str) -> TokenSigner {
+        TokenSigner::of(
+            KeyStore::open(&module(), TOKEN, &Secret::new(PIN.to_owned()))
+                .unwrap()
+                .signer(label)
+                .unwrap(),
+        )
+    }
+
+    fn https(local: &Local) -> HttpsTransport {
+        HttpsTransport::new(public_config(local.roots()).unwrap(), DEFAULT_TIMEOUT)
+    }
+
+    /// Pairs the product with the platform realm, which opens its service Party there.
+    async fn pair(local: &Local, client_id: &str, issuer: &Issuer, now: u64) {
+        let endpoints = local.client().await.served().unwrap();
+        let platform = Platform::new(
+            https(local),
+            At(now),
+            Fresh(AtomicU64::new(0), now),
+            key(CLIENT_LABEL),
+            client_id,
+            issuer,
+        );
+        let tenant = TenantId::new(local.realm("platform")["tenant"].as_str().unwrap()).unwrap();
+        let service = key(SERVICE_LABEL);
+        let challenges = platform.challenges(&endpoints, &tenant).await.unwrap();
+        let plan = plan_challenges(&challenges, &service.public_key(), now);
+        assert!(plan.unsignable.is_empty(), "{:?}", plan.unsignable);
+        assert!(plan.refused.is_empty(), "{:?}", plan.refused);
+        let signed: Vec<_> = plan
+            .sign
+            .into_iter()
+            .map(|(realm, challenge, statements)| {
+                sign_challenge(&service, realm, challenge, &statements).unwrap()
+            })
+            .collect();
+        if signed.is_empty() {
+            assert!(
+                challenges
+                    .targets
+                    .iter()
+                    .all(|t| matches!(t, Realm::Paired(_))),
+                "{challenges:?}"
+            );
+            return;
+        }
+        let result = platform.pair(&endpoints, &tenant, &signed).await.unwrap();
+        assert!(
+            result.targets.iter().all(|t| matches!(t, Realm::Paired(_))),
+            "{result:?}"
+        );
+    }
+
+    // E-7 T-104 T-99
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore = "needs the local environment with work-server paired and its realms signing"]
+    async fn e_7_a_product_s_service_token_names_its_service_party_at_work_server() {
+        let local = Local::open();
+        let now = local.access_now_s().await * 1000;
+        let client_id = local.client_of(PRODUCT);
+        let issuer = Issuer::parse(&local.issuer("platform")).unwrap();
+        pair(&local, &client_id, &issuer, now).await;
+        let tokens = ServiceTokens::new(
+            https(&local),
+            At(now),
+            Fresh(AtomicU64::new(1 << 32), now),
+            key(CLIENT_LABEL),
+            key(DPOP_LABEL),
+            Target {
+                client_id: client_id.clone(),
+                issuer: issuer.clone(),
+                resource: local.work_client(),
+            },
+        );
+        let until = tokio::time::Instant::now() + PAIRING_WAIT;
+        let token = loop {
+            match tokens.token().await {
+                Ok(t) => break t.expose().to_owned(),
+                Err(AccessError::Refused { code, .. })
+                    if code == "unauthorized_client" && tokio::time::Instant::now() < until =>
+                {
+                    tokio::time::sleep(Duration::from_secs(2)).await;
+                }
+                Err(e) => panic!("no service token for Work: {e}"),
+            }
+        };
+        let claims = payload(&token);
+        assert!(names(&claims["aud"], &local.work_client()), "{claims}");
+        assert_eq!(claims["client_id"], client_id.as_str(), "{claims}");
+        assert_eq!(claims["iss"], issuer.as_str(), "{claims}");
+        assert_eq!(
+            claims["access_tenant"],
+            local.realm("platform")["tenant"],
+            "{claims}"
+        );
+        assert!(claims.get("sid").is_none(), "{claims}");
+        assert!(claims.get("scope").is_none(), "{claims}");
+        let url = format!("{WORK}{}", ledger_path().0);
+        let headers = tokens.authorize("GET", &url).await.unwrap();
+        let named = local
+            .send(
+                "GET",
+                &url,
+                &[
+                    ("authorization", &headers.authorization),
+                    ("dpop", &headers.dpop),
+                ],
+                None,
+            )
+            .await;
+        assert_eq!(named.status, UNSEEN.0, "{named:?}");
+        assert_eq!(named.json()["type"], UNSEEN.1, "{named:?}");
+        let unbound = local
+            .send(
+                "GET",
+                &url,
+                &[("authorization", &headers.authorization)],
+                None,
+            )
+            .await;
+        assert_eq!(unbound.status, 401, "{unbound:?}");
+    }
+}
+
 /// The commitment write against the real Access (E-17, P-13, T-101, SEC-36, WD-124, WD-125): a
 /// ledger opens in `work-server`'s cell; the test user asks `work-server`'s
 /// `POST /v1/authority-requests` with the `work:commit` intent Work's client builds and an AIS of
@@ -1215,7 +1723,7 @@ mod commit {
     }
 
     /// A deterministic CBOR map of `entries`, keys in encoded order.
-    fn map(entries: Vec<(&str, Cbor)>) -> Cbor {
+    pub(super) fn map(entries: Vec<(&str, Cbor)>) -> Cbor {
         let mut keyed: Vec<(Vec<u8>, (Cbor, Cbor))> = entries
             .into_iter()
             .map(|(k, v)| {

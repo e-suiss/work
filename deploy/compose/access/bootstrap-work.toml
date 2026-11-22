@@ -33,6 +33,14 @@ service_key = "/etc/access/products/work-service.jwk"
 redirect_uris = ["http://127.0.0.1:8190/v1/access/approval", "https://work.localhost/v1/access/approval"]
 event_receiver = "https://work-server:8443/v1/inbound/events"
 
+# E-7, T-99
+[[products]]
+product = "one"
+display_name = "Suiss One"
+client_key = "/etc/access/products/one-client.jwk"
+service_key = "/etc/access/products/one-service.jwk"
+redirect_uri = "https://one.localhost/v1/access/approval"
+
 # T-99
 [[products]]
 product = "relay"

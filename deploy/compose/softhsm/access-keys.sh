@@ -57,6 +57,22 @@ printf '{"kty":"OKP","crv":"Ed25519","use":"sig","x":"%s"}\n' "$x" > "$WORK_ACCE
 
 echo "work-access-keys: work-client.jwk and work-service.jwk written"
 
+# E-7, T-99
+key one-access-client EC:prime256v1
+key one-access-dpop EC:prime256v1
+key one-access-service EC:edwards25519
+
+spki one-access-client 91
+x="$(tail -c 64 /tmp/one-access-client.der | head -c 32 | b64url)"
+y="$(tail -c 32 /tmp/one-access-client.der | b64url)"
+printf '{"kty":"EC","crv":"P-256","use":"sig","x":"%s","y":"%s"}\n' "$x" "$y" > "$WORK_ACCESS_KEYS/one-client.jwk"
+
+spki one-access-service 44
+x="$(tail -c 32 /tmp/one-access-service.der | b64url)"
+printf '{"kty":"OKP","crv":"Ed25519","use":"sig","x":"%s"}\n' "$x" > "$WORK_ACCESS_KEYS/one-service.jwk"
+
+echo "work-access-keys: one-client.jwk and one-service.jwk written"
+
 # T-101
 spki work-access-pep 91
 csr="$WORK_ACCESS_KEYS/work-pep.csr"
