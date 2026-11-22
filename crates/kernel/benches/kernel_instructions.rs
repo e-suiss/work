@@ -1,4 +1,4 @@
-//! Instruction-count benchmarks for the kernel hot paths: record validation, derivation over supersede chains, relation parsing and limits narrowing (T-44, T-60).
+//! Instruction-count benchmarks for the kernel hot paths: record validation, derivation over supersede chains, the commitment fold, allowed transitions and aggregation, relation parsing and limits narrowing (T-44, T-60).
 
 #![allow(
     missing_docs,
@@ -14,7 +14,16 @@ use std::hint::black_box;
 #[cfg(target_os = "linux")]
 use gungraun::{library_benchmark, library_benchmark_group, main};
 #[cfg(target_os = "linux")]
+use work_kernel::catalog::AggregationRule;
+#[cfg(target_os = "linux")]
+use work_kernel::commitment::{
+    AccessAnswer, AggregateError, AggregateOutcome, AggregationPolicy, Allowed, Answer, Caller,
+    CommitmentView, aggregate, allowed, derive_commitments,
+};
+#[cfg(target_os = "linux")]
 use work_kernel::derive::{Derivation, DeriveError, derive};
+#[cfg(target_os = "linux")]
+use work_kernel::id::PartyRef;
 #[cfg(target_os = "linux")]
 use work_kernel::id::RecordId;
 #[cfg(target_os = "linux")]
@@ -26,7 +35,7 @@ use work_kernel::record::Record;
 #[cfg(target_os = "linux")]
 use work_kernel::relation::Relation;
 #[cfg(target_os = "linux")]
-use work_kernel::validate::{Outcome, validate};
+use work_kernel::validate::{ActorType, Outcome, validate};
 #[cfg(target_os = "linux")]
 use work_kernel::{API_VERSION, ApiVersion};
 
@@ -57,6 +66,57 @@ fn derive_chain(records: Vec<(RecordId, Record)>) -> Result<Derivation, DeriveEr
     derive(black_box(&entries), black_box(&support::inputs()))
 }
 
+// T-44 CM-2
+#[cfg(target_os = "linux")]
+#[library_benchmark]
+#[benches::commitment(args = [2, 64, 1024], setup = support::commitment)]
+fn derive_commitment(records: Vec<(RecordId, Record)>) -> Option<Vec<CommitmentView>> {
+    let entries = support::entries(&records);
+    let derivation = derive(black_box(&entries), black_box(&support::inputs())).ok()?;
+    Some(derive_commitments(&entries, &derivation, &support::facts()))
+}
+
+#[cfg(target_os = "linux")]
+fn stated() -> Vec<CommitmentView> {
+    let records = support::commitment(3);
+    let entries = support::entries(&records);
+    derive(&entries, &support::inputs())
+        .map(|d| derive_commitments(&entries, &d, &support::facts()))
+        .unwrap_or_default()
+}
+
+// T-44 CM-19 P-55
+#[cfg(target_os = "linux")]
+#[library_benchmark]
+#[bench::acceptor(stated())]
+fn allowed_transitions(views: Vec<CommitmentView>) -> Option<Vec<Allowed>> {
+    let party = PartyRef::new("party:acme:alice")?;
+    let caller = Caller {
+        party: &party,
+        actor: ActorType::Human,
+        step_up: false,
+    };
+    let view = views.first()?;
+    Some(allowed(black_box(view), &caller, &[], &|_| {
+        AccessAnswer::Allow
+    }))
+}
+
+// T-44 CM-54
+#[cfg(target_os = "linux")]
+#[library_benchmark]
+#[bench::all(support::participants(255, AggregationRule::All))]
+#[bench::any(support::participants(255, AggregationRule::Any))]
+#[bench::k_of_n(support::participants(255, AggregationRule::KOfN))]
+#[bench::sequential(support::participants(255, AggregationRule::Sequential))]
+#[bench::percentage(support::participants(255, AggregationRule::Percentage))]
+fn aggregate_policy(
+    input: (AggregationPolicy, Vec<Answer>),
+) -> Result<AggregateOutcome, AggregateError> {
+    let (policy, answers) = input;
+    aggregate(black_box(&policy), black_box(&answers))
+}
+
 // T-44
 #[cfg(target_os = "linux")]
 #[library_benchmark]
@@ -84,6 +144,9 @@ library_benchmark_group!(
         api_version_compare,
         validate_record,
         derive_chain,
+        derive_commitment,
+        allowed_transitions,
+        aggregate_policy,
         relation_parse,
         limits_narrow
     ]

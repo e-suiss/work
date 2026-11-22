@@ -6,6 +6,8 @@
     reason = "each bench binary uses a subset; fixture constants are valid by construction"
 )]
 
+use work_kernel::catalog::{AggregationRule, CoreDerivedRole};
+use work_kernel::commitment::{AggregationPolicy, Answer, Facts};
 use work_kernel::derive::{
     AuthorityIssuer, BusinessCalendar, DerivationInputs, Entry, Ingest, ProfileVersion,
     Restriction, TrustInputs,
@@ -14,15 +16,19 @@ use work_kernel::id::{Digest, LedgerId, PartyRef, RecordId, Time, WorkId};
 use work_kernel::limits::SemanticLimits;
 use work_kernel::record::{
     Audience, AuthorityProofKind, AuthorityRef, BodyCommitment, Capacity, Correlation, Declaration,
-    PartName, ProducerRef, ProtocolVersion, Record, RecordCore, VersionVector, Visibility,
+    Param, ParamScalar, ParamValue, PartName, ProducerRef, ProtocolVersion, Record, RecordCore,
+    VersionVector, Visibility,
 };
-use work_kernel::relation::{Endpoint, Relation};
+use work_kernel::relation::{DerivedRole, DerivedTarget, Endpoint, Relation};
 use work_kernel::uri::{ExternalRef, TypeUri};
 use work_kernel::validate::{
     ActorType, ActorTypeEntry, ActorTypeSource, ActorTypes, Origin, ValidationContext,
 };
 
 const PROMISE: &str = "https://suiss.app/ns/work/declaration/promise";
+const REQUEST: &str = "https://suiss.app/ns/work/declaration/request";
+const STATE: &str = "https://suiss.app/ns/work/declaration/state";
+const REJECT: &str = "https://suiss.app/ns/work/declaration/reject";
 const AMEND: &str = "https://suiss.app/ns/work/declaration/amend";
 const FULFILLS: &str = "https://suiss.app/ns/work/derived_from/fulfills";
 const AGENT: &str = "party:acme:agent-procure-7";
@@ -254,4 +260,107 @@ pub(crate) fn engaged_in_wire() -> WireRelation {
 pub(crate) fn parse(wire: WireRelation) -> Option<Relation> {
     let (rel, source, target, qualifier) = wire;
     Relation::from_wire(rel, source, target, qualifier).ok()
+}
+
+fn param(name: &str, value: ParamScalar) -> Param {
+    Param {
+        name: PartName::parse(name).expect("fixture param"),
+        value: ParamValue::Scalar(value),
+    }
+}
+
+fn text(value: &str) -> ParamScalar {
+    ParamScalar::Text(value.to_owned())
+}
+
+fn after(previous: RecordId, author: &str) -> RecordCore {
+    RecordCore {
+        relations: Some(vec![Relation::Supersedes {
+            target: previous,
+            qualifier: None,
+        }]),
+        ..core(author, 0x52)
+    }
+}
+
+/// One commitment of `len` records: a request, a promise, then statements and rejections in turn, each superseding the previous record (CM-26).
+pub(crate) fn commitment(len: u32) -> Vec<(RecordId, Record)> {
+    let root = indexed(0);
+    let mut records = Vec::new();
+    for i in 0..len.max(2) {
+        let id = indexed(i);
+        let record = match i.checked_sub(1).map(indexed) {
+            None => declaration(
+                REQUEST,
+                RecordCore {
+                    params: Some(vec![
+                        param("acceptor", text(ALICE)),
+                        param("obligor", text(BUYER)),
+                    ]),
+                    body: Some(vec![BodyCommitment {
+                        part: PartName::parse("acceptance_criterion").expect("fixture part"),
+                        commit: digest(0x15),
+                    }]),
+                    ..core(ALICE, 0x52)
+                },
+            ),
+            Some(previous) if i == 1 => declaration(PROMISE, after(previous, BUYER)),
+            Some(previous) if i % 2 == 0 => {
+                let mut core = after(previous, BUYER);
+                if let Some(relations) = core.relations.as_mut() {
+                    relations.push(Relation::DerivedFrom {
+                        source: Some(RecordId(digest(0x16))),
+                        target: DerivedTarget::Record(root),
+                        role: DerivedRole::Core(CoreDerivedRole::Fulfills),
+                    });
+                }
+                declaration(STATE, core)
+            }
+            Some(previous) => declaration(
+                REJECT,
+                RecordCore {
+                    params: Some(vec![
+                        param("reason", text("incomplete")),
+                        param("statement", ParamScalar::Digest(previous.0)),
+                    ]),
+                    ..after(previous, ALICE)
+                },
+            ),
+        };
+        records.push((id, record));
+    }
+    records
+}
+
+/// Commitment facts with no Condition met and no policy input.
+pub(crate) fn facts() -> Facts<'static> {
+    Facts::default()
+}
+
+/// A participant set of `n` and their answers: every third accepted, every fifth rejected, the rest open (CM-54).
+pub(crate) fn participants(n: u8, rule: AggregationRule) -> (AggregationPolicy, Vec<Answer>) {
+    let participants = (0..n)
+        .map(|i| party(&format!("party:acme:participant-{i}")))
+        .collect();
+    let answers = (0..n)
+        .map(|i| match (i % 3, i % 5) {
+            (0, _) => Answer::Accepted,
+            (_, 0) => Answer::Rejected,
+            _ => Answer::Pending,
+        })
+        .collect();
+    let threshold = match rule {
+        AggregationRule::KOfN => u32::from(n / 2).max(1),
+        AggregationRule::Percentage => 60,
+        AggregationRule::All | AggregationRule::Any | AggregationRule::Sequential => 0,
+    };
+    (
+        AggregationPolicy {
+            rule,
+            threshold,
+            veto: false,
+            participants,
+        },
+        answers,
+    )
 }
