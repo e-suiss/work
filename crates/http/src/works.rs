@@ -6,7 +6,7 @@ use axum::body::Bytes;
 use axum::extract::State;
 use axum::http::{HeaderMap, HeaderValue, Method, StatusCode, Uri, header};
 use axum::response::{IntoResponse, Response};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use utoipa::ToSchema;
 use work_kernel::id::WorkId;
 use work_proto::id::ExternalId as _;
@@ -18,7 +18,7 @@ use crate::problem::{Problem, ProblemCode};
 use crate::reads::{ApiServices, caller_of};
 
 /// The body of a Work opening: every field is optional, and there is none yet.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize, ToSchema)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, ToSchema)]
 #[serde(deny_unknown_fields)]
 pub struct NewWork {}
 
@@ -39,15 +39,26 @@ pub fn opening(raw: &[u8], headers: &HeaderMap, caller: &Caller) -> Result<WorkI
     if !uuid_v7(key) {
         return Err(Box::new(Problem::new(ProblemCode::IdempotencyKeyMalformed)));
     }
-    if !raw.is_empty() {
-        serde_json::from_slice::<NewWork>(raw).map_err(|_| {
-            Box::new(Problem::new(ProblemCode::InvalidRequest).with_code_detail("body"))
-        })?;
+    if !empty_object(raw) {
+        return Err(Box::new(
+            Problem::new(ProblemCode::InvalidRequest).with_code_detail("body"),
+        ));
     }
     let party = caller
         .party()
         .map_err(|code| Box::new(Problem::new(ProblemCode::AccessDenied).with_code_detail(code)))?;
     Ok(opened_work(party, key))
+}
+
+/// Whether `raw` is an empty body or the JSON object `{}`, the only bodies a schema without
+/// fields admits.
+fn empty_object(raw: &[u8]) -> bool {
+    let inner: Vec<u8> = raw
+        .iter()
+        .copied()
+        .filter(|b| !matches!(b, b' ' | b'\t' | b'\n' | b'\r'))
+        .collect();
+    inner.is_empty() || inner == b"{}"
 }
 
 fn opened(work: &WorkId) -> Response {
