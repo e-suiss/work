@@ -27,8 +27,8 @@
         "C-32"
       ],
       "purpose": "Agent promise on behalf of the buyer organisation; capacity FOR(buyer) matches on_behalf_of[0]; every Declaration is consequential, so authority is present.",
-      "diag": "{\n  \"body\": [\n    {\n      \"part\": \"terms\",\n      \"commit\": [-16, h'62b38a840000a72b70ada334eb12c9dba46e2ac7cbd1ff648c28af1be0cd046e']\n    }\n  ],\n  \"kind\": \"declaration\",\n  \"type\": \"https://suiss.app/ns/work/declaration/promise\",\n  \"basis\": [\n    [-16, h'34652546558611697ac7366fb82fa846579b73842dfdd35bd368148ef5a6aa21']\n  ],\n  \"author\": \"party:acme:agent-procure-7\",\n  \"ledger\": [-16, h'abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad'],\n  \"capacity\": [\"for\", \"party:acme:buyer-org\"],\n  \"concerns\": [h'019a2f4c8e1b7c3da5e6f70812345678'],\n  \"producer\": {\n    \"model\": \"urn:example:model:m-2026-09\",\n    \"config\": [-16, h'eeca01d5aad719bb2d97b002128a3dc82b270df133900492d033ed3792dd5129'],\n    \"version\": \"procure-agent/3.2.0\"\n  },\n  \"versions\": {\n    \"schema\": [-16, h'3f765db7a715d24969b634a12d2c8a65d7673af9c682b851ecf49a8ae0e46801'],\n    \"protocol\": [1, 0]\n  },\n  \"authority\": {\n    \"proof\": \"decision_receipt\",\n    \"digest\": [-16, h'53694badcc59f1049a25ef040b3e97eb9dd174e11add1af787d1eb477e9d63f0']\n  },\n  \"visibility\": {\n    \"see\": \"work\"\n  },\n  \"correlation\": [\n    [\"https://a2a-protocol.org/context-id\", \"ctx-8f2c\"]\n  ],\n  \"on_behalf_of\": [\"party:acme:buyer-org\"]\n}",
-      "hex": "ae64626f647981a26470617274657465726d7366636f6d6d6974822f582062b38a840000a72b70ada334eb12c9dba46e2ac7cbd1ff648c28af1be0cd046e646b696e646b6465636c61726174696f6e6474797065782d68747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f70726f6d69736565626173697381822f582034652546558611697ac7366fb82fa846579b73842dfdd35bd368148ef5a6aa2166617574686f72781a70617274793a61636d653a6167656e742d70726f637572652d37666c6564676572822f5820abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad6863617061636974798263666f727470617274793a61636d653a62757965722d6f726768636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786870726f6475636572a3656d6f64656c781b75726e3a6578616d706c653a6d6f64656c3a6d2d323032362d303966636f6e666967822f5820eeca01d5aad719bb2d97b002128a3dc82b270df133900492d033ed3792dd51296776657273696f6e7370726f637572652d6167656e742f332e322e306876657273696f6e73a266736368656d61822f58203f765db7a715d24969b634a12d2c8a65d7673af9c682b851ecf49a8ae0e468016870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f582053694badcc59f1049a25ef040b3e97eb9dd174e11add1af787d1eb477e9d63f06a7669736962696c697479a16373656564776f726b6b636f7272656c6174696f6e8182782368747470733a2f2f6132612d70726f746f636f6c2e6f72672f636f6e746578742d6964686374782d386632636c6f6e5f626568616c665f6f66817470617274793a61636d653a62757965722d6f7267",
+      "diag": "{\n  \"body\": [\n    {\n      \"part\": \"terms\",\n      \"commit\": [-16, h'62b38a840000a72b70ada334eb12c9dba46e2ac7cbd1ff648c28af1be0cd046e']\n    }\n  ],\n  \"kind\": \"declaration\",\n  \"type\": \"https://suiss.app/ns/work/declaration/promise\",\n  \"basis\": [\n    [-16, h'34652546558611697ac7366fb82fa846579b73842dfdd35bd368148ef5a6aa21']\n  ],\n  \"author\": \"party:acme:agent-procure-7\",\n  \"ledger\": [-16, h'13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7'],\n  \"capacity\": [\"for\", \"party:acme:buyer-org\"],\n  \"concerns\": [h'019a2f4c8e1b7c3da5e6f70812345678'],\n  \"producer\": {\n    \"model\": \"urn:example:model:m-2026-09\",\n    \"config\": [-16, h'eeca01d5aad719bb2d97b002128a3dc82b270df133900492d033ed3792dd5129'],\n    \"version\": \"procure-agent/3.2.0\"\n  },\n  \"versions\": {\n    \"schema\": [-16, h'3f765db7a715d24969b634a12d2c8a65d7673af9c682b851ecf49a8ae0e46801'],\n    \"protocol\": [1, 0]\n  },\n  \"authority\": {\n    \"proof\": \"decision_receipt\",\n    \"digest\": [-16, h'53694badcc59f1049a25ef040b3e97eb9dd174e11add1af787d1eb477e9d63f0']\n  },\n  \"visibility\": {\n    \"see\": \"work\"\n  },\n  \"correlation\": [\n    [\"https://a2a-protocol.org/context-id\", \"ctx-8f2c\"]\n  ],\n  \"on_behalf_of\": [\"party:acme:buyer-org\"]\n}",
+      "hex": "ae64626f647981a26470617274657465726d7366636f6d6d6974822f582062b38a840000a72b70ada334eb12c9dba46e2ac7cbd1ff648c28af1be0cd046e646b696e646b6465636c61726174696f6e6474797065782d68747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f70726f6d69736565626173697381822f582034652546558611697ac7366fb82fa846579b73842dfdd35bd368148ef5a6aa2166617574686f72781a70617274793a61636d653a6167656e742d70726f637572652d37666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee76863617061636974798263666f727470617274793a61636d653a62757965722d6f726768636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786870726f6475636572a3656d6f64656c781b75726e3a6578616d706c653a6d6f64656c3a6d2d323032362d303966636f6e666967822f5820eeca01d5aad719bb2d97b002128a3dc82b270df133900492d033ed3792dd51296776657273696f6e7370726f637572652d6167656e742f332e322e306876657273696f6e73a266736368656d61822f58203f765db7a715d24969b634a12d2c8a65d7673af9c682b851ecf49a8ae0e468016870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f582053694badcc59f1049a25ef040b3e97eb9dd174e11add1af787d1eb477e9d63f06a7669736962696c697479a16373656564776f726b6b636f7272656c6174696f6e8182782368747470733a2f2f6132612d70726f746f636f6c2e6f72672f636f6e746578742d6964686374782d386632636c6f6e5f626568616c665f6f66817470617274793a61636d653a62757965722d6f7267",
       "decoded": {
         "body": [
           {
@@ -50,7 +50,7 @@
         "author": "party:acme:agent-procure-7",
         "ledger": [
           -16,
-          "abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad"
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
         ],
         "capacity": [
           "for",
@@ -113,7 +113,7 @@
         },
         "understood_extensions": []
       },
-      "record_digest": "822f5820fa7a285a5de4af759e48c0701eaeaf2118c774ee95c192db154e5ea098642756",
+      "record_digest": "822f5820eec47a59cd97db46df16d4f255d7f16e3a403d9d91e4a5084e4668bbb3104fcf",
       "cddl": "pass",
       "expect": {
         "outcome": "accept"
@@ -135,15 +135,15 @@
         "EV-4"
       ],
       "purpose": "Supplier Act of the core action subtype linked to its promise with derived_from and the fulfills role URI, carrying one core-typed evidence reference and no basis.",
-      "diag": "{\n  \"kind\": \"act\",\n  \"type\": \"https://suiss.app/ns/work/act/action\",\n  \"author\": \"party:globex:supplier\",\n  \"ledger\": [-16, h'abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad'],\n  \"capacity\": \"own\",\n  \"concerns\": [h'019a2f4c8e1b7c3da5e6f70812345678'],\n  \"evidence\": [\n    {\n      \"type\": \"https://suiss.app/ns/work/evidence/artifact\",\n      \"subject\": [-16, h'28c1e1b4ac9dd0997ed2a7b0a8f6ecc4206fba0a5d7154ead488756e7e32a1be'],\n      \"presenter\": \"party:globex:supplier\",\n      \"signature\": [-16, h'662d76c65ca52cf4aa3bc93e138352026dfc84d3c53b248973a9967a4454587e'],\n      \"claimed_at\": 1792108700000\n    }\n  ],\n  \"versions\": {\n    \"schema\": [-16, h'e3d879c679f23944c8ad7cab05b4c152ebd656800c9c0fbabe8a69835f1c7204'],\n    \"protocol\": [1, 0]\n  },\n  \"relations\": [\n    {\n      \"rel\": \"derived_from\",\n      \"target\": [\n        \"record\",\n        [-16, h'c913b1f400bee6a835134b25d4fa2ce2265e887070fa69b7889fd778b1278405']\n      ],\n      \"qualifier\": \"https://suiss.app/ns/work/derived_from/fulfills\"\n    }\n  ],\n  \"visibility\": {\n    \"see\": \"work\"\n  },\n  \"occurred_at\": 1792108800000\n}",
-      "hex": "ab646b696e64636163746474797065782468747470733a2f2f73756973732e6170702f6e732f776f726b2f6163742f616374696f6e66617574686f727570617274793a676c6f6265783a737570706c696572666c6564676572822f5820abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786865766964656e636581a56474797065782b68747470733a2f2f73756973732e6170702f6e732f776f726b2f65766964656e63652f6172746966616374677375626a656374822f582028c1e1b4ac9dd0997ed2a7b0a8f6ecc4206fba0a5d7154ead488756e7e32a1be6970726573656e7465727570617274793a676c6f6265783a737570706c696572697369676e6174757265822f5820662d76c65ca52cf4aa3bc93e138352026dfc84d3c53b248973a9967a4454587e6a636c61696d65645f61741b000001a14200a1606876657273696f6e73a266736368656d61822f5820e3d879c679f23944c8ad7cab05b4c152ebd656800c9c0fbabe8a69835f1c72046870726f746f636f6c8201006972656c6174696f6e7381a36372656c6c646572697665645f66726f6d6674617267657482667265636f7264822f5820c913b1f400bee6a835134b25d4fa2ce2265e887070fa69b7889fd778b1278405697175616c6966696572782f68747470733a2f2f73756973732e6170702f6e732f776f726b2f646572697665645f66726f6d2f66756c66696c6c736a7669736962696c697479a16373656564776f726b6b6f636375727265645f61741b000001a142022800",
+      "diag": "{\n  \"kind\": \"act\",\n  \"type\": \"https://suiss.app/ns/work/act/action\",\n  \"author\": \"party:globex:supplier\",\n  \"ledger\": [-16, h'13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7'],\n  \"capacity\": \"own\",\n  \"concerns\": [h'019a2f4c8e1b7c3da5e6f70812345678'],\n  \"evidence\": [\n    {\n      \"type\": \"https://suiss.app/ns/work/evidence/artifact\",\n      \"subject\": [-16, h'28c1e1b4ac9dd0997ed2a7b0a8f6ecc4206fba0a5d7154ead488756e7e32a1be'],\n      \"presenter\": \"party:globex:supplier\",\n      \"signature\": [-16, h'662d76c65ca52cf4aa3bc93e138352026dfc84d3c53b248973a9967a4454587e'],\n      \"claimed_at\": 1792108700000\n    }\n  ],\n  \"versions\": {\n    \"schema\": [-16, h'e3d879c679f23944c8ad7cab05b4c152ebd656800c9c0fbabe8a69835f1c7204'],\n    \"protocol\": [1, 0]\n  },\n  \"relations\": [\n    {\n      \"rel\": \"derived_from\",\n      \"target\": [\n        \"record\",\n        [-16, h'c913b1f400bee6a835134b25d4fa2ce2265e887070fa69b7889fd778b1278405']\n      ],\n      \"qualifier\": \"https://suiss.app/ns/work/derived_from/fulfills\"\n    }\n  ],\n  \"visibility\": {\n    \"see\": \"work\"\n  },\n  \"occurred_at\": 1792108800000\n}",
+      "hex": "ab646b696e64636163746474797065782468747470733a2f2f73756973732e6170702f6e732f776f726b2f6163742f616374696f6e66617574686f727570617274793a676c6f6265783a737570706c696572666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786865766964656e636581a56474797065782b68747470733a2f2f73756973732e6170702f6e732f776f726b2f65766964656e63652f6172746966616374677375626a656374822f582028c1e1b4ac9dd0997ed2a7b0a8f6ecc4206fba0a5d7154ead488756e7e32a1be6970726573656e7465727570617274793a676c6f6265783a737570706c696572697369676e6174757265822f5820662d76c65ca52cf4aa3bc93e138352026dfc84d3c53b248973a9967a4454587e6a636c61696d65645f61741b000001a14200a1606876657273696f6e73a266736368656d61822f5820e3d879c679f23944c8ad7cab05b4c152ebd656800c9c0fbabe8a69835f1c72046870726f746f636f6c8201006972656c6174696f6e7381a36372656c6c646572697665645f66726f6d6674617267657482667265636f7264822f5820c913b1f400bee6a835134b25d4fa2ce2265e887070fa69b7889fd778b1278405697175616c6966696572782f68747470733a2f2f73756973732e6170702f6e732f776f726b2f646572697665645f66726f6d2f66756c66696c6c736a7669736962696c697479a16373656564776f726b6b6f636375727265645f61741b000001a142022800",
       "decoded": {
         "kind": "act",
         "type": "https://suiss.app/ns/work/act/action",
         "author": "party:globex:supplier",
         "ledger": [
           -16,
-          "abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad"
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
         ],
         "capacity": "own",
         "concerns": [
@@ -208,7 +208,7 @@
         },
         "understood_extensions": []
       },
-      "record_digest": "822f5820398e68168f76fb4dd6f4e464e7d109c41105877f8768f65daf9941b73ea59c21",
+      "record_digest": "822f5820cf6ac837c769c09f4760b804b57eaf0bd546f5caee9aca0ad48f50a32111ade5",
       "cddl": "pass",
       "expect": {
         "outcome": "accept"
@@ -228,8 +228,8 @@
         "T-68"
       ],
       "purpose": "Automation-originated Observation by the scheduler (an Access-bound system Party) with a non-empty basis, concerning two Works, excluded from agent context.",
-      "diag": "{\n  \"kind\": \"claim\",\n  \"type\": \"https://suiss.app/ns/work/claim/observation\",\n  \"basis\": [\n    [-16, h'16f21ed89262b0016025c2703d68fc7028d8ecbc736b2617d27025a365a265e3']\n  ],\n  \"author\": \"party:acme:work-scheduler\",\n  \"ledger\": [-16, h'abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad'],\n  \"concerns\": [h'019a2f4c8e1b7c3da5e6f70812345678', h'019a2f4c8e1b7c3da5e6f70887654321'],\n  \"versions\": {\n    \"schema\": [-16, h'08c478cb5168164f861aae4f1ac3d5b0a7d475b9a59cfa400676024d98b767f1'],\n    \"protocol\": [1, 0]\n  },\n  \"relations\": [\n    {\n      \"rel\": \"references\",\n      \"target\": [\"external\", \"https://erp.example/orders/PO-4471\"]\n    }\n  ],\n  \"visibility\": {\n    \"see\": \"work\",\n    \"agent_context\": false\n  },\n  \"occurred_at\": 1792109000000\n}",
-      "hex": "aa646b696e6465636c61696d6474797065782b68747470733a2f2f73756973732e6170702f6e732f776f726b2f636c61696d2f6f62736572766174696f6e65626173697381822f582016f21ed89262b0016025c2703d68fc7028d8ecbc736b2617d27025a365a265e366617574686f72781970617274793a61636d653a776f726b2d7363686564756c6572666c6564676572822f5820abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad68636f6e6365726e738250019a2f4c8e1b7c3da5e6f7081234567850019a2f4c8e1b7c3da5e6f708876543216876657273696f6e73a266736368656d61822f582008c478cb5168164f861aae4f1ac3d5b0a7d475b9a59cfa400676024d98b767f16870726f746f636f6c8201006972656c6174696f6e7381a26372656c6a7265666572656e63657366746172676574826865787465726e616c782268747470733a2f2f6572702e6578616d706c652f6f72646572732f504f2d343437316a7669736962696c697479a26373656564776f726b6d6167656e745f636f6e74657874f46b6f636375727265645f61741b000001a142053540",
+      "diag": "{\n  \"kind\": \"claim\",\n  \"type\": \"https://suiss.app/ns/work/claim/observation\",\n  \"basis\": [\n    [-16, h'16f21ed89262b0016025c2703d68fc7028d8ecbc736b2617d27025a365a265e3']\n  ],\n  \"author\": \"party:acme:work-scheduler\",\n  \"ledger\": [-16, h'13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7'],\n  \"concerns\": [h'019a2f4c8e1b7c3da5e6f70812345678', h'019a2f4c8e1b7c3da5e6f70887654321'],\n  \"versions\": {\n    \"schema\": [-16, h'08c478cb5168164f861aae4f1ac3d5b0a7d475b9a59cfa400676024d98b767f1'],\n    \"protocol\": [1, 0]\n  },\n  \"relations\": [\n    {\n      \"rel\": \"references\",\n      \"target\": [\"external\", \"https://erp.example/orders/PO-4471\"]\n    }\n  ],\n  \"visibility\": {\n    \"see\": \"work\",\n    \"agent_context\": false\n  },\n  \"occurred_at\": 1792109000000\n}",
+      "hex": "aa646b696e6465636c61696d6474797065782b68747470733a2f2f73756973732e6170702f6e732f776f726b2f636c61696d2f6f62736572766174696f6e65626173697381822f582016f21ed89262b0016025c2703d68fc7028d8ecbc736b2617d27025a365a265e366617574686f72781970617274793a61636d653a776f726b2d7363686564756c6572666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee768636f6e6365726e738250019a2f4c8e1b7c3da5e6f7081234567850019a2f4c8e1b7c3da5e6f708876543216876657273696f6e73a266736368656d61822f582008c478cb5168164f861aae4f1ac3d5b0a7d475b9a59cfa400676024d98b767f16870726f746f636f6c8201006972656c6174696f6e7381a26372656c6a7265666572656e63657366746172676574826865787465726e616c782268747470733a2f2f6572702e6578616d706c652f6f72646572732f504f2d343437316a7669736962696c697479a26373656564776f726b6d6167656e745f636f6e74657874f46b6f636375727265645f61741b000001a142053540",
       "decoded": {
         "kind": "claim",
         "type": "https://suiss.app/ns/work/claim/observation",
@@ -242,7 +242,7 @@
         "author": "party:acme:work-scheduler",
         "ledger": [
           -16,
-          "abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad"
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
         ],
         "concerns": [
           "019a2f4c8e1b7c3da5e6f70812345678",
@@ -283,7 +283,7 @@
         },
         "understood_extensions": []
       },
-      "record_digest": "822f5820d7ff1f418ee0b208bb6eef635ccf42bdf196d067a32ad817262387e79ea6f48c",
+      "record_digest": "822f5820cfacd19ef832bf888edc7139c8f235762b4fa21b47cdd34a59069feb14126ec8",
       "cddl": "pass",
       "expect": {
         "outcome": "accept"
@@ -301,8 +301,8 @@
         "C-25"
       ],
       "purpose": "Amendment superseding an earlier promise, effective after its recorded_at, pinned Practice in versions, one non-critical extension the verifier does not understand (preserved, not interpreted).",
-      "diag": "{\n  \"ext\": {\n    \"https://procurement.example/ns/ext/cost_center\": \"CC-4410\"\n  },\n  \"body\": [\n    {\n      \"part\": \"note\",\n      \"commit\": [-16, h'579c99a14bf9ec7023b0cffaa74672e5d5469912ff3fbdb7b54c12232ecb5a51']\n    },\n    {\n      \"part\": \"terms\",\n      \"commit\": [-16, h'a6c9a67367ea9942cbd565f31b9deee7ca3170c3887ce0bbaf701562edad534e']\n    }\n  ],\n  \"kind\": \"declaration\",\n  \"type\": \"https://suiss.app/ns/work/declaration/amend\",\n  \"basis\": [\n    [-16, h'12cae033186309f659063dbd91e267983caec2f488f1c50f8794e8901e27741c'],\n    [-16, h'79256c6126bb0a8f50a9037ce86d92cd2fed7632c159f8c656311ccbd61750cd']\n  ],\n  \"author\": \"party:acme:alice\",\n  \"ledger\": [-16, h'abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad'],\n  \"params\": {\n    \"effective_at\": 1792195200000\n  },\n  \"capacity\": \"own\",\n  \"concerns\": [h'019a2f4c8e1b7c3da5e6f70812345678'],\n  \"versions\": {\n    \"schema\": [-16, h'87ba9a78e4967682f583748b7995e709a90f884c47541bf1ae3e9485075048dd'],\n    \"protocol\": [1, 0],\n    \"practices\": {\n      \"https://procurement.example/ns/\": [-16, h'a44f23f8a3aae2c1d733a4008c1cf213f87d9af3baa57d378183828971574efe']\n    }\n  },\n  \"authority\": {\n    \"proof\": \"decision_receipt\",\n    \"digest\": [-16, h'7e113a2744a4c1fe412cebc60c312801d7b76b74c16965e89ab805a9eab10c35']\n  },\n  \"relations\": [\n    {\n      \"rel\": \"supersedes\",\n      \"target\": [\n        \"record\",\n        [-16, h'79256c6126bb0a8f50a9037ce86d92cd2fed7632c159f8c656311ccbd61750cd']\n      ]\n    }\n  ],\n  \"visibility\": {\n    \"see\": \"work\"\n  }\n}",
-      "hex": "ae63657874a1782e68747470733a2f2f70726f637572656d656e742e6578616d706c652f6e732f6578742f636f73745f63656e7465726743432d3434313064626f647982a26470617274646e6f746566636f6d6d6974822f5820579c99a14bf9ec7023b0cffaa74672e5d5469912ff3fbdb7b54c12232ecb5a51a26470617274657465726d7366636f6d6d6974822f5820a6c9a67367ea9942cbd565f31b9deee7ca3170c3887ce0bbaf701562edad534e646b696e646b6465636c61726174696f6e6474797065782b68747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f616d656e6465626173697382822f582012cae033186309f659063dbd91e267983caec2f488f1c50f8794e8901e27741c822f582079256c6126bb0a8f50a9037ce86d92cd2fed7632c159f8c656311ccbd61750cd66617574686f727070617274793a61636d653a616c696365666c6564676572822f5820abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad66706172616d73a16c6566666563746976655f61741b000001a147288400686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a366736368656d61822f582087ba9a78e4967682f583748b7995e709a90f884c47541bf1ae3e9485075048dd6870726f746f636f6c82010069707261637469636573a1781f68747470733a2f2f70726f637572656d656e742e6578616d706c652f6e732f822f5820a44f23f8a3aae2c1d733a4008c1cf213f87d9af3baa57d378183828971574efe69617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f58207e113a2744a4c1fe412cebc60c312801d7b76b74c16965e89ab805a9eab10c356972656c6174696f6e7381a26372656c6a737570657273656465736674617267657482667265636f7264822f582079256c6126bb0a8f50a9037ce86d92cd2fed7632c159f8c656311ccbd61750cd6a7669736962696c697479a16373656564776f726b",
+      "diag": "{\n  \"ext\": {\n    \"https://procurement.example/ns/ext/cost_center\": \"CC-4410\"\n  },\n  \"body\": [\n    {\n      \"part\": \"note\",\n      \"commit\": [-16, h'579c99a14bf9ec7023b0cffaa74672e5d5469912ff3fbdb7b54c12232ecb5a51']\n    },\n    {\n      \"part\": \"terms\",\n      \"commit\": [-16, h'a6c9a67367ea9942cbd565f31b9deee7ca3170c3887ce0bbaf701562edad534e']\n    }\n  ],\n  \"kind\": \"declaration\",\n  \"type\": \"https://suiss.app/ns/work/declaration/amend\",\n  \"basis\": [\n    [-16, h'12cae033186309f659063dbd91e267983caec2f488f1c50f8794e8901e27741c'],\n    [-16, h'79256c6126bb0a8f50a9037ce86d92cd2fed7632c159f8c656311ccbd61750cd']\n  ],\n  \"author\": \"party:acme:alice\",\n  \"ledger\": [-16, h'13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7'],\n  \"params\": {\n    \"effective_at\": 1792195200000\n  },\n  \"capacity\": \"own\",\n  \"concerns\": [h'019a2f4c8e1b7c3da5e6f70812345678'],\n  \"versions\": {\n    \"schema\": [-16, h'87ba9a78e4967682f583748b7995e709a90f884c47541bf1ae3e9485075048dd'],\n    \"protocol\": [1, 0],\n    \"practices\": {\n      \"https://procurement.example/ns/\": [-16, h'a44f23f8a3aae2c1d733a4008c1cf213f87d9af3baa57d378183828971574efe']\n    }\n  },\n  \"authority\": {\n    \"proof\": \"decision_receipt\",\n    \"digest\": [-16, h'7e113a2744a4c1fe412cebc60c312801d7b76b74c16965e89ab805a9eab10c35']\n  },\n  \"relations\": [\n    {\n      \"rel\": \"supersedes\",\n      \"target\": [\n        \"record\",\n        [-16, h'79256c6126bb0a8f50a9037ce86d92cd2fed7632c159f8c656311ccbd61750cd']\n      ]\n    }\n  ],\n  \"visibility\": {\n    \"see\": \"work\"\n  }\n}",
+      "hex": "ae63657874a1782e68747470733a2f2f70726f637572656d656e742e6578616d706c652f6e732f6578742f636f73745f63656e7465726743432d3434313064626f647982a26470617274646e6f746566636f6d6d6974822f5820579c99a14bf9ec7023b0cffaa74672e5d5469912ff3fbdb7b54c12232ecb5a51a26470617274657465726d7366636f6d6d6974822f5820a6c9a67367ea9942cbd565f31b9deee7ca3170c3887ce0bbaf701562edad534e646b696e646b6465636c61726174696f6e6474797065782b68747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f616d656e6465626173697382822f582012cae033186309f659063dbd91e267983caec2f488f1c50f8794e8901e27741c822f582079256c6126bb0a8f50a9037ce86d92cd2fed7632c159f8c656311ccbd61750cd66617574686f727070617274793a61636d653a616c696365666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee766706172616d73a16c6566666563746976655f61741b000001a147288400686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a366736368656d61822f582087ba9a78e4967682f583748b7995e709a90f884c47541bf1ae3e9485075048dd6870726f746f636f6c82010069707261637469636573a1781f68747470733a2f2f70726f637572656d656e742e6578616d706c652f6e732f822f5820a44f23f8a3aae2c1d733a4008c1cf213f87d9af3baa57d378183828971574efe69617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f58207e113a2744a4c1fe412cebc60c312801d7b76b74c16965e89ab805a9eab10c356972656c6174696f6e7381a26372656c6a737570657273656465736674617267657482667265636f7264822f582079256c6126bb0a8f50a9037ce86d92cd2fed7632c159f8c656311ccbd61750cd6a7669736962696c697479a16373656564776f726b",
       "decoded": {
         "ext": {
           "https://procurement.example/ns/ext/cost_center": "CC-4410"
@@ -338,7 +338,7 @@
         "author": "party:acme:alice",
         "ledger": [
           -16,
-          "abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad"
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
         ],
         "params": {
           "effective_at": 1792195200000
@@ -397,7 +397,7 @@
         "understood_extensions": [],
         "recorded_at": 1792109103000
       },
-      "record_digest": "822f5820a3a4a3a34cdb1b9c3671c3b75d4dcd34bb18dccee14ff5c187c5bc7454798c40",
+      "record_digest": "822f5820bf35984d27fbb17afdeaece0f67872485f9b7b8d589cd8bc543e4aa4f9dfb0f1",
       "cddl": "pass",
       "expect": {
         "outcome": "accept"
@@ -414,15 +414,15 @@
         "EV-24"
       ],
       "purpose": "Practice comment subtype as a Claim mapped to observation, private to the author, no basis and no concerns, no authority.",
-      "diag": "{\n  \"kind\": \"claim\",\n  \"type\": \"https://procurement.example/ns/claim/comment\",\n  \"author\": \"party:acme:alice\",\n  \"ledger\": [-16, h'abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad'],\n  \"concerns\": [],\n  \"versions\": {\n    \"schema\": [-16, h'9be79166b289f275ad1b9cca8dbd8400a7fafc117a419dca2e218f1044541839'],\n    \"protocol\": [1, 0],\n    \"practices\": {\n      \"https://procurement.example/ns/\": [-16, h'a44f23f8a3aae2c1d733a4008c1cf213f87d9af3baa57d378183828971574efe']\n    }\n  },\n  \"visibility\": {\n    \"see\": \"author\"\n  },\n  \"occurred_at\": 1792109050000\n}",
-      "hex": "a8646b696e6465636c61696d6474797065782c68747470733a2f2f70726f637572656d656e742e6578616d706c652f6e732f636c61696d2f636f6d6d656e7466617574686f727070617274793a61636d653a616c696365666c6564676572822f5820abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad68636f6e6365726e73806876657273696f6e73a366736368656d61822f58209be79166b289f275ad1b9cca8dbd8400a7fafc117a419dca2e218f10445418396870726f746f636f6c82010069707261637469636573a1781f68747470733a2f2f70726f637572656d656e742e6578616d706c652f6e732f822f5820a44f23f8a3aae2c1d733a4008c1cf213f87d9af3baa57d378183828971574efe6a7669736962696c697479a16373656566617574686f726b6f636375727265645f61741b000001a14205f890",
+      "diag": "{\n  \"kind\": \"claim\",\n  \"type\": \"https://procurement.example/ns/claim/comment\",\n  \"author\": \"party:acme:alice\",\n  \"ledger\": [-16, h'13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7'],\n  \"concerns\": [],\n  \"versions\": {\n    \"schema\": [-16, h'9be79166b289f275ad1b9cca8dbd8400a7fafc117a419dca2e218f1044541839'],\n    \"protocol\": [1, 0],\n    \"practices\": {\n      \"https://procurement.example/ns/\": [-16, h'a44f23f8a3aae2c1d733a4008c1cf213f87d9af3baa57d378183828971574efe']\n    }\n  },\n  \"visibility\": {\n    \"see\": \"author\"\n  },\n  \"occurred_at\": 1792109050000\n}",
+      "hex": "a8646b696e6465636c61696d6474797065782c68747470733a2f2f70726f637572656d656e742e6578616d706c652f6e732f636c61696d2f636f6d6d656e7466617574686f727070617274793a61636d653a616c696365666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee768636f6e6365726e73806876657273696f6e73a366736368656d61822f58209be79166b289f275ad1b9cca8dbd8400a7fafc117a419dca2e218f10445418396870726f746f636f6c82010069707261637469636573a1781f68747470733a2f2f70726f637572656d656e742e6578616d706c652f6e732f822f5820a44f23f8a3aae2c1d733a4008c1cf213f87d9af3baa57d378183828971574efe6a7669736962696c697479a16373656566617574686f726b6f636375727265645f61741b000001a14205f890",
       "decoded": {
         "kind": "claim",
         "type": "https://procurement.example/ns/claim/comment",
         "author": "party:acme:alice",
         "ledger": [
           -16,
-          "abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad"
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
         ],
         "concerns": [],
         "versions": {
@@ -456,7 +456,7 @@
         },
         "understood_extensions": []
       },
-      "record_digest": "822f582047ed44e98163bdfb38a2d60cd7d97f924c46985885d2a5661778be8056ffc4ec",
+      "record_digest": "822f582058dca92ccaf355ab1ddf26dd21b89de50770e89a9e45dedc1584964652ccadc3",
       "cddl": "pass",
       "expect": {
         "outcome": "accept"
@@ -471,8 +471,8 @@
         "C-5"
       ],
       "purpose": "Practice care note Claim with one critical and one non-critical extension; the verifier understands the critical one, so the record is admitted.",
-      "diag": "{\n  \"ext\": {\n    \"https://clinic.example/ns/ext/ward\": \"B-2\",\n    \"https://clinic.example/ns/ext/patient_consent\": [-16, h'd08c458c62d346fcb1ecf537aa6e5668447a32b74941d0a2fd03f1e99fe4935e']\n  },\n  \"body\": [\n    {\n      \"part\": \"note\",\n      \"commit\": [-16, h'f33c57f8d5ccb4578dbce1382182aa969abd9cad458d6ad7c152ade97af0d233']\n    }\n  ],\n  \"kind\": \"claim\",\n  \"type\": \"https://clinic.example/ns/claim/care_note\",\n  \"author\": \"party:acme:alice\",\n  \"ledger\": [-16, h'abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad'],\n  \"capacity\": \"own\",\n  \"concerns\": [h'019a2f4c8e1b7c3da5e6f70887654321'],\n  \"critical\": [\"https://clinic.example/ns/ext/patient_consent\"],\n  \"versions\": {\n    \"schema\": [-16, h'57e6c9f6e885215721e4f3044cf52565d8a33fcec596438aef990ff8e63774ed'],\n    \"protocol\": [1, 0],\n    \"practices\": {\n      \"https://clinic.example/ns/\": [-16, h'df259ebbd0eb5295241b011dbf82d2a0a72d0bb303de8f921d8cf17fcee357f5']\n    }\n  },\n  \"visibility\": {\n    \"see\": \"work\",\n    \"search\": false\n  },\n  \"occurred_at\": 1792109060000\n}",
-      "hex": "ac63657874a2782268747470733a2f2f636c696e69632e6578616d706c652f6e732f6578742f7761726463422d32782d68747470733a2f2f636c696e69632e6578616d706c652f6e732f6578742f70617469656e745f636f6e73656e74822f5820d08c458c62d346fcb1ecf537aa6e5668447a32b74941d0a2fd03f1e99fe4935e64626f647981a26470617274646e6f746566636f6d6d6974822f5820f33c57f8d5ccb4578dbce1382182aa969abd9cad458d6ad7c152ade97af0d233646b696e6465636c61696d6474797065782968747470733a2f2f636c696e69632e6578616d706c652f6e732f636c61696d2f636172655f6e6f746566617574686f727070617274793a61636d653a616c696365666c6564676572822f5820abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f7088765432168637269746963616c81782d68747470733a2f2f636c696e69632e6578616d706c652f6e732f6578742f70617469656e745f636f6e73656e746876657273696f6e73a366736368656d61822f582057e6c9f6e885215721e4f3044cf52565d8a33fcec596438aef990ff8e63774ed6870726f746f636f6c82010069707261637469636573a1781a68747470733a2f2f636c696e69632e6578616d706c652f6e732f822f5820df259ebbd0eb5295241b011dbf82d2a0a72d0bb303de8f921d8cf17fcee357f56a7669736962696c697479a26373656564776f726b66736561726368f46b6f636375727265645f61741b000001a142061fa0",
+      "diag": "{\n  \"ext\": {\n    \"https://clinic.example/ns/ext/ward\": \"B-2\",\n    \"https://clinic.example/ns/ext/patient_consent\": [-16, h'd08c458c62d346fcb1ecf537aa6e5668447a32b74941d0a2fd03f1e99fe4935e']\n  },\n  \"body\": [\n    {\n      \"part\": \"note\",\n      \"commit\": [-16, h'f33c57f8d5ccb4578dbce1382182aa969abd9cad458d6ad7c152ade97af0d233']\n    }\n  ],\n  \"kind\": \"claim\",\n  \"type\": \"https://clinic.example/ns/claim/care_note\",\n  \"author\": \"party:acme:alice\",\n  \"ledger\": [-16, h'13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7'],\n  \"capacity\": \"own\",\n  \"concerns\": [h'019a2f4c8e1b7c3da5e6f70887654321'],\n  \"critical\": [\"https://clinic.example/ns/ext/patient_consent\"],\n  \"versions\": {\n    \"schema\": [-16, h'57e6c9f6e885215721e4f3044cf52565d8a33fcec596438aef990ff8e63774ed'],\n    \"protocol\": [1, 0],\n    \"practices\": {\n      \"https://clinic.example/ns/\": [-16, h'df259ebbd0eb5295241b011dbf82d2a0a72d0bb303de8f921d8cf17fcee357f5']\n    }\n  },\n  \"visibility\": {\n    \"see\": \"work\",\n    \"search\": false\n  },\n  \"occurred_at\": 1792109060000\n}",
+      "hex": "ac63657874a2782268747470733a2f2f636c696e69632e6578616d706c652f6e732f6578742f7761726463422d32782d68747470733a2f2f636c696e69632e6578616d706c652f6e732f6578742f70617469656e745f636f6e73656e74822f5820d08c458c62d346fcb1ecf537aa6e5668447a32b74941d0a2fd03f1e99fe4935e64626f647981a26470617274646e6f746566636f6d6d6974822f5820f33c57f8d5ccb4578dbce1382182aa969abd9cad458d6ad7c152ade97af0d233646b696e6465636c61696d6474797065782968747470733a2f2f636c696e69632e6578616d706c652f6e732f636c61696d2f636172655f6e6f746566617574686f727070617274793a61636d653a616c696365666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f7088765432168637269746963616c81782d68747470733a2f2f636c696e69632e6578616d706c652f6e732f6578742f70617469656e745f636f6e73656e746876657273696f6e73a366736368656d61822f582057e6c9f6e885215721e4f3044cf52565d8a33fcec596438aef990ff8e63774ed6870726f746f636f6c82010069707261637469636573a1781a68747470733a2f2f636c696e69632e6578616d706c652f6e732f822f5820df259ebbd0eb5295241b011dbf82d2a0a72d0bb303de8f921d8cf17fcee357f56a7669736962696c697479a26373656564776f726b66736561726368f46b6f636375727265645f61741b000001a142061fa0",
       "decoded": {
         "ext": {
           "https://clinic.example/ns/ext/ward": "B-2",
@@ -495,7 +495,7 @@
         "author": "party:acme:alice",
         "ledger": [
           -16,
-          "abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad"
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
         ],
         "capacity": "own",
         "concerns": [
@@ -538,7 +538,7 @@
           "https://clinic.example/ns/ext/patient_consent"
         ]
       },
-      "record_digest": "822f5820d2111ad55780f47f1c31dfbb53e244b411d615271f91cfbf1687f795ead50ad0",
+      "record_digest": "822f582055b7276d2aab6a1f46c85f6e7e8c1f641f51e647f1af6010226caa339fd5048c",
       "cddl": "pass",
       "expect": {
         "outcome": "accept"
@@ -554,8 +554,8 @@
         "CM-20"
       ],
       "purpose": "Supplier declines a request with a catalog reason code, visible to the named buyer only.",
-      "diag": "{\n  \"kind\": \"declaration\",\n  \"type\": \"https://suiss.app/ns/work/declaration/decline\",\n  \"basis\": [\n    [-16, h'7ef3ae0510e2274e38c569715ea2f06a5d73f78ca76f3a344b164921cce3c90c']\n  ],\n  \"author\": \"party:globex:supplier\",\n  \"ledger\": [-16, h'abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad'],\n  \"params\": {\n    \"reason\": \"no_capacity\"\n  },\n  \"capacity\": \"own\",\n  \"concerns\": [h'019a2f4c8e1b7c3da5e6f70887654321'],\n  \"versions\": {\n    \"schema\": [-16, h'21c7204b2ed64f633bb938997d1c2806858b97464109009c7e682203fdd714d0'],\n    \"protocol\": [1, 0]\n  },\n  \"authority\": {\n    \"proof\": \"decision_receipt\",\n    \"digest\": [-16, h'38dd5f5e57910aa84388aa76df0e1b0a6690187b137d4df747b00e848a4626e0']\n  },\n  \"visibility\": {\n    \"see\": [\n      \"parties\",\n      [\"party:acme:buyer-org\"]\n    ]\n  }\n}",
-      "hex": "ab646b696e646b6465636c61726174696f6e6474797065782d68747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f6465636c696e6565626173697381822f58207ef3ae0510e2274e38c569715ea2f06a5d73f78ca76f3a344b164921cce3c90c66617574686f727570617274793a676c6f6265783a737570706c696572666c6564676572822f5820abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad66706172616d73a166726561736f6e6b6e6f5f6361706163697479686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708876543216876657273696f6e73a266736368656d61822f582021c7204b2ed64f633bb938997d1c2806858b97464109009c7e682203fdd714d06870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f582038dd5f5e57910aa84388aa76df0e1b0a6690187b137d4df747b00e848a4626e06a7669736962696c697479a163736565826770617274696573817470617274793a61636d653a62757965722d6f7267",
+      "diag": "{\n  \"kind\": \"declaration\",\n  \"type\": \"https://suiss.app/ns/work/declaration/decline\",\n  \"basis\": [\n    [-16, h'7ef3ae0510e2274e38c569715ea2f06a5d73f78ca76f3a344b164921cce3c90c']\n  ],\n  \"author\": \"party:globex:supplier\",\n  \"ledger\": [-16, h'13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7'],\n  \"params\": {\n    \"reason\": \"no_capacity\"\n  },\n  \"capacity\": \"own\",\n  \"concerns\": [h'019a2f4c8e1b7c3da5e6f70887654321'],\n  \"versions\": {\n    \"schema\": [-16, h'21c7204b2ed64f633bb938997d1c2806858b97464109009c7e682203fdd714d0'],\n    \"protocol\": [1, 0]\n  },\n  \"authority\": {\n    \"proof\": \"decision_receipt\",\n    \"digest\": [-16, h'38dd5f5e57910aa84388aa76df0e1b0a6690187b137d4df747b00e848a4626e0']\n  },\n  \"visibility\": {\n    \"see\": [\n      \"parties\",\n      [\"party:acme:buyer-org\"]\n    ]\n  }\n}",
+      "hex": "ab646b696e646b6465636c61726174696f6e6474797065782d68747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f6465636c696e6565626173697381822f58207ef3ae0510e2274e38c569715ea2f06a5d73f78ca76f3a344b164921cce3c90c66617574686f727570617274793a676c6f6265783a737570706c696572666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee766706172616d73a166726561736f6e6b6e6f5f6361706163697479686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708876543216876657273696f6e73a266736368656d61822f582021c7204b2ed64f633bb938997d1c2806858b97464109009c7e682203fdd714d06870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f582038dd5f5e57910aa84388aa76df0e1b0a6690187b137d4df747b00e848a4626e06a7669736962696c697479a163736565826770617274696573817470617274793a61636d653a62757965722d6f7267",
       "decoded": {
         "kind": "declaration",
         "type": "https://suiss.app/ns/work/declaration/decline",
@@ -568,7 +568,7 @@
         "author": "party:globex:supplier",
         "ledger": [
           -16,
-          "abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad"
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
         ],
         "params": {
           "reason": "no_capacity"
@@ -613,7 +613,7 @@
         },
         "understood_extensions": []
       },
-      "record_digest": "822f58208faf7faf2280542ab6d8121112c168794b252bf95cce56751d5be9965051b58b",
+      "record_digest": "822f58203214ebea46fd891267b735f3dec2a4014315073eaf6c300c633f3006b0728f86",
       "cddl": "pass",
       "expect": {
         "outcome": "accept"
@@ -632,8 +632,8 @@
         "P-92"
       ],
       "purpose": "A decision gate opened with the approval form, the addressed Party, a deadline and a criterion URI.",
-      "diag": "{\n  \"kind\": \"declaration\",\n  \"type\": \"https://suiss.app/ns/work/declaration/open_condition\",\n  \"basis\": [\n    [-16, h'79256c6126bb0a8f50a9037ce86d92cd2fed7632c159f8c656311ccbd61750cd']\n  ],\n  \"author\": \"party:acme:alice\",\n  \"ledger\": [-16, h'abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad'],\n  \"params\": {\n    \"address\": \"party:acme:buyer-org\",\n    \"deadline\": 1792800000000,\n    \"criterion\": \"https://procurement.example/ns/criterion/budget_approved\",\n    \"gate_form\": \"approval\",\n    \"wait_reason\": \"internal\",\n    \"condition_type\": \"https://suiss.app/ns/work/condition/decision\"\n  },\n  \"capacity\": \"own\",\n  \"concerns\": [h'019a2f4c8e1b7c3da5e6f70812345678'],\n  \"versions\": {\n    \"schema\": [-16, h'0038deaaa556b892bedb09187b5df227e20b25cc180c7f162ce45f3814deea78'],\n    \"protocol\": [1, 0]\n  },\n  \"authority\": {\n    \"proof\": \"decision_receipt\",\n    \"digest\": [-16, h'6eb638ac1a0c4dadca311d59a69820d8efaacd1f343e4b3815a25eb084135c97']\n  },\n  \"visibility\": {\n    \"see\": \"work\"\n  }\n}",
-      "hex": "ab646b696e646b6465636c61726174696f6e6474797065783468747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f6f70656e5f636f6e646974696f6e65626173697381822f582079256c6126bb0a8f50a9037ce86d92cd2fed7632c159f8c656311ccbd61750cd66617574686f727070617274793a61636d653a616c696365666c6564676572822f5820abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad66706172616d73a667616464726573737470617274793a61636d653a62757965722d6f726768646561646c696e651b000001a16b35080069637269746572696f6e783868747470733a2f2f70726f637572656d656e742e6578616d706c652f6e732f637269746572696f6e2f6275646765745f617070726f76656469676174655f666f726d68617070726f76616c6b776169745f726561736f6e68696e7465726e616c6e636f6e646974696f6e5f74797065782c68747470733a2f2f73756973732e6170702f6e732f776f726b2f636f6e646974696f6e2f6465636973696f6e686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f58200038deaaa556b892bedb09187b5df227e20b25cc180c7f162ce45f3814deea786870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f58206eb638ac1a0c4dadca311d59a69820d8efaacd1f343e4b3815a25eb084135c976a7669736962696c697479a16373656564776f726b",
+      "diag": "{\n  \"kind\": \"declaration\",\n  \"type\": \"https://suiss.app/ns/work/declaration/open_condition\",\n  \"basis\": [\n    [-16, h'79256c6126bb0a8f50a9037ce86d92cd2fed7632c159f8c656311ccbd61750cd']\n  ],\n  \"author\": \"party:acme:alice\",\n  \"ledger\": [-16, h'13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7'],\n  \"params\": {\n    \"address\": \"party:acme:buyer-org\",\n    \"deadline\": 1792800000000,\n    \"criterion\": \"https://procurement.example/ns/criterion/budget_approved\",\n    \"gate_form\": \"approval\",\n    \"wait_reason\": \"internal\",\n    \"condition_type\": \"https://suiss.app/ns/work/condition/decision\"\n  },\n  \"capacity\": \"own\",\n  \"concerns\": [h'019a2f4c8e1b7c3da5e6f70812345678'],\n  \"versions\": {\n    \"schema\": [-16, h'0038deaaa556b892bedb09187b5df227e20b25cc180c7f162ce45f3814deea78'],\n    \"protocol\": [1, 0]\n  },\n  \"authority\": {\n    \"proof\": \"decision_receipt\",\n    \"digest\": [-16, h'6eb638ac1a0c4dadca311d59a69820d8efaacd1f343e4b3815a25eb084135c97']\n  },\n  \"visibility\": {\n    \"see\": \"work\"\n  }\n}",
+      "hex": "ab646b696e646b6465636c61726174696f6e6474797065783468747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f6f70656e5f636f6e646974696f6e65626173697381822f582079256c6126bb0a8f50a9037ce86d92cd2fed7632c159f8c656311ccbd61750cd66617574686f727070617274793a61636d653a616c696365666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee766706172616d73a667616464726573737470617274793a61636d653a62757965722d6f726768646561646c696e651b000001a16b35080069637269746572696f6e783868747470733a2f2f70726f637572656d656e742e6578616d706c652f6e732f637269746572696f6e2f6275646765745f617070726f76656469676174655f666f726d68617070726f76616c6b776169745f726561736f6e68696e7465726e616c6e636f6e646974696f6e5f74797065782c68747470733a2f2f73756973732e6170702f6e732f776f726b2f636f6e646974696f6e2f6465636973696f6e686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f58200038deaaa556b892bedb09187b5df227e20b25cc180c7f162ce45f3814deea786870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f58206eb638ac1a0c4dadca311d59a69820d8efaacd1f343e4b3815a25eb084135c976a7669736962696c697479a16373656564776f726b",
       "decoded": {
         "kind": "declaration",
         "type": "https://suiss.app/ns/work/declaration/open_condition",
@@ -646,7 +646,7 @@
         "author": "party:acme:alice",
         "ledger": [
           -16,
-          "abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad"
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
         ],
         "params": {
           "address": "party:acme:buyer-org",
@@ -691,7 +691,7 @@
         },
         "understood_extensions": []
       },
-      "record_digest": "822f58200cb2b4e63c02dea41d08c19ce405b774376c4583c64c470810f6b18ab1463e37",
+      "record_digest": "822f5820d09afeda9ba264d269bdb9238ce482a07375d10d559697e3fdd755fe9b969e95",
       "cddl": "pass",
       "expect": {
         "outcome": "accept"
@@ -710,8 +710,8 @@
         "P-92"
       ],
       "purpose": "A wait with a condition type from the pinned Practice, an external wait reason, a URI address, an explicit open-ended deadline and a criterion URI; a Practice condition type takes no gate form rule.",
-      "diag": "{\n  \"kind\": \"declaration\",\n  \"type\": \"https://suiss.app/ns/work/declaration/open_condition\",\n  \"basis\": [\n    [-16, h'c913b1f400bee6a835134b25d4fa2ce2265e887070fa69b7889fd778b1278405']\n  ],\n  \"author\": \"party:globex:supplier\",\n  \"ledger\": [-16, h'abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad'],\n  \"params\": {\n    \"address\": \"https://customs.example/ns/office/ist\",\n    \"deadline\": \"none\",\n    \"criterion\": \"https://procurement.example/ns/criterion/customs_released\",\n    \"wait_reason\": \"external\",\n    \"condition_type\": \"https://procurement.example/ns/condition/customs_clearance\"\n  },\n  \"capacity\": \"own\",\n  \"concerns\": [h'019a2f4c8e1b7c3da5e6f70887654321'],\n  \"versions\": {\n    \"schema\": [-16, h'0038deaaa556b892bedb09187b5df227e20b25cc180c7f162ce45f3814deea78'],\n    \"protocol\": [1, 0],\n    \"practices\": {\n      \"https://procurement.example/ns/\": [-16, h'a44f23f8a3aae2c1d733a4008c1cf213f87d9af3baa57d378183828971574efe']\n    }\n  },\n  \"authority\": {\n    \"proof\": \"decision_receipt\",\n    \"digest\": [-16, h'e506973dd3bf287e1301bcf79b9fc9cb201fdaa19ac1f5ff085ae2cf924a81b3']\n  },\n  \"visibility\": {\n    \"see\": \"work\"\n  }\n}",
-      "hex": "ab646b696e646b6465636c61726174696f6e6474797065783468747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f6f70656e5f636f6e646974696f6e65626173697381822f5820c913b1f400bee6a835134b25d4fa2ce2265e887070fa69b7889fd778b127840566617574686f727570617274793a676c6f6265783a737570706c696572666c6564676572822f5820abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad66706172616d73a56761646472657373782568747470733a2f2f637573746f6d732e6578616d706c652f6e732f6f66666963652f69737468646561646c696e65646e6f6e6569637269746572696f6e783968747470733a2f2f70726f637572656d656e742e6578616d706c652f6e732f637269746572696f6e2f637573746f6d735f72656c65617365646b776169745f726561736f6e6865787465726e616c6e636f6e646974696f6e5f74797065783a68747470733a2f2f70726f637572656d656e742e6578616d706c652f6e732f636f6e646974696f6e2f637573746f6d735f636c656172616e6365686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708876543216876657273696f6e73a366736368656d61822f58200038deaaa556b892bedb09187b5df227e20b25cc180c7f162ce45f3814deea786870726f746f636f6c82010069707261637469636573a1781f68747470733a2f2f70726f637572656d656e742e6578616d706c652f6e732f822f5820a44f23f8a3aae2c1d733a4008c1cf213f87d9af3baa57d378183828971574efe69617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f5820e506973dd3bf287e1301bcf79b9fc9cb201fdaa19ac1f5ff085ae2cf924a81b36a7669736962696c697479a16373656564776f726b",
+      "diag": "{\n  \"kind\": \"declaration\",\n  \"type\": \"https://suiss.app/ns/work/declaration/open_condition\",\n  \"basis\": [\n    [-16, h'c913b1f400bee6a835134b25d4fa2ce2265e887070fa69b7889fd778b1278405']\n  ],\n  \"author\": \"party:globex:supplier\",\n  \"ledger\": [-16, h'13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7'],\n  \"params\": {\n    \"address\": \"https://customs.example/ns/office/ist\",\n    \"deadline\": \"none\",\n    \"criterion\": \"https://procurement.example/ns/criterion/customs_released\",\n    \"wait_reason\": \"external\",\n    \"condition_type\": \"https://procurement.example/ns/condition/customs_clearance\"\n  },\n  \"capacity\": \"own\",\n  \"concerns\": [h'019a2f4c8e1b7c3da5e6f70887654321'],\n  \"versions\": {\n    \"schema\": [-16, h'0038deaaa556b892bedb09187b5df227e20b25cc180c7f162ce45f3814deea78'],\n    \"protocol\": [1, 0],\n    \"practices\": {\n      \"https://procurement.example/ns/\": [-16, h'a44f23f8a3aae2c1d733a4008c1cf213f87d9af3baa57d378183828971574efe']\n    }\n  },\n  \"authority\": {\n    \"proof\": \"decision_receipt\",\n    \"digest\": [-16, h'e506973dd3bf287e1301bcf79b9fc9cb201fdaa19ac1f5ff085ae2cf924a81b3']\n  },\n  \"visibility\": {\n    \"see\": \"work\"\n  }\n}",
+      "hex": "ab646b696e646b6465636c61726174696f6e6474797065783468747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f6f70656e5f636f6e646974696f6e65626173697381822f5820c913b1f400bee6a835134b25d4fa2ce2265e887070fa69b7889fd778b127840566617574686f727570617274793a676c6f6265783a737570706c696572666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee766706172616d73a56761646472657373782568747470733a2f2f637573746f6d732e6578616d706c652f6e732f6f66666963652f69737468646561646c696e65646e6f6e6569637269746572696f6e783968747470733a2f2f70726f637572656d656e742e6578616d706c652f6e732f637269746572696f6e2f637573746f6d735f72656c65617365646b776169745f726561736f6e6865787465726e616c6e636f6e646974696f6e5f74797065783a68747470733a2f2f70726f637572656d656e742e6578616d706c652f6e732f636f6e646974696f6e2f637573746f6d735f636c656172616e6365686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708876543216876657273696f6e73a366736368656d61822f58200038deaaa556b892bedb09187b5df227e20b25cc180c7f162ce45f3814deea786870726f746f636f6c82010069707261637469636573a1781f68747470733a2f2f70726f637572656d656e742e6578616d706c652f6e732f822f5820a44f23f8a3aae2c1d733a4008c1cf213f87d9af3baa57d378183828971574efe69617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f5820e506973dd3bf287e1301bcf79b9fc9cb201fdaa19ac1f5ff085ae2cf924a81b36a7669736962696c697479a16373656564776f726b",
       "decoded": {
         "kind": "declaration",
         "type": "https://suiss.app/ns/work/declaration/open_condition",
@@ -724,7 +724,7 @@
         "author": "party:globex:supplier",
         "ledger": [
           -16,
-          "abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad"
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
         ],
         "params": {
           "address": "https://customs.example/ns/office/ist",
@@ -774,7 +774,7 @@
         },
         "understood_extensions": []
       },
-      "record_digest": "822f58208ca8f2d7a198b112e0eb29182e3898e99ddaa58d977f7ef3e646c53665a193fb",
+      "record_digest": "822f582017438d3207ee54317f5ab513a9825a27c832295eb6aa7fc5ae5f20d74d0b5378",
       "cddl": "pass",
       "expect": {
         "outcome": "accept"
@@ -790,8 +790,8 @@
         "P-92"
       ],
       "purpose": "Cancel with a namespaced sub-code of the catalog reason other; the sub-code reads as its parent.",
-      "diag": "{\n  \"kind\": \"declaration\",\n  \"type\": \"https://suiss.app/ns/work/declaration/cancel\",\n  \"basis\": [\n    [-16, h'12cae033186309f659063dbd91e267983caec2f488f1c50f8794e8901e27741c']\n  ],\n  \"author\": \"party:acme:alice\",\n  \"ledger\": [-16, h'abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad'],\n  \"params\": {\n    \"reason\": \"other:https://procurement.example/ns/reason/budget_frozen\"\n  },\n  \"capacity\": \"own\",\n  \"concerns\": [h'019a2f4c8e1b7c3da5e6f70812345678'],\n  \"versions\": {\n    \"schema\": [-16, h'3cc45505b948cf4458a37be66c0dc8a75e5c5589c1e792140898681a1a64cd1b'],\n    \"protocol\": [1, 0]\n  },\n  \"authority\": {\n    \"proof\": \"decision_receipt\",\n    \"digest\": [-16, h'85006766d2a386db1745999403348a71603736a1b9d8f43e79e34b1dc7f4cd48']\n  },\n  \"visibility\": {\n    \"see\": \"work\"\n  }\n}",
-      "hex": "ab646b696e646b6465636c61726174696f6e6474797065782c68747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f63616e63656c65626173697381822f582012cae033186309f659063dbd91e267983caec2f488f1c50f8794e8901e27741c66617574686f727070617274793a61636d653a616c696365666c6564676572822f5820abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad66706172616d73a166726561736f6e78396f746865723a68747470733a2f2f70726f637572656d656e742e6578616d706c652f6e732f726561736f6e2f6275646765745f66726f7a656e686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f58203cc45505b948cf4458a37be66c0dc8a75e5c5589c1e792140898681a1a64cd1b6870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f582085006766d2a386db1745999403348a71603736a1b9d8f43e79e34b1dc7f4cd486a7669736962696c697479a16373656564776f726b",
+      "diag": "{\n  \"kind\": \"declaration\",\n  \"type\": \"https://suiss.app/ns/work/declaration/cancel\",\n  \"basis\": [\n    [-16, h'12cae033186309f659063dbd91e267983caec2f488f1c50f8794e8901e27741c']\n  ],\n  \"author\": \"party:acme:alice\",\n  \"ledger\": [-16, h'13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7'],\n  \"params\": {\n    \"reason\": \"other:https://procurement.example/ns/reason/budget_frozen\"\n  },\n  \"capacity\": \"own\",\n  \"concerns\": [h'019a2f4c8e1b7c3da5e6f70812345678'],\n  \"versions\": {\n    \"schema\": [-16, h'3cc45505b948cf4458a37be66c0dc8a75e5c5589c1e792140898681a1a64cd1b'],\n    \"protocol\": [1, 0]\n  },\n  \"authority\": {\n    \"proof\": \"decision_receipt\",\n    \"digest\": [-16, h'85006766d2a386db1745999403348a71603736a1b9d8f43e79e34b1dc7f4cd48']\n  },\n  \"visibility\": {\n    \"see\": \"work\"\n  }\n}",
+      "hex": "ab646b696e646b6465636c61726174696f6e6474797065782c68747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f63616e63656c65626173697381822f582012cae033186309f659063dbd91e267983caec2f488f1c50f8794e8901e27741c66617574686f727070617274793a61636d653a616c696365666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee766706172616d73a166726561736f6e78396f746865723a68747470733a2f2f70726f637572656d656e742e6578616d706c652f6e732f726561736f6e2f6275646765745f66726f7a656e686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f58203cc45505b948cf4458a37be66c0dc8a75e5c5589c1e792140898681a1a64cd1b6870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f582085006766d2a386db1745999403348a71603736a1b9d8f43e79e34b1dc7f4cd486a7669736962696c697479a16373656564776f726b",
       "decoded": {
         "kind": "declaration",
         "type": "https://suiss.app/ns/work/declaration/cancel",
@@ -804,7 +804,7 @@
         "author": "party:acme:alice",
         "ledger": [
           -16,
-          "abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad"
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
         ],
         "params": {
           "reason": "other:https://procurement.example/ns/reason/budget_frozen"
@@ -844,7 +844,7 @@
         },
         "understood_extensions": []
       },
-      "record_digest": "822f5820e2e1140e95dcb284f038fdea82e8f9fb230e57c78ef937dea9b1b50b3124cfc9",
+      "record_digest": "822f5820e7842704a886f8e7035226dcad4b1c2971131877bf74ce16279d2aa3f6d78713",
       "cddl": "pass",
       "expect": {
         "outcome": "accept"
@@ -859,15 +859,15 @@
         "P-92"
       ],
       "purpose": "Practice Claim whose params carry a digest scalar written as [-16, bytes] and a list of text scalars, with a Practice qualifier on references under the pinned namespace.",
-      "diag": "{\n  \"kind\": \"claim\",\n  \"type\": \"https://procurement.example/ns/claim/inspection\",\n  \"author\": \"party:acme:alice\",\n  \"ledger\": [-16, h'abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad'],\n  \"params\": {\n    \"sample_ids\": [\"lot-4471-a-01\", \"lot-4471-a-02\"],\n    \"inspected_lot\": [-16, h'f8bde7945a497693288991cd6b2f9d19995bf9f4602c2b3907528d20646457e5']\n  },\n  \"capacity\": \"own\",\n  \"concerns\": [h'019a2f4c8e1b7c3da5e6f70812345678'],\n  \"versions\": {\n    \"schema\": [-16, h'32ca4092b67152798d222c623b897e159b1ea60ebcfa3bc7447227ec8e814c8e'],\n    \"protocol\": [1, 0],\n    \"practices\": {\n      \"https://procurement.example/ns/\": [-16, h'a44f23f8a3aae2c1d733a4008c1cf213f87d9af3baa57d378183828971574efe']\n    }\n  },\n  \"relations\": [\n    {\n      \"rel\": \"references\",\n      \"target\": [\"external\", \"https://erp.example/orders/PO-4471\"],\n      \"qualifier\": \"https://procurement.example/ns/relation/inspected_order\"\n    }\n  ],\n  \"visibility\": {\n    \"see\": \"work\"\n  },\n  \"occurred_at\": 1792109070000\n}",
-      "hex": "ab646b696e6465636c61696d6474797065782f68747470733a2f2f70726f637572656d656e742e6578616d706c652f6e732f636c61696d2f696e7370656374696f6e66617574686f727070617274793a61636d653a616c696365666c6564676572822f5820abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad66706172616d73a26a73616d706c655f696473826d6c6f742d343437312d612d30316d6c6f742d343437312d612d30326d696e737065637465645f6c6f74822f5820f8bde7945a497693288991cd6b2f9d19995bf9f4602c2b3907528d20646457e5686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a366736368656d61822f582032ca4092b67152798d222c623b897e159b1ea60ebcfa3bc7447227ec8e814c8e6870726f746f636f6c82010069707261637469636573a1781f68747470733a2f2f70726f637572656d656e742e6578616d706c652f6e732f822f5820a44f23f8a3aae2c1d733a4008c1cf213f87d9af3baa57d378183828971574efe6972656c6174696f6e7381a36372656c6a7265666572656e63657366746172676574826865787465726e616c782268747470733a2f2f6572702e6578616d706c652f6f72646572732f504f2d34343731697175616c6966696572783768747470733a2f2f70726f637572656d656e742e6578616d706c652f6e732f72656c6174696f6e2f696e737065637465645f6f726465726a7669736962696c697479a16373656564776f726b6b6f636375727265645f61741b000001a1420646b0",
+      "diag": "{\n  \"kind\": \"claim\",\n  \"type\": \"https://procurement.example/ns/claim/inspection\",\n  \"author\": \"party:acme:alice\",\n  \"ledger\": [-16, h'13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7'],\n  \"params\": {\n    \"sample_ids\": [\"lot-4471-a-01\", \"lot-4471-a-02\"],\n    \"inspected_lot\": [-16, h'f8bde7945a497693288991cd6b2f9d19995bf9f4602c2b3907528d20646457e5']\n  },\n  \"capacity\": \"own\",\n  \"concerns\": [h'019a2f4c8e1b7c3da5e6f70812345678'],\n  \"versions\": {\n    \"schema\": [-16, h'32ca4092b67152798d222c623b897e159b1ea60ebcfa3bc7447227ec8e814c8e'],\n    \"protocol\": [1, 0],\n    \"practices\": {\n      \"https://procurement.example/ns/\": [-16, h'a44f23f8a3aae2c1d733a4008c1cf213f87d9af3baa57d378183828971574efe']\n    }\n  },\n  \"relations\": [\n    {\n      \"rel\": \"references\",\n      \"target\": [\"external\", \"https://erp.example/orders/PO-4471\"],\n      \"qualifier\": \"https://procurement.example/ns/relation/inspected_order\"\n    }\n  ],\n  \"visibility\": {\n    \"see\": \"work\"\n  },\n  \"occurred_at\": 1792109070000\n}",
+      "hex": "ab646b696e6465636c61696d6474797065782f68747470733a2f2f70726f637572656d656e742e6578616d706c652f6e732f636c61696d2f696e7370656374696f6e66617574686f727070617274793a61636d653a616c696365666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee766706172616d73a26a73616d706c655f696473826d6c6f742d343437312d612d30316d6c6f742d343437312d612d30326d696e737065637465645f6c6f74822f5820f8bde7945a497693288991cd6b2f9d19995bf9f4602c2b3907528d20646457e5686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a366736368656d61822f582032ca4092b67152798d222c623b897e159b1ea60ebcfa3bc7447227ec8e814c8e6870726f746f636f6c82010069707261637469636573a1781f68747470733a2f2f70726f637572656d656e742e6578616d706c652f6e732f822f5820a44f23f8a3aae2c1d733a4008c1cf213f87d9af3baa57d378183828971574efe6972656c6174696f6e7381a36372656c6a7265666572656e63657366746172676574826865787465726e616c782268747470733a2f2f6572702e6578616d706c652f6f72646572732f504f2d34343731697175616c6966696572783768747470733a2f2f70726f637572656d656e742e6578616d706c652f6e732f72656c6174696f6e2f696e737065637465645f6f726465726a7669736962696c697479a16373656564776f726b6b6f636375727265645f61741b000001a1420646b0",
       "decoded": {
         "kind": "claim",
         "type": "https://procurement.example/ns/claim/inspection",
         "author": "party:acme:alice",
         "ledger": [
           -16,
-          "abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad"
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
         ],
         "params": {
           "sample_ids": [
@@ -924,7 +924,7 @@
         },
         "understood_extensions": []
       },
-      "record_digest": "822f5820606509a3e4048e9c275e22c6b4032fb1001fd5dee4663e6d5d70303776292184",
+      "record_digest": "822f58203ef64f6d7f8bb7c00f345682e642e6bd5bd6868ab19725fc82a95f14d46fe6d0",
       "cddl": "pass",
       "expect": {
         "outcome": "accept"
@@ -941,8 +941,8 @@
         "P-92"
       ],
       "purpose": "Redaction of the terms part of the promise at position 1, named by its record ID; the reason class is in params, so it stays readable after the redaction.",
-      "diag": "{\n  \"kind\": \"declaration\",\n  \"type\": \"https://suiss.app/ns/work/declaration/redact\",\n  \"basis\": [],\n  \"author\": \"party:acme:alice\",\n  \"ledger\": [-16, h'abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad'],\n  \"params\": {\n    \"parts\": [\"terms\"],\n    \"reason\": \"personal_data\",\n    \"target\": [-16, h'fa7a285a5de4af759e48c0701eaeaf2118c774ee95c192db154e5ea098642756']\n  },\n  \"capacity\": \"own\",\n  \"concerns\": [h'019a2f4c8e1b7c3da5e6f70812345678'],\n  \"versions\": {\n    \"schema\": [-16, h'37d13cd38e70920f725b7fb2f37775c554f22928006d0da35720af46245b8ed5'],\n    \"protocol\": [1, 0]\n  },\n  \"authority\": {\n    \"proof\": \"decision_receipt\",\n    \"digest\": [-16, h'd357b858a526c5a27d33d7e0b815c6226fbe51e4b89f2a038526423599b14cf7']\n  },\n  \"visibility\": {\n    \"see\": \"work\"\n  }\n}",
-      "hex": "ab646b696e646b6465636c61726174696f6e6474797065782c68747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f7265646163746562617369738066617574686f727070617274793a61636d653a616c696365666c6564676572822f5820abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad66706172616d73a365706172747381657465726d7366726561736f6e6d706572736f6e616c5f6461746166746172676574822f5820fa7a285a5de4af759e48c0701eaeaf2118c774ee95c192db154e5ea098642756686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f582037d13cd38e70920f725b7fb2f37775c554f22928006d0da35720af46245b8ed56870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f5820d357b858a526c5a27d33d7e0b815c6226fbe51e4b89f2a038526423599b14cf76a7669736962696c697479a16373656564776f726b",
+      "diag": "{\n  \"kind\": \"declaration\",\n  \"type\": \"https://suiss.app/ns/work/declaration/redact\",\n  \"basis\": [],\n  \"author\": \"party:acme:alice\",\n  \"ledger\": [-16, h'13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7'],\n  \"params\": {\n    \"parts\": [\"terms\"],\n    \"reason\": \"personal_data\",\n    \"target\": [-16, h'eec47a59cd97db46df16d4f255d7f16e3a403d9d91e4a5084e4668bbb3104fcf']\n  },\n  \"capacity\": \"own\",\n  \"concerns\": [h'019a2f4c8e1b7c3da5e6f70812345678'],\n  \"versions\": {\n    \"schema\": [-16, h'37d13cd38e70920f725b7fb2f37775c554f22928006d0da35720af46245b8ed5'],\n    \"protocol\": [1, 0]\n  },\n  \"authority\": {\n    \"proof\": \"decision_receipt\",\n    \"digest\": [-16, h'd357b858a526c5a27d33d7e0b815c6226fbe51e4b89f2a038526423599b14cf7']\n  },\n  \"visibility\": {\n    \"see\": \"work\"\n  }\n}",
+      "hex": "ab646b696e646b6465636c61726174696f6e6474797065782c68747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f7265646163746562617369738066617574686f727070617274793a61636d653a616c696365666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee766706172616d73a365706172747381657465726d7366726561736f6e6d706572736f6e616c5f6461746166746172676574822f5820eec47a59cd97db46df16d4f255d7f16e3a403d9d91e4a5084e4668bbb3104fcf686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f582037d13cd38e70920f725b7fb2f37775c554f22928006d0da35720af46245b8ed56870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f5820d357b858a526c5a27d33d7e0b815c6226fbe51e4b89f2a038526423599b14cf76a7669736962696c697479a16373656564776f726b",
       "decoded": {
         "kind": "declaration",
         "type": "https://suiss.app/ns/work/declaration/redact",
@@ -950,7 +950,7 @@
         "author": "party:acme:alice",
         "ledger": [
           -16,
-          "abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad"
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
         ],
         "params": {
           "parts": [
@@ -959,7 +959,7 @@
           "reason": "personal_data",
           "target": [
             -16,
-            "fa7a285a5de4af759e48c0701eaeaf2118c774ee95c192db154e5ea098642756"
+            "eec47a59cd97db46df16d4f255d7f16e3a403d9d91e4a5084e4668bbb3104fcf"
           ]
         },
         "capacity": "own",
@@ -997,7 +997,7 @@
         },
         "understood_extensions": []
       },
-      "record_digest": "822f58203b13df3a14eaa42e4075dc70f58d01e3b015e744f860dd19e9651e13ca7f5cc7",
+      "record_digest": "822f58202ab1cc85abaa07c3eb45d6329385f71544bc160a152a4f46d705850a1f438eb3",
       "cddl": "pass",
       "expect": {
         "outcome": "accept"
@@ -1010,8 +1010,8 @@
         "P-86"
       ],
       "purpose": "Redaction naming a record this ledger does not hold; it is admitted and derivation gives it no effect (unknown_target).",
-      "diag": "{\n  \"kind\": \"declaration\",\n  \"type\": \"https://suiss.app/ns/work/declaration/redact\",\n  \"basis\": [],\n  \"author\": \"party:acme:alice\",\n  \"ledger\": [-16, h'abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad'],\n  \"params\": {\n    \"parts\": [\"terms\"],\n    \"reason\": \"legal_order\",\n    \"target\": [-16, h'f737da8fc30d4c22d7c04361f49066f495ce6946966f5875ae8b8b0d3a9f6646']\n  },\n  \"capacity\": \"own\",\n  \"concerns\": [h'019a2f4c8e1b7c3da5e6f70812345678'],\n  \"versions\": {\n    \"schema\": [-16, h'37d13cd38e70920f725b7fb2f37775c554f22928006d0da35720af46245b8ed5'],\n    \"protocol\": [1, 0]\n  },\n  \"authority\": {\n    \"proof\": \"decision_receipt\",\n    \"digest\": [-16, h'd357b858a526c5a27d33d7e0b815c6226fbe51e4b89f2a038526423599b14cf7']\n  },\n  \"visibility\": {\n    \"see\": \"work\"\n  }\n}",
-      "hex": "ab646b696e646b6465636c61726174696f6e6474797065782c68747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f7265646163746562617369738066617574686f727070617274793a61636d653a616c696365666c6564676572822f5820abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad66706172616d73a365706172747381657465726d7366726561736f6e6b6c6567616c5f6f7264657266746172676574822f5820f737da8fc30d4c22d7c04361f49066f495ce6946966f5875ae8b8b0d3a9f6646686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f582037d13cd38e70920f725b7fb2f37775c554f22928006d0da35720af46245b8ed56870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f5820d357b858a526c5a27d33d7e0b815c6226fbe51e4b89f2a038526423599b14cf76a7669736962696c697479a16373656564776f726b",
+      "diag": "{\n  \"kind\": \"declaration\",\n  \"type\": \"https://suiss.app/ns/work/declaration/redact\",\n  \"basis\": [],\n  \"author\": \"party:acme:alice\",\n  \"ledger\": [-16, h'13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7'],\n  \"params\": {\n    \"parts\": [\"terms\"],\n    \"reason\": \"legal_order\",\n    \"target\": [-16, h'f737da8fc30d4c22d7c04361f49066f495ce6946966f5875ae8b8b0d3a9f6646']\n  },\n  \"capacity\": \"own\",\n  \"concerns\": [h'019a2f4c8e1b7c3da5e6f70812345678'],\n  \"versions\": {\n    \"schema\": [-16, h'37d13cd38e70920f725b7fb2f37775c554f22928006d0da35720af46245b8ed5'],\n    \"protocol\": [1, 0]\n  },\n  \"authority\": {\n    \"proof\": \"decision_receipt\",\n    \"digest\": [-16, h'd357b858a526c5a27d33d7e0b815c6226fbe51e4b89f2a038526423599b14cf7']\n  },\n  \"visibility\": {\n    \"see\": \"work\"\n  }\n}",
+      "hex": "ab646b696e646b6465636c61726174696f6e6474797065782c68747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f7265646163746562617369738066617574686f727070617274793a61636d653a616c696365666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee766706172616d73a365706172747381657465726d7366726561736f6e6b6c6567616c5f6f7264657266746172676574822f5820f737da8fc30d4c22d7c04361f49066f495ce6946966f5875ae8b8b0d3a9f6646686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f582037d13cd38e70920f725b7fb2f37775c554f22928006d0da35720af46245b8ed56870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f5820d357b858a526c5a27d33d7e0b815c6226fbe51e4b89f2a038526423599b14cf76a7669736962696c697479a16373656564776f726b",
       "decoded": {
         "kind": "declaration",
         "type": "https://suiss.app/ns/work/declaration/redact",
@@ -1019,7 +1019,7 @@
         "author": "party:acme:alice",
         "ledger": [
           -16,
-          "abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad"
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
         ],
         "params": {
           "parts": [
@@ -1066,7 +1066,7 @@
         },
         "understood_extensions": []
       },
-      "record_digest": "822f5820a3083210aaa2b6d037993d16049925aefd613e79ca004574087980b16272ed64",
+      "record_digest": "822f5820d06b1e53f25ed8ca2921c7636c76bb8b261ee60bfd04e45e6622374c7b2396b3",
       "cddl": "pass",
       "expect": {
         "outcome": "accept"
@@ -1078,8 +1078,8 @@
         "P-111"
       ],
       "purpose": "Redaction naming a part the promise body does not commit; it is admitted and derivation gives it no effect (unknown_target).",
-      "diag": "{\n  \"kind\": \"declaration\",\n  \"type\": \"https://suiss.app/ns/work/declaration/redact\",\n  \"basis\": [],\n  \"author\": \"party:acme:alice\",\n  \"ledger\": [-16, h'abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad'],\n  \"params\": {\n    \"parts\": [\"note\", \"terms\"],\n    \"reason\": \"author_request\",\n    \"target\": [-16, h'fa7a285a5de4af759e48c0701eaeaf2118c774ee95c192db154e5ea098642756']\n  },\n  \"capacity\": \"own\",\n  \"concerns\": [h'019a2f4c8e1b7c3da5e6f70812345678'],\n  \"versions\": {\n    \"schema\": [-16, h'37d13cd38e70920f725b7fb2f37775c554f22928006d0da35720af46245b8ed5'],\n    \"protocol\": [1, 0]\n  },\n  \"authority\": {\n    \"proof\": \"decision_receipt\",\n    \"digest\": [-16, h'd357b858a526c5a27d33d7e0b815c6226fbe51e4b89f2a038526423599b14cf7']\n  },\n  \"visibility\": {\n    \"see\": \"work\"\n  }\n}",
-      "hex": "ab646b696e646b6465636c61726174696f6e6474797065782c68747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f7265646163746562617369738066617574686f727070617274793a61636d653a616c696365666c6564676572822f5820abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad66706172616d73a365706172747382646e6f7465657465726d7366726561736f6e6e617574686f725f7265717565737466746172676574822f5820fa7a285a5de4af759e48c0701eaeaf2118c774ee95c192db154e5ea098642756686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f582037d13cd38e70920f725b7fb2f37775c554f22928006d0da35720af46245b8ed56870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f5820d357b858a526c5a27d33d7e0b815c6226fbe51e4b89f2a038526423599b14cf76a7669736962696c697479a16373656564776f726b",
+      "diag": "{\n  \"kind\": \"declaration\",\n  \"type\": \"https://suiss.app/ns/work/declaration/redact\",\n  \"basis\": [],\n  \"author\": \"party:acme:alice\",\n  \"ledger\": [-16, h'13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7'],\n  \"params\": {\n    \"parts\": [\"note\", \"terms\"],\n    \"reason\": \"author_request\",\n    \"target\": [-16, h'eec47a59cd97db46df16d4f255d7f16e3a403d9d91e4a5084e4668bbb3104fcf']\n  },\n  \"capacity\": \"own\",\n  \"concerns\": [h'019a2f4c8e1b7c3da5e6f70812345678'],\n  \"versions\": {\n    \"schema\": [-16, h'37d13cd38e70920f725b7fb2f37775c554f22928006d0da35720af46245b8ed5'],\n    \"protocol\": [1, 0]\n  },\n  \"authority\": {\n    \"proof\": \"decision_receipt\",\n    \"digest\": [-16, h'd357b858a526c5a27d33d7e0b815c6226fbe51e4b89f2a038526423599b14cf7']\n  },\n  \"visibility\": {\n    \"see\": \"work\"\n  }\n}",
+      "hex": "ab646b696e646b6465636c61726174696f6e6474797065782c68747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f7265646163746562617369738066617574686f727070617274793a61636d653a616c696365666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee766706172616d73a365706172747382646e6f7465657465726d7366726561736f6e6e617574686f725f7265717565737466746172676574822f5820eec47a59cd97db46df16d4f255d7f16e3a403d9d91e4a5084e4668bbb3104fcf686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f582037d13cd38e70920f725b7fb2f37775c554f22928006d0da35720af46245b8ed56870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f5820d357b858a526c5a27d33d7e0b815c6226fbe51e4b89f2a038526423599b14cf76a7669736962696c697479a16373656564776f726b",
       "decoded": {
         "kind": "declaration",
         "type": "https://suiss.app/ns/work/declaration/redact",
@@ -1087,7 +1087,7 @@
         "author": "party:acme:alice",
         "ledger": [
           -16,
-          "abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad"
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
         ],
         "params": {
           "parts": [
@@ -1097,7 +1097,7 @@
           "reason": "author_request",
           "target": [
             -16,
-            "fa7a285a5de4af759e48c0701eaeaf2118c774ee95c192db154e5ea098642756"
+            "eec47a59cd97db46df16d4f255d7f16e3a403d9d91e4a5084e4668bbb3104fcf"
           ]
         },
         "capacity": "own",
@@ -1135,7 +1135,7 @@
         },
         "understood_extensions": []
       },
-      "record_digest": "822f5820229db8e82e3df458ee8f9f9ddcff22f1c2974ef523bb238be1981c15f18479a5",
+      "record_digest": "822f5820a7fb8f0e43d981ac028b44d5e41aa933ee368c1e2b26ee1f81713ddf892de340",
       "cddl": "pass",
       "expect": {
         "outcome": "accept"
@@ -1148,21 +1148,21 @@
         "P-24"
       ],
       "purpose": "Amendment superseding the redaction; it is admitted, restores no part and derivation gives it no effect (terminal_outcome).",
-      "diag": "{\n  \"kind\": \"declaration\",\n  \"type\": \"https://suiss.app/ns/work/declaration/amend\",\n  \"basis\": [\n    [-16, h'3b13df3a14eaa42e4075dc70f58d01e3b015e744f860dd19e9651e13ca7f5cc7']\n  ],\n  \"author\": \"party:acme:alice\",\n  \"ledger\": [-16, h'abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad'],\n  \"capacity\": \"own\",\n  \"concerns\": [h'019a2f4c8e1b7c3da5e6f70812345678'],\n  \"versions\": {\n    \"schema\": [-16, h'87ba9a78e4967682f583748b7995e709a90f884c47541bf1ae3e9485075048dd'],\n    \"protocol\": [1, 0]\n  },\n  \"authority\": {\n    \"proof\": \"decision_receipt\",\n    \"digest\": [-16, h'b2cc068c4c91cc07fd33a57a629288798741d4c1ef490edeadad3dfff84263ec']\n  },\n  \"relations\": [\n    {\n      \"rel\": \"supersedes\",\n      \"target\": [\n        \"record\",\n        [-16, h'3b13df3a14eaa42e4075dc70f58d01e3b015e744f860dd19e9651e13ca7f5cc7']\n      ]\n    }\n  ],\n  \"visibility\": {\n    \"see\": \"work\"\n  }\n}",
-      "hex": "ab646b696e646b6465636c61726174696f6e6474797065782b68747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f616d656e6465626173697381822f58203b13df3a14eaa42e4075dc70f58d01e3b015e744f860dd19e9651e13ca7f5cc766617574686f727070617274793a61636d653a616c696365666c6564676572822f5820abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f582087ba9a78e4967682f583748b7995e709a90f884c47541bf1ae3e9485075048dd6870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f5820b2cc068c4c91cc07fd33a57a629288798741d4c1ef490edeadad3dfff84263ec6972656c6174696f6e7381a26372656c6a737570657273656465736674617267657482667265636f7264822f58203b13df3a14eaa42e4075dc70f58d01e3b015e744f860dd19e9651e13ca7f5cc76a7669736962696c697479a16373656564776f726b",
+      "diag": "{\n  \"kind\": \"declaration\",\n  \"type\": \"https://suiss.app/ns/work/declaration/amend\",\n  \"basis\": [\n    [-16, h'2ab1cc85abaa07c3eb45d6329385f71544bc160a152a4f46d705850a1f438eb3']\n  ],\n  \"author\": \"party:acme:alice\",\n  \"ledger\": [-16, h'13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7'],\n  \"capacity\": \"own\",\n  \"concerns\": [h'019a2f4c8e1b7c3da5e6f70812345678'],\n  \"versions\": {\n    \"schema\": [-16, h'87ba9a78e4967682f583748b7995e709a90f884c47541bf1ae3e9485075048dd'],\n    \"protocol\": [1, 0]\n  },\n  \"authority\": {\n    \"proof\": \"decision_receipt\",\n    \"digest\": [-16, h'b2cc068c4c91cc07fd33a57a629288798741d4c1ef490edeadad3dfff84263ec']\n  },\n  \"relations\": [\n    {\n      \"rel\": \"supersedes\",\n      \"target\": [\n        \"record\",\n        [-16, h'2ab1cc85abaa07c3eb45d6329385f71544bc160a152a4f46d705850a1f438eb3']\n      ]\n    }\n  ],\n  \"visibility\": {\n    \"see\": \"work\"\n  }\n}",
+      "hex": "ab646b696e646b6465636c61726174696f6e6474797065782b68747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f616d656e6465626173697381822f58202ab1cc85abaa07c3eb45d6329385f71544bc160a152a4f46d705850a1f438eb366617574686f727070617274793a61636d653a616c696365666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f582087ba9a78e4967682f583748b7995e709a90f884c47541bf1ae3e9485075048dd6870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f5820b2cc068c4c91cc07fd33a57a629288798741d4c1ef490edeadad3dfff84263ec6972656c6174696f6e7381a26372656c6a737570657273656465736674617267657482667265636f7264822f58202ab1cc85abaa07c3eb45d6329385f71544bc160a152a4f46d705850a1f438eb36a7669736962696c697479a16373656564776f726b",
       "decoded": {
         "kind": "declaration",
         "type": "https://suiss.app/ns/work/declaration/amend",
         "basis": [
           [
             -16,
-            "3b13df3a14eaa42e4075dc70f58d01e3b015e744f860dd19e9651e13ca7f5cc7"
+            "2ab1cc85abaa07c3eb45d6329385f71544bc160a152a4f46d705850a1f438eb3"
           ]
         ],
         "author": "party:acme:alice",
         "ledger": [
           -16,
-          "abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad"
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
         ],
         "capacity": "own",
         "concerns": [
@@ -1192,7 +1192,7 @@
               "record",
               [
                 -16,
-                "3b13df3a14eaa42e4075dc70f58d01e3b015e744f860dd19e9651e13ca7f5cc7"
+                "2ab1cc85abaa07c3eb45d6329385f71544bc160a152a4f46d705850a1f438eb3"
               ]
             ]
           }
@@ -1211,7 +1211,7 @@
         },
         "understood_extensions": []
       },
-      "record_digest": "822f58203a2535297e686047b0ad81ffe7cb351aa3dc28741f5f42ca0b1ca1b15c00e9d1",
+      "record_digest": "822f58208dcdae1762861b7ee2a2717046542e668fae8e66434546c0495887f6356b6cd5",
       "cddl": "pass",
       "expect": {
         "outcome": "accept"
@@ -1230,22 +1230,22 @@
         "P-76",
         "P-100"
       ],
-      "diag": "{\n  \"pos\": 1,\n  \"prev\": [-16, h'e93a335c1471b224f198ebddec43c85113de67fe4887c986d688afbad3b3034a'],\n  \"ingest\": \"admitted\",\n  \"ledger\": [-16, h'abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad'],\n  \"record\": [-16, h'fa7a285a5de4af759e48c0701eaeaf2118c774ee95c192db154e5ea098642756'],\n  \"actor_type\": {\n    \"author\": [\"agent\", \"access_binding\"],\n    \"on_behalf_of\": [\n      [\"organization\", \"access_binding\"]\n    ]\n  },\n  \"recorded_at\": 1792109100000,\n  \"proof_commit\": [-16, h'175a4281790ebb083ea695f1fa981827ada3687abf5feb48e3481788df033472']\n}",
-      "hex": "a863706f73016470726576822f5820e93a335c1471b224f198ebddec43c85113de67fe4887c986d688afbad3b3034a66696e676573746861646d6974746564666c6564676572822f5820abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad667265636f7264822f5820fa7a285a5de4af759e48c0701eaeaf2118c774ee95c192db154e5ea0986427566a6163746f725f74797065a266617574686f7282656167656e746e6163636573735f62696e64696e676c6f6e5f626568616c665f6f6681826c6f7267616e697a6174696f6e6e6163636573735f62696e64696e676b7265636f726465645f61741b000001a14206bbe06c70726f6f665f636f6d6d6974822f5820175a4281790ebb083ea695f1fa981827ada3687abf5feb48e3481788df033472",
+      "diag": "{\n  \"pos\": 1,\n  \"prev\": [-16, h'292fafdcf7663ba3e2754147a932c56246176d519c80b280bd9a4681304231f5'],\n  \"ingest\": \"admitted\",\n  \"ledger\": [-16, h'13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7'],\n  \"record\": [-16, h'eec47a59cd97db46df16d4f255d7f16e3a403d9d91e4a5084e4668bbb3104fcf'],\n  \"actor_type\": {\n    \"author\": [\"agent\", \"access_binding\"],\n    \"on_behalf_of\": [\n      [\"organization\", \"access_binding\"]\n    ]\n  },\n  \"recorded_at\": 1792109100000,\n  \"proof_commit\": [-16, h'488dc5debfb0d5b390a09626a019eb015e213d76539d05901686eebf84a7d683']\n}",
+      "hex": "a863706f73016470726576822f5820292fafdcf7663ba3e2754147a932c56246176d519c80b280bd9a4681304231f566696e676573746861646d6974746564666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7667265636f7264822f5820eec47a59cd97db46df16d4f255d7f16e3a403d9d91e4a5084e4668bbb3104fcf6a6163746f725f74797065a266617574686f7282656167656e746e6163636573735f62696e64696e676c6f6e5f626568616c665f6f6681826c6f7267616e697a6174696f6e6e6163636573735f62696e64696e676b7265636f726465645f61741b000001a14206bbe06c70726f6f665f636f6d6d6974822f5820488dc5debfb0d5b390a09626a019eb015e213d76539d05901686eebf84a7d683",
       "decoded": {
         "pos": 1,
         "prev": [
           -16,
-          "e93a335c1471b224f198ebddec43c85113de67fe4887c986d688afbad3b3034a"
+          "292fafdcf7663ba3e2754147a932c56246176d519c80b280bd9a4681304231f5"
         ],
         "ingest": "admitted",
         "ledger": [
           -16,
-          "abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad"
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
         ],
         "record": [
           -16,
-          "fa7a285a5de4af759e48c0701eaeaf2118c774ee95c192db154e5ea098642756"
+          "eec47a59cd97db46df16d4f255d7f16e3a403d9d91e4a5084e4668bbb3104fcf"
         ],
         "actor_type": {
           "author": [
@@ -1262,10 +1262,10 @@
         "recorded_at": 1792109100000,
         "proof_commit": [
           -16,
-          "175a4281790ebb083ea695f1fa981827ada3687abf5feb48e3481788df033472"
+          "488dc5debfb0d5b390a09626a019eb015e213d76539d05901686eebf84a7d683"
         ]
       },
-      "leaf_hash": "55c8a1f8d9a08f6780759718938608202707a8c80c0fba880379c2120ee9380f",
+      "leaf_hash": "dfaff210ca444fefafe8e7a7d91e454b0b82e67ad406e22812c4c08e71c14d41",
       "cddl": "pass",
       "expect": {
         "outcome": "accept"
@@ -1282,22 +1282,22 @@
         "P-76",
         "P-100"
       ],
-      "diag": "{\n  \"pos\": 2,\n  \"prev\": [-16, h'55c8a1f8d9a08f6780759718938608202707a8c80c0fba880379c2120ee9380f'],\n  \"ingest\": \"admitted\",\n  \"ledger\": [-16, h'abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad'],\n  \"record\": [-16, h'398e68168f76fb4dd6f4e464e7d109c41105877f8768f65daf9941b73ea59c21'],\n  \"actor_type\": {\n    \"author\": [\"organization\", \"access_binding\"],\n    \"evidence\": [\n      [\"organization\", \"access_binding\"]\n    ]\n  },\n  \"recorded_at\": 1792109101000,\n  \"proof_commit\": [-16, h'c8c026e88d66cd2b8b81bec21db04d14af96fdf19a3456945cf8baf3aa15de1b']\n}",
-      "hex": "a863706f73026470726576822f582055c8a1f8d9a08f6780759718938608202707a8c80c0fba880379c2120ee9380f66696e676573746861646d6974746564666c6564676572822f5820abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad667265636f7264822f5820398e68168f76fb4dd6f4e464e7d109c41105877f8768f65daf9941b73ea59c216a6163746f725f74797065a266617574686f72826c6f7267616e697a6174696f6e6e6163636573735f62696e64696e676865766964656e636581826c6f7267616e697a6174696f6e6e6163636573735f62696e64696e676b7265636f726465645f61741b000001a14206bfc86c70726f6f665f636f6d6d6974822f5820c8c026e88d66cd2b8b81bec21db04d14af96fdf19a3456945cf8baf3aa15de1b",
+      "diag": "{\n  \"pos\": 2,\n  \"prev\": [-16, h'dfaff210ca444fefafe8e7a7d91e454b0b82e67ad406e22812c4c08e71c14d41'],\n  \"ingest\": \"admitted\",\n  \"ledger\": [-16, h'13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7'],\n  \"record\": [-16, h'cf6ac837c769c09f4760b804b57eaf0bd546f5caee9aca0ad48f50a32111ade5'],\n  \"actor_type\": {\n    \"author\": [\"organization\", \"access_binding\"],\n    \"evidence\": [\n      [\"organization\", \"access_binding\"]\n    ]\n  },\n  \"recorded_at\": 1792109101000,\n  \"proof_commit\": [-16, h'0f86329b3af4e8b0940fffb0384f313df98ec91e6c94f7d28974f834370a2b6f']\n}",
+      "hex": "a863706f73026470726576822f5820dfaff210ca444fefafe8e7a7d91e454b0b82e67ad406e22812c4c08e71c14d4166696e676573746861646d6974746564666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7667265636f7264822f5820cf6ac837c769c09f4760b804b57eaf0bd546f5caee9aca0ad48f50a32111ade56a6163746f725f74797065a266617574686f72826c6f7267616e697a6174696f6e6e6163636573735f62696e64696e676865766964656e636581826c6f7267616e697a6174696f6e6e6163636573735f62696e64696e676b7265636f726465645f61741b000001a14206bfc86c70726f6f665f636f6d6d6974822f58200f86329b3af4e8b0940fffb0384f313df98ec91e6c94f7d28974f834370a2b6f",
       "decoded": {
         "pos": 2,
         "prev": [
           -16,
-          "55c8a1f8d9a08f6780759718938608202707a8c80c0fba880379c2120ee9380f"
+          "dfaff210ca444fefafe8e7a7d91e454b0b82e67ad406e22812c4c08e71c14d41"
         ],
         "ingest": "admitted",
         "ledger": [
           -16,
-          "abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad"
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
         ],
         "record": [
           -16,
-          "398e68168f76fb4dd6f4e464e7d109c41105877f8768f65daf9941b73ea59c21"
+          "cf6ac837c769c09f4760b804b57eaf0bd546f5caee9aca0ad48f50a32111ade5"
         ],
         "actor_type": {
           "author": [
@@ -1314,10 +1314,10 @@
         "recorded_at": 1792109101000,
         "proof_commit": [
           -16,
-          "c8c026e88d66cd2b8b81bec21db04d14af96fdf19a3456945cf8baf3aa15de1b"
+          "0f86329b3af4e8b0940fffb0384f313df98ec91e6c94f7d28974f834370a2b6f"
         ]
       },
-      "leaf_hash": "7fdea0afd94173cbaaab5dccf3eb3e69e9f3bdc0ee55dcad0d45b6fee60978ed",
+      "leaf_hash": "ba3fa68d3f9e01a3e2ee038b5d6b31bbd1c469f66b8128a24ca7a14ef2a27d02",
       "cddl": "pass",
       "expect": {
         "outcome": "accept"
@@ -1334,22 +1334,22 @@
         "P-76",
         "P-100"
       ],
-      "diag": "{\n  \"pos\": 3,\n  \"prev\": [-16, h'7fdea0afd94173cbaaab5dccf3eb3e69e9f3bdc0ee55dcad0d45b6fee60978ed'],\n  \"ingest\": \"admitted\",\n  \"ledger\": [-16, h'abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad'],\n  \"record\": [-16, h'd7ff1f418ee0b208bb6eef635ccf42bdf196d067a32ad817262387e79ea6f48c'],\n  \"actor_type\": {\n    \"author\": [\"system\", \"access_binding\"]\n  },\n  \"recorded_at\": 1792109102000,\n  \"proof_commit\": [-16, h'e1ebe0f3a0ffd19a1e8311abcc8d717eab785ade511c94e0222bd987175e0c0e']\n}",
-      "hex": "a863706f73036470726576822f58207fdea0afd94173cbaaab5dccf3eb3e69e9f3bdc0ee55dcad0d45b6fee60978ed66696e676573746861646d6974746564666c6564676572822f5820abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad667265636f7264822f5820d7ff1f418ee0b208bb6eef635ccf42bdf196d067a32ad817262387e79ea6f48c6a6163746f725f74797065a166617574686f72826673797374656d6e6163636573735f62696e64696e676b7265636f726465645f61741b000001a14206c3b06c70726f6f665f636f6d6d6974822f5820e1ebe0f3a0ffd19a1e8311abcc8d717eab785ade511c94e0222bd987175e0c0e",
+      "diag": "{\n  \"pos\": 3,\n  \"prev\": [-16, h'ba3fa68d3f9e01a3e2ee038b5d6b31bbd1c469f66b8128a24ca7a14ef2a27d02'],\n  \"ingest\": \"admitted\",\n  \"ledger\": [-16, h'13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7'],\n  \"record\": [-16, h'cfacd19ef832bf888edc7139c8f235762b4fa21b47cdd34a59069feb14126ec8'],\n  \"actor_type\": {\n    \"author\": [\"system\", \"access_binding\"]\n  },\n  \"recorded_at\": 1792109102000,\n  \"proof_commit\": [-16, h'2647ad95274d6e5e9db0dfec2cfc25ad5f29d7810c2f0c0cd41e2ccf901cfa19']\n}",
+      "hex": "a863706f73036470726576822f5820ba3fa68d3f9e01a3e2ee038b5d6b31bbd1c469f66b8128a24ca7a14ef2a27d0266696e676573746861646d6974746564666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7667265636f7264822f5820cfacd19ef832bf888edc7139c8f235762b4fa21b47cdd34a59069feb14126ec86a6163746f725f74797065a166617574686f72826673797374656d6e6163636573735f62696e64696e676b7265636f726465645f61741b000001a14206c3b06c70726f6f665f636f6d6d6974822f58202647ad95274d6e5e9db0dfec2cfc25ad5f29d7810c2f0c0cd41e2ccf901cfa19",
       "decoded": {
         "pos": 3,
         "prev": [
           -16,
-          "7fdea0afd94173cbaaab5dccf3eb3e69e9f3bdc0ee55dcad0d45b6fee60978ed"
+          "ba3fa68d3f9e01a3e2ee038b5d6b31bbd1c469f66b8128a24ca7a14ef2a27d02"
         ],
         "ingest": "admitted",
         "ledger": [
           -16,
-          "abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad"
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
         ],
         "record": [
           -16,
-          "d7ff1f418ee0b208bb6eef635ccf42bdf196d067a32ad817262387e79ea6f48c"
+          "cfacd19ef832bf888edc7139c8f235762b4fa21b47cdd34a59069feb14126ec8"
         ],
         "actor_type": {
           "author": [
@@ -1360,10 +1360,10 @@
         "recorded_at": 1792109102000,
         "proof_commit": [
           -16,
-          "e1ebe0f3a0ffd19a1e8311abcc8d717eab785ade511c94e0222bd987175e0c0e"
+          "2647ad95274d6e5e9db0dfec2cfc25ad5f29d7810c2f0c0cd41e2ccf901cfa19"
         ]
       },
-      "leaf_hash": "a369e9855c77e0a806e2bb7efbf85ff946863c7b201773fe04bd1d20476666eb",
+      "leaf_hash": "d5ec8c3925bc3a37ddb2785f6d658ad6f4746e11c7c0c199da1a00f3c1df25cb",
       "cddl": "pass",
       "expect": {
         "outcome": "accept"
@@ -1380,22 +1380,22 @@
         "P-76",
         "P-100"
       ],
-      "diag": "{\n  \"pos\": 4,\n  \"prev\": [-16, h'a369e9855c77e0a806e2bb7efbf85ff946863c7b201773fe04bd1d20476666eb'],\n  \"ingest\": \"admitted\",\n  \"ledger\": [-16, h'abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad'],\n  \"record\": [-16, h'a3a4a3a34cdb1b9c3671c3b75d4dcd34bb18dccee14ff5c187c5bc7454798c40'],\n  \"actor_type\": {\n    \"author\": [\"human\", \"access_binding\"]\n  },\n  \"recorded_at\": 1792109103000,\n  \"auth_context\": {\n    \"ref\": [-16, h'462fa9aeb3fd4520ff1cb8a9d29579ea4f05caefaa923c436270f3d82b2f762e'],\n    \"step_up\": false,\n    \"assurance\": \"aal2\"\n  }\n}",
-      "hex": "a863706f73046470726576822f5820a369e9855c77e0a806e2bb7efbf85ff946863c7b201773fe04bd1d20476666eb66696e676573746861646d6974746564666c6564676572822f5820abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad667265636f7264822f5820a3a4a3a34cdb1b9c3671c3b75d4dcd34bb18dccee14ff5c187c5bc7454798c406a6163746f725f74797065a166617574686f72826568756d616e6e6163636573735f62696e64696e676b7265636f726465645f61741b000001a14206c7986c617574685f636f6e74657874a363726566822f5820462fa9aeb3fd4520ff1cb8a9d29579ea4f05caefaa923c436270f3d82b2f762e67737465705f7570f4696173737572616e63656461616c32",
+      "diag": "{\n  \"pos\": 4,\n  \"prev\": [-16, h'd5ec8c3925bc3a37ddb2785f6d658ad6f4746e11c7c0c199da1a00f3c1df25cb'],\n  \"ingest\": \"admitted\",\n  \"ledger\": [-16, h'13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7'],\n  \"record\": [-16, h'bf35984d27fbb17afdeaece0f67872485f9b7b8d589cd8bc543e4aa4f9dfb0f1'],\n  \"actor_type\": {\n    \"author\": [\"human\", \"access_binding\"]\n  },\n  \"recorded_at\": 1792109103000,\n  \"auth_context\": {\n    \"ref\": [-16, h'3a83bea8897d48e5587bb6ceb207cf3586b1b4955861e57cf6bb617a07d683ff'],\n    \"step_up\": false,\n    \"assurance\": \"aal2\"\n  }\n}",
+      "hex": "a863706f73046470726576822f5820d5ec8c3925bc3a37ddb2785f6d658ad6f4746e11c7c0c199da1a00f3c1df25cb66696e676573746861646d6974746564666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7667265636f7264822f5820bf35984d27fbb17afdeaece0f67872485f9b7b8d589cd8bc543e4aa4f9dfb0f16a6163746f725f74797065a166617574686f72826568756d616e6e6163636573735f62696e64696e676b7265636f726465645f61741b000001a14206c7986c617574685f636f6e74657874a363726566822f58203a83bea8897d48e5587bb6ceb207cf3586b1b4955861e57cf6bb617a07d683ff67737465705f7570f4696173737572616e63656461616c32",
       "decoded": {
         "pos": 4,
         "prev": [
           -16,
-          "a369e9855c77e0a806e2bb7efbf85ff946863c7b201773fe04bd1d20476666eb"
+          "d5ec8c3925bc3a37ddb2785f6d658ad6f4746e11c7c0c199da1a00f3c1df25cb"
         ],
         "ingest": "admitted",
         "ledger": [
           -16,
-          "abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad"
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
         ],
         "record": [
           -16,
-          "a3a4a3a34cdb1b9c3671c3b75d4dcd34bb18dccee14ff5c187c5bc7454798c40"
+          "bf35984d27fbb17afdeaece0f67872485f9b7b8d589cd8bc543e4aa4f9dfb0f1"
         ],
         "actor_type": {
           "author": [
@@ -1407,13 +1407,13 @@
         "auth_context": {
           "ref": [
             -16,
-            "462fa9aeb3fd4520ff1cb8a9d29579ea4f05caefaa923c436270f3d82b2f762e"
+            "3a83bea8897d48e5587bb6ceb207cf3586b1b4955861e57cf6bb617a07d683ff"
           ],
           "step_up": false,
           "assurance": "aal2"
         }
       },
-      "leaf_hash": "a795e71847491ba69f305da591ad5ecaaee17533283fa941de9e64ce976450e3",
+      "leaf_hash": "e89ea01e805290d5e421c4772f551e8b3811a1d344ebb3a7e9494fe84f8d8ed6",
       "cddl": "pass",
       "expect": {
         "outcome": "accept"
@@ -1430,22 +1430,22 @@
         "P-76",
         "P-100"
       ],
-      "diag": "{\n  \"pos\": 5,\n  \"prev\": [-16, h'a795e71847491ba69f305da591ad5ecaaee17533283fa941de9e64ce976450e3'],\n  \"ingest\": \"admitted\",\n  \"ledger\": [-16, h'abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad'],\n  \"record\": [-16, h'47ed44e98163bdfb38a2d60cd7d97f924c46985885d2a5661778be8056ffc4ec'],\n  \"actor_type\": {\n    \"author\": [\"human\", \"access_binding\"]\n  },\n  \"recorded_at\": 1792109104000,\n  \"auth_context\": {\n    \"ref\": [-16, h'b5b16e3a047d373556ac0cabb0ff4a19854cf4f945e0ecf2ae7aefe3d0fa5db6'],\n    \"step_up\": false,\n    \"assurance\": \"aal2\"\n  }\n}",
-      "hex": "a863706f73056470726576822f5820a795e71847491ba69f305da591ad5ecaaee17533283fa941de9e64ce976450e366696e676573746861646d6974746564666c6564676572822f5820abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad667265636f7264822f582047ed44e98163bdfb38a2d60cd7d97f924c46985885d2a5661778be8056ffc4ec6a6163746f725f74797065a166617574686f72826568756d616e6e6163636573735f62696e64696e676b7265636f726465645f61741b000001a14206cb806c617574685f636f6e74657874a363726566822f5820b5b16e3a047d373556ac0cabb0ff4a19854cf4f945e0ecf2ae7aefe3d0fa5db667737465705f7570f4696173737572616e63656461616c32",
+      "diag": "{\n  \"pos\": 5,\n  \"prev\": [-16, h'e89ea01e805290d5e421c4772f551e8b3811a1d344ebb3a7e9494fe84f8d8ed6'],\n  \"ingest\": \"admitted\",\n  \"ledger\": [-16, h'13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7'],\n  \"record\": [-16, h'58dca92ccaf355ab1ddf26dd21b89de50770e89a9e45dedc1584964652ccadc3'],\n  \"actor_type\": {\n    \"author\": [\"human\", \"access_binding\"]\n  },\n  \"recorded_at\": 1792109104000,\n  \"auth_context\": {\n    \"ref\": [-16, h'b9135921a06e6069a6f17bcd5bf3bf353b6c7167ff75d31674d4254081d88aae'],\n    \"step_up\": false,\n    \"assurance\": \"aal2\"\n  }\n}",
+      "hex": "a863706f73056470726576822f5820e89ea01e805290d5e421c4772f551e8b3811a1d344ebb3a7e9494fe84f8d8ed666696e676573746861646d6974746564666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7667265636f7264822f582058dca92ccaf355ab1ddf26dd21b89de50770e89a9e45dedc1584964652ccadc36a6163746f725f74797065a166617574686f72826568756d616e6e6163636573735f62696e64696e676b7265636f726465645f61741b000001a14206cb806c617574685f636f6e74657874a363726566822f5820b9135921a06e6069a6f17bcd5bf3bf353b6c7167ff75d31674d4254081d88aae67737465705f7570f4696173737572616e63656461616c32",
       "decoded": {
         "pos": 5,
         "prev": [
           -16,
-          "a795e71847491ba69f305da591ad5ecaaee17533283fa941de9e64ce976450e3"
+          "e89ea01e805290d5e421c4772f551e8b3811a1d344ebb3a7e9494fe84f8d8ed6"
         ],
         "ingest": "admitted",
         "ledger": [
           -16,
-          "abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad"
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
         ],
         "record": [
           -16,
-          "47ed44e98163bdfb38a2d60cd7d97f924c46985885d2a5661778be8056ffc4ec"
+          "58dca92ccaf355ab1ddf26dd21b89de50770e89a9e45dedc1584964652ccadc3"
         ],
         "actor_type": {
           "author": [
@@ -1457,13 +1457,13 @@
         "auth_context": {
           "ref": [
             -16,
-            "b5b16e3a047d373556ac0cabb0ff4a19854cf4f945e0ecf2ae7aefe3d0fa5db6"
+            "b9135921a06e6069a6f17bcd5bf3bf353b6c7167ff75d31674d4254081d88aae"
           ],
           "step_up": false,
           "assurance": "aal2"
         }
       },
-      "leaf_hash": "e25856e6d8bd7cf40b40d731704c84a22b2ba85d17c27f1186a86894aa96e834",
+      "leaf_hash": "eb67bb8fb1733b7e8afb9d75acfddae788a05526622facba25f107c79f76524a",
       "cddl": "pass",
       "expect": {
         "outcome": "accept"
@@ -1480,22 +1480,22 @@
         "P-76",
         "P-100"
       ],
-      "diag": "{\n  \"pos\": 6,\n  \"prev\": [-16, h'e25856e6d8bd7cf40b40d731704c84a22b2ba85d17c27f1186a86894aa96e834'],\n  \"ingest\": \"admitted\",\n  \"ledger\": [-16, h'abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad'],\n  \"record\": [-16, h'd2111ad55780f47f1c31dfbb53e244b411d615271f91cfbf1687f795ead50ad0'],\n  \"actor_type\": {\n    \"author\": [\"human\", \"access_binding\"]\n  },\n  \"recorded_at\": 1792109105000,\n  \"auth_context\": {\n    \"ref\": [-16, h'96420d472da15527aa96cd8cb8b36daf7921bf59e53a3056d5a428a791c3ee3d'],\n    \"step_up\": false,\n    \"assurance\": \"aal2\"\n  }\n}",
-      "hex": "a863706f73066470726576822f5820e25856e6d8bd7cf40b40d731704c84a22b2ba85d17c27f1186a86894aa96e83466696e676573746861646d6974746564666c6564676572822f5820abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad667265636f7264822f5820d2111ad55780f47f1c31dfbb53e244b411d615271f91cfbf1687f795ead50ad06a6163746f725f74797065a166617574686f72826568756d616e6e6163636573735f62696e64696e676b7265636f726465645f61741b000001a14206cf686c617574685f636f6e74657874a363726566822f582096420d472da15527aa96cd8cb8b36daf7921bf59e53a3056d5a428a791c3ee3d67737465705f7570f4696173737572616e63656461616c32",
+      "diag": "{\n  \"pos\": 6,\n  \"prev\": [-16, h'eb67bb8fb1733b7e8afb9d75acfddae788a05526622facba25f107c79f76524a'],\n  \"ingest\": \"admitted\",\n  \"ledger\": [-16, h'13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7'],\n  \"record\": [-16, h'55b7276d2aab6a1f46c85f6e7e8c1f641f51e647f1af6010226caa339fd5048c'],\n  \"actor_type\": {\n    \"author\": [\"human\", \"access_binding\"]\n  },\n  \"recorded_at\": 1792109105000,\n  \"auth_context\": {\n    \"ref\": [-16, h'274077ef00f7315092c1e054d05b69e2a494d7d6f0914af35b3d06f13ddec791'],\n    \"step_up\": false,\n    \"assurance\": \"aal2\"\n  }\n}",
+      "hex": "a863706f73066470726576822f5820eb67bb8fb1733b7e8afb9d75acfddae788a05526622facba25f107c79f76524a66696e676573746861646d6974746564666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7667265636f7264822f582055b7276d2aab6a1f46c85f6e7e8c1f641f51e647f1af6010226caa339fd5048c6a6163746f725f74797065a166617574686f72826568756d616e6e6163636573735f62696e64696e676b7265636f726465645f61741b000001a14206cf686c617574685f636f6e74657874a363726566822f5820274077ef00f7315092c1e054d05b69e2a494d7d6f0914af35b3d06f13ddec79167737465705f7570f4696173737572616e63656461616c32",
       "decoded": {
         "pos": 6,
         "prev": [
           -16,
-          "e25856e6d8bd7cf40b40d731704c84a22b2ba85d17c27f1186a86894aa96e834"
+          "eb67bb8fb1733b7e8afb9d75acfddae788a05526622facba25f107c79f76524a"
         ],
         "ingest": "admitted",
         "ledger": [
           -16,
-          "abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad"
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
         ],
         "record": [
           -16,
-          "d2111ad55780f47f1c31dfbb53e244b411d615271f91cfbf1687f795ead50ad0"
+          "55b7276d2aab6a1f46c85f6e7e8c1f641f51e647f1af6010226caa339fd5048c"
         ],
         "actor_type": {
           "author": [
@@ -1507,13 +1507,13 @@
         "auth_context": {
           "ref": [
             -16,
-            "96420d472da15527aa96cd8cb8b36daf7921bf59e53a3056d5a428a791c3ee3d"
+            "274077ef00f7315092c1e054d05b69e2a494d7d6f0914af35b3d06f13ddec791"
           ],
           "step_up": false,
           "assurance": "aal2"
         }
       },
-      "leaf_hash": "e4b625cf2edf2d7bf423569a945347f0af4f173d2b7f467000b05b00e195ee57",
+      "leaf_hash": "26a8f0fd70c4b0d5cf402bce5b5484209ed7355cb7e2540bd25f9491df8271b3",
       "cddl": "pass",
       "expect": {
         "outcome": "accept"
@@ -1530,22 +1530,22 @@
         "P-76",
         "P-100"
       ],
-      "diag": "{\n  \"pos\": 7,\n  \"prev\": [-16, h'e4b625cf2edf2d7bf423569a945347f0af4f173d2b7f467000b05b00e195ee57'],\n  \"ingest\": \"admitted\",\n  \"ledger\": [-16, h'abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad'],\n  \"record\": [-16, h'8faf7faf2280542ab6d8121112c168794b252bf95cce56751d5be9965051b58b'],\n  \"actor_type\": {\n    \"author\": [\"organization\", \"access_binding\"]\n  },\n  \"recorded_at\": 1792109106000,\n  \"proof_commit\": [-16, h'150096a084f4637a132c720e922c1d1a49203f806c72d3bf52c9bd402e03f9ef']\n}",
-      "hex": "a863706f73076470726576822f5820e4b625cf2edf2d7bf423569a945347f0af4f173d2b7f467000b05b00e195ee5766696e676573746861646d6974746564666c6564676572822f5820abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad667265636f7264822f58208faf7faf2280542ab6d8121112c168794b252bf95cce56751d5be9965051b58b6a6163746f725f74797065a166617574686f72826c6f7267616e697a6174696f6e6e6163636573735f62696e64696e676b7265636f726465645f61741b000001a14206d3506c70726f6f665f636f6d6d6974822f5820150096a084f4637a132c720e922c1d1a49203f806c72d3bf52c9bd402e03f9ef",
+      "diag": "{\n  \"pos\": 7,\n  \"prev\": [-16, h'26a8f0fd70c4b0d5cf402bce5b5484209ed7355cb7e2540bd25f9491df8271b3'],\n  \"ingest\": \"admitted\",\n  \"ledger\": [-16, h'13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7'],\n  \"record\": [-16, h'3214ebea46fd891267b735f3dec2a4014315073eaf6c300c633f3006b0728f86'],\n  \"actor_type\": {\n    \"author\": [\"organization\", \"access_binding\"]\n  },\n  \"recorded_at\": 1792109106000,\n  \"proof_commit\": [-16, h'9d32e85f6172d68a37296f4c46348b9fe306e8ddaf158c976c4a3951fa875155']\n}",
+      "hex": "a863706f73076470726576822f582026a8f0fd70c4b0d5cf402bce5b5484209ed7355cb7e2540bd25f9491df8271b366696e676573746861646d6974746564666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7667265636f7264822f58203214ebea46fd891267b735f3dec2a4014315073eaf6c300c633f3006b0728f866a6163746f725f74797065a166617574686f72826c6f7267616e697a6174696f6e6e6163636573735f62696e64696e676b7265636f726465645f61741b000001a14206d3506c70726f6f665f636f6d6d6974822f58209d32e85f6172d68a37296f4c46348b9fe306e8ddaf158c976c4a3951fa875155",
       "decoded": {
         "pos": 7,
         "prev": [
           -16,
-          "e4b625cf2edf2d7bf423569a945347f0af4f173d2b7f467000b05b00e195ee57"
+          "26a8f0fd70c4b0d5cf402bce5b5484209ed7355cb7e2540bd25f9491df8271b3"
         ],
         "ingest": "admitted",
         "ledger": [
           -16,
-          "abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad"
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
         ],
         "record": [
           -16,
-          "8faf7faf2280542ab6d8121112c168794b252bf95cce56751d5be9965051b58b"
+          "3214ebea46fd891267b735f3dec2a4014315073eaf6c300c633f3006b0728f86"
         ],
         "actor_type": {
           "author": [
@@ -1556,10 +1556,10 @@
         "recorded_at": 1792109106000,
         "proof_commit": [
           -16,
-          "150096a084f4637a132c720e922c1d1a49203f806c72d3bf52c9bd402e03f9ef"
+          "9d32e85f6172d68a37296f4c46348b9fe306e8ddaf158c976c4a3951fa875155"
         ]
       },
-      "leaf_hash": "2073920c36faef75437901dabe8dda01c1a42babb2f4ac0e0d59b6e14a27fba3",
+      "leaf_hash": "101fd0be57c47f1115c088fcdc75a74c8c6f7d5a8244b3124cecab03a2316857",
       "cddl": "pass",
       "expect": {
         "outcome": "accept"
@@ -1576,22 +1576,22 @@
         "P-76",
         "P-100"
       ],
-      "diag": "{\n  \"pos\": 8,\n  \"prev\": [-16, h'2073920c36faef75437901dabe8dda01c1a42babb2f4ac0e0d59b6e14a27fba3'],\n  \"ingest\": \"admitted\",\n  \"ledger\": [-16, h'abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad'],\n  \"record\": [-16, h'0cb2b4e63c02dea41d08c19ce405b774376c4583c64c470810f6b18ab1463e37'],\n  \"actor_type\": {\n    \"author\": [\"human\", \"access_binding\"]\n  },\n  \"recorded_at\": 1792109107000,\n  \"auth_context\": {\n    \"ref\": [-16, h'abf5cf721c1e95a077a02d70fa6675bca8cedae4b7585a893066c408a777bb82'],\n    \"step_up\": false,\n    \"assurance\": \"aal2\"\n  }\n}",
-      "hex": "a863706f73086470726576822f58202073920c36faef75437901dabe8dda01c1a42babb2f4ac0e0d59b6e14a27fba366696e676573746861646d6974746564666c6564676572822f5820abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad667265636f7264822f58200cb2b4e63c02dea41d08c19ce405b774376c4583c64c470810f6b18ab1463e376a6163746f725f74797065a166617574686f72826568756d616e6e6163636573735f62696e64696e676b7265636f726465645f61741b000001a14206d7386c617574685f636f6e74657874a363726566822f5820abf5cf721c1e95a077a02d70fa6675bca8cedae4b7585a893066c408a777bb8267737465705f7570f4696173737572616e63656461616c32",
+      "diag": "{\n  \"pos\": 8,\n  \"prev\": [-16, h'101fd0be57c47f1115c088fcdc75a74c8c6f7d5a8244b3124cecab03a2316857'],\n  \"ingest\": \"admitted\",\n  \"ledger\": [-16, h'13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7'],\n  \"record\": [-16, h'd09afeda9ba264d269bdb9238ce482a07375d10d559697e3fdd755fe9b969e95'],\n  \"actor_type\": {\n    \"author\": [\"human\", \"access_binding\"]\n  },\n  \"recorded_at\": 1792109107000,\n  \"auth_context\": {\n    \"ref\": [-16, h'12dbc251e4384044dcb17f151bc7be5656b275a1d88c2d1c5920c94e289420df'],\n    \"step_up\": false,\n    \"assurance\": \"aal2\"\n  }\n}",
+      "hex": "a863706f73086470726576822f5820101fd0be57c47f1115c088fcdc75a74c8c6f7d5a8244b3124cecab03a231685766696e676573746861646d6974746564666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7667265636f7264822f5820d09afeda9ba264d269bdb9238ce482a07375d10d559697e3fdd755fe9b969e956a6163746f725f74797065a166617574686f72826568756d616e6e6163636573735f62696e64696e676b7265636f726465645f61741b000001a14206d7386c617574685f636f6e74657874a363726566822f582012dbc251e4384044dcb17f151bc7be5656b275a1d88c2d1c5920c94e289420df67737465705f7570f4696173737572616e63656461616c32",
       "decoded": {
         "pos": 8,
         "prev": [
           -16,
-          "2073920c36faef75437901dabe8dda01c1a42babb2f4ac0e0d59b6e14a27fba3"
+          "101fd0be57c47f1115c088fcdc75a74c8c6f7d5a8244b3124cecab03a2316857"
         ],
         "ingest": "admitted",
         "ledger": [
           -16,
-          "abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad"
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
         ],
         "record": [
           -16,
-          "0cb2b4e63c02dea41d08c19ce405b774376c4583c64c470810f6b18ab1463e37"
+          "d09afeda9ba264d269bdb9238ce482a07375d10d559697e3fdd755fe9b969e95"
         ],
         "actor_type": {
           "author": [
@@ -1603,13 +1603,13 @@
         "auth_context": {
           "ref": [
             -16,
-            "abf5cf721c1e95a077a02d70fa6675bca8cedae4b7585a893066c408a777bb82"
+            "12dbc251e4384044dcb17f151bc7be5656b275a1d88c2d1c5920c94e289420df"
           ],
           "step_up": false,
           "assurance": "aal2"
         }
       },
-      "leaf_hash": "04814befeb678dc6857b945df0ffbe311aefb61e4bbaf454c60729b5fab72d61",
+      "leaf_hash": "a51b79214f6d5a4af7d2bae7d2005d40f52ae6fea78506ad4cf1b45531a7684d",
       "cddl": "pass",
       "expect": {
         "outcome": "accept"
@@ -1626,22 +1626,22 @@
         "P-76",
         "P-100"
       ],
-      "diag": "{\n  \"pos\": 9,\n  \"prev\": [-16, h'04814befeb678dc6857b945df0ffbe311aefb61e4bbaf454c60729b5fab72d61'],\n  \"ingest\": \"admitted\",\n  \"ledger\": [-16, h'abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad'],\n  \"record\": [-16, h'8ca8f2d7a198b112e0eb29182e3898e99ddaa58d977f7ef3e646c53665a193fb'],\n  \"actor_type\": {\n    \"author\": [\"organization\", \"access_binding\"]\n  },\n  \"recorded_at\": 1792109108000,\n  \"proof_commit\": [-16, h'211ea72c597338f0b64115d732e96c5647903ee2ed99031f04ac9aa024530421']\n}",
-      "hex": "a863706f73096470726576822f582004814befeb678dc6857b945df0ffbe311aefb61e4bbaf454c60729b5fab72d6166696e676573746861646d6974746564666c6564676572822f5820abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad667265636f7264822f58208ca8f2d7a198b112e0eb29182e3898e99ddaa58d977f7ef3e646c53665a193fb6a6163746f725f74797065a166617574686f72826c6f7267616e697a6174696f6e6e6163636573735f62696e64696e676b7265636f726465645f61741b000001a14206db206c70726f6f665f636f6d6d6974822f5820211ea72c597338f0b64115d732e96c5647903ee2ed99031f04ac9aa024530421",
+      "diag": "{\n  \"pos\": 9,\n  \"prev\": [-16, h'a51b79214f6d5a4af7d2bae7d2005d40f52ae6fea78506ad4cf1b45531a7684d'],\n  \"ingest\": \"admitted\",\n  \"ledger\": [-16, h'13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7'],\n  \"record\": [-16, h'17438d3207ee54317f5ab513a9825a27c832295eb6aa7fc5ae5f20d74d0b5378'],\n  \"actor_type\": {\n    \"author\": [\"organization\", \"access_binding\"]\n  },\n  \"recorded_at\": 1792109108000,\n  \"proof_commit\": [-16, h'0951d61ddb2f1cef4a8ee340ef458a4beda0f42ac2d3a3830c347be16c739771']\n}",
+      "hex": "a863706f73096470726576822f5820a51b79214f6d5a4af7d2bae7d2005d40f52ae6fea78506ad4cf1b45531a7684d66696e676573746861646d6974746564666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7667265636f7264822f582017438d3207ee54317f5ab513a9825a27c832295eb6aa7fc5ae5f20d74d0b53786a6163746f725f74797065a166617574686f72826c6f7267616e697a6174696f6e6e6163636573735f62696e64696e676b7265636f726465645f61741b000001a14206db206c70726f6f665f636f6d6d6974822f58200951d61ddb2f1cef4a8ee340ef458a4beda0f42ac2d3a3830c347be16c739771",
       "decoded": {
         "pos": 9,
         "prev": [
           -16,
-          "04814befeb678dc6857b945df0ffbe311aefb61e4bbaf454c60729b5fab72d61"
+          "a51b79214f6d5a4af7d2bae7d2005d40f52ae6fea78506ad4cf1b45531a7684d"
         ],
         "ingest": "admitted",
         "ledger": [
           -16,
-          "abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad"
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
         ],
         "record": [
           -16,
-          "8ca8f2d7a198b112e0eb29182e3898e99ddaa58d977f7ef3e646c53665a193fb"
+          "17438d3207ee54317f5ab513a9825a27c832295eb6aa7fc5ae5f20d74d0b5378"
         ],
         "actor_type": {
           "author": [
@@ -1652,10 +1652,10 @@
         "recorded_at": 1792109108000,
         "proof_commit": [
           -16,
-          "211ea72c597338f0b64115d732e96c5647903ee2ed99031f04ac9aa024530421"
+          "0951d61ddb2f1cef4a8ee340ef458a4beda0f42ac2d3a3830c347be16c739771"
         ]
       },
-      "leaf_hash": "7bd7bad814afcc8846589133670be6719e1203221e5463b52d20590f79048e7a",
+      "leaf_hash": "e6991be7f0e2a75fe3e0f8c49963a434a98ed59a9ead5392e261d5122d17f4ec",
       "cddl": "pass",
       "expect": {
         "outcome": "accept"
@@ -1672,22 +1672,22 @@
         "P-76",
         "P-100"
       ],
-      "diag": "{\n  \"pos\": 10,\n  \"prev\": [-16, h'7bd7bad814afcc8846589133670be6719e1203221e5463b52d20590f79048e7a'],\n  \"ingest\": \"admitted\",\n  \"ledger\": [-16, h'abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad'],\n  \"record\": [-16, h'e2e1140e95dcb284f038fdea82e8f9fb230e57c78ef937dea9b1b50b3124cfc9'],\n  \"actor_type\": {\n    \"author\": [\"human\", \"access_binding\"]\n  },\n  \"recorded_at\": 1792109109000,\n  \"auth_context\": {\n    \"ref\": [-16, h'686e8f07d6fd1c609777650a5c42aa5905012b29cfa7246f2336c2da3be7352d'],\n    \"step_up\": false,\n    \"assurance\": \"aal2\"\n  }\n}",
-      "hex": "a863706f730a6470726576822f58207bd7bad814afcc8846589133670be6719e1203221e5463b52d20590f79048e7a66696e676573746861646d6974746564666c6564676572822f5820abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad667265636f7264822f5820e2e1140e95dcb284f038fdea82e8f9fb230e57c78ef937dea9b1b50b3124cfc96a6163746f725f74797065a166617574686f72826568756d616e6e6163636573735f62696e64696e676b7265636f726465645f61741b000001a14206df086c617574685f636f6e74657874a363726566822f5820686e8f07d6fd1c609777650a5c42aa5905012b29cfa7246f2336c2da3be7352d67737465705f7570f4696173737572616e63656461616c32",
+      "diag": "{\n  \"pos\": 10,\n  \"prev\": [-16, h'e6991be7f0e2a75fe3e0f8c49963a434a98ed59a9ead5392e261d5122d17f4ec'],\n  \"ingest\": \"admitted\",\n  \"ledger\": [-16, h'13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7'],\n  \"record\": [-16, h'e7842704a886f8e7035226dcad4b1c2971131877bf74ce16279d2aa3f6d78713'],\n  \"actor_type\": {\n    \"author\": [\"human\", \"access_binding\"]\n  },\n  \"recorded_at\": 1792109109000,\n  \"auth_context\": {\n    \"ref\": [-16, h'39fdaf6e41edd63bfb69beb3c46e28c7278793014f4a7eddd111f22b20694d6e'],\n    \"step_up\": false,\n    \"assurance\": \"aal2\"\n  }\n}",
+      "hex": "a863706f730a6470726576822f5820e6991be7f0e2a75fe3e0f8c49963a434a98ed59a9ead5392e261d5122d17f4ec66696e676573746861646d6974746564666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7667265636f7264822f5820e7842704a886f8e7035226dcad4b1c2971131877bf74ce16279d2aa3f6d787136a6163746f725f74797065a166617574686f72826568756d616e6e6163636573735f62696e64696e676b7265636f726465645f61741b000001a14206df086c617574685f636f6e74657874a363726566822f582039fdaf6e41edd63bfb69beb3c46e28c7278793014f4a7eddd111f22b20694d6e67737465705f7570f4696173737572616e63656461616c32",
       "decoded": {
         "pos": 10,
         "prev": [
           -16,
-          "7bd7bad814afcc8846589133670be6719e1203221e5463b52d20590f79048e7a"
+          "e6991be7f0e2a75fe3e0f8c49963a434a98ed59a9ead5392e261d5122d17f4ec"
         ],
         "ingest": "admitted",
         "ledger": [
           -16,
-          "abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad"
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
         ],
         "record": [
           -16,
-          "e2e1140e95dcb284f038fdea82e8f9fb230e57c78ef937dea9b1b50b3124cfc9"
+          "e7842704a886f8e7035226dcad4b1c2971131877bf74ce16279d2aa3f6d78713"
         ],
         "actor_type": {
           "author": [
@@ -1699,13 +1699,13 @@
         "auth_context": {
           "ref": [
             -16,
-            "686e8f07d6fd1c609777650a5c42aa5905012b29cfa7246f2336c2da3be7352d"
+            "39fdaf6e41edd63bfb69beb3c46e28c7278793014f4a7eddd111f22b20694d6e"
           ],
           "step_up": false,
           "assurance": "aal2"
         }
       },
-      "leaf_hash": "b2e90627c5a71a8ce160978da4d0d38afb4bf92e9f7e8c3ce76a6ac7dabd6009",
+      "leaf_hash": "d56a7bd538ae07b74506c6d26f5279d150216bc4892931a663aa7e8bf66d981c",
       "cddl": "pass",
       "expect": {
         "outcome": "accept"
@@ -1722,22 +1722,22 @@
         "P-76",
         "P-100"
       ],
-      "diag": "{\n  \"pos\": 11,\n  \"prev\": [-16, h'b2e90627c5a71a8ce160978da4d0d38afb4bf92e9f7e8c3ce76a6ac7dabd6009'],\n  \"ingest\": \"admitted\",\n  \"ledger\": [-16, h'abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad'],\n  \"record\": [-16, h'606509a3e4048e9c275e22c6b4032fb1001fd5dee4663e6d5d70303776292184'],\n  \"actor_type\": {\n    \"author\": [\"human\", \"access_binding\"]\n  },\n  \"recorded_at\": 1792109110000,\n  \"auth_context\": {\n    \"ref\": [-16, h'be76a4c8a8fd7f4c467681d0c15edd3ad3f936179bf73bd25f5c178b8de381a0'],\n    \"step_up\": false,\n    \"assurance\": \"aal2\"\n  }\n}",
-      "hex": "a863706f730b6470726576822f5820b2e90627c5a71a8ce160978da4d0d38afb4bf92e9f7e8c3ce76a6ac7dabd600966696e676573746861646d6974746564666c6564676572822f5820abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad667265636f7264822f5820606509a3e4048e9c275e22c6b4032fb1001fd5dee4663e6d5d703037762921846a6163746f725f74797065a166617574686f72826568756d616e6e6163636573735f62696e64696e676b7265636f726465645f61741b000001a14206e2f06c617574685f636f6e74657874a363726566822f5820be76a4c8a8fd7f4c467681d0c15edd3ad3f936179bf73bd25f5c178b8de381a067737465705f7570f4696173737572616e63656461616c32",
+      "diag": "{\n  \"pos\": 11,\n  \"prev\": [-16, h'd56a7bd538ae07b74506c6d26f5279d150216bc4892931a663aa7e8bf66d981c'],\n  \"ingest\": \"admitted\",\n  \"ledger\": [-16, h'13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7'],\n  \"record\": [-16, h'3ef64f6d7f8bb7c00f345682e642e6bd5bd6868ab19725fc82a95f14d46fe6d0'],\n  \"actor_type\": {\n    \"author\": [\"human\", \"access_binding\"]\n  },\n  \"recorded_at\": 1792109110000,\n  \"auth_context\": {\n    \"ref\": [-16, h'a1ce5ba21b5bd8ec86caadf8ddcdd6f6b176d337f67621bee90873d94b2a6a9c'],\n    \"step_up\": false,\n    \"assurance\": \"aal2\"\n  }\n}",
+      "hex": "a863706f730b6470726576822f5820d56a7bd538ae07b74506c6d26f5279d150216bc4892931a663aa7e8bf66d981c66696e676573746861646d6974746564666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7667265636f7264822f58203ef64f6d7f8bb7c00f345682e642e6bd5bd6868ab19725fc82a95f14d46fe6d06a6163746f725f74797065a166617574686f72826568756d616e6e6163636573735f62696e64696e676b7265636f726465645f61741b000001a14206e2f06c617574685f636f6e74657874a363726566822f5820a1ce5ba21b5bd8ec86caadf8ddcdd6f6b176d337f67621bee90873d94b2a6a9c67737465705f7570f4696173737572616e63656461616c32",
       "decoded": {
         "pos": 11,
         "prev": [
           -16,
-          "b2e90627c5a71a8ce160978da4d0d38afb4bf92e9f7e8c3ce76a6ac7dabd6009"
+          "d56a7bd538ae07b74506c6d26f5279d150216bc4892931a663aa7e8bf66d981c"
         ],
         "ingest": "admitted",
         "ledger": [
           -16,
-          "abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad"
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
         ],
         "record": [
           -16,
-          "606509a3e4048e9c275e22c6b4032fb1001fd5dee4663e6d5d70303776292184"
+          "3ef64f6d7f8bb7c00f345682e642e6bd5bd6868ab19725fc82a95f14d46fe6d0"
         ],
         "actor_type": {
           "author": [
@@ -1749,13 +1749,13 @@
         "auth_context": {
           "ref": [
             -16,
-            "be76a4c8a8fd7f4c467681d0c15edd3ad3f936179bf73bd25f5c178b8de381a0"
+            "a1ce5ba21b5bd8ec86caadf8ddcdd6f6b176d337f67621bee90873d94b2a6a9c"
           ],
           "step_up": false,
           "assurance": "aal2"
         }
       },
-      "leaf_hash": "0a55fb5970bec731f9803f54287556c0bfb26cb3edb4fdac0768649a2b95bd24",
+      "leaf_hash": "f1dbf4784a0d92028db08cff45f693e7cd4bf69e8b16d7966700cb9786890e04",
       "cddl": "pass",
       "expect": {
         "outcome": "accept"
@@ -1772,22 +1772,22 @@
         "P-76",
         "P-100"
       ],
-      "diag": "{\n  \"pos\": 12,\n  \"prev\": [-16, h'0a55fb5970bec731f9803f54287556c0bfb26cb3edb4fdac0768649a2b95bd24'],\n  \"ingest\": \"admitted\",\n  \"ledger\": [-16, h'abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad'],\n  \"record\": [-16, h'3b13df3a14eaa42e4075dc70f58d01e3b015e744f860dd19e9651e13ca7f5cc7'],\n  \"actor_type\": {\n    \"author\": [\"human\", \"access_binding\"]\n  },\n  \"recorded_at\": 1792109111000,\n  \"auth_context\": {\n    \"ref\": [-16, h'f121278cfed6e8f4f02b96f5f96c1ac6624802a741d3834d0e05109c38dc6b1f'],\n    \"step_up\": false,\n    \"assurance\": \"aal2\"\n  }\n}",
-      "hex": "a863706f730c6470726576822f58200a55fb5970bec731f9803f54287556c0bfb26cb3edb4fdac0768649a2b95bd2466696e676573746861646d6974746564666c6564676572822f5820abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad667265636f7264822f58203b13df3a14eaa42e4075dc70f58d01e3b015e744f860dd19e9651e13ca7f5cc76a6163746f725f74797065a166617574686f72826568756d616e6e6163636573735f62696e64696e676b7265636f726465645f61741b000001a14206e6d86c617574685f636f6e74657874a363726566822f5820f121278cfed6e8f4f02b96f5f96c1ac6624802a741d3834d0e05109c38dc6b1f67737465705f7570f4696173737572616e63656461616c32",
+      "diag": "{\n  \"pos\": 12,\n  \"prev\": [-16, h'f1dbf4784a0d92028db08cff45f693e7cd4bf69e8b16d7966700cb9786890e04'],\n  \"ingest\": \"admitted\",\n  \"ledger\": [-16, h'13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7'],\n  \"record\": [-16, h'2ab1cc85abaa07c3eb45d6329385f71544bc160a152a4f46d705850a1f438eb3'],\n  \"actor_type\": {\n    \"author\": [\"human\", \"access_binding\"]\n  },\n  \"recorded_at\": 1792109111000,\n  \"auth_context\": {\n    \"ref\": [-16, h'0e03f2278fb9ca3f030aa178486f269888bb114fb0ed776c72e44845432f3a39'],\n    \"step_up\": false,\n    \"assurance\": \"aal2\"\n  }\n}",
+      "hex": "a863706f730c6470726576822f5820f1dbf4784a0d92028db08cff45f693e7cd4bf69e8b16d7966700cb9786890e0466696e676573746861646d6974746564666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7667265636f7264822f58202ab1cc85abaa07c3eb45d6329385f71544bc160a152a4f46d705850a1f438eb36a6163746f725f74797065a166617574686f72826568756d616e6e6163636573735f62696e64696e676b7265636f726465645f61741b000001a14206e6d86c617574685f636f6e74657874a363726566822f58200e03f2278fb9ca3f030aa178486f269888bb114fb0ed776c72e44845432f3a3967737465705f7570f4696173737572616e63656461616c32",
       "decoded": {
         "pos": 12,
         "prev": [
           -16,
-          "0a55fb5970bec731f9803f54287556c0bfb26cb3edb4fdac0768649a2b95bd24"
+          "f1dbf4784a0d92028db08cff45f693e7cd4bf69e8b16d7966700cb9786890e04"
         ],
         "ingest": "admitted",
         "ledger": [
           -16,
-          "abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad"
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
         ],
         "record": [
           -16,
-          "3b13df3a14eaa42e4075dc70f58d01e3b015e744f860dd19e9651e13ca7f5cc7"
+          "2ab1cc85abaa07c3eb45d6329385f71544bc160a152a4f46d705850a1f438eb3"
         ],
         "actor_type": {
           "author": [
@@ -1799,13 +1799,13 @@
         "auth_context": {
           "ref": [
             -16,
-            "f121278cfed6e8f4f02b96f5f96c1ac6624802a741d3834d0e05109c38dc6b1f"
+            "0e03f2278fb9ca3f030aa178486f269888bb114fb0ed776c72e44845432f3a39"
           ],
           "step_up": false,
           "assurance": "aal2"
         }
       },
-      "leaf_hash": "aef3fbb59ff7f6fa013fdcdcfd0d85d1d25bd3b092610cfbacf1e2bf8f063285",
+      "leaf_hash": "37806ff13382be0e449e74cc88d2e8b1ac2c23534ebb8ebe89ad7b0f612f2ae9",
       "cddl": "pass",
       "expect": {
         "outcome": "accept"
@@ -1822,22 +1822,22 @@
         "P-76",
         "P-100"
       ],
-      "diag": "{\n  \"pos\": 13,\n  \"prev\": [-16, h'aef3fbb59ff7f6fa013fdcdcfd0d85d1d25bd3b092610cfbacf1e2bf8f063285'],\n  \"ingest\": \"admitted\",\n  \"ledger\": [-16, h'abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad'],\n  \"record\": [-16, h'a3083210aaa2b6d037993d16049925aefd613e79ca004574087980b16272ed64'],\n  \"actor_type\": {\n    \"author\": [\"human\", \"access_binding\"]\n  },\n  \"recorded_at\": 1792109112000,\n  \"auth_context\": {\n    \"ref\": [-16, h'3e0a615faa41b00ee15377a86da4e2baf25eec8e10cb04f908497ca66be785ae'],\n    \"step_up\": false,\n    \"assurance\": \"aal2\"\n  }\n}",
-      "hex": "a863706f730d6470726576822f5820aef3fbb59ff7f6fa013fdcdcfd0d85d1d25bd3b092610cfbacf1e2bf8f06328566696e676573746861646d6974746564666c6564676572822f5820abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad667265636f7264822f5820a3083210aaa2b6d037993d16049925aefd613e79ca004574087980b16272ed646a6163746f725f74797065a166617574686f72826568756d616e6e6163636573735f62696e64696e676b7265636f726465645f61741b000001a14206eac06c617574685f636f6e74657874a363726566822f58203e0a615faa41b00ee15377a86da4e2baf25eec8e10cb04f908497ca66be785ae67737465705f7570f4696173737572616e63656461616c32",
+      "diag": "{\n  \"pos\": 13,\n  \"prev\": [-16, h'37806ff13382be0e449e74cc88d2e8b1ac2c23534ebb8ebe89ad7b0f612f2ae9'],\n  \"ingest\": \"admitted\",\n  \"ledger\": [-16, h'13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7'],\n  \"record\": [-16, h'd06b1e53f25ed8ca2921c7636c76bb8b261ee60bfd04e45e6622374c7b2396b3'],\n  \"actor_type\": {\n    \"author\": [\"human\", \"access_binding\"]\n  },\n  \"recorded_at\": 1792109112000,\n  \"auth_context\": {\n    \"ref\": [-16, h'747d0b7ee34c8060fb04d6d469353e6d548e9c9814198bedd7d579af8d6e8e59'],\n    \"step_up\": false,\n    \"assurance\": \"aal2\"\n  }\n}",
+      "hex": "a863706f730d6470726576822f582037806ff13382be0e449e74cc88d2e8b1ac2c23534ebb8ebe89ad7b0f612f2ae966696e676573746861646d6974746564666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7667265636f7264822f5820d06b1e53f25ed8ca2921c7636c76bb8b261ee60bfd04e45e6622374c7b2396b36a6163746f725f74797065a166617574686f72826568756d616e6e6163636573735f62696e64696e676b7265636f726465645f61741b000001a14206eac06c617574685f636f6e74657874a363726566822f5820747d0b7ee34c8060fb04d6d469353e6d548e9c9814198bedd7d579af8d6e8e5967737465705f7570f4696173737572616e63656461616c32",
       "decoded": {
         "pos": 13,
         "prev": [
           -16,
-          "aef3fbb59ff7f6fa013fdcdcfd0d85d1d25bd3b092610cfbacf1e2bf8f063285"
+          "37806ff13382be0e449e74cc88d2e8b1ac2c23534ebb8ebe89ad7b0f612f2ae9"
         ],
         "ingest": "admitted",
         "ledger": [
           -16,
-          "abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad"
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
         ],
         "record": [
           -16,
-          "a3083210aaa2b6d037993d16049925aefd613e79ca004574087980b16272ed64"
+          "d06b1e53f25ed8ca2921c7636c76bb8b261ee60bfd04e45e6622374c7b2396b3"
         ],
         "actor_type": {
           "author": [
@@ -1849,13 +1849,13 @@
         "auth_context": {
           "ref": [
             -16,
-            "3e0a615faa41b00ee15377a86da4e2baf25eec8e10cb04f908497ca66be785ae"
+            "747d0b7ee34c8060fb04d6d469353e6d548e9c9814198bedd7d579af8d6e8e59"
           ],
           "step_up": false,
           "assurance": "aal2"
         }
       },
-      "leaf_hash": "64e47dabf34dda73923151f231bec92abf6035cda149d033ae65c9df25ed13f5",
+      "leaf_hash": "9c6e7c1498dda27a0e67a9826e7ca44469ec029c23d67ebd3a134be35ccc5c61",
       "cddl": "pass",
       "expect": {
         "outcome": "accept"
@@ -1872,22 +1872,22 @@
         "P-76",
         "P-100"
       ],
-      "diag": "{\n  \"pos\": 14,\n  \"prev\": [-16, h'64e47dabf34dda73923151f231bec92abf6035cda149d033ae65c9df25ed13f5'],\n  \"ingest\": \"admitted\",\n  \"ledger\": [-16, h'abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad'],\n  \"record\": [-16, h'229db8e82e3df458ee8f9f9ddcff22f1c2974ef523bb238be1981c15f18479a5'],\n  \"actor_type\": {\n    \"author\": [\"human\", \"access_binding\"]\n  },\n  \"recorded_at\": 1792109113000,\n  \"auth_context\": {\n    \"ref\": [-16, h'bbecaf4558fb6659957874f91446c0d8736c8546483364a4f2cff3b3ab1776e3'],\n    \"step_up\": false,\n    \"assurance\": \"aal2\"\n  }\n}",
-      "hex": "a863706f730e6470726576822f582064e47dabf34dda73923151f231bec92abf6035cda149d033ae65c9df25ed13f566696e676573746861646d6974746564666c6564676572822f5820abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad667265636f7264822f5820229db8e82e3df458ee8f9f9ddcff22f1c2974ef523bb238be1981c15f18479a56a6163746f725f74797065a166617574686f72826568756d616e6e6163636573735f62696e64696e676b7265636f726465645f61741b000001a14206eea86c617574685f636f6e74657874a363726566822f5820bbecaf4558fb6659957874f91446c0d8736c8546483364a4f2cff3b3ab1776e367737465705f7570f4696173737572616e63656461616c32",
+      "diag": "{\n  \"pos\": 14,\n  \"prev\": [-16, h'9c6e7c1498dda27a0e67a9826e7ca44469ec029c23d67ebd3a134be35ccc5c61'],\n  \"ingest\": \"admitted\",\n  \"ledger\": [-16, h'13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7'],\n  \"record\": [-16, h'a7fb8f0e43d981ac028b44d5e41aa933ee368c1e2b26ee1f81713ddf892de340'],\n  \"actor_type\": {\n    \"author\": [\"human\", \"access_binding\"]\n  },\n  \"recorded_at\": 1792109113000,\n  \"auth_context\": {\n    \"ref\": [-16, h'1a98c7c44c82db9790348ecb6d3f7a7223579944ad84a958510d65b7d9c2ac58'],\n    \"step_up\": false,\n    \"assurance\": \"aal2\"\n  }\n}",
+      "hex": "a863706f730e6470726576822f58209c6e7c1498dda27a0e67a9826e7ca44469ec029c23d67ebd3a134be35ccc5c6166696e676573746861646d6974746564666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7667265636f7264822f5820a7fb8f0e43d981ac028b44d5e41aa933ee368c1e2b26ee1f81713ddf892de3406a6163746f725f74797065a166617574686f72826568756d616e6e6163636573735f62696e64696e676b7265636f726465645f61741b000001a14206eea86c617574685f636f6e74657874a363726566822f58201a98c7c44c82db9790348ecb6d3f7a7223579944ad84a958510d65b7d9c2ac5867737465705f7570f4696173737572616e63656461616c32",
       "decoded": {
         "pos": 14,
         "prev": [
           -16,
-          "64e47dabf34dda73923151f231bec92abf6035cda149d033ae65c9df25ed13f5"
+          "9c6e7c1498dda27a0e67a9826e7ca44469ec029c23d67ebd3a134be35ccc5c61"
         ],
         "ingest": "admitted",
         "ledger": [
           -16,
-          "abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad"
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
         ],
         "record": [
           -16,
-          "229db8e82e3df458ee8f9f9ddcff22f1c2974ef523bb238be1981c15f18479a5"
+          "a7fb8f0e43d981ac028b44d5e41aa933ee368c1e2b26ee1f81713ddf892de340"
         ],
         "actor_type": {
           "author": [
@@ -1899,13 +1899,13 @@
         "auth_context": {
           "ref": [
             -16,
-            "bbecaf4558fb6659957874f91446c0d8736c8546483364a4f2cff3b3ab1776e3"
+            "1a98c7c44c82db9790348ecb6d3f7a7223579944ad84a958510d65b7d9c2ac58"
           ],
           "step_up": false,
           "assurance": "aal2"
         }
       },
-      "leaf_hash": "c156e9de97c0bd4d49b29fd34cab6cdf5378036a808a18dbb40c4c9c6db01982",
+      "leaf_hash": "a2734624089ffa2b4aa282887d29cf045c76f11d55482c3936edd1f467e2d535",
       "cddl": "pass",
       "expect": {
         "outcome": "accept"
@@ -1922,22 +1922,22 @@
         "P-76",
         "P-100"
       ],
-      "diag": "{\n  \"pos\": 15,\n  \"prev\": [-16, h'c156e9de97c0bd4d49b29fd34cab6cdf5378036a808a18dbb40c4c9c6db01982'],\n  \"ingest\": \"admitted\",\n  \"ledger\": [-16, h'abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad'],\n  \"record\": [-16, h'3a2535297e686047b0ad81ffe7cb351aa3dc28741f5f42ca0b1ca1b15c00e9d1'],\n  \"actor_type\": {\n    \"author\": [\"human\", \"access_binding\"]\n  },\n  \"recorded_at\": 1792109114000,\n  \"auth_context\": {\n    \"ref\": [-16, h'36357e565def5655879b8b59a2b8b3eb76eed0ed46134ca22e13e41882fd92df'],\n    \"step_up\": false,\n    \"assurance\": \"aal2\"\n  }\n}",
-      "hex": "a863706f730f6470726576822f5820c156e9de97c0bd4d49b29fd34cab6cdf5378036a808a18dbb40c4c9c6db0198266696e676573746861646d6974746564666c6564676572822f5820abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad667265636f7264822f58203a2535297e686047b0ad81ffe7cb351aa3dc28741f5f42ca0b1ca1b15c00e9d16a6163746f725f74797065a166617574686f72826568756d616e6e6163636573735f62696e64696e676b7265636f726465645f61741b000001a14206f2906c617574685f636f6e74657874a363726566822f582036357e565def5655879b8b59a2b8b3eb76eed0ed46134ca22e13e41882fd92df67737465705f7570f4696173737572616e63656461616c32",
+      "diag": "{\n  \"pos\": 15,\n  \"prev\": [-16, h'a2734624089ffa2b4aa282887d29cf045c76f11d55482c3936edd1f467e2d535'],\n  \"ingest\": \"admitted\",\n  \"ledger\": [-16, h'13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7'],\n  \"record\": [-16, h'8dcdae1762861b7ee2a2717046542e668fae8e66434546c0495887f6356b6cd5'],\n  \"actor_type\": {\n    \"author\": [\"human\", \"access_binding\"]\n  },\n  \"recorded_at\": 1792109114000,\n  \"auth_context\": {\n    \"ref\": [-16, h'31445381816079c8d7b8764952651b4011d9b59da87be0a26fdfa411f33021f9'],\n    \"step_up\": false,\n    \"assurance\": \"aal2\"\n  }\n}",
+      "hex": "a863706f730f6470726576822f5820a2734624089ffa2b4aa282887d29cf045c76f11d55482c3936edd1f467e2d53566696e676573746861646d6974746564666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7667265636f7264822f58208dcdae1762861b7ee2a2717046542e668fae8e66434546c0495887f6356b6cd56a6163746f725f74797065a166617574686f72826568756d616e6e6163636573735f62696e64696e676b7265636f726465645f61741b000001a14206f2906c617574685f636f6e74657874a363726566822f582031445381816079c8d7b8764952651b4011d9b59da87be0a26fdfa411f33021f967737465705f7570f4696173737572616e63656461616c32",
       "decoded": {
         "pos": 15,
         "prev": [
           -16,
-          "c156e9de97c0bd4d49b29fd34cab6cdf5378036a808a18dbb40c4c9c6db01982"
+          "a2734624089ffa2b4aa282887d29cf045c76f11d55482c3936edd1f467e2d535"
         ],
         "ingest": "admitted",
         "ledger": [
           -16,
-          "abe6235951c575ed09ed99d255b0d6aeae68bbf11d313f196bc83391448f27ad"
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
         ],
         "record": [
           -16,
-          "3a2535297e686047b0ad81ffe7cb351aa3dc28741f5f42ca0b1ca1b15c00e9d1"
+          "8dcdae1762861b7ee2a2717046542e668fae8e66434546c0495887f6356b6cd5"
         ],
         "actor_type": {
           "author": [
@@ -1949,13 +1949,13 @@
         "auth_context": {
           "ref": [
             -16,
-            "36357e565def5655879b8b59a2b8b3eb76eed0ed46134ca22e13e41882fd92df"
+            "31445381816079c8d7b8764952651b4011d9b59da87be0a26fdfa411f33021f9"
           ],
           "step_up": false,
           "assurance": "aal2"
         }
       },
-      "leaf_hash": "10252a228ca8cae6afcbdf17125bd7e785b73e13da3d6465714db5588d116538",
+      "leaf_hash": "43687abe7a851c5937a84f91887575ba2e62aa6a5cf476a7f94fc790832543b6",
       "cddl": "pass",
       "expect": {
         "outcome": "accept"
