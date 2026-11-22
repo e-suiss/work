@@ -377,3 +377,50 @@ fn record(v: &Value) -> Mapped<Record> {
         }),
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::FIELDS;
+    use crate::ontology::{COUNTERPARTS, DERIVED};
+
+    // C-8 C-4 C-40
+    #[test]
+    fn c_8_a_record_names_a_work_only_by_its_id() {
+        for root in [
+            "name", "title", "status", "owner", "priority", "due", "progress", "policy", "work",
+        ] {
+            assert!(!FIELDS.contains(&root), "{root}");
+        }
+        assert!(FIELDS.contains(&"concerns"));
+    }
+
+    // C-40 C-4
+    #[test]
+    fn c_40_no_derived_concept_is_a_record_field() {
+        for name in DERIVED {
+            assert!(!FIELDS.contains(name), "{name}");
+        }
+    }
+
+    // C-18 C-22
+    #[test]
+    fn c_18_an_interaction_session_is_no_record_field() {
+        for name in [
+            "session",
+            "interaction_session",
+            "run",
+            "thread",
+            "operator",
+        ] {
+            assert!(!FIELDS.contains(&name), "{name}");
+        }
+    }
+
+    // C-36
+    #[test]
+    fn c_36_no_capability_is_a_record_field() {
+        for (name, _) in COUNTERPARTS {
+            assert!(!FIELDS.contains(name), "{name}");
+        }
+    }
+}

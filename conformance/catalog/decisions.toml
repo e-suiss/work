@@ -14,6 +14,7 @@ status = "central-decision"
 stage = 7
 title = ""
 tests = [
+  "crates/kernel/tests/ontology.rs::inv_28_external_state_enters_only_as_a_reference_or_an_observation",
   "crates/relay-client/src/app.rs::inv_30_work_reaches_relay_only_through_the_events_endpoint_its_discovery_names",
 ]
 
@@ -66,6 +67,9 @@ title = ""
 tests = [
   "bins/work-server/tests/actor_kinds.rs::p_12_every_access_actor_kind_is_the_work_actor_type_of_its_name",
   "crates/access-client/src/domain/parties.rs::p_12_the_party_lookup_vectors_name_each_party_s_actor_kind",
+  "crates/kernel/tests/ontology.rs::c_2_nine_concepts_and_eight_relations_are_fixed_kernel_types",
+  "crates/kernel/tests/ontology.rs::c_3_an_application_extension_or_practice_adds_no_concept_or_relation",
+  "crates/kernel/tests/ontology.rs::c_9_every_actor_type_writes_through_one_party_model",
   "crates/ledger/src/actors.rs::p_12_a_bound_party_takes_access_s_type_and_an_unbound_one_is_declared_unverified",
   "crates/ledger/src/admit/tests.rs::p_12_the_envelope_takes_each_party_s_type_from_its_access_binding_never_from_the_request",
   "crates/query/src/domain/writes/tests.rs::p_12_the_author_s_actor_type_is_the_actor_kind_of_its_key_s_party",
@@ -170,7 +174,10 @@ family = "MD"
 status = "central-decision"
 stage = 4
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/ontology.rs::c_8_pr_9_a_work_opens_without_practice_template_workflow_or_type",
+  "crates/kernel/tests/ontology.rs::pr_10_md_18_a_minimal_record_needs_no_unjustified_core_field",
+]
 
 [[rule]]
 id = "MD-19"
@@ -213,7 +220,9 @@ id = "F-4"
 family = "F"
 status = "frozen-product"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/ontology.rs::c_9_every_actor_type_writes_through_one_party_model",
+]
 
 [[rule]]
 id = "F-5"
@@ -288,7 +297,9 @@ family = "F"
 status = "out-of-scope"
 stage = 4
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/ontology.rs::inv_28_external_state_enters_only_as_a_reference_or_an_observation",
+]
 
 [[rule]]
 id = "F-15"
@@ -356,7 +367,9 @@ id = "F-23"
 family = "F"
 status = "frozen-product"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/ontology.rs::c_3_an_application_extension_or_practice_adds_no_concept_or_relation",
+]
 
 [[rule]]
 id = "F-24"
@@ -755,7 +768,9 @@ id = "L-48"
 family = "L"
 status = "frozen-product"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/ontology.rs::pr_10_md_18_a_minimal_record_needs_no_unjustified_core_field",
+]
 
 [[rule]]
 id = "L-49"
@@ -783,7 +798,9 @@ id = "L-52"
 family = "L"
 status = "frozen-product"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/ontology.rs::c_22_sessions_and_provider_objects_are_references_work_does_not_depend_on",
+]
 
 [[rule]]
 id = "L-53"
@@ -909,7 +926,9 @@ id = "L-70"
 family = "L"
 status = "frozen-product"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/ontology.rs::c_22_sessions_and_provider_objects_are_references_work_does_not_depend_on",
+]
 
 [[rule]]
 id = "L-71"
@@ -1022,7 +1041,10 @@ family = "L"
 status = "frozen-product"
 stage = 4
 title = ""
-tests = []
+tests = [
+  "crates/kernel/src/relation.rs::c_25_part_of_joins_two_works_and_nothing_else",
+  "crates/kernel/tests/ontology.rs::c_25_part_of_inherits_nothing",
+]
 
 [[rule]]
 id = "L-87"
@@ -1189,6 +1211,7 @@ stage = 1
 acceptance = "to-fill"
 title = ""
 tests = [
+  "crates/kernel/tests/ontology.rs::c_15_every_named_declaration_kind_is_a_typed_subtype",
   "crates/kernel/tests/record_vectors.rs::p_72_rejected_record_vectors",
   "crates/kernel/tests/records.rs::c_27_relation_qualifiers_must_be_pinned_practice_values",
   "crates/kernel/tests/records.rs::c_5_pinned_practice_values_are_accepted",
@@ -1209,7 +1232,9 @@ family = "C"
 status = "frozen-product"
 stage = 9
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/ontology.rs::c_11_a_commitment_is_two_sided_and_names_its_acceptor",
+]
 
 [[rule]]
 id = "C-18"
@@ -1217,7 +1242,10 @@ family = "C"
 status = "frozen-product"
 stage = 4
 title = ""
-tests = []
+tests = [
+  "crates/kernel/src/codec/record.rs::c_18_an_interaction_session_is_no_record_field",
+  "crates/kernel/tests/ontology.rs::c_18_party_layers_stay_apart_and_the_interaction_session_is_outside_work",
+]
 
 [[rule]]
 id = "C-19"
@@ -1225,7 +1253,9 @@ family = "C"
 status = "frozen-product"
 stage = 4
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/ontology.rs::c_19_a_model_provider_or_session_change_keeps_the_party",
+]
 
 [[rule]]
 id = "C-20"
@@ -1233,7 +1263,12 @@ family = "C"
 status = "frozen-product"
 stage = 4
 title = ""
-tests = []
+tests = [
+  "crates/kernel/src/relation.rs::c_44_an_external_reference_in_a_party_endpoint_is_an_envelope_mismatch",
+  "crates/kernel/tests/ontology.rs::c_20_a_tool_output_is_the_calling_party_s_claim_about_a_reference",
+  "crates/kernel/tests/ontology.rs::c_44_every_attributed_slot_is_a_party_never_a_reference",
+  "crates/kernel/tests/ontology.rs::c_44_the_obligor_acceptor_and_judge_are_parties",
+]
 
 [[rule]]
 id = "C-21"
@@ -1241,7 +1276,9 @@ family = "C"
 status = "frozen-product"
 stage = 4
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/ontology.rs::c_21_a_machine_is_a_performer_party_a_sharing_target_or_a_reference",
+]
 
 [[rule]]
 id = "C-22"
@@ -1249,14 +1286,21 @@ family = "C"
 status = "frozen-product"
 stage = 6
 title = ""
-tests = []
+tests = [
+  "crates/kernel/src/codec/record.rs::c_18_an_interaction_session_is_no_record_field",
+  "crates/kernel/tests/ontology.rs::c_18_party_layers_stay_apart_and_the_interaction_session_is_outside_work",
+  "crates/kernel/tests/ontology.rs::c_22_sessions_and_provider_objects_are_references_work_does_not_depend_on",
+]
 
 [[rule]]
 id = "C-23"
 family = "C"
 status = "frozen-product"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/ontology.rs::c_18_party_layers_stay_apart_and_the_interaction_session_is_outside_work",
+  "crates/kernel/tests/ontology.rs::c_19_a_model_provider_or_session_change_keeps_the_party",
+]
 
 [[rule]]
 id = "C-27"
@@ -1269,6 +1313,8 @@ tests = [
   "crates/kernel/src/catalog.rs::p_81_core_roles_are_full_uris_and_basis_is_not_one",
   "crates/kernel/src/relation.rs::c_27_p_14_core_roles_belong_only_to_derived_from",
   "crates/kernel/src/relation.rs::c_27_p_81_derived_from_requires_a_full_uri_role_and_basis_is_not_one",
+  "crates/kernel/src/relation.rs::c_43_continuity_derives_from_an_earlier_work_only_as_source_of_this_record",
+  "crates/kernel/tests/ontology.rs::c_43_a_split_or_merge_opens_new_works_derived_from_each_earlier_one",
   "crates/kernel/tests/record_vectors.rs::p_72_rejected_record_vectors",
   "crates/kernel/tests/records.rs::c_27_relation_qualifiers_must_be_pinned_practice_values",
 ]
@@ -1295,6 +1341,7 @@ acceptance = "to-fill"
 title = ""
 tests = [
   "crates/kernel/src/id.rs::c_35_work_id_is_sixteen_opaque_bytes",
+  "crates/kernel/tests/ontology.rs::c_8_the_work_identity_outlives_its_close",
 ]
 
 [[rule]]
@@ -1319,7 +1366,9 @@ family = "C"
 status = "frozen-product"
 stage = 6
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/ontology.rs::c_22_sessions_and_provider_objects_are_references_work_does_not_depend_on",
+]
 
 [[rule]]
 id = "C-42"
@@ -1334,6 +1383,32 @@ tests = [
   "xtask/src/policy_terms.rs::c_42_task_and_assignee_names_are_rejected",
   "xtask/src/policy_terms.rs::c_42_variants_strings_serde_renames_and_other_languages_are_scanned",
   "xtask/src/rules_files.rs::c_42_api_documents_are_found_by_their_top_level_key",
+]
+
+[[rule]]
+id = "C-43"
+family = "C"
+status = "frozen-protocol"
+stage = 4
+acceptance = "to-fill"
+title = ""
+tests = [
+  "crates/kernel/src/relation.rs::c_43_continuity_derives_from_an_earlier_work_only_as_source_of_this_record",
+  "crates/kernel/tests/ontology.rs::c_43_a_split_or_merge_opens_new_works_derived_from_each_earlier_one",
+]
+
+[[rule]]
+id = "C-44"
+family = "C"
+status = "frozen-protocol"
+stage = 4
+acceptance = "to-fill"
+title = ""
+tests = [
+  "crates/kernel/src/relation.rs::c_44_an_external_reference_in_a_party_endpoint_is_an_envelope_mismatch",
+  "crates/kernel/tests/ontology.rs::c_20_a_tool_output_is_the_calling_party_s_claim_about_a_reference",
+  "crates/kernel/tests/ontology.rs::c_44_every_attributed_slot_is_a_party_never_a_reference",
+  "crates/kernel/tests/ontology.rs::c_44_the_obligor_acceptor_and_judge_are_parties",
 ]
 
 [[rule]]
@@ -1409,6 +1484,7 @@ stage = 7
 title = ""
 tests = [
   "crates/access-client/src/domain/exercise/tests.rs::t_101_an_allowed_exercise_with_its_receipt_is_the_authority_proof",
+  "crates/kernel/tests/ontology.rs::c_12_the_gate_kind_is_declared_when_the_condition_opens",
   "crates/query/src/domain/writes/tests.rs::p_13_the_authority_names_exactly_the_verified_receipt",
 ]
 
@@ -1708,7 +1784,9 @@ family = "X"
 status = "frozen-product"
 stage = 10
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/ontology.rs::c_8_pr_9_a_work_opens_without_practice_template_workflow_or_type",
+]
 
 [[rule]]
 id = "X-20"
@@ -1774,7 +1852,10 @@ id = "CM-5"
 family = "CM"
 status = "frozen-product"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/ontology.rs::c_11_a_commitment_is_two_sided_and_names_its_acceptor",
+  "crates/kernel/tests/ontology.rs::c_30_roles_live_on_commitments_and_relations_never_on_the_party",
+]
 
 [[rule]]
 id = "CM-6"
@@ -1783,7 +1864,9 @@ status = "frozen-protocol"
 stage = 5
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/ontology.rs::c_11_a_commitment_is_two_sided_and_names_its_acceptor",
+]
 
 [[rule]]
 id = "CM-7"
@@ -2521,7 +2604,9 @@ family = "ST"
 status = "frozen-protocol"
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/ontology.rs::c_12_the_gate_kind_is_declared_when_the_condition_opens",
+]
 
 [[rule]]
 id = "ST-30"
@@ -3787,6 +3872,7 @@ title = ""
 tests = [
   "crates/kernel/src/catalog.rs::p_71_core_declaration_catalog_is_closed",
   "crates/kernel/src/reason.rs::p_71_unknown_namespaced_sub_code_reads_as_its_parent",
+  "crates/kernel/tests/ontology.rs::c_15_every_named_declaration_kind_is_a_typed_subtype",
   "crates/kernel/tests/records.rs::c_5_unmapped_extension_values_are_rejected",
   "crates/kernel/tests/records.rs::p_80_core_subtypes_require_their_reason_and_type_keys",
 ]
@@ -3980,6 +4066,7 @@ acceptance = "filled"
 title = ""
 tests = [
   "crates/kernel/src/catalog.rs::p_82_the_only_core_act_subtype_is_action",
+  "crates/kernel/tests/ontology.rs::c_14_an_act_is_the_performer_s_report_without_normative_effect",
   "crates/kernel/tests/records.rs::p_82_core_act_subtype_is_action_only",
 ]
 
@@ -4460,6 +4547,7 @@ tests = [
   "crates/dispatch/src/domain.rs::p_35_the_envelope_names_subject_content_type_schema_and_correlation",
   "crates/http/src/position.rs::t_97_work_min_position_is_one_pos_token",
   "crates/http/src/reads.rs::p_56_what_a_caller_may_not_see_is_not_found",
+  "crates/kernel/tests/ontology.rs::c_1_every_concept_owns_an_identity_and_is_referred_to",
   "crates/proto/src/events.rs::p_35_subject_and_dataschema_come_from_the_item_and_the_type",
   "crates/proto/src/id.rs::p_112_a_wrong_prefix_is_invalid_id",
   "crates/proto/src/id.rs::p_112_every_prefix_round_trips_to_its_typed_id",
@@ -4559,7 +4647,9 @@ family = "PR"
 status = "frozen-product"
 stage = 4
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/ontology.rs::pr_10_md_18_a_minimal_record_needs_no_unjustified_core_field",
+]
 
 [[rule]]
 id = "PR-12"

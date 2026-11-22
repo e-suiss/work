@@ -506,6 +506,38 @@ fn inv_9_claims_and_acts_superseding_their_own_kind_form_lineage_only() {
     assert_eq!(d.chains[0].status, ChainStatus::Open);
 }
 
+// INV-10 C-25 C-33
+#[test]
+fn inv_10_a_decision_keeps_its_basis_when_the_basis_changes() {
+    let before = [
+        (rid(1), observation()),
+        (rid(2), op(ALICE, "gate_decision", None, &[rid(1)])),
+    ];
+    let after = [
+        (rid(1), observation()),
+        (rid(2), op(ALICE, "gate_decision", None, &[rid(1)])),
+        (rid(3), superseding_own(observation(), rid(1))),
+    ];
+    let kept = run(&entries(&before));
+    let moved = run(&entries(&after));
+    assert_eq!(moved.records[0].superseded_by, vec![rid(3)]);
+    assert_eq!(moved.records[1], kept.records[1]);
+    assert_eq!(moved.records[1].effect, Effect::Normative);
+    assert_eq!(after[1].1.basis(), &[rid(1)]);
+    assert_eq!(moved.chains, kept.chains);
+    let again = [
+        (rid(1), observation()),
+        (rid(2), op(ALICE, "gate_decision", None, &[rid(1)])),
+        (rid(3), superseding_own(observation(), rid(1))),
+        (rid(4), op(ALICE, "gate_decision", Some(rid(2)), &[rid(3)])),
+    ];
+    let reviewed = run(&entries(&again));
+    assert_eq!(reviewed.records[1].superseded_by, vec![rid(4)]);
+    assert_eq!(reviewed.records[1].admission, Admission::Admitted);
+    assert_eq!(reviewed.chains[0].heads, vec![rid(4)]);
+    assert_eq!(again[1].1.basis(), &[rid(1)]);
+}
+
 // T-23 T-4
 #[test]
 fn t_23_restriction_results_gate_normative_effect() {
