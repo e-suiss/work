@@ -76,14 +76,6 @@ fn items(list: &[u64]) -> ParamValue {
     ParamValue::List(list.iter().map(|n| ParamScalar::Uint(*n)).collect())
 }
 
-fn parties(list: &[&str]) -> ParamValue {
-    ParamValue::List(
-        list.iter()
-            .map(|p| ParamScalar::Text((*p).to_owned()))
-            .collect(),
-    )
-}
-
 /// A Declaration of a core commitment subtype with sorted params.
 fn decl(author: &str, name: &str, head: Option<RecordId>, params: &[(&str, ParamValue)]) -> Record {
     let mut params: Vec<Param> = params
@@ -260,12 +252,8 @@ impl Ledger {
     }
 
     fn push(&mut self, record: Record) -> RecordId {
-        let next = (self.records.len() as u64 + 1) * 1000;
+        let next = self.records.last().map_or(1000, |r| r.4 + 1000);
         self.at(record, next, false)
-    }
-
-    fn position_of(&self, rid: RecordId) -> u64 {
-        self.records.iter().position(|r| r.0 == rid).unwrap() as u64 + 1
     }
 
     fn entries(&self) -> Vec<Entry<'_>> {
@@ -392,7 +380,7 @@ fn cm_17_the_closed_operation_set_has_one_table_row_each() {
     assert_eq!(RULES.len(), Operation::ALL.len());
     for (rule, op) in RULES.iter().zip(Operation::ALL) {
         assert_eq!(rule.operation, *op);
-        assert!(!rule.permits.is_empty());
+        assert_ne!(rule.permits.len(), 0);
         assert_eq!(Operation::of(op.subtype()), Some(*op));
     }
     assert!(Operation::CLOSED_SET.contains(&Operation::Dispute));
@@ -815,12 +803,12 @@ fn cm_26_a_rejection_returns_to_execution_and_counts_until_acceptance() {
         id(902),
         root,
     ));
-    let stale = ledger.push(accept(ALICE, third, second));
+    let outdated = ledger.push(accept(ALICE, third, second));
     assert_eq!(
-        ledger.outcome(root, stale),
+        ledger.outcome(root, outdated),
         StepOutcome::Refused(Refusal::WrongTarget)
     );
-    ledger.push(accept(ALICE, stale, third));
+    ledger.push(accept(ALICE, outdated, third));
     let view = ledger.view(root);
     assert_eq!(view.rejections, 0);
     assert_eq!(view.rejected.len(), 2);
@@ -1252,7 +1240,7 @@ fn cm_22_a_conditional_promise_becomes_a_promise_from_the_meeting_record_or_expi
         vec![Mover::PreconditionAddressee(condition)]
     );
     let met = Ledger {
-        records: ledger.records.iter().cloned().collect(),
+        records: ledger.records.clone(),
         facts_met: vec![(condition, 3)],
         policy: Policy::default(),
         budget_exhausted: false,
@@ -1567,7 +1555,7 @@ fn cm_7_an_offer_with_an_agent_side_needs_its_six_fields() {
         ),
         &["purpose", "delivery", "scope", "acceptance_criterion"],
     );
-    assert!(offer_gaps(&full).is_empty());
+    assert_eq!(offer_gaps(&full).len(), 0);
 
     let mut undefined = Ledger::new();
     let root = undefined.push(decl(
