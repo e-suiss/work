@@ -615,6 +615,24 @@
         ],
         "type": "object"
       },
+      "NewWork": {
+        "additionalProperties": false,
+        "description": "The body of a Work opening: every field is optional, and there is none yet.",
+        "type": "object"
+      },
+      "OpenedWork": {
+        "description": "The opened Work.",
+        "properties": {
+          "work": {
+            "description": "The Work, `wrk_…`; a record that concerns it opens it in its ledger.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work"
+        ],
+        "type": "object"
+      },
       "Problem": {
         "description": "An RFC 9457 problem response (T-98 item 6).",
         "properties": {
@@ -2645,6 +2663,238 @@
         "tags": [
           "problems"
         ]
+      }
+    },
+    "/v1/works": {
+      "post": {
+        "description": "A Work is only an identity: no Practice, template, workflow or type is needed and no field is\nrequired. The answer is the same Work for the same caller and `Idempotency-Key`; the Work\nappears in a ledger with the first record whose `concerns` names it.",
+        "operationId": "create_work",
+        "parameters": [
+          {
+            "description": "A UUIDv7; the same key answers the same Work.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewWork"
+              }
+            }
+          },
+          "description": "Optional; an empty body opens the Work.",
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenedWork"
+                }
+              }
+            },
+            "description": "The Work is open.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "A body or header that does not open.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "No valid Access access token and DPoP proof.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "WWW-Authenticate": {
+                "description": "The DPoP challenge.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "The caller is an API client without a Party.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "The caller has spent its quota.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Retry-After": {
+                "description": "Seconds until the next window.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Access cannot be reached, so the caller cannot be checked.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Opens a Work.",
+        "tags": [
+          "works"
+        ],
+        "x-work-action": "work:write"
       }
     }
   }

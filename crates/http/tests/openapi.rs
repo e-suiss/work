@@ -1,10 +1,12 @@
 //! The committed `OpenAPI` document is the one the code generates, and every operation in it
-//! names exactly one action of the Access catalog (T-98 items 1 and 2, E-45 item 3).
+//! names exactly one action of the Access catalog (T-98 items 1 and 2, E-45 item 3); the Work
+//! schemas are projections that store no derived concept (C-40).
 
 use std::path::Path;
 
 use serde_json::Value;
 use work_http::openapi::{ACTION_EXTENSION, DOCUMENT, document, is_public, value};
+use work_kernel::ontology::DERIVED;
 use work_proto::action::Action;
 
 const METHODS: [&str; 8] = [
@@ -55,6 +57,24 @@ fn e_45_every_api_operation_names_exactly_one_action() {
             assert!(
                 action.and_then(Action::parse).is_some(),
                 "{method} {path} names no action of the catalog: {action:?}"
+            );
+        }
+    }
+}
+
+// C-40 C-8 C-4
+#[test]
+fn c_40_the_work_schemas_carry_no_stored_derived_concept() {
+    let doc = value().unwrap();
+    for name in ["WorkAnswer", "OpenedWork", "NewWork"] {
+        let schema = &doc["components"]["schemas"][name];
+        assert!(schema.is_object(), "{name}");
+        let properties = schema.get("properties").and_then(Value::as_object);
+        for key in properties.into_iter().flatten().map(|(k, _)| k.as_str()) {
+            assert!(!DERIVED.contains(&key), "{name}.{key}");
+            assert!(
+                !["name", "title", "type", "owner", "priority", "due", "state"].contains(&key),
+                "{name}.{key}"
             );
         }
     }

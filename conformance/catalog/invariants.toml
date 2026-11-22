@@ -42,6 +42,7 @@ status = "canonical-invariant"
 stage = 1
 title = ""
 tests = [
+  "crates/http/tests/openapi.rs::c_40_the_work_schemas_carry_no_stored_derived_concept",
   "crates/kernel/src/codec/record.rs::c_40_no_derived_concept_is_a_record_field",
   "crates/kernel/src/codec/record.rs::c_8_a_record_names_a_work_only_by_its_id",
   "crates/kernel/tests/ontology.rs::c_40_derived_concepts_are_projections_never_concepts",
@@ -56,6 +57,7 @@ stage = 2
 title = ""
 tests = [
   "crates/http/src/works.rs::c_8_a_work_opens_with_no_required_field",
+  "crates/http/tests/openapi.rs::c_40_the_work_schemas_carry_no_stored_derived_concept",
   "crates/kernel/src/codec/record.rs::c_8_a_record_names_a_work_only_by_its_id",
   "crates/kernel/src/relation.rs::c_43_continuity_derives_from_an_earlier_work_only_as_source_of_this_record",
   "crates/kernel/tests/ontology.rs::c_43_a_split_or_merge_opens_new_works_derived_from_each_earlier_one",
@@ -310,6 +312,7 @@ status = "canonical-invariant"
 stage = 2
 title = ""
 tests = [
+  "crates/http/tests/openapi.rs::c_40_the_work_schemas_carry_no_stored_derived_concept",
   "crates/kernel/src/codec/record.rs::c_40_no_derived_concept_is_a_record_field",
   "crates/kernel/src/codec/record.rs::c_8_a_record_names_a_work_only_by_its_id",
   "crates/kernel/tests/ontology.rs::c_40_derived_concepts_are_projections_never_concepts",
