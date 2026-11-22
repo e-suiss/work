@@ -8,6 +8,7 @@ extern crate alloc;
 pub mod activation;
 pub mod catalog;
 pub mod codec;
+pub mod commitment;
 pub mod compromise;
 pub mod cose;
 pub mod derive;
@@ -30,7 +31,7 @@ pub mod verify;
 /// Version of the kernel public API (T-4 rule 4).
 pub const API_VERSION: ApiVersion = ApiVersion {
     major: 0,
-    minor: 14,
+    minor: 15,
 };
 
 /// A kernel public API version.
@@ -51,7 +52,7 @@ mod tests {
     fn t_4_api_versions_order_by_major_then_minor() {
         let a = ApiVersion {
             major: 0,
-            minor: 14,
+            minor: 15,
         };
         let b = ApiVersion { major: 1, minor: 0 };
         assert!(a < b);

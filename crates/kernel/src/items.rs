@@ -1,8 +1,9 @@
-//! The work items a record touches, read from its signed core fields only (T-89, P-29, OP-7): the sequencer writes one item head per touch in the record's append transaction and takes the version it writes as the outbox `seq` (T-81); until the Commitment and Condition lifecycles exist, a record touches each Work it concerns, in `concerns` order, whatever its `ingest`.
+//! The work items a record touches, read from its signed core fields only (T-89, P-29, OP-7): the sequencer writes one item head per touch in the record's append transaction and takes the version it writes as the outbox `seq` (T-81); [`touched`] gives each Work a record concerns, in `concerns` order, whatever its `ingest`, and [`touched_in`] adds the Commitment or Condition conflict area it opens or continues.
 
 use alloc::vec::Vec;
 
 use crate::id::{RecordId, WorkId};
+use crate::ontology::Concept;
 use crate::record::Record;
 
 /// A work item whose version the sequencer keeps (P-29).
@@ -50,6 +51,52 @@ pub fn touched(record: &Record) -> Vec<Touch> {
             heads: None,
         })
         .collect()
+}
+
+/// The conflict area of a Commitment or Condition as the sequencer stores it: the item, its stored version and its chain heads (T-89, P-28).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Area {
+    /// The Commitment or Condition.
+    pub item: ItemKey,
+    /// The stored item version.
+    pub version: u64,
+    /// The chain heads in normative effect.
+    pub heads: Vec<RecordId>,
+}
+
+/// The items record `id` touches once Commitments and Conditions are conflict areas (T-89 items 3, 6, OP-7): the Works it concerns, then the Commitment or Condition it opens at version 0, or the area of its first superseded record, found with `area_of`, at the area's stored version; the heads after it are the heads it did not see by `basis` or `supersedes` and the record itself (P-88).
+#[must_use]
+pub fn touched_in(
+    record: &Record,
+    id: RecordId,
+    area_of: &dyn Fn(&RecordId) -> Option<Area>,
+) -> Vec<Touch> {
+    let mut out = touched(record);
+    let opened = match Concept::opened_by(record) {
+        Some(Concept::Commitment) => Some(ItemKey::Commitment(id)),
+        Some(Concept::Condition) => Some(ItemKey::Condition(id)),
+        _ => None,
+    };
+    if let Some(item) = opened {
+        out.push(Touch {
+            item,
+            expect: Expect::Version(0),
+            heads: Some(alloc::vec![id]),
+        });
+        return out;
+    }
+    let Some(area) = record.supersedes().next().and_then(area_of) else {
+        return out;
+    };
+    let saw = |h: &RecordId| record.basis().contains(h) || record.supersedes().any(|t| t == h);
+    let mut heads: Vec<RecordId> = area.heads.iter().filter(|h| !saw(h)).copied().collect();
+    heads.push(id);
+    out.push(Touch {
+        item: area.item,
+        expect: Expect::Version(area.version),
+        heads: Some(heads),
+    });
+    out
 }
 
 #[cfg(test)]

@@ -361,6 +361,178 @@ wire_enum! {
     }
 }
 
+wire_enum! {
+    /// Commitment types, labels on the one lifecycle and never separate concepts (CM-9).
+    CommitmentKind {
+        /// A promise between two sides about an Aim or Act.
+        Standard => "standard",
+        /// A commitment that supports a parent commitment (CM-46).
+        SubCommitment => "sub_commitment",
+        /// A recurring report promise (CM-53).
+        PeriodicUpdate => "periodic_update",
+        /// A follow-up triggered by a time or event Condition (CM-11).
+        FollowUp => "follow_up",
+        /// An agent asking a human for a decision, input or help (CM-10).
+        HelpRequest => "help_request",
+    }
+}
+
+wire_enum! {
+    /// Reasons for `reject` (CM-61).
+    RejectReason {
+        /// The acceptance criterion is not met.
+        CriteriaNotMet => "criteria_not_met",
+        /// The delivery is incomplete.
+        Incomplete => "incomplete",
+        /// The wrong deliverable.
+        WrongDeliverable => "wrong_deliverable",
+        /// Evidence is missing.
+        EvidenceMissing => "evidence_missing",
+        /// Other; a note is required.
+        Other => "other",
+    }
+}
+
+wire_enum! {
+    /// Reasons for `refuse` (CM-61).
+    RefuseReason {
+        /// The effect cannot be undone.
+        IrreversibleEffect => "irreversible_effect",
+        /// The counterparty already relied on it.
+        AlreadyReliedOn => "already_relied_on",
+        /// The cost.
+        Cost => "cost",
+        /// Disagreement.
+        Disagree => "disagree",
+        /// Other; a note is required.
+        Other => "other",
+    }
+}
+
+wire_enum! {
+    /// Reasons for the four revocation requests (CM-61).
+    RevokeReason {
+        /// A mistake.
+        Mistake => "mistake",
+        /// Circumstances changed.
+        CircumstancesChanged => "circumstances_changed",
+        /// A duplicate.
+        Duplicate => "duplicate",
+        /// Other; a note is required.
+        Other => "other",
+    }
+}
+
+wire_enum! {
+    /// Reasons for `dispute` (CM-61).
+    DisputeReason {
+        /// The criterion was met.
+        CriteriaMet => "criteria_met",
+        /// The rejection is unfounded.
+        RejectionUnfounded => "rejection_unfounded",
+        /// The revocation is unfounded.
+        RevocationUnfounded => "revocation_unfounded",
+        /// Other; a note is required.
+        Other => "other",
+    }
+}
+
+wire_enum! {
+    /// Reasons for `defer` (CM-61).
+    DeferReason {
+        /// Waiting for something external.
+        WaitingExternal => "waiting_external",
+        /// Priority.
+        Priority => "priority",
+        /// Capacity.
+        Capacity => "capacity",
+        /// Schedule.
+        Schedule => "schedule",
+        /// Other; a note is required.
+        Other => "other",
+    }
+}
+
+wire_enum! {
+    /// Reasons for `forward` (CM-61, RC-17).
+    ForwardReason {
+        /// The wrong recipient.
+        WrongRecipient => "wrong_recipient",
+        /// Expertise.
+        Expertise => "expertise",
+        /// Capacity.
+        Capacity => "capacity",
+        /// Other; a note is required.
+        Other => "other",
+    }
+}
+
+wire_enum! {
+    /// Reasons in a handover note (CM-45).
+    HandoverReason {
+        /// Capacity.
+        Capacity => "capacity",
+        /// Competence.
+        Competence => "competence",
+        /// Escalation.
+        Escalation => "escalation",
+        /// Departure.
+        Departure => "departure",
+        /// Transfer of control.
+        ControlTransfer => "control_transfer",
+        /// Other; a note is required.
+        Other => "other",
+    }
+}
+
+wire_enum! {
+    /// How an instruction change reaches running work; `queue` when none is declared (CM-57).
+    ChangePolicy {
+        /// Apply after the current step.
+        Queue => "queue",
+        /// Refuse while the work runs.
+        Reject => "reject",
+        /// Interrupt the current step and apply.
+        Interrupt => "interrupt",
+        /// Return to the last checkpoint and apply.
+        Rollback => "rollback",
+    }
+}
+
+wire_enum! {
+    /// Multi-party aggregation rules over per-participant commitments (CM-54).
+    AggregationRule {
+        /// Every participant accepts.
+        All => "all",
+        /// The first acceptance.
+        Any => "any",
+        /// K acceptances.
+        KOfN => "k_of_n",
+        /// Each participant in order, the next only after the previous accepted.
+        Sequential => "sequential",
+        /// At least the ceiling of N times p percent acceptances.
+        Percentage => "percentage",
+    }
+}
+
+wire_enum! {
+    /// The two records of `delegate` and `assign`: the proposal and the new side's explicit acceptance (CM-43, CM-44).
+    ProposalStep {
+        /// The proposal by the side that leaves.
+        Proposal => "proposal",
+        /// The explicit acceptance by the side that joins.
+        Acceptance => "acceptance",
+    }
+}
+
+wire_enum! {
+    /// The kind of an `amend` that is not an instruction change (CM-56).
+    AmendmentChange {
+        /// A change of terms, which needs the obligor's renewed promise.
+        Terms => "terms",
+    }
+}
+
 const DECLARATION_POINT: &str = "declaration/";
 const ACT_POINT: &str = "act/";
 const CLAIM_POINT: &str = "claim/";
@@ -397,7 +569,7 @@ from_uri!(DependencyType, DEPENDENCY_POINT);
 pub const BASIS_ROLE_URI: &str = "https://suiss.app/ns/work/derived_from/basis";
 
 impl DeclarationSubtype {
-    /// True for operations that close a commitment in a terminal state from any state they apply to (CM-14, CM-34); a placeholder until the Stage 5 lifecycle.
+    /// True for operations that close a commitment in a terminal state from any state they apply to (CM-14, CM-34); a supersede chain rooted in a `request` takes its terminal outcome from the commitment lifecycle instead ([`crate::commitment`]).
     #[must_use]
     pub const fn is_terminal(self) -> bool {
         matches!(

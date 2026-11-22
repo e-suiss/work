@@ -1,4 +1,4 @@
-//! The derivation skeleton: a pure fold over an ordered record sequence and explicit inputs, with no wall clock (T-4, T-6, INV-7, P-31); it fixes supersession, retroactivity, eligibility, conflict and divergence, and keeps a minimal normative state per supersede chain until the commitment lifecycle exists.
+//! The derivation skeleton: a pure fold over an ordered record sequence and explicit inputs, with no wall clock (T-4, T-6, INV-7, P-31); it fixes supersession, retroactivity, eligibility, conflict and divergence, and keeps a minimal normative state per supersede chain; a chain rooted in a `request` is a commitment, whose terminal outcome and lifecycle [`crate::commitment`] derives from the chain's normative records (CM-2).
 
 use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
@@ -13,6 +13,7 @@ use crate::record::{
     Kind, ParamScalar, ParamValue, PartName, PracticePin, ProtocolVersion, Record,
 };
 use crate::rules::RuleSet;
+use crate::validate::ActorType;
 use crate::verify::VerifiedEntry;
 
 /// The result of the shared restriction engine for one record, supplied as input (T-4 rule 5, T-23).
@@ -54,6 +55,8 @@ pub struct Entry<'a> {
     ingest: Ingest,
     restriction: Restriction,
     issuer: AuthorityIssuer,
+    author_actor: Option<ActorType>,
+    step_up: bool,
 }
 
 impl<'a> Entry<'a> {
@@ -81,6 +84,8 @@ impl<'a> Entry<'a> {
             ingest,
             restriction,
             issuer,
+            author_actor: Some(envelope.actor_types.author.actor_type),
+            step_up: envelope.auth_context.as_ref().is_some_and(|a| a.step_up),
         })
     }
 
@@ -103,6 +108,18 @@ impl<'a> Entry<'a> {
             ingest,
             restriction,
             issuer,
+            author_actor: None,
+            step_up: false,
+        }
+    }
+
+    /// The same unverified entry with the author's Access actor type and step-up the envelope would carry; only the kernel's own tests and benchmarks build such entries (T-10, P-12, P-21).
+    #[must_use]
+    pub const fn with_author(self, actor: ActorType, step_up: bool) -> Self {
+        Self {
+            author_actor: Some(actor),
+            step_up,
+            ..self
         }
     }
 
@@ -146,6 +163,18 @@ impl<'a> Entry<'a> {
     #[must_use]
     pub const fn issuer(&self) -> &AuthorityIssuer {
         &self.issuer
+    }
+
+    /// The author's actor type from the envelope's Access annotation (P-12); `None` for an unverified entry built without it.
+    #[must_use]
+    pub const fn author_actor(&self) -> Option<ActorType> {
+        self.author_actor
+    }
+
+    /// Whether the envelope's Access authentication context carries a step-up (P-21, CM-40).
+    #[must_use]
+    pub const fn step_up(&self) -> bool {
+        self.step_up
     }
 }
 
@@ -339,6 +368,7 @@ struct Fold<'i> {
     members: Vec<Member>,
     records: Vec<DerivedRecord>,
     chains: Vec<Chain>,
+    commitment_chains: Vec<bool>,
     versions: BTreeMap<(usize, u32), Vec<usize>>,
 }
 
@@ -357,6 +387,7 @@ pub fn derive(
         members: Vec::new(),
         records: Vec::new(),
         chains: Vec::new(),
+        commitment_chains: Vec::new(),
         versions: BTreeMap::new(),
     };
     let mut previous: Option<&Entry<'_>> = None;
@@ -605,7 +636,13 @@ impl Fold<'_> {
         if redact && !self.redact_target_known(entry) {
             return (Effect::None(NoEffect::UnknownTarget), None);
         }
-        let next_status = if redact || subtype.is_some_and(DeclarationSubtype::is_terminal) {
+        let commitment = match *place {
+            Place::Root => subtype == Some(DeclarationSubtype::Request),
+            Place::Existing { chain, .. } => self.commitment_chains.get(chain) == Some(&true),
+            Place::Unknown => false,
+        };
+        let closes = !commitment && subtype.is_some_and(DeclarationSubtype::is_terminal);
+        let next_status = if redact || closes {
             ChainStatus::Terminal
         } else {
             ChainStatus::Open
@@ -619,6 +656,7 @@ impl Fold<'_> {
                     heads: alloc::vec![entry.id],
                     status: next_status,
                 });
+                self.commitment_chains.push(commitment);
                 return (Effect::Normative, Some((index, 0)));
             }
             Place::Unknown => return (Effect::None(NoEffect::UnknownTarget), None),

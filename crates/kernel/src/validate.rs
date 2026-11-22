@@ -4,9 +4,11 @@ use alloc::vec::Vec;
 use core::cmp::Ordering;
 
 use crate::catalog::{
-    ActSubtype, AimDuration, CancelReason, ClaimSubtype, ConditionType, Consequence,
-    CoreEvidenceType, DeclarationSubtype, DeclineReason, GateForm, NoticeType, RedactReason,
-    StopAnswer, StopType, WaitReason, consequence,
+    ActSubtype, AggregationRule, AimDuration, AmendmentChange, CancelReason, ChangePolicy,
+    ClaimSubtype, CommitmentKind, ConditionType, Consequence, CoreDerivedRole, CoreEvidenceType,
+    DeclarationSubtype, DeclineReason, DeferReason, DisputeReason, GateForm, HandoverReason,
+    NoticeType, ProposalStep, RedactReason, RefuseReason, RejectReason, RevokeReason, StopAnswer,
+    StopType, WaitReason, consequence,
 };
 use crate::id::{PartyRef, Time, canonical_text_cmp};
 use crate::limits::SemanticLimits;
@@ -240,6 +242,25 @@ enum ParamKind {
     RecordRef,
     RecordSet,
     AimDuration,
+    Items,
+    ItemCount,
+    Time,
+    Flag,
+    Bool,
+    Count,
+    Percent,
+    PartyList,
+    CommitmentKind,
+    RejectReason,
+    RefuseReason,
+    RevokeReason,
+    DisputeReason,
+    DeferReason,
+    HandoverReason,
+    ChangePolicy,
+    AggregationRule,
+    ProposalStep,
+    AmendmentChange,
 }
 
 struct ParamKey {
@@ -257,7 +278,6 @@ const fn key(name: &'static str, kind: ParamKind, required: bool) -> ParamKey {
 }
 
 // P-80 P-85 P-92 CM-20 CM-30 RC-36 ST-11 ST-12 ST-27
-const DECLINE: &[ParamKey] = &[key("reason", ParamKind::DeclineReason, true)];
 const CANCEL: &[ParamKey] = &[key("reason", ParamKind::CancelReason, true)];
 const NOTICE: &[ParamKey] = &[key("notice_type", ParamKind::NoticeType, true)];
 const STOP_REQUEST: &[ParamKey] = &[key("stop_type", ParamKind::StopType, true)];
@@ -278,13 +298,124 @@ const REDACT: &[ParamKey] = &[
     key("target", ParamKind::RecordRef, true),
 ];
 
-// C-11 CM-4 CM-6 C-44
+// C-11 CM-4 CM-6 CM-7 CM-8 CM-9 CM-24 CM-27 CM-39 CM-54 CM-57 CM-60 C-44
 const REQUEST: &[ParamKey] = &[
     key("acceptor", ParamKind::Party, true),
+    key("aggregation", ParamKind::AggregationRule, false),
+    key("aggregation_k", ParamKind::Count, false),
+    key("aggregation_percent", ParamKind::Percent, false),
+    key("aggregation_veto", ParamKind::Flag, false),
     key("aim", ParamKind::RecordRef, false),
+    key("change_policy", ParamKind::ChangePolicy, false),
+    key("commitment_kind", ParamKind::CommitmentKind, false),
     key("conditions", ParamKind::RecordSet, false),
+    key("due", ParamKind::Time, false),
+    key("evidence_required", ParamKind::Flag, false),
+    key("four_eyes_waived", ParamKind::Flag, false),
+    key("high_impact", ParamKind::Flag, false),
+    key("item_count", ParamKind::ItemCount, false),
     key("obligor", ParamKind::Party, false),
+    key("participants", ParamKind::PartyList, false),
     key("queue", ParamKind::RecordRef, false),
+    key("respond_by", ParamKind::Time, false),
+];
+
+const ITEMS: ParamKey = key("items", ParamKind::Items, false);
+
+// CM-17 CM-22 CM-23 CM-56
+const PROMISE: &[ParamKey] = &[key("amendment", ParamKind::RecordRef, false), ITEMS];
+const PROMISE_CONDITIONAL: &[ParamKey] = &[
+    ITEMS,
+    key("precondition", ParamKind::RecordRef, true),
+    key("valid_until", ParamKind::Time, true),
+];
+const DECLINE_ITEMS: &[ParamKey] = &[ITEMS, key("reason", ParamKind::DeclineReason, true)];
+
+// CM-21 CM-56
+const COUNTER: &[ParamKey] = &[
+    key("acceptor", ParamKind::Party, false),
+    key("amendment", ParamKind::RecordRef, false),
+    key("conditions", ParamKind::RecordSet, false),
+    key("due", ParamKind::Time, false),
+    key("evidence_required", ParamKind::Bool, false),
+    key("high_impact", ParamKind::Bool, false),
+    key("item_count", ParamKind::ItemCount, false),
+    key("respond_by", ParamKind::Time, false),
+];
+const ACCEPT_COUNTER: &[ParamKey] = &[key("counter", ParamKind::RecordRef, true)];
+
+// CM-23 CM-25 CM-26 CM-40 CM-41 CM-61
+const STATE: &[ParamKey] = &[ITEMS];
+const ACCEPT: &[ParamKey] = &[
+    key("criterion_undefined", ParamKind::Flag, false),
+    key("implicit", ParamKind::Flag, false),
+    ITEMS,
+    key("statement", ParamKind::RecordRef, true),
+];
+const REJECT: &[ParamKey] = &[
+    ITEMS,
+    key("reason", ParamKind::RejectReason, true),
+    key("statement", ParamKind::RecordRef, true),
+];
+
+// CM-43 CM-44 CM-45
+const DELEGATE: &[ParamKey] = &[
+    key("context", ParamKind::RecordSet, false),
+    key("handover_reason", ParamKind::HandoverReason, false),
+    key("obligor", ParamKind::Party, false),
+    key("proposal", ParamKind::RecordRef, false),
+    key("stateful", ParamKind::Bool, false),
+    key("step", ParamKind::ProposalStep, true),
+];
+const ASSIGN: &[ParamKey] = &[
+    key("obligee", ParamKind::Party, false),
+    key("proposal", ParamKind::RecordRef, false),
+    key("step", ParamKind::ProposalStep, true),
+];
+const HANDOFF_NOTE: &[ParamKey] = &[
+    key("context", ParamKind::RecordSet, false),
+    key("handover_reason", ParamKind::HandoverReason, true),
+    key("stateful", ParamKind::Bool, true),
+];
+
+// CM-17 CM-35 CM-36 CM-61
+const DISPUTE: &[ParamKey] = &[
+    key("disputed", ParamKind::RecordRef, true),
+    key("reason", ParamKind::DisputeReason, true),
+];
+const DEFER: &[ParamKey] = &[
+    key("reason", ParamKind::DeferReason, true),
+    key("resume_at", ParamKind::Time, false),
+    key("resume_on", ParamKind::RecordRef, false),
+];
+const RESUME: &[ParamKey] = &[key("deferral", ParamKind::RecordRef, true)];
+const REVOKE: &[ParamKey] = &[key("reason", ParamKind::RevokeReason, true)];
+const ALLOW: &[ParamKey] = &[key("revocation", ParamKind::RecordRef, true)];
+const REFUSE: &[ParamKey] = &[
+    key("amendment", ParamKind::RecordRef, false),
+    key("reason", ParamKind::RefuseReason, true),
+    key("revocation", ParamKind::RecordRef, false),
+];
+
+// CM-39 CM-56 CM-57 CM-60
+const AMEND: &[ParamKey] = &[
+    key("acceptor", ParamKind::Party, false),
+    key("change", ParamKind::AmendmentChange, false),
+    key("change_policy", ParamKind::ChangePolicy, false),
+    key("conditions", ParamKind::RecordSet, false),
+    key("due", ParamKind::Time, false),
+    key("evidence_required", ParamKind::Bool, false),
+    key("four_eyes_waived", ParamKind::Bool, false),
+    key("high_impact", ParamKind::Bool, false),
+    key("item_count", ParamKind::ItemCount, false),
+];
+
+// CM-32 CM-41
+const DECLARE_OBSOLETE: &[ParamKey] = &[key("parent", ParamKind::RecordRef, true)];
+const IMPLICIT_TERMS: &[ParamKey] = &[
+    ITEMS,
+    key("window", ParamKind::Count, false),
+    key("withdrawn", ParamKind::Flag, false),
 ];
 
 // C-10 C-44
@@ -297,8 +428,11 @@ const AIM: &[ParamKey] = &[
 /// The `params` keys of a core Declaration that name a Party in an attributed slot (C-44).
 const fn attributed_keys(subtype: DeclarationSubtype) -> &'static [&'static str] {
     match subtype {
-        DeclarationSubtype::Request => &["acceptor", "obligor"],
+        DeclarationSubtype::Request => &["acceptor", "obligor", "participants"],
         DeclarationSubtype::Aim => &["judge"],
+        DeclarationSubtype::Delegate => &["obligor"],
+        DeclarationSubtype::Assign => &["obligee"],
+        DeclarationSubtype::Counter | DeclarationSubtype::Amend => &["acceptor"],
         _ => &[],
     }
 }
@@ -307,7 +441,29 @@ const fn param_keys(subtype: DeclarationSubtype) -> &'static [ParamKey] {
     match subtype {
         DeclarationSubtype::Request => REQUEST,
         DeclarationSubtype::Aim => AIM,
-        DeclarationSubtype::Decline => DECLINE,
+        DeclarationSubtype::Decline => DECLINE_ITEMS,
+        DeclarationSubtype::Promise => PROMISE,
+        DeclarationSubtype::PromiseConditional => PROMISE_CONDITIONAL,
+        DeclarationSubtype::Counter => COUNTER,
+        DeclarationSubtype::AcceptCounter => ACCEPT_COUNTER,
+        DeclarationSubtype::State => STATE,
+        DeclarationSubtype::Accept => ACCEPT,
+        DeclarationSubtype::Reject => REJECT,
+        DeclarationSubtype::Delegate => DELEGATE,
+        DeclarationSubtype::Assign => ASSIGN,
+        DeclarationSubtype::HandoffNote => HANDOFF_NOTE,
+        DeclarationSubtype::Dispute => DISPUTE,
+        DeclarationSubtype::Defer => DEFER,
+        DeclarationSubtype::Resume => RESUME,
+        DeclarationSubtype::RevokeRequest
+        | DeclarationSubtype::RevokePromise
+        | DeclarationSubtype::RevokeStatement
+        | DeclarationSubtype::RevokeAcceptance => REVOKE,
+        DeclarationSubtype::Allow => ALLOW,
+        DeclarationSubtype::Refuse => REFUSE,
+        DeclarationSubtype::Amend => AMEND,
+        DeclarationSubtype::DeclareObsolete => DECLARE_OBSOLETE,
+        DeclarationSubtype::ImplicitAcceptanceTerms => IMPLICIT_TERMS,
         DeclarationSubtype::Cancel => CANCEL,
         DeclarationSubtype::Notice => NOTICE,
         DeclarationSubtype::StopRequest => STOP_REQUEST,
@@ -367,7 +523,60 @@ fn kind_ok(kind: ParamKind, value: &ParamValue, practices: &[PracticePin]) -> bo
         ParamKind::RecordRef => matches!(value, ParamValue::Scalar(ParamScalar::Digest(_))),
         ParamKind::RecordSet => record_set_ok(value),
         ParamKind::AimDuration => catalog_text(value, AimDuration::from_wire_name),
+        ParamKind::Items => items_ok(value),
+        ParamKind::ItemCount => uint_in(value, 1, MAX_ITEMS_U64),
+        ParamKind::Time => uint_in(value, 0, u64::MAX),
+        ParamKind::Flag => matches!(value, ParamValue::Scalar(ParamScalar::Bool(true))),
+        ParamKind::Bool => matches!(value, ParamValue::Scalar(ParamScalar::Bool(_))),
+        ParamKind::Count => uint_in(value, 1, u64::MAX),
+        ParamKind::Percent => uint_in(value, 1, 100),
+        ParamKind::PartyList => party_list_ok(value),
+        ParamKind::CommitmentKind => catalog_text(value, CommitmentKind::from_wire_name),
+        ParamKind::RejectReason => reason_code(value, RejectReason::from_wire_name),
+        ParamKind::RefuseReason => reason_code(value, RefuseReason::from_wire_name),
+        ParamKind::RevokeReason => reason_code(value, RevokeReason::from_wire_name),
+        ParamKind::DisputeReason => reason_code(value, DisputeReason::from_wire_name),
+        ParamKind::DeferReason => reason_code(value, DeferReason::from_wire_name),
+        ParamKind::HandoverReason => reason_code(value, HandoverReason::from_wire_name),
+        ParamKind::ChangePolicy => catalog_text(value, ChangePolicy::from_wire_name),
+        ParamKind::AggregationRule => catalog_text(value, AggregationRule::from_wire_name),
+        ParamKind::ProposalStep => catalog_text(value, ProposalStep::from_wire_name),
+        ParamKind::AmendmentChange => catalog_text(value, AmendmentChange::from_wire_name),
     }
+}
+
+fn uint_in(value: &ParamValue, min: u64, max: u64) -> bool {
+    matches!(value, ParamValue::Scalar(ParamScalar::Uint(n)) if (min..=max).contains(n))
+}
+
+// CM-23 P-72
+fn items_ok(value: &ParamValue) -> bool {
+    let ParamValue::List(items) = value else {
+        return false;
+    };
+    let numbers: Option<Vec<u64>> = items
+        .iter()
+        .map(|s| match s {
+            ParamScalar::Uint(n) if *n < MAX_ITEMS_U64 => Some(*n),
+            _ => None,
+        })
+        .collect();
+    numbers.is_some_and(|n| strictly_ascending(&n, Ord::cmp))
+}
+
+// CM-55 P-78
+fn party_list_ok(value: &ParamValue) -> bool {
+    let ParamValue::List(items) = value else {
+        return false;
+    };
+    let parties: Option<Vec<PartyRef>> = items
+        .iter()
+        .map(|s| match s {
+            ParamScalar::Text(t) => PartyRef::new(t),
+            _ => None,
+        })
+        .collect();
+    parties.is_some_and(|p| !has_repeat_key(&p, |x| x))
 }
 
 // C-11 P-72
@@ -477,13 +686,168 @@ fn params(record: &Record) -> Result<(), Reason> {
             !(complete && gate_ok && two_sided),
             Reason::Schema(Schema::Params),
         )?;
+        commitment_shape(record, d)?;
     }
     Ok(())
+}
+
+fn present(record: &Record, names: &[&str]) -> usize {
+    names.iter().filter(|n| record.param(n).is_some()).count()
+}
+
+fn has_part(record: &Record, name: &str) -> bool {
+    record
+        .core()
+        .body
+        .iter()
+        .flatten()
+        .any(|b| b.part.as_str() == name)
+}
+
+/// The free-text parts of a handover note, one body part each (CM-45).
+const HANDOVER_PARTS: &[&str] = &["summary", "done", "changed", "open_questions", "next_steps"];
+
+/// The term keys a counter-offer or a terms amendment changes (CM-21, CM-56).
+const TERM_KEYS: &[&str] = &[
+    "acceptor",
+    "conditions",
+    "due",
+    "evidence_required",
+    "high_impact",
+    "item_count",
+    "respond_by",
+];
+
+// CM-54 CM-55
+fn aggregation_ok(record: &Record) -> bool {
+    let rule = text_param(record, "aggregation").and_then(AggregationRule::from_wire_name);
+    let participants = match record.param("participants") {
+        Some(ParamValue::List(p)) => Some(p.len()),
+        _ => None,
+    };
+    let k = match record.param("aggregation_k") {
+        Some(ParamValue::Scalar(ParamScalar::Uint(n))) => Some(*n),
+        _ => None,
+    };
+    let percent = record.param("aggregation_percent").is_some();
+    let veto = record.param("aggregation_veto").is_some();
+    match (rule, participants) {
+        (None, None) => k.is_none() && !percent && !veto,
+        (Some(AggregationRule::KOfN), Some(n)) => {
+            !percent && k.is_some_and(|k| usize::try_from(k).is_ok_and(|k| k <= n))
+        }
+        (Some(AggregationRule::Percentage), Some(_)) => percent && k.is_none(),
+        (Some(_), Some(_)) => k.is_none() && !percent,
+        _ => false,
+    }
+}
+
+// CM-25 C-29
+fn fulfils(record: &Record) -> bool {
+    record.core().relations.iter().flatten().any(|r| {
+        matches!(
+            r,
+            Relation::DerivedFrom {
+                source: Some(_),
+                target: DerivedTarget::Record(_),
+                role: DerivedRole::Core(CoreDerivedRole::Fulfills),
+            }
+        )
+    })
+}
+
+fn step_param(record: &Record) -> Option<ProposalStep> {
+    text_param(record, "step").and_then(ProposalStep::from_wire_name)
+}
+
+/// The cross-key rules of the commitment subtypes' `params` (P-80, P-92, CM-17).
+fn commitment_params_ok(record: &Record, subtype: DeclarationSubtype) -> bool {
+    match subtype {
+        DeclarationSubtype::Request => aggregation_ok(record),
+        DeclarationSubtype::Counter => {
+            present(record, TERM_KEYS) > 0 || record.core().body.is_some()
+        }
+        DeclarationSubtype::Delegate => match step_param(record) {
+            Some(ProposalStep::Proposal) => {
+                present(record, &["obligor", "handover_reason", "stateful"]) == 3
+                    && record.param("proposal").is_none()
+            }
+            Some(ProposalStep::Acceptance) => {
+                record.param("proposal").is_some()
+                    && present(
+                        record,
+                        &["obligor", "handover_reason", "stateful", "context"],
+                    ) == 0
+            }
+            None => false,
+        },
+        DeclarationSubtype::Assign => match step_param(record) {
+            Some(ProposalStep::Proposal) => {
+                record.param("obligee").is_some() && record.param("proposal").is_none()
+            }
+            Some(ProposalStep::Acceptance) => {
+                record.param("proposal").is_some() && record.param("obligee").is_none()
+            }
+            None => false,
+        },
+        DeclarationSubtype::Defer => present(record, &["resume_at", "resume_on"]) <= 1,
+        DeclarationSubtype::Refuse => present(record, &["revocation", "amendment"]) == 1,
+        DeclarationSubtype::Amend => {
+            if record.param("change").is_some() {
+                present(record, &["change_policy", "four_eyes_waived"]) == 0
+                    && present(record, TERM_KEYS) > 0
+            } else {
+                let terms = [
+                    "acceptor",
+                    "conditions",
+                    "due",
+                    "evidence_required",
+                    "item_count",
+                ];
+                present(record, &terms) == 0
+                    && !matches!(
+                        record.param("high_impact"),
+                        Some(ParamValue::Scalar(ParamScalar::Bool(false)))
+                    )
+            }
+        }
+        DeclarationSubtype::ImplicitAcceptanceTerms => {
+            present(record, &["window", "withdrawn"]) == 1
+                && (record.param("items").is_none() || record.param("window").is_some())
+        }
+        _ => true,
+    }
+}
+
+/// The body parts and relations a commitment subtype requires (CM-17, CM-25, CM-33, CM-45, CM-61): the handover note's free-text parts, a `note` beside a bare `other` reason, the justification of an administrative close, the fulfilment of a `state`, and the validity basis of an `expire`.
+fn commitment_shape(record: &Record, subtype: DeclarationSubtype) -> Result<(), Reason> {
+    reject_if(
+        !commitment_params_ok(record, subtype),
+        Reason::Schema(Schema::Params),
+    )?;
+    let handover = subtype == DeclarationSubtype::HandoffNote
+        || (subtype == DeclarationSubtype::Delegate
+            && step_param(record) == Some(ProposalStep::Proposal));
+    let other = ["reason", "handover_reason"]
+        .iter()
+        .any(|k| text_param(record, k) == Some("other"));
+    let parts_missing = (handover && !HANDOVER_PARTS.iter().all(|p| has_part(record, p)))
+        || ((other || subtype == DeclarationSubtype::AdministrativeClose)
+            && !has_part(record, "note"));
+    reject_if(
+        parts_missing || (subtype == DeclarationSubtype::Expire && record.basis().is_empty()),
+        Reason::Schema(Schema::RequiredField),
+    )?;
+    reject_if(
+        subtype == DeclarationSubtype::State && !fulfils(record),
+        Reason::Schema(Schema::Relation),
+    )
 }
 
 const EFFECTIVE_AT: &str = "effective_at";
 const DEADLINE_NONE: &str = "none";
 const MAX_ITEMS: usize = 256;
+const MAX_ITEMS_U64: u64 = 256;
 const MAX_PRODUCER_VERSION: usize = 255;
 const MAX_IDENTIFIER: usize = 1024;
 
