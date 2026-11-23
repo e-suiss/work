@@ -1,10 +1,10 @@
-//! The Access action catalog of Work operations (E-45): one Schema Publication Package in the `work` namespace with 23 actions, each with its Access `effect_class`; every API operation names exactly one of them (`x-work-action`, T-98), and a coordination gate decision names none (E-9).
+//! The Access action catalog of Work operations (E-45): one Schema Publication Package in the `work` namespace with 24 actions, each with its Access `effect_class`; every API operation names exactly one of them (`x-work-action`, T-98), and a coordination gate decision names none (E-9).
 
 /// The Access namespace of the package (E-45 item 1).
 pub const NAMESPACE: &str = "work";
 
 /// The catalog version of the package (E-45 items 1 and 7).
-pub const CATALOG_VERSION: u32 = 1;
+pub const CATALOG_VERSION: u32 = 2;
 
 /// The major version of every action (E-45 item 1).
 pub const ACTION_MAJOR: u32 = 1;
@@ -90,6 +90,8 @@ pub enum Action {
     EscalationPolicySet,
     /// `work:agent_ceiling_decide`.
     AgentCeilingDecide,
+    /// `work:org_rule_set` (RC-48).
+    OrgRuleSet,
     /// `work:practice_adopt`.
     PracticeAdopt,
     /// `work:executor_dispatch`.
@@ -110,7 +112,7 @@ pub enum Action {
 
 impl Action {
     /// Every action, in the order of the E-45 table.
-    pub const ALL: [Self; 23] = [
+    pub const ALL: [Self; 24] = [
         Self::Read,
         Self::Write,
         Self::Commit,
@@ -126,6 +128,7 @@ impl Action {
         Self::AutonomyPolicySet,
         Self::EscalationPolicySet,
         Self::AgentCeilingDecide,
+        Self::OrgRuleSet,
         Self::PracticeAdopt,
         Self::ExecutorDispatch,
         Self::Disclose,
@@ -155,6 +158,7 @@ impl Action {
             Self::AutonomyPolicySet => "work:autonomy_policy_set",
             Self::EscalationPolicySet => "work:escalation_policy_set",
             Self::AgentCeilingDecide => "work:agent_ceiling_decide",
+            Self::OrgRuleSet => "work:org_rule_set",
             Self::PracticeAdopt => "work:practice_adopt",
             Self::ExecutorDispatch => "work:executor_dispatch",
             Self::Disclose => "work:disclose",
@@ -200,6 +204,7 @@ impl Action {
             | Self::AutonomyPolicySet
             | Self::EscalationPolicySet
             | Self::AgentCeilingDecide
+            | Self::OrgRuleSet
             | Self::PracticeAdopt
             | Self::ExecutorDispatch
             | Self::Admit
@@ -240,10 +245,10 @@ mod tests {
             && name.len() <= 63
     }
 
-    // E-45
+    // E-45 RC-48
     #[test]
-    fn e_45_the_catalog_is_the_23_actions_of_the_work_namespace() {
-        assert_eq!(Action::ALL.len(), 23);
+    fn e_45_the_catalog_is_the_24_actions_of_the_work_namespace() {
+        assert_eq!(Action::ALL.len(), 24);
         for (i, action) in Action::ALL.into_iter().enumerate() {
             assert_eq!(Action::parse(action.as_str()), Some(action));
             assert_eq!(
@@ -261,7 +266,11 @@ mod tests {
         }
         assert_eq!(Action::parse("work:gate_decision"), None);
         assert_eq!(Action::parse("read"), None);
-        assert_eq!((CATALOG_VERSION, ACTION_MAJOR), (1, 1));
+        assert_eq!(
+            Action::parse("work:org_rule_set").map(Action::effect_class),
+            Some(EffectClass::Reversible)
+        );
+        assert_eq!((CATALOG_VERSION, ACTION_MAJOR), (2, 1));
     }
 
     // E-45

@@ -20,6 +20,7 @@ use work_kernel::items::{Area, ItemKey};
 use work_kernel::ontology::Obligor;
 use work_kernel::reason::{Reason, Schema};
 use work_kernel::record::{ProtocolVersion, Record};
+use work_kernel::responsibility::AllocationAct;
 use work_kernel::validate::ActorType;
 use work_kernel::verify::{
     ChainPoint, SignatureCheck, SignatureVerifier, StoredEntry, Verified, VerifiedEntry,
@@ -382,6 +383,39 @@ impl Folded {
             &records,
             facts,
         ))
+    }
+}
+
+impl Folded {
+    /// The kernel's validity check of a responsibility operation or an `acknowledgement` in a
+    /// commitment chain against the commitment that chain derives (RC-17, RC-5, RC-7): `None`
+    /// when the record continues no commitment, otherwise the act or the refusal that keeps it
+    /// out of the ledger; Access has already allowed its action, and assignment grants no access
+    /// (RC-20).
+    ///
+    /// # Errors
+    /// [`FoldError::Derive`] when the kernel refuses the sequence.
+    pub fn check_responsibility(
+        &self,
+        asked: &Asked<'_>,
+        facts: &Facts<'_>,
+    ) -> Result<Option<Result<AllocationAct, Refusal>>, FoldError> {
+        let (entries, views) = self.derived(facts)?;
+        let records: BTreeMap<RecordId, &Record> =
+            entries.iter().map(|e| (e.id(), e.record())).collect();
+        let Some(view) = asked
+            .record
+            .supersedes()
+            .next()
+            .and_then(|t| commitment_of(&views, t))
+        else {
+            return Ok(None);
+        };
+        Ok(Some(commitment::check_responsibility(
+            view,
+            &self.proposed(asked),
+            &records,
+        )))
     }
 }
 

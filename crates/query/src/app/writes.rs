@@ -11,8 +11,9 @@ use work_access_client::domain::exercise::{Intent, VerifiedExercise};
 use work_access_client::domain::keys::{AsOf, DomainId, KernelId, Kid};
 use work_access_client::domain::{AccessError, from_b64url};
 use work_access_client::ports::{Clock, PartyKinds, Transport};
+use work_kernel::catalog::DeclarationSubtype;
 use work_kernel::codec::{Decoded, decode_record, record_id};
-use work_kernel::commitment::{Definition, Operation, condition_of};
+use work_kernel::commitment::{Definition, Operation, Refusal, condition_of};
 use work_kernel::commitment_time::DEFINITION_PART;
 use work_kernel::cose::{AuthorKeys, KeySet, parse_container};
 use work_kernel::id::{Digest, LedgerId, PartyRef, RecordId};
@@ -33,7 +34,8 @@ use work_store::{
 
 use crate::app::caller::ACCESS_BOUND;
 use crate::domain::caller::Caller;
-use crate::domain::commitments::{Asked, Folded, LOG_PAGE, action_of, facts, fold, operation_of};
+use crate::domain::commitments::{Asked, Folded, LOG_PAGE, facts, fold, operation_of};
+use crate::domain::kinds::{Kind, kind_of, record_action};
 use crate::domain::writes::{
     AuthContextGiven, AuthorityGiven, DeclarationRequest, WriteRefusal, Written, actor_type,
     body_refusal, check_action, check_authority, check_openings, header_kid, party_ref, signer,
@@ -162,11 +164,12 @@ pub(crate) async fn log_of(tx: &mut LedgerTx<'_>) -> Result<Vec<StoredLogEntry>,
     }
 }
 
-/// Whether the write of `record` reads the ledger's commitments: a commitment operation, whose
-/// validity the kernel checks, or a continuation, whose conflict area the records give (CM-19,
-/// T-89).
+/// Whether the write of `record` reads the ledger's records: a commitment or responsibility
+/// operation or another record whose validity the kernel checks against earlier records, or a
+/// continuation, whose conflict area the records give (CM-19, RC-17, T-89).
 fn folds(record: &Record) -> bool {
-    operation_of(record).is_some() || record.supersedes().next().is_some()
+    !matches!(kind_of(record), None | Some(Kind::Claim | Kind::Act))
+        || record.supersedes().next().is_some()
 }
 
 async fn decide(
@@ -300,21 +303,17 @@ fn declared(record: &Record, request: &DeclarationRequest) -> Result<DeclaredAct
     })
 }
 
-/// The Exercise a commitment Declaration refers to, with the intent it was approved for, when
-/// the record is one `work:commit` covers, names an `authority` and the intent is that of this
+/// The Exercise a record refers to, with the intent it was approved for, when the record is one
+/// a caller writes, names an `authority` and the intent is that of the record's action on this
 /// ledger and valid now (E-45, P-13); a clock, periodic or budget Condition is part of the
-/// commitment's terms and takes `work:commit` too (WD-146).
+/// commitment's terms and takes `work:commit` (WD-146).
 fn authority_of<'a>(
     record: &Record,
     request: &'a DeclarationRequest,
     ledger: &LedgerId,
     now_ms: u64,
 ) -> Result<(&'a AuthorityGiven, Intent), WriteRefusal> {
-    let action = match operation_of(record) {
-        Some(op) => action_of(op),
-        None => condition_of(record).map(|_| "commit"),
-    }
-    .ok_or(WriteRefusal::Invalid("operation"))?;
+    let action = record_action(record).ok_or(WriteRefusal::Invalid("operation"))?;
     if record.core().authority.is_none() {
         return Err(WriteRefusal::Rejected("authority_missing".to_owned()));
     }
@@ -327,10 +326,10 @@ fn authority_of<'a>(
     Ok((given, intent))
 }
 
-/// The record a typed commitment endpoint carries must be the operation it names (C-6).
+/// The record a typed endpoint carries must be the kind it names (C-6).
 fn expected_operation(record: &Record, request: &DeclarationRequest) -> Result<(), WriteRefusal> {
     match &request.expected {
-        Some(expected) if operation_of(record) != Some(expected.operation) => {
+        Some(expected) if kind_of(record) != Some(expected.kind) => {
             Err(WriteRefusal::Invalid("operation"))
         }
         _ => Ok(()),
@@ -702,7 +701,8 @@ where
         Ok(kinds.values().any(|k| actor_type(*k) == ActorType::Agent))
     }
 
-    /// The kernel's validity check of a commitment operation before it is written (CM-19): a
+    /// The kernel's validity check of a commitment or responsibility operation, or of an
+    /// `acknowledgement` in a commitment chain, before it is written (CM-19, RC-17, RC-5): a
     /// refused operation writes nothing into the log, its refusal is kept under the request's
     /// idempotency key and answered with the kernel's reason; a refusal that cannot be kept is
     /// `not_recorded`, and the same request asks again.
@@ -713,7 +713,13 @@ where
         claim: Option<&KeyClaim>,
     ) -> Result<(), WriteRefusal> {
         let record = &at.carried.record;
-        if operation_of(record).is_none() {
+        let kind = kind_of(record);
+        let commitment = matches!(kind, Some(Kind::Commitment(_)));
+        let responsibility = matches!(
+            kind,
+            Some(Kind::Responsibility(_) | Kind::Declaration(DeclarationSubtype::Acknowledgement))
+        );
+        if !(commitment || responsibility) {
             return Ok(());
         }
         let folded = at.folded.ok_or(WriteRefusal::NotRecorded)?;
@@ -722,17 +728,29 @@ where
             id: record_id(&at.carried.bytes),
             author_actor: admitted.author_actor,
             step_up: admitted.pending.step_up(),
-            agent_side: self
-                .agent_side(at.domain, record, admitted.author_actor)
-                .await?,
+            agent_side: if commitment {
+                self.agent_side(at.domain, record, admitted.author_actor)
+                    .await?
+            } else {
+                false
+            },
             now_ms: at.now_ms,
         };
-        let refusal = match folded.check(&asked, &facts()) {
-            Ok(Ok(_)) => return Ok(()),
-            Ok(Err(refusal)) => refusal,
-            Err(_) => return Err(WriteRefusal::NotRecorded),
+        let reason = if commitment {
+            match folded.check(&asked, &facts()) {
+                Ok(Ok(_)) => return Ok(()),
+                Ok(Err(refusal)) => format!("commitment:{}", refusal.wire_name()),
+                Err(_) => return Err(WriteRefusal::NotRecorded),
+            }
+        } else {
+            match folded.check_responsibility(&asked, &facts()) {
+                Ok(Some(Ok(_))) => return Ok(()),
+                Ok(None) if matches!(kind, Some(Kind::Declaration(_))) => return Ok(()),
+                Ok(None) => format!("responsibility:{}", Refusal::NothingPending.wire_name()),
+                Ok(Some(Err(refusal))) => format!("responsibility:{}", refusal.wire_name()),
+                Err(_) => return Err(WriteRefusal::NotRecorded),
+            }
         };
-        let reason = format!("commitment:{}", refusal.wire_name());
         if let Some(claim) = claim {
             self.sequence
                 .reject(&store_ledger(at.ledger), claim, &reason, at.now_ms)

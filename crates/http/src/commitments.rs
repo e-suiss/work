@@ -21,7 +21,7 @@ use work_kernel::id::{LedgerId, RecordId, Time};
 use work_kernel::ontology::Obligor;
 use work_proto::id::{CommitmentId, ExternalId as _};
 use work_query::domain::commitments::{CommitmentRead, action_of};
-use work_query::domain::writes::{Expected, Written};
+use work_query::domain::writes::{Expected, Kind, Written};
 
 use crate::common::RequestContext;
 use crate::conditional::etag;
@@ -857,14 +857,14 @@ fn written(ledger: &LedgerId, commitment: &RecordId, w: &Written) -> Response {
         .into_response()
 }
 
-/// What one typed commitment write names besides its body.
-struct Typed<'a> {
-    operation: Operation,
-    ledger: &'a str,
-    commitment: Option<&'a str>,
+/// What one typed write names besides its body.
+pub(crate) struct Typed<'a> {
+    pub(crate) kind: Kind,
+    pub(crate) ledger: &'a str,
+    pub(crate) commitment: Option<&'a str>,
 }
 
-async fn write(
+pub(crate) async fn write(
     services: &ApiServices,
     typed: Typed<'_>,
     context: &RequestContext,
@@ -890,7 +890,7 @@ async fn write(
         Err(problem) => return problem.into_response(),
     };
     request.expected = Some(Expected {
-        operation: typed.operation,
+        kind: typed.kind,
         commitment,
     });
     match services.writes.declare(&caller, &ledger, &request).await {
@@ -1004,7 +1004,7 @@ pub async fn create_commitment(
     body: Bytes,
 ) -> Response {
     let typed = Typed {
-        operation: Operation::Request,
+        kind: Kind::Commitment(Operation::Request),
         ledger: &ledger,
         commitment: None,
     };
@@ -1113,7 +1113,7 @@ macro_rules! operation {
             body: Bytes,
         ) -> Response {
             let typed = Typed {
-                operation: $operation,
+                kind: Kind::Commitment($operation),
                 ledger: &ledger,
                 commitment: Some(&commitment),
             };

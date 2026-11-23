@@ -9,7 +9,6 @@ use work_access_client::domain::exercise::{Capacity as Held, Intent, VerifiedExe
 use work_access_client::domain::keys::{ActorKind, InstanceKey, KernelId, KeyState};
 use work_access_client::domain::{b64url, from_b64url};
 use work_kernel::catalog::DeclarationSubtype;
-use work_kernel::commitment::Operation;
 use work_kernel::cose::{Algorithm, KeySet, parse_container};
 use work_kernel::id::{LedgerId, PartyRef, RecordId};
 use work_kernel::record::{AuthorityProofKind, Capacity, Record, RecordCore};
@@ -17,6 +16,8 @@ use work_kernel::validate::ActorType;
 pub use work_ledger::BodyOpening;
 use work_ledger::{BodyError, MAX_MEDIA_TYPE, MAX_PART};
 use work_proto::id::ExternalId as _;
+
+pub use crate::domain::kinds::Kind;
 
 /// The Access action namespace of Work (E-45 item 1).
 pub const ACTION_NAMESPACE: &str = "work";
@@ -102,20 +103,21 @@ pub struct DeclarationRequest {
     pub if_match: u64,
     /// The request's W3C `traceparent`.
     pub traceparent: String,
-    /// The operation and commitment a typed commitment endpoint names; `None` for the
-    /// Declaration endpoint, which takes any commitment operation (C-6).
+    /// The record kind and commitment a typed endpoint names; `None` for the Declaration
+    /// endpoint, which takes any record a caller writes (C-6).
     pub expected: Option<Expected>,
     /// The openings of the body parts the record commits to, in request order (P-68).
     pub body: Vec<BodyOpening>,
 }
 
-/// What a typed commitment endpoint names: the record must be this operation, and a
-/// continuation must continue this commitment (C-6, CM-17).
+/// What a typed endpoint names: the record must be of this kind, and a continuation must
+/// continue this commitment (C-6, CM-17, RC-17).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Expected {
-    /// The operation.
-    pub operation: Operation,
-    /// The commitment, by its `request`; `None` for a `request`.
+    /// The record kind.
+    pub kind: Kind,
+    /// The commitment, by its `request`; `None` for a `request` and a record that continues
+    /// no commitment.
     pub commitment: Option<RecordId>,
 }
 
@@ -280,14 +282,23 @@ pub fn check_intent(intent: &Intent, ledger: &LedgerId, now_ms: u64) -> Result<(
     check_action(intent, ledger, now_ms, COMMIT)
 }
 
-/// The actions of the commitment operations a caller writes, which Work's PEP commits an intent
-/// for (E-45 item 2).
-pub const WRITE_ACTIONS: [&str; 5] = [
+/// The actions of the records a caller writes, which Work's PEP commits an intent for (E-45
+/// item 2, RC-17, RC-31, RC-36, RC-42, RC-48, E-23).
+pub const WRITE_ACTIONS: [&str; 14] = [
     COMMIT,
     "close",
     "assign",
     "administrative_close",
     "autonomy_policy_set",
+    "claim",
+    "condition",
+    "stop_request",
+    "stop_respond",
+    "control",
+    "agent_ceiling_decide",
+    "org_rule_set",
+    "write",
+    "executor_dispatch",
 ];
 
 /// Whether `intent` is the intent of one of [`WRITE_ACTIONS`] on `ledger` valid at `now_ms`

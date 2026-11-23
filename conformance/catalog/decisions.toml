@@ -1692,8 +1692,10 @@ tests = [
   "crates/http/src/writes.rs::p_54_a_declaration_carries_one_key_one_if_match_and_its_access_evidence",
   "crates/http/tests/openapi.rs::e_45_every_api_operation_names_exactly_one_action",
   "crates/proto/src/action.rs::e_45_effect_classes_and_params_follow_the_table",
-  "crates/proto/src/action.rs::e_45_the_catalog_is_the_23_actions_of_the_work_namespace",
+  "crates/proto/src/action.rs::e_45_the_catalog_is_the_24_actions_of_the_work_namespace",
   "crates/query/src/domain/commitments/tests.rs::e_45_every_commitment_operation_a_caller_writes_names_one_action",
+  "crates/query/src/domain/kinds/tests.rs::e_45_every_core_declaration_a_caller_writes_names_one_catalog_action",
+  "crates/query/src/domain/kinds/tests.rs::e_45_every_responsibility_operation_takes_work_claim_or_work_assign",
   "crates/query/src/domain/writes/tests.rs::e_45_the_exercise_is_the_work_commit_intent_of_this_ledger_and_valid_now",
   "crates/query/src/domain/writes/tests.rs::e_45_the_route_writes_only_operations_work_commit_covers",
   "crates/query/src/domain/writes/tests.rs::e_45_work_s_pep_commits_the_intent_of_every_commitment_write_action_and_no_other",
@@ -2528,6 +2530,7 @@ tests = [
   "crates/kernel/tests/responsibility.rs::rc_17_claim_promises_and_unclaim_returns_to_requested_without_a_release",
   "crates/kernel/tests/responsibility.rs::rc_17_reassign_keeps_the_obligor_until_the_delegation_is_accepted",
   "crates/kernel/tests/responsibility.rs::rc_17_the_responsibility_set_is_closed_and_maps_to_the_commitment_axis",
+  "crates/query/src/domain/kinds/tests.rs::e_45_every_responsibility_operation_takes_work_claim_or_work_assign",
 ]
 
 [[rule]]
@@ -2628,6 +2631,7 @@ status = "frozen-product"
 title = ""
 tests = [
   "crates/kernel/tests/control.rs::rc_31_attention_consultation_and_takeover_are_distinct_records",
+  "crates/query/src/domain/kinds/tests.rs::e_45_every_core_declaration_a_caller_writes_names_one_catalog_action",
 ]
 
 [[rule]]
@@ -2648,6 +2652,7 @@ stage = 6
 title = ""
 tests = [
   "crates/kernel/tests/control.rs::rc_33_one_driver_and_a_time_bound_lease_for_a_second",
+  "crates/query/src/domain/kinds/tests.rs::e_45_every_core_declaration_a_caller_writes_names_one_catalog_action",
 ]
 
 [[rule]]
@@ -2677,6 +2682,7 @@ title = ""
 tests = [
   "crates/kernel/tests/control.rs::rc_36_a_stop_request_reads_pending_until_the_doer_answers",
   "crates/kernel/tests/records.rs::p_80_core_subtypes_require_their_reason_and_type_keys",
+  "crates/query/src/domain/kinds/tests.rs::e_45_every_core_declaration_a_caller_writes_names_one_catalog_action",
 ]
 
 [[rule]]
@@ -2718,6 +2724,7 @@ tests = [
   "crates/kernel/tests/control.rs::rc_42_contract_bodies_match_their_vectors",
   "crates/kernel/tests/control.rs::rc_42_missing_liveness_reads_stale_or_unknown_never_running",
   "crates/kernel/tests/control.rs::rc_42_reports_travel_as_their_record_kinds_and_never_carry_raw_thought",
+  "crates/query/src/domain/kinds/tests.rs::rc_42_the_executor_claims_are_six_distinct_extension_keys",
 ]
 
 [[rule]]
@@ -2728,6 +2735,7 @@ title = ""
 tests = [
   "crates/kernel/tests/control.rs::rc_43_attempts_are_grouped_by_session_and_keep_their_reasons",
   "crates/kernel/tests/control.rs::rc_43_the_integration_depth_bounds_what_work_delivers",
+  "crates/query/src/domain/kinds/tests.rs::rc_42_the_executor_claims_are_six_distinct_extension_keys",
 ]
 
 [[rule]]
@@ -2767,6 +2775,8 @@ tests = [
   "crates/kernel/tests/responsibility.rs::rc_48_the_org_rule_is_a_versioned_declaration_with_a_mandatory_fallback",
   "crates/kernel/tests/responsibility.rs::rc_6_the_regime_decides_the_end_and_an_agent_never_ends_the_chain",
   "crates/kernel/tests/responsibility.rs::rc_7_a_disabled_party_falls_to_the_upper_accountable_or_the_fallback",
+  "crates/proto/src/action.rs::e_45_the_catalog_is_the_24_actions_of_the_work_namespace",
+  "crates/query/src/domain/kinds/tests.rs::e_45_every_core_declaration_a_caller_writes_names_one_catalog_action",
 ]
 
 [[rule]]
