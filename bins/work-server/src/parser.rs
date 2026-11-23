@@ -154,7 +154,7 @@ mod tests {
     #[test]
     fn t_94_without_parser_workers_no_body_is_scanned_and_none_is_written() {
         assert_eq!(
-            NoWorkers.scan(&[("note", b"plain text")]),
+            NoWorkers.scan(&[("note", b"plain text".as_slice())]),
             Err(ScanFailure::Unavailable)
         );
     }
