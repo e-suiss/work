@@ -250,6 +250,7 @@ async fn executor_write(
     request.expected = Some(Expected {
         kind,
         commitment: Some(commitment.0),
+        form: None,
     });
     request.executor = true;
     match services.writes.declare(&caller, &ledger, &request).await {

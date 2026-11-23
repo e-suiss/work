@@ -523,6 +523,7 @@ fn scope_of(at: &Admission<'_>, admitted: &Admitted) -> Result<Option<Scope>, Wr
         author_actor: admitted.author_actor,
         step_up: admitted.pending.step_up(),
         agent_side: false,
+        control_supported: false,
         now_ms: at.now_ms,
     };
     folded
