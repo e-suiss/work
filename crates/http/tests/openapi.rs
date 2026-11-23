@@ -62,6 +62,24 @@ fn e_45_every_api_operation_names_exactly_one_action() {
     }
 }
 
+// E-23 E-45 T-98
+#[test]
+fn e_23_the_ceiling_decision_route_asks_for_work_agent_ceiling_decide() {
+    let doc = value().unwrap();
+    let operation = &doc["paths"]["/v1/ledgers/{ledger}/agent-ceiling-decisions"]["post"];
+    assert_eq!(
+        operation[ACTION_EXTENSION], "work:agent_ceiling_decide",
+        "{operation}"
+    );
+    assert_eq!(
+        operation["requestBody"]["content"]["application/json"]["schema"]["$ref"],
+        "#/components/schemas/NewDeclaration"
+    );
+    for status in ["201", "401", "403", "422", "503"] {
+        assert!(operation["responses"].get(status).is_some(), "{status}");
+    }
+}
+
 // C-40 C-8 C-4
 #[test]
 fn c_40_the_work_schemas_carry_no_stored_derived_concept() {

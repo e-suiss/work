@@ -6,6 +6,8 @@ use serde::Deserialize;
 use suiss_crypto::sig::{PureBackend, ed25519};
 use work_proto::id::TenantId;
 
+use crate::domain::waitpoint::AgentId;
+
 /// The media type of a Relay event (T-100 item 1).
 pub const CONTENT_TYPE: &str = "application/cloudevents+json";
 
@@ -399,6 +401,19 @@ pub struct Event {
     pub correlation_id: Option<String>,
     /// What it may become.
     pub kind: Kind,
+    /// The agent of an `agent.ceiling_exceeded` event, `agt_…`, from its `data.agent_id`
+    /// (Relay AG-49, E-23).
+    pub agent: Option<String>,
+}
+
+/// The type of the event that asks Work to decide on an agent's notification ceiling (E-23).
+pub const CEILING_TYPE: &str = "agent.ceiling_exceeded";
+
+fn ceiling_agent(data: Option<&serde_json::Value>) -> Option<String> {
+    data.and_then(|d| d.get("agent_id"))
+        .and_then(serde_json::Value::as_str)
+        .and_then(AgentId::parse)
+        .map(|a| a.as_str().to_owned())
 }
 
 impl Event {
@@ -420,6 +435,11 @@ impl Event {
             .filter(|t| t.len() <= 256)
             .and_then(|t| TenantId::new(&t))
             .ok_or(Refusal::Tenant)?;
+        let agent = if e.name == CEILING_TYPE {
+            ceiling_agent(e.data.as_ref())
+        } else {
+            None
+        };
         let kind = if e.name == RESPONSE_TYPE {
             Kind::Response(answer(e.data))
         } else if AUTOMATION_TYPES.contains(&e.name.as_str()) {
@@ -437,6 +457,7 @@ impl Event {
             organization: e.accessorganization,
             correlation_id: e.correlationid,
             kind,
+            agent,
         })
     }
 }
@@ -557,6 +578,30 @@ pub(crate) mod tests {
         assert_eq!(event.tenant.as_str(), "tnt_acme");
         assert_eq!(event.kind, Kind::Automation);
         assert_eq!(event.correlation_id, Some("ab".repeat(32)));
+        assert_eq!(event.agent, None);
+    }
+
+    // E-23 P-114
+    #[test]
+    fn e_23_a_ceiling_event_names_its_agent_and_no_other_event_does() {
+        let agent = "agt_01jc8z3k5m7p9r1t3v5x7z9b2d";
+        let read = |name: &str, data: &serde_json::Value| {
+            let body = body(name, "evt_9", data);
+            let webhook = signed(&[&key(7)], "evt_9", NOW_MS, &body);
+            Event::read(&body, &webhook, ISSUER).unwrap()
+        };
+        let ceiling = read(CEILING_TYPE, &json!({"agent_id": agent}));
+        assert_eq!(ceiling.kind, Kind::Automation);
+        assert_eq!(ceiling.agent.as_deref(), Some(agent));
+        assert_eq!(
+            read(CEILING_TYPE, &json!({"agent_id": "agt_../x"})).agent,
+            None
+        );
+        assert_eq!(read(CEILING_TYPE, &json!({})).agent, None);
+        assert_eq!(
+            read("notification.delivered", &json!({"agent_id": agent})).agent,
+            None
+        );
     }
 
     // T-100 P-114

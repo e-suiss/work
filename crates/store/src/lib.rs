@@ -9,6 +9,7 @@ mod access;
 mod approval;
 mod archive;
 mod body;
+mod ceiling;
 mod checkpoint;
 mod claim;
 mod compromise;

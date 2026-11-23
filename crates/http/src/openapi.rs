@@ -61,6 +61,7 @@ fn security_scheme() -> Value {
         crate::reads::list_changes,
         crate::reads::get_record_evidence,
         crate::writes::create_declaration,
+        crate::ceiling::create_agent_ceiling_decision,
         crate::works::create_work,
         crate::authority::create_authority_request,
         crate::authority::get_approval_return,

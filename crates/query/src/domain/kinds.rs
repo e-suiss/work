@@ -1,11 +1,14 @@
 //! The record kinds a typed write names and the Access action each one takes (E-45 items 2 to 4, C-6, RC-17, RC-42, RC-48): a commitment operation, a responsibility operation, another core Declaration subtype, an executor report Claim by its extension key, another Claim, or an Act; a coordination gate decision and the Work service's own automation records take none, so a caller cannot write them.
 
+use suiss_crypto::dcbor::{self, Limits, Value};
 use work_kernel::catalog::DeclarationSubtype;
+use work_kernel::codec::{Decoded, decode_record};
 use work_kernel::commitment::{Operation, condition_of};
 use work_kernel::control::executor::{
     CAPABILITY_EXT_KEY, CONTROL_MODE_EXT_KEY, HEARTBEAT_EXT_KEY, REPORT_EXT_KEY, SESSION_EXT_KEY,
     STATUS_EXT_KEY,
 };
+use work_kernel::cose::parse_container;
 use work_kernel::record::Record;
 use work_kernel::responsibility::ResponsibilityOperation;
 
@@ -114,11 +117,138 @@ pub const fn declaration_action(subtype: DeclarationSubtype) -> Option<&'static 
     })
 }
 
-/// The Access action a caller's `record` takes (E-45 items 2 to 4): a clock, periodic or budget Condition is part of a commitment's terms and takes `work:commit` (WD-146), every Claim and Act `work:write`.
+/// The extension key of an agent ceiling decision (E-23): an `acknowledgement` carrying it decides on an `agent.ceiling_exceeded` event.
+pub const CEILING_EXT_KEY: &str = "https://suiss.app/ns/work/agent-ceiling-decision/1";
+
+/// The Access action of an agent ceiling decision (E-23, E-45).
+pub const CEILING_ACTION: &str = "agent_ceiling_decide";
+
+/// Longest Relay event id a decision names, in bytes.
+pub const MAX_CEILING_EVENT: usize = 512;
+
+/// Longest agent id a decision names, in bytes.
+pub const MAX_CEILING_AGENT: usize = 256;
+
+/// What Work decides on an agent's notification ceiling (E-23, Relay AG-49).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CeilingChoice {
+    /// Send everything Relay holds.
+    SendAll,
+    /// Cancel what Relay holds.
+    Cancel,
+    /// Stop the agent.
+    Stop,
+}
+
+impl CeilingChoice {
+    /// Every choice.
+    pub const ALL: [Self; 3] = [Self::SendAll, Self::Cancel, Self::Stop];
+
+    /// The wire name, as Relay's `decision` spells it.
+    #[must_use]
+    pub const fn wire_name(self) -> &'static str {
+        match self {
+            Self::SendAll => "send_all",
+            Self::Cancel => "cancel",
+            Self::Stop => "stop",
+        }
+    }
+
+    /// The choice of `name`.
+    #[must_use]
+    pub fn from_wire_name(name: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|c| c.wire_name() == name)
+    }
+}
+
+/// An agent ceiling decision read from its record (E-23).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CeilingDecision {
+    /// The decision.
+    pub decision: CeilingChoice,
+    /// The `id` of the `agent.ceiling_exceeded` event it answers.
+    pub event: String,
+    /// The agent, `agt_…`.
+    pub agent: String,
+}
+
+fn bounded_text(entries: &[(Value, Value)], name: &str, most: usize) -> Option<String> {
+    entries.iter().find_map(|(k, v)| match (k, v) {
+        (Value::Text(k), Value::Text(t)) if k == name && !t.is_empty() && t.len() <= most => {
+            Some(t.clone())
+        }
+        _ => None,
+    })
+}
+
+/// The ceiling decision `record` is: a core `acknowledgement` carrying exactly one [`CEILING_EXT_KEY`] extension, not critical, whose value is the map `{decision, event, agent}` and nothing else (E-23).
+#[must_use]
+pub fn ceiling_decision(record: &Record) -> Option<CeilingDecision> {
+    let Record::Declaration(d) = record else {
+        return None;
+    };
+    if DeclarationSubtype::from_uri(d.subtype.as_str()) != Some(DeclarationSubtype::Acknowledgement)
+    {
+        return None;
+    }
+    let core = record.core();
+    if core
+        .critical
+        .iter()
+        .flatten()
+        .any(|k| k.as_str() == CEILING_EXT_KEY)
+    {
+        return None;
+    }
+    let mut found = core
+        .ext
+        .iter()
+        .flatten()
+        .filter(|e| e.key.as_str() == CEILING_EXT_KEY);
+    let ext = found.next()?;
+    if found.next().is_some() {
+        return None;
+    }
+    let Ok(Value::Map(entries)) = dcbor::decode(&ext.value.0, Limits::CEILING) else {
+        return None;
+    };
+    let known = ["decision", "event", "agent"];
+    if entries.len() != known.len()
+        || !entries
+            .iter()
+            .all(|(k, _)| matches!(k, Value::Text(t) if known.contains(&t.as_str())))
+    {
+        return None;
+    }
+    Some(CeilingDecision {
+        decision: CeilingChoice::from_wire_name(&bounded_text(&entries, "decision", 16)?)?,
+        event: bounded_text(&entries, "event", MAX_CEILING_EVENT)?,
+        agent: bounded_text(&entries, "agent", MAX_CEILING_AGENT)?,
+    })
+}
+
+/// The ceiling decision a write carries: `record` is the `SignedRecord` bytes of an `unsigned` record or the tagged `COSE_Sign1` of a signed one (E-23).
+#[must_use]
+pub fn carried_ceiling(record: &[u8], unsigned: bool) -> Option<CeilingDecision> {
+    let payload = if unsigned {
+        record.to_vec()
+    } else {
+        parse_container(record).ok()?.payload?
+    };
+    match decode_record(&payload).ok()? {
+        Decoded::Record(r) => ceiling_decision(&r),
+        Decoded::UnknownProtocol(_) => None,
+    }
+}
+
+/// The Access action a caller's `record` takes (E-45 items 2 to 4): a clock, periodic or budget Condition is part of a commitment's terms and takes `work:commit` (WD-146), an agent ceiling decision `work:agent_ceiling_decide` (E-23), every Claim and Act `work:write`.
 #[must_use]
 pub fn record_action(record: &Record) -> Option<&'static str> {
     if condition_of(record).is_some() {
         return Some("commit");
+    }
+    if ceiling_decision(record).is_some() {
+        return Some(CEILING_ACTION);
     }
     match kind_of(record)? {
         Kind::Commitment(op) => action_of(op),
