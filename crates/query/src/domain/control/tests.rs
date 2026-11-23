@@ -214,15 +214,15 @@ fn full() -> Vec<u8> {
     Capability {
         operations: vec![
             ControlOperation::Cancel,
-            ControlOperation::PauseResume,
             ControlOperation::Takeover,
+            ControlOperation::PauseResume,
         ],
         stop_types: vec![
-            StopType::FinishThenStop,
-            StopType::Immediate,
             StopType::Pause,
+            StopType::Immediate,
+            StopType::FinishThenStop,
         ],
-        change_policies: vec![ChangePolicy::Interrupt, ChangePolicy::Rollback],
+        change_policies: vec![ChangePolicy::Rollback, ChangePolicy::Interrupt],
         non_cancellable: Vec::new(),
         safe_state: None,
         checkpoints: true,

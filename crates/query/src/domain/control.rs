@@ -625,6 +625,38 @@ fn coordinators(view: &CommitmentView, executor: Option<&PartyRef>) -> Vec<Party
     out
 }
 
+fn spans(leases: &[Reported<ControlLease>]) -> Vec<ControlSpan> {
+    leases
+        .iter()
+        .filter_map(|r| match &r.body {
+            ControlLease::Grant { driver, .. } => Some(ControlSpan {
+                record: r.record,
+                party: driver.clone(),
+                from: r.at,
+                until: leases.iter().find_map(|x| match &x.body {
+                    ControlLease::Release { lease, released } if *lease == r.record.0 => {
+                        Some(*released)
+                    }
+                    _ => None,
+                }),
+            }),
+            ControlLease::Release { .. } => None,
+        })
+        .collect()
+}
+
+fn acts(logged: &[Logged<'_>], works: &[WorkId], now: Time) -> Vec<ActBy> {
+    logged
+        .iter()
+        .filter(|l| l.at <= now && matches!(l.record, Record::Act(_)) && on_works(l, works))
+        .map(|l| ActBy {
+            record: l.id,
+            party: l.record.core().author.clone(),
+            at: l.at,
+        })
+        .collect()
+}
+
 /// The control of `inputs.view` at `inputs.now` (RC-3, RC-8, RC-27 … RC-40, ST-4, WD-150 item 19).
 #[must_use]
 pub fn project(inputs: &ControlInputs<'_>) -> ControlRead {
@@ -685,35 +717,8 @@ pub fn project(inputs: &ControlInputs<'_>) -> ControlRead {
                 },
                 now,
             );
-            let spans: Vec<ControlSpan> = e
-                .leases
-                .iter()
-                .filter_map(|r| match &r.body {
-                    ControlLease::Grant { driver, .. } => Some(ControlSpan {
-                        record: r.record,
-                        party: driver.clone(),
-                        from: r.at,
-                        until: e.leases.iter().find_map(|x| match &x.body {
-                            ControlLease::Release { lease, released } if *lease == r.record.0 => {
-                                Some(*released)
-                            }
-                            _ => None,
-                        }),
-                    }),
-                    ControlLease::Release { .. } => None,
-                })
-                .collect();
-            let acts: Vec<ActBy> = logged
-                .iter()
-                .filter(|l| {
-                    l.at <= now && matches!(l.record, Record::Act(_)) && on_works(l, &works)
-                })
-                .map(|l| ActBy {
-                    record: l.id,
-                    party: l.record.core().author.clone(),
-                    at: l.at,
-                })
-                .collect();
+            let spans = spans(&e.leases);
+            let acts = acts(logged, &works, now);
             let marks = interventions(&acts, &spans, &coordinators(view, Some(&e.executor)));
             (
                 Some(axes(authority, &facts, now)),
@@ -879,6 +884,58 @@ fn requests<'a>(
         .collect()
 }
 
+fn ask(e: &Execution, now: Time, request: Request) -> Result<(), ControlRefusal> {
+    check_request(request, e.declared(), e.mode(now), e.lease_active(now))
+        .map_err(ControlRefusal::Request)
+}
+
+/// Checks a control lease against the commitment's leases of its environment; a grant is a takeover the executor takes, standing on its normative basis when an agent writes it (RC-26, RC-33, RC-34).
+fn lease_record(
+    asked: &ControlAsked<'_>,
+    log: &ControlLog<'_>,
+    e: &Execution,
+) -> Result<(), ControlRefusal> {
+    let lease = body(asked, ControlLease::decode)?;
+    let environment = match &lease {
+        ControlLease::Grant { environment, .. } => Some(environment.clone()),
+        ControlLease::Release { .. } => None,
+    };
+    let earlier: Vec<Reported<ControlLease>> = e
+        .leases
+        .iter()
+        .filter(|r| match (&r.body, &environment) {
+            (
+                ControlLease::Grant {
+                    environment: env, ..
+                },
+                Some(wanted),
+            ) => env == wanted,
+            _ => true,
+        })
+        .cloned()
+        .collect();
+    let new = Reported {
+        record: asked.id,
+        author: asked.record.core().author.clone(),
+        at: asked.now,
+        body: lease,
+    };
+    check_lease(&new, &earlier, &e.executor).map_err(ControlRefusal::Lease)?;
+    if environment.is_some() {
+        ask(
+            e,
+            asked.now,
+            Request {
+                kind: RequestKind::Takeover,
+                stop_type: None,
+                change_policy: None,
+            },
+        )?;
+        agent_basis(asked, log)?;
+    }
+    Ok(())
+}
+
 /// Checks a control record or an operator correction against the records before it (RC-3, RC-26, RC-27, RC-29, RC-33, RC-36 … RC-40, SEC-7): an autonomy policy is the principal's own; a lease is checked against the commitment's leases of its environment, and a grant is a takeover the executor takes; a stop request, a resumption and a correction are requests the capability declaration and the control mode allow; a stop response answers one stop request; a resumption cites its stop request; a correction's derived version grows; a forced stop names its source and comes from the executor or a system Party; a lease grant and a resumption an agent writes stand on their normative basis.
 ///
 /// # Errors
@@ -903,23 +960,19 @@ pub fn check_control(asked: &ControlAsked<'_>, log: &ControlLog<'_>) -> Result<(
         .ok_or(ControlRefusal::NoCommitment)?;
     let e = execution(log.logged, view, &members, log.opened, asked.now)
         .ok_or(ControlRefusal::NoExecutor)?;
-    let mode = e.mode(asked.now);
-    let lease_active = e.lease_active(asked.now);
-    let ask = |kind, stop_type, change_policy| {
-        check_request(
+    let requested = |kind, stop_type, change_policy| {
+        ask(
+            &e,
+            asked.now,
             Request {
                 kind,
                 stop_type,
                 change_policy,
             },
-            e.declared(),
-            mode,
-            lease_active,
         )
-        .map_err(ControlRefusal::Request)
     };
     if let Some(policy) = correction_policy(record) {
-        ask(RequestKind::Change, None, Some(policy))?;
+        requested(RequestKind::Change, None, Some(policy))?;
         let previous = u64::from(view.instruction_version);
         return check_correction(
             (previous > 0).then_some(previous),
@@ -941,41 +994,10 @@ pub fn check_control(asked: &ControlAsked<'_>, log: &ControlLog<'_>) -> Result<(
         };
     }
     match subtype(record) {
-        Some(DeclarationSubtype::ControlLease) => {
-            let lease = body(asked, ControlLease::decode)?;
-            let environment = match &lease {
-                ControlLease::Grant { environment, .. } => Some(environment.clone()),
-                ControlLease::Release { .. } => None,
-            };
-            let earlier: Vec<Reported<ControlLease>> = e
-                .leases
-                .iter()
-                .filter(|r| match (&r.body, &environment) {
-                    (
-                        ControlLease::Grant {
-                            environment: env, ..
-                        },
-                        Some(wanted),
-                    ) => env == wanted,
-                    _ => true,
-                })
-                .cloned()
-                .collect();
-            let grant = environment.is_some();
-            let new = Reported {
-                record: asked.id,
-                author: record.core().author.clone(),
-                at: asked.now,
-                body: lease,
-            };
-            check_lease(&new, &earlier, &e.executor).map_err(ControlRefusal::Lease)?;
-            if grant {
-                ask(RequestKind::Takeover, None, None)?;
-                agent_basis(asked, log)?;
-            }
-            Ok(())
+        Some(DeclarationSubtype::ControlLease) => lease_record(asked, log, &e),
+        Some(DeclarationSubtype::StopRequest) => {
+            requested(RequestKind::Stop, stop_type_of(record), None)
         }
-        Some(DeclarationSubtype::StopRequest) => ask(RequestKind::Stop, stop_type_of(record), None),
         Some(DeclarationSubtype::StopResponse) => {
             check_response(record, &requests(log, &members, &root), &e.executor)
                 .map_err(ControlRefusal::Response)
@@ -983,7 +1005,7 @@ pub fn check_control(asked: &ControlAsked<'_>, log: &ControlLog<'_>) -> Result<(
         Some(DeclarationSubtype::ResumeAfterStop) => {
             check_resume(record, &requests(log, &members, &root))
                 .map_err(ControlRefusal::Resume)?;
-            ask(RequestKind::Resume, None, None)?;
+            requested(RequestKind::Resume, None, None)?;
             agent_basis(asked, log)
         }
         _ => Ok(()),

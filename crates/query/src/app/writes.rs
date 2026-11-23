@@ -391,6 +391,33 @@ pub(crate) async fn caller_realm(
     Ok((DomainId(domain), paired))
 }
 
+/// The kernel's reason for refusing a commitment operation (`commitment:<code>`) or a
+/// responsibility operation or `acknowledgement` (`responsibility:<code>`); none when it is
+/// admitted.
+fn kernel_reason(
+    folded: &Folded,
+    asked: &Asked<'_>,
+    commitment: bool,
+) -> Result<Option<String>, WriteRefusal> {
+    if commitment {
+        return match folded.check(asked, &facts()) {
+            Ok(Ok(_)) => Ok(None),
+            Ok(Err(refusal)) => Ok(Some(format!("commitment:{}", refusal.wire_name()))),
+            Err(_) => Err(WriteRefusal::NotRecorded),
+        };
+    }
+    match folded.check_responsibility(asked, &facts()) {
+        Ok(Some(Ok(_))) => Ok(None),
+        Ok(None) if matches!(kind_of(asked.record), Some(Kind::Declaration(_))) => Ok(None),
+        Ok(None) => Ok(Some(format!(
+            "responsibility:{}",
+            Refusal::NothingPending.wire_name()
+        ))),
+        Ok(Some(Err(refusal))) => Ok(Some(format!("responsibility:{}", refusal.wire_name()))),
+        Err(_) => Err(WriteRefusal::NotRecorded),
+    }
+}
+
 /// What admitting one record needs once Access authorised it.
 struct Admission<'a> {
     caller: &'a Caller,
@@ -804,26 +831,7 @@ where
                 control_supported: commitment && control::control_supported(record, &log, now),
                 now_ms: at.now_ms,
             };
-            reason = if commitment {
-                match folded.check(&asked, &facts()) {
-                    Ok(Ok(_)) => None,
-                    Ok(Err(refusal)) => Some(format!("commitment:{}", refusal.wire_name())),
-                    Err(_) => return Err(WriteRefusal::NotRecorded),
-                }
-            } else {
-                match folded.check_responsibility(&asked, &facts()) {
-                    Ok(Some(Ok(_))) => None,
-                    Ok(None) if matches!(kind, Some(Kind::Declaration(_))) => None,
-                    Ok(None) => Some(format!(
-                        "responsibility:{}",
-                        Refusal::NothingPending.wire_name()
-                    )),
-                    Ok(Some(Err(refusal))) => {
-                        Some(format!("responsibility:{}", refusal.wire_name()))
-                    }
-                    Err(_) => return Err(WriteRefusal::NotRecorded),
-                }
-            };
+            reason = kernel_reason(folded, &asked, commitment)?;
         }
         if reason.is_none() && controlled {
             let definition = at
