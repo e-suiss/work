@@ -10,9 +10,10 @@ use crate::authority::{
     NewAuthorityRequest, ProofInput,
 };
 use crate::commitments::{
-    ActiveEndAnswer, AllowedAnswer, CommitmentAnswer, CommitmentWritten, ImplicitAnswer,
-    ItemAnswer, MoverAnswer, NoticeAnswer, PendingAnswer, SignalAnswer, StatementAnswer,
-    StepAnswer, TermsAnswer,
+    ActiveEndAnswer, AllowedAnswer, BudgetAnswer, ClockAnswer, CommitmentAnswer, CommitmentWritten,
+    DueAnswer, ImplicitAnswer, ItemAnswer, MoverAnswer, NoticeAnswer, PendingAnswer,
+    PeriodicAnswer, ReachedAnswer, SignalAnswer, StatementAnswer, StepAnswer, TermsAnswer,
+    TimeAnswer,
 };
 use crate::problem::{FieldError, Problem, ProblemCode, ProblemType};
 use crate::reads::{
@@ -128,7 +129,13 @@ fn security_scheme() -> Value {
         AllowedAnswer,
         MoverAnswer,
         SignalAnswer,
-        ImplicitAnswer
+        ImplicitAnswer,
+        TimeAnswer,
+        ClockAnswer,
+        ReachedAnswer,
+        PeriodicAnswer,
+        DueAnswer,
+        BudgetAnswer
     ))
 )]
 struct Api;

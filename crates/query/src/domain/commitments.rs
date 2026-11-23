@@ -6,7 +6,8 @@ use work_kernel::catalog::DeclarationSubtype;
 use work_kernel::codec::{Decoded, decode_record, leaf_hash, record_id};
 use work_kernel::commitment::{
     self, AccessAnswer, Allowed, Caller as Asking, CommitmentView, Facts, ImplicitAcceptance,
-    Mover, Operation, Proposed, Refusal, StepOutcome, SupportSignal,
+    Mover, Operation, Proposed, Refusal, StepOutcome, SupportSignal, TimeInputs, TimeProjection,
+    clock_signals, definition_records, project_time, zones_named,
 };
 use work_kernel::cose::parse_container;
 use work_kernel::derive::{
@@ -29,6 +30,7 @@ use work_proto::id::PositionToken;
 use work_store::StoredLogEntry;
 
 use crate::domain::reads::ReadRefusal;
+use crate::domain::tzdb;
 
 /// The Access action of each commitment operation a caller may write (E-45 item 2); `expire`
 /// is the Work service's own record and has none.
@@ -263,10 +265,40 @@ impl Folded {
     /// # Errors
     /// [`FoldError::Derive`] when the kernel refuses the sequence.
     pub fn views(&self, facts: &Facts<'_>) -> Result<Vec<CommitmentView>, FoldError> {
+        self.derived(facts).map(|(_, views)| views)
+    }
+
+    fn derived(
+        &self,
+        facts: &Facts<'_>,
+    ) -> Result<(Vec<Entry<'_>>, Vec<CommitmentView>), FoldError> {
         let entries = self.entries();
         let derivation =
             derive(&entries, &self.inputs()).map_err(|e| FoldError::Derive(e.code()))?;
-        Ok(commitment::derive_commitments(&entries, &derivation, facts))
+        let views = commitment::derive_commitments(&entries, &derivation, facts);
+        Ok((entries, views))
+    }
+
+    /// The clock, periodic and budget Condition records of the commitment `root` and of the commitments that support it, each with its position, whose `definition` part its read opens (CM-48, CM-50, CM-53).
+    ///
+    /// # Errors
+    /// [`FoldError::Derive`] when the kernel refuses the sequence.
+    pub fn definition_positions(&self, root: &RecordId) -> Result<Vec<(RecordId, u64)>, FoldError> {
+        let (entries, views) = self.derived(&facts())?;
+        let Some(view) = views.iter().find(|v| v.root == *root) else {
+            return Ok(Vec::new());
+        };
+        let none: BTreeMap<RecordId, Vec<u8>> = BTreeMap::new();
+        Ok(definition_records(
+            view,
+            &TimeInputs {
+                entries: &entries,
+                views: &views,
+                definitions: &none,
+                zones: &[],
+                now: Time(self.head_at),
+            },
+        ))
     }
 
     /// The kernel's validity check of `asked` against the commitment its chain derives (CM-19):
@@ -371,16 +403,34 @@ pub struct CommitmentRead {
     pub next: Next,
     /// How the implicit acceptance of the statement in force stands at the head's ledger time.
     pub implicit: ImplicitAcceptance,
-    /// The signals the commitments that support it raise for it (CM-47).
+    /// The signals the commitments that support it raise for it, their clocks and periodic updates included (CM-47).
     pub signals: Vec<SupportSignal>,
+    /// Its clocks, periodic updates and budgets at the evaluation time (CM-48, CM-50, CM-53).
+    pub time: TimeProjection,
+    /// The tzdb release the clocks and periodic updates count in (CM-64).
+    pub tzdb: &'static str,
+    /// The evaluation time of the time projection, never before the head's ledger time.
+    pub evaluated_at_ms: u64,
     /// The ledger time the read reflects.
     pub at_ms: u64,
     /// The position the read reflects.
     pub position: PositionToken,
 }
 
+/// What a commitment read evaluates besides the records: the opened `definition` parts of its time Conditions and the evaluation time.
+#[derive(Clone, Copy, Debug)]
+pub struct Evaluation<'a> {
+    /// The `definition` part of each Condition record [`Folded::definition_positions`] named, as opened.
+    pub definitions: &'a BTreeMap<RecordId, Vec<u8>>,
+    /// The evaluation time, Unix milliseconds; the head's ledger time when it is earlier.
+    pub now_ms: u64,
+}
+
 /// The read of the commitment `root` of `folded` for `caller`, a Party of `actor` type (P-56,
-/// P-55): a caller without a role on it does not see it.
+/// P-55): a caller without a role on it does not see it. Its clocks, periodic updates and budgets
+/// are projected at the evaluation time over the vendored tzdb zones; a sub-commitment's clock
+/// warning, breach or missed report joins its support signals (CM-47), and an exhausted budget
+/// hands the next move to the accountable Party (CM-49).
 ///
 /// # Errors
 /// [`ReadRefusal::NotFound`] for no such commitment or one the caller has no role on,
@@ -391,9 +441,12 @@ pub fn read(
     party: &PartyRef,
     actor: ActorType,
     position: PositionToken,
+    evaluation: Evaluation<'_>,
 ) -> Result<CommitmentRead, ReadRefusal> {
-    let facts = facts();
-    let views = folded.views(&facts).map_err(|_| ReadRefusal::Unavailable)?;
+    let base = facts();
+    let (entries, views) = folded
+        .derived(&base)
+        .map_err(|_| ReadRefusal::Unavailable)?;
     let view = views
         .iter()
         .find(|v| v.root == *root && v.opening == StepOutcome::Applied)
@@ -405,6 +458,30 @@ pub fn read(
         .cloned()
         .collect();
     let (_, at_ms) = folded.head();
+    let now = Time(evaluation.now_ms.max(at_ms));
+    let blank = TimeInputs {
+        entries: &entries,
+        views: &views,
+        definitions: evaluation.definitions,
+        zones: &[],
+        now,
+    };
+    let zones = tzdb::zones(&zones_named(view, &blank));
+    let inputs = TimeInputs {
+        zones: &zones,
+        ..blank
+    };
+    let time = project_time(view, &inputs);
+    let child_times: Vec<TimeProjection> =
+        children.iter().map(|c| project_time(c, &inputs)).collect();
+    let pairs: Vec<(&CommitmentView, &TimeProjection)> =
+        children.iter().zip(&child_times).collect();
+    let mut signals = commitment::support_signals(view, &children);
+    signals.extend(clock_signals(view, &pairs));
+    let decided = Facts {
+        budget_exhausted: time.budget_exhausted(),
+        ..base
+    };
     let asking = Asking {
         party,
         actor,
@@ -412,9 +489,12 @@ pub fn read(
     };
     Ok(CommitmentRead {
         ledger: *folded.ledger(),
-        next: next_for(view, &asking, &facts),
-        implicit: commitment::implicit_acceptance(view, Time(at_ms), &facts),
-        signals: commitment::support_signals(view, &children),
+        next: next_for(view, &asking, &decided),
+        implicit: commitment::implicit_acceptance(view, Time(at_ms), &base),
+        signals,
+        time,
+        tzdb: tzdb::VERSION,
+        evaluated_at_ms: now.0,
         version: folded.version_of(*root),
         view: view.clone(),
         at_ms,

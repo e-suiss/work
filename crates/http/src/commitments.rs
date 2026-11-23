@@ -10,9 +10,12 @@ use axum::routing::{MethodRouter, get, post};
 use axum::{Extension, Router};
 use serde::Serialize;
 use utoipa::ToSchema;
+use work_kernel::budget::{Choice, Measure};
+use work_kernel::clock::{ClockError, ClockState, Target, Tier};
 use work_kernel::commitment::{
-    ActiveEnd, Address, Allowed, CommitmentView, ImplicitAcceptance, Item, Missing, Mover,
-    Operation, Step, StepOutcome, SupportSignal,
+    ActiveEnd, Address, Allowed, BudgetProjection, ClockProjection, CommitmentView,
+    ImplicitAcceptance, Item, Missing, Mover, Operation, PeriodicProjection, Step, StepOutcome,
+    SupportSignal,
 };
 use work_kernel::id::{LedgerId, RecordId, Time};
 use work_kernel::ontology::Obligor;
@@ -268,8 +271,11 @@ pub struct CommitmentAnswer {
     pub allowed: Vec<AllowedAnswer>,
     /// Who holds the next move (CM-58).
     pub next_move: Vec<MoverAnswer>,
-    /// The signals of the commitments that support it (CM-47).
+    /// The signals of the commitments that support it, their clocks and periodic updates
+    /// included (CM-47).
     pub signals: Vec<SignalAnswer>,
+    /// Its clocks, periodic updates and budgets at the evaluation time (CM-48, CM-50, CM-53).
+    pub time: TimeAnswer,
     /// The ledger time the answer reflects, RFC 3339 UTC.
     pub at: String,
     /// The positions the answer reflects, `pos_…` (T-97 item 2).
@@ -414,6 +420,353 @@ fn active_end(e: &ActiveEnd) -> ActiveEndAnswer {
     }
 }
 
+/// A tier a clock reached (CM-51).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, ToSchema)]
+pub struct ReachedAnswer {
+    /// `warning` or `breach`.
+    pub tier: String,
+    /// The warning tier in permille of the duration.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub permille: Option<u16>,
+    /// When it was reached, RFC 3339 UTC.
+    pub at: String,
+    /// The definition version in effect then.
+    pub version: u32,
+}
+
+/// A clock of the commitment, projected at the evaluation time (CM-50, CM-51, CM-52).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, ToSchema)]
+pub struct ClockAnswer {
+    /// The clock Condition the request lists, `rec_…`.
+    pub condition: String,
+    /// The Condition record whose definition is in effect, `rec_…`.
+    pub definition: String,
+    /// `response`, `start` or `finish`.
+    pub target: String,
+    /// `not_started`, `running`, `paused` or `met`; absent when it cannot be projected.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub state: Option<String>,
+    /// The definition version in effect.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub version: Option<u32>,
+    /// Counted milliseconds so far.
+    #[serde(with = "crate::json::decimal")]
+    #[schema(value_type = String)]
+    pub elapsed_ms: u64,
+    /// Counted milliseconds left of the duration.
+    #[serde(with = "crate::json::decimal")]
+    #[schema(value_type = String)]
+    pub remaining_ms: u64,
+    /// The highest warning tier reached, in permille.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub warning: Option<u16>,
+    /// When it breached, RFC 3339 UTC.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub breached_at: Option<String>,
+    /// Every tier reached, in order.
+    pub reached: Vec<ReachedAnswer>,
+    /// Since when a valid wait pauses it, RFC 3339 UTC.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub paused_since: Option<String>,
+    /// When its target was met, RFC 3339 UTC.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub met_at: Option<String>,
+    /// When the next tier is reached if nothing else happens, RFC 3339 UTC.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub next_change: Option<String>,
+    /// Later Condition records that did not continue its definition, `rec_…`.
+    pub ignored: Vec<String>,
+    /// Why it cannot be projected: `order`, `version`, `calendar`, `rule` or `overflow`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
+
+/// One expected report of a periodic update (CM-53).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, ToSchema)]
+pub struct DueAnswer {
+    /// The expected time, RFC 3339 UTC.
+    pub expected: String,
+    /// The last time a report still counts, RFC 3339 UTC.
+    pub deadline: String,
+    /// The ledger time of the report that met it, RFC 3339 UTC.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub report: Option<String>,
+    /// Whether it was missed: a breach signal.
+    pub missed: bool,
+}
+
+/// A periodic update of the commitment, projected at the evaluation time (CM-53, CM-64).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, ToSchema)]
+pub struct PeriodicAnswer {
+    /// The periodic Condition the request lists, `rec_…`.
+    pub condition: String,
+    /// The Condition record whose definition is in effect, `rec_…`.
+    pub definition: String,
+    /// The expected reports up to the evaluation time.
+    pub due: Vec<DueAnswer>,
+    /// How many were missed.
+    pub missed: u32,
+    /// The deadline of the next report not yet in, RFC 3339 UTC.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub next_deadline: Option<String>,
+    /// The report Claims counted.
+    pub reports: u32,
+    /// Report Claims not counted.
+    pub ignored_reports: u32,
+    /// Later Condition records that did not continue its definition, `rec_…`.
+    pub ignored: Vec<String>,
+    /// Why it cannot be projected: `order`, `version`, `calendar`, `rule` or `overflow`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
+
+/// A budget of the commitment (CM-48, CM-49).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, ToSchema)]
+pub struct BudgetAnswer {
+    /// The budget Condition the request lists, `rec_…`.
+    pub condition: String,
+    /// The Condition record whose definition is in effect, `rec_…`.
+    pub definition: String,
+    /// `effort`, `money`, `operations` or `tokens`.
+    pub measure: String,
+    /// The ISO 4217 currency of a money budget.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub currency: Option<String>,
+    /// The limit in the measure's unit.
+    #[serde(with = "crate::json::decimal")]
+    #[schema(value_type = String)]
+    pub limit: u64,
+    /// Consumption reported by the commitment's obligor.
+    #[serde(with = "crate::json::decimal")]
+    #[schema(value_type = String)]
+    pub own: u64,
+    /// Consumption rolled up from its sub-commitments.
+    #[serde(with = "crate::json::decimal")]
+    #[schema(value_type = String)]
+    pub children: u64,
+    /// Both together.
+    #[serde(with = "crate::json::decimal")]
+    #[schema(value_type = String)]
+    pub consumed: u64,
+    /// What is left of the limit.
+    #[serde(with = "crate::json::decimal")]
+    #[schema(value_type = String)]
+    pub remaining: u64,
+    /// The highest warning tier reached, in permille.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub warning: Option<u16>,
+    /// Whether consumption reached the limit; the accountable Party then holds the next move.
+    pub exhausted: bool,
+    /// The choices asked of the accountable Party once exhausted: `continue`, `reshape`, `drop`.
+    pub decision: Vec<String>,
+    /// Consumption Claims not counted.
+    pub ignored_claims: u32,
+    /// Sub-commitment totals in another measure.
+    pub unmatched: u32,
+    /// Later Condition records that did not continue its definition, `rec_…`.
+    pub ignored: Vec<String>,
+    /// Why it cannot be evaluated: `overflow`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
+
+/// The clocks, periodic updates and budgets of the commitment; nothing of it is stored (CM-51).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, ToSchema)]
+pub struct TimeAnswer {
+    /// The evaluation time, RFC 3339 UTC.
+    pub evaluated_at: String,
+    /// The tzdb release the clocks and periodic updates count in (CM-64).
+    pub tzdb: String,
+    /// The clocks.
+    pub clocks: Vec<ClockAnswer>,
+    /// The periodic updates.
+    pub periodic: Vec<PeriodicAnswer>,
+    /// The budgets.
+    pub budgets: Vec<BudgetAnswer>,
+    /// Listed time Conditions whose definition did not open, `rec_…`.
+    pub undefined: Vec<String>,
+}
+
+const fn clock_error(e: ClockError) -> &'static str {
+    match e {
+        ClockError::Order => "order",
+        ClockError::Version => "version",
+        ClockError::Calendar(_) => "calendar",
+        ClockError::Rule(_) => "rule",
+        ClockError::Overflow => "overflow",
+    }
+}
+
+const fn clock_state(s: ClockState) -> &'static str {
+    match s {
+        ClockState::NotStarted => "not_started",
+        ClockState::Running => "running",
+        ClockState::Paused => "paused",
+        ClockState::Met => "met",
+    }
+}
+
+const fn target(t: Target) -> &'static str {
+    match t {
+        Target::Response => "response",
+        Target::Start => "start",
+        Target::Finish => "finish",
+    }
+}
+
+fn count(n: usize) -> u32 {
+    u32::try_from(n).unwrap_or(u32::MAX)
+}
+
+fn clock(c: &ClockProjection) -> ClockAnswer {
+    let mut out = ClockAnswer {
+        condition: rec(&c.condition),
+        definition: rec(&c.definition),
+        target: target(c.target).to_owned(),
+        state: None,
+        version: None,
+        elapsed_ms: 0,
+        remaining_ms: 0,
+        warning: None,
+        breached_at: None,
+        reached: Vec::new(),
+        paused_since: None,
+        met_at: None,
+        next_change: None,
+        ignored: recs(&c.ignored),
+        error: None,
+    };
+    match &c.view {
+        Ok(v) => {
+            out.state = Some(clock_state(v.state).to_owned());
+            out.version = Some(v.version);
+            out.elapsed_ms = v.elapsed;
+            out.remaining_ms = v.remaining;
+            out.warning = v.warning;
+            out.breached_at = v.breached.map(time);
+            out.reached = v
+                .reached
+                .iter()
+                .map(|r| ReachedAnswer {
+                    tier: match r.tier {
+                        Tier::Warning(_) => "warning",
+                        Tier::Breach => "breach",
+                    }
+                    .to_owned(),
+                    permille: match r.tier {
+                        Tier::Warning(p) => Some(p),
+                        Tier::Breach => None,
+                    },
+                    at: time(r.at),
+                    version: r.version,
+                })
+                .collect();
+            out.paused_since = v.paused_since.map(time);
+            out.met_at = v.met_at.map(time);
+            out.next_change = v.next_change.map(time);
+        }
+        Err(e) => out.error = Some(clock_error(*e).to_owned()),
+    }
+    out
+}
+
+fn periodic(p: &PeriodicProjection) -> PeriodicAnswer {
+    let mut out = PeriodicAnswer {
+        condition: rec(&p.condition),
+        definition: rec(&p.definition),
+        due: Vec::new(),
+        missed: 0,
+        next_deadline: None,
+        reports: count(p.reports),
+        ignored_reports: count(p.ignored_reports),
+        ignored: recs(&p.ignored),
+        error: None,
+    };
+    match &p.view {
+        Ok(v) => {
+            out.due = v
+                .due
+                .iter()
+                .map(|d| DueAnswer {
+                    expected: time(d.expected),
+                    deadline: time(d.deadline),
+                    report: d.report.map(time),
+                    missed: d.missed,
+                })
+                .collect();
+            out.missed = count(v.missed);
+            out.next_deadline = v.next_deadline.map(time);
+        }
+        Err(e) => out.error = Some(clock_error(*e).to_owned()),
+    }
+    out
+}
+
+fn budget(b: &BudgetProjection) -> BudgetAnswer {
+    let (measure, currency) = match b.budget.measure {
+        Measure::Effort => ("effort", None),
+        Measure::Money(c) => ("money", Some(c.code().to_owned())),
+        Measure::Operations => ("operations", None),
+        Measure::Tokens => ("tokens", None),
+    };
+    let mut out = BudgetAnswer {
+        condition: rec(&b.condition),
+        definition: rec(&b.definition),
+        measure: measure.to_owned(),
+        currency,
+        limit: b.budget.limit,
+        own: 0,
+        children: 0,
+        consumed: 0,
+        remaining: b.budget.limit,
+        warning: None,
+        exhausted: false,
+        decision: Vec::new(),
+        ignored_claims: 0,
+        unmatched: 0,
+        ignored: recs(&b.ignored),
+        error: None,
+    };
+    match &b.view {
+        Ok(v) => {
+            out.own = v.own;
+            out.children = v.children;
+            out.consumed = v.consumed;
+            out.remaining = v.remaining;
+            out.warning = v.warning;
+            out.exhausted = v.exhausted;
+            out.decision = v
+                .decision
+                .iter()
+                .flat_map(|d| d.choices)
+                .map(|c| {
+                    match c {
+                        Choice::Continue => "continue",
+                        Choice::Reshape => "reshape",
+                        Choice::Drop => "drop",
+                    }
+                    .to_owned()
+                })
+                .collect();
+            out.ignored_claims = count(v.ignored);
+            out.unmatched = count(v.unmatched);
+        }
+        Err(_) => out.error = Some("overflow".to_owned()),
+    }
+    out
+}
+
+fn time_answer(read: &CommitmentRead) -> TimeAnswer {
+    TimeAnswer {
+        evaluated_at: time(Time(read.evaluated_at_ms)),
+        tzdb: read.tzdb.to_owned(),
+        clocks: read.time.clocks.iter().map(clock).collect(),
+        periodic: read.time.periodic.iter().map(periodic).collect(),
+        budgets: read.time.budgets.iter().map(budget).collect(),
+        undefined: recs(&read.time.undefined),
+    }
+}
+
 impl CommitmentAnswer {
     /// The answer of `read`.
     #[must_use]
@@ -480,6 +833,7 @@ impl CommitmentAnswer {
             allowed: read.next.allowed.iter().map(allowed).collect(),
             next_move: read.next.moves.iter().map(mover).collect(),
             signals: read.signals.iter().map(signal).collect(),
+            time: time_answer(read),
             at: time(Time(read.at_ms)),
             position: read.position.to_external(),
         }

@@ -3,9 +3,12 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
+use work_access_client::ports::Clock;
+use work_kernel::commitment_time::DEFINITION_PART;
 use work_kernel::id::{Digest, LedgerId, RecordId, WorkId};
 use work_kernel::proof::verify_inclusion;
 use work_kernel::validate::ActorType;
+use work_ledger::{BodyReader, PartRead};
 use work_proto::id::{Cursor, PositionToken};
 use work_proto::position::Positions;
 use work_store::{LedgerTx, Pool, StoreError};
@@ -13,7 +16,7 @@ use work_store::{LedgerTx, Pool, StoreError};
 use crate::adapters::{OpenError, PositionKeys};
 use crate::app::writes::log_of;
 use crate::domain::caller::{Caller, CallerKind};
-use crate::domain::commitments::{self, CommitmentRead, fold};
+use crate::domain::commitments::{self, CommitmentRead, Evaluation, Folded, fold};
 use crate::domain::reads::{
     Attestation, Change, Changes, CheckpointRef, CursorAt, Evidence, Inclusion, MAX_CHANGES,
     MAX_PROOF_LEAVES, Opened, ReadRefusal, WorkView, audit_path, compromise_marks,
@@ -26,6 +29,8 @@ use crate::ports::{Pending, WorkReads};
 pub struct Reads {
     pool: Pool,
     keys: Arc<PositionKeys>,
+    clock: Option<Arc<dyn Clock>>,
+    bodies: Option<Arc<BodyReader>>,
 }
 
 impl std::fmt::Debug for Reads {
@@ -48,7 +53,66 @@ impl Reads {
     /// Reads over `pool`, logged in as `work_app`, sealing positions and cursors with `keys`.
     #[must_use]
     pub const fn new(pool: Pool, keys: Arc<PositionKeys>) -> Self {
-        Self { pool, keys }
+        Self {
+            pool,
+            keys,
+            clock: None,
+            bodies: None,
+        }
+    }
+
+    /// The same reads opening the `definition` part of a commitment's clock, periodic and budget
+    /// Conditions through `bodies`; without it every such Condition reads as undefined (CM-48,
+    /// CM-50, CM-53).
+    #[must_use]
+    pub fn with_bodies(self, bodies: Arc<BodyReader>) -> Self {
+        Self {
+            bodies: Some(bodies),
+            ..self
+        }
+    }
+
+    /// The opened `definition` part of every time Condition the read of `root` needs; a part
+    /// that is unreadable or redacted is left out, and its Condition reads as undefined.
+    async fn definitions(
+        &self,
+        ledger: &LedgerId,
+        folded: &Folded,
+        root: &RecordId,
+    ) -> Result<BTreeMap<RecordId, Vec<u8>>, ReadRefusal> {
+        let mut out = BTreeMap::new();
+        let Some(bodies) = &self.bodies else {
+            return Ok(out);
+        };
+        let positions = folded
+            .definition_positions(root)
+            .map_err(|_| ReadRefusal::Unavailable)?;
+        let now_ms = self.clock.as_ref().map_or(0, |c| c.now_ms());
+        for (record, pos) in positions {
+            let parts = bodies
+                .read(&store_ledger(ledger), pos, now_ms)
+                .await
+                .map_err(|_| ReadRefusal::Unavailable)?;
+            let opened = parts.into_iter().find_map(|(name, read)| match read {
+                PartRead::Readable(o) if name == DEFINITION_PART => Some(o.content),
+                PartRead::Readable(_) | PartRead::Unreadable => None,
+            });
+            if let Some(content) = opened {
+                out.insert(record, content);
+            }
+        }
+        Ok(out)
+    }
+
+    /// The same reads evaluating the clocks, periodic updates and budgets of a commitment at
+    /// `clock`'s now on ledger time; without one they are evaluated at the head's ledger time
+    /// (CM-51).
+    #[must_use]
+    pub fn with_clock(self, clock: Arc<dyn Clock>) -> Self {
+        Self {
+            clock: Some(clock),
+            ..self
+        }
     }
 
     async fn snapshot(&self, ledger: &LedgerId) -> Result<(LedgerTx<'static>, u64), ReadRefusal> {
@@ -151,12 +215,17 @@ impl Reads {
             CallerKind::User => ActorType::Human,
             CallerKind::Service => ActorType::Agent,
         };
+        let definitions = self.definitions(ledger, &folded, root).await?;
         commitments::read(
             &folded,
             root,
             &party.reference,
             actor,
             self.position(caller, ledger, head)?,
+            Evaluation {
+                definitions: &definitions,
+                now_ms: self.clock.as_ref().map_or(0, |c| c.now_ms()),
+            },
         )
     }
 

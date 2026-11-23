@@ -3,6 +3,7 @@
 use std::sync::Arc;
 
 use suiss_crypto::pkcs11::KeyStore;
+use work_access_client::ports::Clock;
 use work_http::api::{ApiConfig, router, router_with};
 use work_http::common::TraceIds;
 use work_http::reads::ApiServices;
@@ -31,6 +32,16 @@ pub(crate) struct Backing<'a> {
     pub(crate) sequence: Arc<dyn Sequence>,
 }
 
+/// Ledger time as the process's Access client reads it, the evaluation time of a commitment's
+/// clocks (CM-51).
+struct ClientNow(Arc<AccessClient>);
+
+impl Clock for ClientNow {
+    fn now_ms(&self) -> u64 {
+        self.0.now_ms()
+    }
+}
+
 fn services(config: &Config, backing: &Backing<'_>) -> Result<ApiServices, String> {
     if config.api.origin.is_empty() {
         return Err("api.origin is not set".to_owned());
@@ -49,7 +60,10 @@ fn services(config: &Config, backing: &Backing<'_>) -> Result<ApiServices, Strin
             Arc::clone(backing.access),
             Some(config.client_id()),
         )),
-        reads: Arc::new(Reads::new(backing.canonical.clone(), Arc::new(keys))),
+        reads: Arc::new(
+            Reads::new(backing.canonical.clone(), Arc::new(keys))
+                .with_clock(Arc::new(ClientNow(Arc::clone(backing.access)))),
+        ),
         writes: Arc::new(Writes::new(
             Arc::clone(backing.access),
             backing.pep.map(str::to_owned),
