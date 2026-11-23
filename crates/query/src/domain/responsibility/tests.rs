@@ -175,7 +175,10 @@ impl Book {
 
     fn push(&mut self, record: Record) -> RecordId {
         let rid = id(self.records.len().saturating_add(1));
-        let at = self.records.last().map_or(1000, |r| r.2.saturating_add(1000));
+        let at = self
+            .records
+            .last()
+            .map_or(1000, |r| r.2.saturating_add(1000));
         self.records.push((rid, record, at));
         rid
     }
@@ -450,7 +453,9 @@ fn rc_18_the_lease_runs_from_the_claim_and_its_expiry_returns_the_work_to_the_po
     let ledger = book.ledger();
     let view = book.view(root);
     assert_eq!(
-        ledger.commitment(&view, Time(at.saturating_add(1000))).lease,
+        ledger
+            .commitment(&view, Time(at.saturating_add(1000)))
+            .lease,
         LeaseStatus::Running(Time(at.saturating_add(5000)))
     );
     let expired = ledger.commitment(&view, Time(at.saturating_add(6000)));
