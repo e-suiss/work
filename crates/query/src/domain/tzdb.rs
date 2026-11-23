@@ -1,4 +1,4 @@
-//! The tzdb zones a commitment's clocks and periodic updates count in (CM-50, CM-53, CM-64): every zone of the pinned IANA release vendored in `conformance/tzdb`, read by the kernel's own TZif reader only when a definition names it, and reported with its release in every projection.
+//! The tzdb zones a commitment's clocks and periodic updates count in (CM-50, CM-53, CM-64): every zone of the pinned IANA release vendored in `conformance/tzdb`, read by the kernel's own `TZif` reader only when a definition names it, and reported with its release in every projection.
 
 use work_kernel::tz::Zone;
 
@@ -7,7 +7,7 @@ mod zones;
 /// The tzdb release of the zones.
 pub const VERSION: &str = zones::VERSION;
 
-/// The zone `name` of the vendored release, if the release has it and its TZif reads.
+/// The zone `name` of the vendored release, if the release has it and its `TZif` reads.
 #[must_use]
 pub fn zone(name: &str) -> Option<Zone> {
     let index = zones::ZONES.binary_search_by(|(n, _)| n.cmp(&name)).ok()?;

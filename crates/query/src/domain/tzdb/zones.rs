@@ -3,7 +3,7 @@
 /// The tzdb release of the zones.
 pub(crate) const VERSION: &str = "2026f";
 
-/// Every zone name with its TZif bytes, in ascending name order.
+/// Every zone name with its `TZif` bytes, in ascending name order.
 #[rustfmt::skip]
 pub(crate) const ZONES: &[(&str, &[u8])] = &[
     ("Africa/Abidjan", include_bytes!("../../../../../conformance/tzdb/zoneinfo/Africa/Abidjan.tzif")),
