@@ -10,7 +10,7 @@ queue-definition-params = {
   ? ping_pong_threshold: uint .ge 1,
   ? wip_limit: uint .ge 1,
   ? skills: [1*256 type-uri],
-  ? effective_at: time,
+  ? effective_at: ledger-time,
 }
 
 candidate-set = (candidates: party-list // candidate_group: group-ref)
@@ -28,7 +28,7 @@ org-rule-params = {
   ? regime: "default" / "organization",
   ? party-resolutions,
   ? role-resolutions,
-  ? effective_at: time,
+  ? effective_at: ledger-time,
 }
 
 party-resolutions = (party_groups: group-list, parties: [1*256 party-ref])
@@ -37,14 +37,14 @@ role-resolutions = (role_groups: group-list, roles: [1*256 group-ref])
 
 ; RC-17 RC-18
 
-paramless-params = { effective_at: time }
+paramless-params = { effective_at: ledger-time }
 
 ; RC-14 RC-17
 
 forward-params = {
   (queue: digest // candidates: party-list),
   reason: forward-reason-code,
-  ? effective_at: time,
+  ? effective_at: ledger-time,
 }
 
 forward-reason = "wrong_recipient" / "expertise" / "capacity" / "other"
@@ -52,14 +52,14 @@ forward-reason-code = forward-reason / tstr .regexp "(wrong_recipient|expertise|
 
 ; RC-17
 
-party-params = { party: party-ref, ? effective_at: time }
+party-params = { party: party-ref, ? effective_at: ledger-time }
 
 ; RC-17 RC-21 RC-22 RC-23
 
 offer-params = {
   party: party-ref,
   ? policy-decision,
-  ? effective_at: time,
+  ? effective_at: ledger-time,
 }
 
 policy-decision = (policy: digest, ? inputs: [1*256 digest])
@@ -69,15 +69,15 @@ policy-decision = (policy: digest, ? inputs: [1*256 digest])
 waiver-params = {
   guarantee: "advance_notice" / "intervention" / "immediate_notice",
   (commitment: digest // work: work-id),
-  ? until: time,
-  ? effective_at: time,
+  ? until: ledger-time,
+  ? effective_at: ledger-time,
 }
 
 ; RC-5 RC-7
 
-acknowledgement-params = { proposal: digest, ? effective_at: time } / { effective_at: time }
+acknowledgement-params = { proposal: digest, ? effective_at: ledger-time } / { effective_at: ledger-time }
 
-transfer-params = { accountable: party-ref, ? effective_at: time }
+transfer-params = { accountable: party-ref, ? effective_at: ledger-time }
 
 request-accountability = { (accountable: party-ref // accountable_group: group-ref) }
 
@@ -92,6 +92,6 @@ party-ref = tstr .size (1..255)
 party-list = [1*256 party-ref]
 group-ref = tstr .size (1..255)
 group-list = [1*256 group-ref]
-time = uint
+ledger-time = uint
 work-id = bstr .size 16
 type-uri = tstr .regexp "https://[a-z0-9.-]+(:[0-9]+)?/[!-~]*"
