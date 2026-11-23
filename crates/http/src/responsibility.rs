@@ -197,7 +197,7 @@ pub struct PingPongAnswer {
 /// One assignment history entry: who, to whom, why, when, under which policy version and its
 /// result; reassignment never erases one (RC-19).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, ToSchema)]
-pub struct AssignmentAnswer {
+pub struct HistoryAnswer {
     /// The record, `rec_…`.
     pub record: String,
     /// The responsibility or commitment operation's wire name, or `acknowledgement`.
@@ -255,7 +255,7 @@ pub struct ResponsibilityAnswer {
     /// The ping-pong count and forwarding chain.
     pub ping_pong: PingPongAnswer,
     /// The assignment history.
-    pub history: Vec<AssignmentAnswer>,
+    pub history: Vec<HistoryAnswer>,
 }
 
 fn hold(h: &Hold) -> HoldAnswer {
@@ -309,12 +309,12 @@ fn act(a: AllocationAct) -> String {
     }
 }
 
-fn assignment(e: &AllocationEvent, why: Option<&String>) -> AssignmentAnswer {
+fn history_entry(e: &AllocationEvent, why: Option<&String>) -> HistoryAnswer {
     let (outcome, reason) = match e.outcome {
         StepOutcome::Applied => ("applied", None),
         StepOutcome::Refused(r) => ("refused", Some(r.wire_name().to_owned())),
     };
-    AssignmentAnswer {
+    HistoryAnswer {
         record: rec(&e.record),
         act: act(e.act),
         by: party(&e.by),
@@ -418,7 +418,7 @@ impl ResponsibilityAnswer {
                 .allocation
                 .history
                 .iter()
-                .map(|e| assignment(e, r.reasons.get(&e.record)))
+                .map(|e| history_entry(e, r.reasons.get(&e.record)))
                 .collect(),
         }
     }

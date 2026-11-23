@@ -21,7 +21,7 @@ use crate::reads::{
     EvidenceAnswer, InclusionAnswer, LedgerAttestation, WitnessAnswer, WorkAnswer,
 };
 use crate::responsibility::{
-    AllocationAnswer, AssignmentAnswer, ChainLinkAnswer, ForwardAnswer, HeldAnswer, HoldAnswer,
+    AllocationAnswer, ChainLinkAnswer, ForwardAnswer, HeldAnswer, HistoryAnswer, HoldAnswer,
     LeaseAnswer, NominationAnswer, OfferAnswer, PingPongAnswer, QueueAnswer, QueueDefinitionAnswer,
     QueueItemAnswer, QueueSignalAnswer, QueueVersionAnswer, ResponsibilityAnswer, TransferAnswer,
     WipLimitAnswer, WorkloadAnswer,
@@ -167,7 +167,7 @@ fn security_scheme() -> Value {
         LeaseAnswer,
         ForwardAnswer,
         PingPongAnswer,
-        AssignmentAnswer,
+        HistoryAnswer,
         QueueAnswer,
         QueueDefinitionAnswer,
         QueueVersionAnswer,
