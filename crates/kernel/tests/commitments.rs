@@ -11,14 +11,20 @@
 
 use std::collections::BTreeMap;
 
+use work_kernel::budget::{Amount, Budget, CONSUMPTION_EXT_KEY, Measure};
+use work_kernel::calendar::LocalDateTime;
 use work_kernel::catalog::{AggregationRule, ChangePolicy, CoreDerivedRole, DeclarationSubtype};
+use work_kernel::clock::{ClockDefinition, ClockState, ClockView, PeriodicDefinition, Target};
 use work_kernel::commitment::{
     AccessAnswer, ActiveEndCause, AggregateStatus, AggregationPolicy, Answer, Caller,
-    CommitmentState, CommitmentView, Facts, ImplicitAcceptance, Initiator, Missing, Mover,
-    Operation, Policy, Proposed, RULES, Refusal, StepOutcome, Summary, SupportCause, aggregate,
-    allowed, check, derive_commitments, implicit_acceptance, needed, next_moves, offer_gaps,
-    support_chain, support_signals,
+    CommitmentState, CommitmentView, Definition, Facts, ImplicitAcceptance, Initiator, Missing,
+    Mover, Operation, Policy, Proposed, REPORT_EXT_KEY, REPORT_PARTS, RULES, Refusal, StepOutcome,
+    Summary, SupportCause, TimeInputs, TimeProjection, aggregate, allowed, check, clock_events,
+    clock_signals, definition_records, derive_commitments, implicit_acceptance, needed, next_moves,
+    offer_gaps, project_time, support_chain, support_signals, zones_named,
 };
+use work_kernel::commitment_time::{BodyError, TimeCondition};
+use work_kernel::currency;
 use work_kernel::derive::{
     AuthorityIssuer, BusinessCalendar, DerivationInputs, Effect, Entry, Ingest, NoEffect,
     ProfileVersion, Restriction, TrustInputs, derive,
@@ -27,13 +33,16 @@ use work_kernel::id::{Digest, LedgerId, PartyRef, RecordId, Time};
 use work_kernel::items::{Area, Expect, ItemKey, touched_in};
 use work_kernel::ontology::Obligor;
 use work_kernel::record::{
-    Audience, AuthorityProofKind, AuthorityRef, BodyCommitment, Capacity, Claim, ClaimType,
-    Declaration, EvidenceRef, EvidenceSubject, EvidenceType, Param, ParamScalar, ParamValue,
-    PartName, ProtocolVersion, Record, RecordCore, VersionVector, Visibility,
+    Act, Audience, AuthorityProofKind, AuthorityRef, BodyCommitment, Capacity, Claim, ClaimType,
+    Declaration, EvidenceRef, EvidenceSubject, EvidenceType, ExtValue, Extension, Param,
+    ParamScalar, ParamValue, PartName, ProtocolVersion, Record, RecordCore, VersionVector,
+    Visibility,
 };
-use work_kernel::relation::{DerivedRole, DerivedTarget, Relation};
+use work_kernel::relation::{DerivedRole, DerivedTarget, ReferenceTarget, Relation};
+use work_kernel::rrule::Rule;
 use work_kernel::rules::RuleSet;
-use work_kernel::uri::TypeUri;
+use work_kernel::tz::Zone;
+use work_kernel::uri::{ExtKey, TypeUri};
 use work_kernel::validate::ActorType;
 
 const ALICE: &str = "party:acme:alice";
@@ -1796,4 +1805,445 @@ fn cm_25_one_act_may_fulfil_several_commitments() {
     ));
     assert_eq!(ledger.view(first).fulfilments, vec![act]);
     assert_eq!(ledger.view(second).fulfilments, vec![act]);
+}
+
+fn time_condition(kind: TimeCondition, head: Option<RecordId>) -> Record {
+    with_body(
+        decl(
+            ALICE,
+            "open_condition",
+            head,
+            &[
+                ("condition_type", t(kind.uri())),
+                ("wait_reason", t("internal")),
+                ("address", t(SUPPLIER)),
+                ("deadline", t("none")),
+                ("criterion", t(&format!("{CORE}criterion/met"))),
+            ],
+        ),
+        &["definition"],
+    )
+}
+
+fn timed_clock(version: u32, target: Target, duration: u64) -> ClockDefinition {
+    let (start, stop) = clock_events(target);
+    ClockDefinition {
+        version,
+        target,
+        duration,
+        calendar: None,
+        warnings: vec![500],
+        grace: 0,
+        pause: vec![],
+        start: start.iter().map(|s| (*s).to_owned()).collect(),
+        stop: stop.iter().map(|s| (*s).to_owned()).collect(),
+    }
+}
+
+fn listing(conditions: &[RecordId]) -> ParamValue {
+    ParamValue::List(
+        conditions
+            .iter()
+            .map(|c| ParamScalar::Digest(c.0))
+            .collect(),
+    )
+}
+
+fn observation(author: &str, key: &str, value: Vec<u8>, referenced: RecordId) -> Record {
+    let mut record = claim(author);
+    let core = core_mut(&mut record);
+    core.ext = Some(vec![Extension {
+        key: ExtKey::parse(key).unwrap(),
+        value: ExtValue(value),
+    }]);
+    core.relations = Some(vec![Relation::References {
+        source: None,
+        target: ReferenceTarget::Record(referenced),
+        qualifier: None,
+    }]);
+    record
+}
+
+fn work_act(author: &str, served: RecordId) -> Record {
+    let core = claim(author).core().clone();
+    Record::Act(Act {
+        subtype: TypeUri::parse(&format!("{CORE}act/work")).unwrap(),
+        occurred_at: Time(1),
+        core: RecordCore {
+            relations: Some(vec![Relation::Serves {
+                source: None,
+                target: served,
+                qualifier: None,
+            }]),
+            ..core
+        },
+    })
+}
+
+fn timing(
+    ledger: &Ledger,
+    root: RecordId,
+    definitions: &BTreeMap<RecordId, Vec<u8>>,
+    now: u64,
+) -> TimeProjection {
+    let entries = ledger.entries();
+    let views = ledger.views();
+    let view = views.iter().find(|v| v.root == root).unwrap();
+    project_time(
+        view,
+        &TimeInputs {
+            entries: &entries,
+            views: &views,
+            definitions,
+            zones: &[],
+            now: Time(now),
+        },
+    )
+}
+
+fn clock_of(projection: &TimeProjection, condition: RecordId) -> ClockView {
+    projection
+        .clocks
+        .iter()
+        .find(|p| p.condition == condition)
+        .unwrap()
+        .view
+        .clone()
+        .unwrap()
+}
+
+// CM-50 CM-51
+#[test]
+fn cm_50_the_records_of_a_commitment_start_and_stop_its_clocks_by_target() {
+    let mut ledger = Ledger::new();
+    let mut defs: BTreeMap<RecordId, Vec<u8>> = BTreeMap::new();
+    let mut clocks = Vec::new();
+    for target in [Target::Response, Target::Start, Target::Finish] {
+        let c = ledger.at(time_condition(TimeCondition::Clock, None), 100, false);
+        defs.insert(c, timed_clock(1, target, 60_000).encode().unwrap());
+        clocks.push(c);
+    }
+    let root = ledger.at(
+        with_body(
+            decl(
+                ALICE,
+                "request",
+                None,
+                &[
+                    ("obligor", t(SUPPLIER)),
+                    ("acceptor", t(ALICE)),
+                    ("conditions", listing(&clocks)),
+                ],
+            ),
+            &["acceptance_criterion"],
+        ),
+        1_000,
+        false,
+    );
+    let promise = ledger.at(decl(SUPPLIER, "promise", Some(root), &[]), 11_000, false);
+    let act = ledger.at(work_act(SUPPLIER, root), 31_000, false);
+    let state = ledger.at(
+        fulfilling(decl(SUPPLIER, "state", Some(promise), &[]), act, root),
+        41_000,
+        false,
+    );
+    let rejected = ledger.at(
+        decl(
+            ALICE,
+            "reject",
+            Some(state),
+            &[("statement", d(state)), ("reason", t("incomplete"))],
+        ),
+        51_000,
+        false,
+    );
+    let projection = timing(&ledger, root, &defs, 200_000);
+    assert!(projection.undefined.is_empty());
+    let response = clock_of(&projection, clocks[0]);
+    assert_eq!(response.state, ClockState::Met);
+    assert_eq!(response.elapsed, 10_000);
+    let start = clock_of(&projection, clocks[1]);
+    assert_eq!(start.state, ClockState::Met);
+    assert_eq!(start.elapsed, 20_000);
+    assert_eq!(ledger.outcome(root, rejected), StepOutcome::Applied);
+    let finish = clock_of(&projection, clocks[2]);
+    assert_eq!(finish.state, ClockState::Running);
+    assert_eq!(finish.elapsed, 189_000);
+    assert!(finish.breached.is_some());
+    let restated = ledger.at(
+        fulfilling(decl(SUPPLIER, "state", Some(rejected), &[]), act, root),
+        210_000,
+        false,
+    );
+    ledger.at(accept(ALICE, restated, restated), 220_000, false);
+    let finish = clock_of(&timing(&ledger, root, &defs, 300_000), clocks[2]);
+    assert_eq!(finish.state, ClockState::Met);
+    assert_eq!(finish.met_at, Some(Time(220_000)));
+}
+
+// CM-51
+#[test]
+fn cm_51_a_superseding_condition_redefines_the_clock_forward_only() {
+    let mut ledger = Ledger::new();
+    let mut defs: BTreeMap<RecordId, Vec<u8>> = BTreeMap::new();
+    let c = ledger.at(time_condition(TimeCondition::Clock, None), 100, false);
+    defs.insert(c, timed_clock(1, Target::Finish, 100_000).encode().unwrap());
+    let root = ledger.at(
+        with_body(
+            decl(
+                ALICE,
+                "request",
+                None,
+                &[
+                    ("obligor", t(SUPPLIER)),
+                    ("acceptor", t(ALICE)),
+                    ("conditions", listing(&[c])),
+                ],
+            ),
+            &["acceptance_criterion"],
+        ),
+        1_000,
+        false,
+    );
+    ledger.at(decl(SUPPLIER, "promise", Some(root), &[]), 1_000, false);
+    let shorter = ledger.at(time_condition(TimeCondition::Clock, Some(c)), 61_000, false);
+    defs.insert(
+        shorter,
+        timed_clock(2, Target::Finish, 50_000).encode().unwrap(),
+    );
+    let stale = ledger.at(
+        time_condition(TimeCondition::Clock, Some(shorter)),
+        62_000,
+        false,
+    );
+    defs.insert(
+        stale,
+        timed_clock(2, Target::Finish, 10_000).encode().unwrap(),
+    );
+    let other = ledger.at(
+        time_condition(TimeCondition::Clock, Some(shorter)),
+        63_000,
+        false,
+    );
+    defs.insert(
+        other,
+        timed_clock(3, Target::Response, 10_000).encode().unwrap(),
+    );
+    let before = clock_of(&timing(&ledger, root, &defs, 60_000), c);
+    assert_eq!(before.version, 1);
+    assert_eq!(before.warning, Some(500));
+    assert_eq!(before.breached, None);
+    let after = timing(&ledger, root, &defs, 70_000);
+    let projected = &after.clocks[0];
+    assert_eq!(projected.definition, shorter);
+    assert_eq!(projected.ignored, vec![stale, other]);
+    let clock = projected.view.clone().unwrap();
+    assert_eq!(clock.version, 2);
+    assert_eq!(clock.breached, Some(Time(61_000)));
+    assert_eq!(clock.reached[0].version, 1);
+    let decoded = |r: RecordId| Definition::decode(TimeCondition::Clock, &defs[&r]).unwrap();
+    assert_eq!(
+        decoded(stale).continues(&decoded(shorter)),
+        Err(BodyError("version"))
+    );
+    assert_eq!(
+        decoded(other).continues(&decoded(shorter)),
+        Err(BodyError("target"))
+    );
+    let mut wrong = timed_clock(1, Target::Response, 1);
+    wrong.stop = vec!["accept".to_owned()];
+    assert_eq!(
+        Definition::decode(TimeCondition::Clock, &wrong.encode().unwrap()),
+        Err(BodyError("stop"))
+    );
+}
+
+// CM-48 CM-49 CM-63
+#[test]
+fn cm_48_cm_49_consumption_claims_on_the_budget_condition_exhaust_it_and_hand_the_move_over() {
+    let mut ledger = Ledger::new();
+    let mut defs: BTreeMap<RecordId, Vec<u8>> = BTreeMap::new();
+    let euro = Measure::Money(currency::money("EUR").unwrap());
+    let b = ledger.push(time_condition(TimeCondition::Budget, None));
+    let budget = Budget {
+        measure: euro,
+        limit: 10_000,
+        warnings: vec![800],
+    };
+    defs.insert(b, budget.encode().unwrap());
+    let root = request(&mut ledger, &[("conditions", listing(&[b]))]);
+    ledger.push(decl(SUPPLIER, "promise", Some(root), &[]));
+    let spend = |amount: u64| {
+        Amount {
+            measure: euro,
+            amount,
+        }
+        .encode()
+        .unwrap()
+    };
+    ledger.push(observation(SUPPLIER, CONSUMPTION_EXT_KEY, spend(6_000), b));
+    ledger.push(observation(CAROL, CONSUMPTION_EXT_KEY, spend(9_000), b));
+    ledger.push(observation(
+        SUPPLIER,
+        CONSUMPTION_EXT_KEY,
+        spend(9_000),
+        root,
+    ));
+    let warned = timing(&ledger, root, &defs, u64::MAX / 4);
+    let view = warned.budgets[0].view.unwrap();
+    assert_eq!(view.consumed, 6_000);
+    assert_eq!(view.ignored, 1);
+    assert!(!warned.budget_exhausted());
+    ledger.push(observation(SUPPLIER, CONSUMPTION_EXT_KEY, spend(4_000), b));
+    let exhausted = timing(&ledger, root, &defs, u64::MAX / 4);
+    assert!(exhausted.budget_exhausted());
+    assert_eq!(exhausted.budgets[0].view.unwrap().warning, Some(800));
+    ledger.budget_exhausted = exhausted.budget_exhausted();
+    assert_eq!(
+        next_moves(&ledger.view(root), &ledger.facts()),
+        vec![Mover::Accountable]
+    );
+    assert_eq!(
+        summary(&ledger.view(root)),
+        uniform(CommitmentState::Promised)
+    );
+}
+
+// CM-53 CM-64
+#[test]
+fn cm_53_reports_referencing_the_request_meet_the_periodic_update() {
+    let berlin = Zone::from_tzif(
+        "Europe/Berlin",
+        "2026f",
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../conformance/vectors/time/tzif/Europe_Berlin.tzif"
+        )),
+    )
+    .unwrap();
+    let mut ledger = Ledger::new();
+    let mut defs: BTreeMap<RecordId, Vec<u8>> = BTreeMap::new();
+    let day = 86_400_000_u64;
+    let nine = 1_793_606_400_000_u64;
+    let p = ledger.at(
+        time_condition(TimeCondition::Periodic, None),
+        nine - 2 * day,
+        false,
+    );
+    let definition = PeriodicDefinition {
+        version: 1,
+        rule_text: "FREQ=DAILY".to_owned(),
+        rule: Rule::parse("FREQ=DAILY").unwrap(),
+        dtstart: LocalDateTime::parse_basic("20261102T090000").unwrap(),
+        zone: "Europe/Berlin".to_owned(),
+        tolerance: 3_600_000,
+        schema: None,
+    };
+    defs.insert(p, definition.encode().unwrap());
+    let root = ledger.at(
+        with_body(
+            decl(
+                ALICE,
+                "request",
+                None,
+                &[
+                    ("obligor", t(SUPPLIER)),
+                    ("acceptor", t(ALICE)),
+                    ("commitment_kind", t("periodic_update")),
+                    ("conditions", listing(&[p])),
+                ],
+            ),
+            &["acceptance_criterion"],
+        ),
+        nine - day,
+        false,
+    );
+    ledger.at(
+        decl(SUPPLIER, "promise", Some(root), &[]),
+        nine - day + 1,
+        false,
+    );
+    let report = |author: &str, parts: &[&str]| {
+        with_body(observation(author, REPORT_EXT_KEY, vec![0xa0], root), parts)
+    };
+    ledger.at(report(SUPPLIER, &REPORT_PARTS), nine + 60_000, false);
+    ledger.at(report(SUPPLIER, &["status"]), nine + day, false);
+    ledger.at(report(CAROL, &REPORT_PARTS), nine + day + 1, false);
+    let entries = ledger.entries();
+    let views = ledger.views();
+    let view = views.iter().find(|v| v.root == root).unwrap();
+    let zones = [berlin];
+    let inputs = TimeInputs {
+        entries: &entries,
+        views: &views,
+        definitions: &defs,
+        zones: &zones,
+        now: Time(nine + 2 * day - 1),
+    };
+    assert_eq!(zones_named(view, &inputs), vec!["Europe/Berlin".to_owned()]);
+    let projection = project_time(view, &inputs);
+    let periodic = &projection.periodic[0];
+    assert_eq!(periodic.reports, 1);
+    assert_eq!(periodic.ignored_reports, 2);
+    let projected = periodic.view.clone().unwrap();
+    assert_eq!(projected.tzdb, "2026f");
+    assert_eq!(projected.due[0].expected, Time(nine));
+    assert_eq!(projected.due[0].report, Some(Time(nine + 60_000)));
+    assert_eq!(projected.missed, 1);
+}
+
+// CM-47 CM-50 CM-53
+#[test]
+fn cm_47_a_breached_clock_of_a_sub_commitment_signals_its_parent() {
+    let mut ledger = Ledger::new();
+    let mut defs: BTreeMap<RecordId, Vec<u8>> = BTreeMap::new();
+    let parent = request(&mut ledger, &[]);
+    let c = ledger.push(time_condition(TimeCondition::Clock, None));
+    defs.insert(c, timed_clock(1, Target::Response, 1_500).encode().unwrap());
+    let child = ledger.push(supporting(
+        decl(
+            SUPPLIER,
+            "request",
+            None,
+            &[
+                ("obligor", t(CAROL)),
+                ("acceptor", t(SUPPLIER)),
+                ("commitment_kind", t("sub_commitment")),
+                ("conditions", listing(&[c])),
+            ],
+        ),
+        parent,
+    ));
+    let entries = ledger.entries();
+    let views = ledger.views();
+    let inputs = |now: u64| TimeInputs {
+        entries: &entries,
+        views: &views,
+        definitions: &defs,
+        zones: &[],
+        now: Time(now),
+    };
+    let parent_view = views.iter().find(|v| v.root == parent).unwrap();
+    let child_view = views.iter().find(|v| v.root == child).unwrap();
+    let opened = entries
+        .iter()
+        .find(|e| e.id() == child)
+        .unwrap()
+        .recorded_at()
+        .0;
+    let warned = project_time(child_view, &inputs(opened + 800));
+    let signals = clock_signals(parent_view, &[(child_view, &warned)]);
+    assert_eq!(signals[0].cause, SupportCause::ClockWarning);
+    let breached = project_time(child_view, &inputs(opened + 1_500));
+    let signals = clock_signals(parent_view, &[(child_view, &breached)]);
+    assert_eq!(signals.len(), 1);
+    assert_eq!(signals[0].cause, SupportCause::ClockBreach);
+    assert_eq!(signals[0].record, c);
+    assert_eq!(signals[0].notify, Some(party(SUPPLIER)));
+    let position = entries.iter().find(|e| e.id() == c).unwrap().position();
+    assert_eq!(
+        definition_records(parent_view, &inputs(opened)),
+        vec![(c, position)]
+    );
+    assert_eq!(summary(parent_view), uniform(CommitmentState::Requested));
 }

@@ -2236,6 +2236,7 @@ status = "frozen-product"
 title = ""
 tests = [
   "crates/kernel/tests/commitments.rs::cm_46_cm_47_a_sub_commitment_supports_its_parent_and_signals_its_risk",
+  "crates/kernel/tests/commitments.rs::cm_47_a_breached_clock_of_a_sub_commitment_signals_its_parent",
 ]
 
 [[rule]]
@@ -2248,6 +2249,7 @@ tests = [
   "crates/kernel/tests/commitment_time.rs::cm_48_consumption_comes_from_executor_claims_and_children_roll_up",
   "crates/kernel/tests/commitment_time.rs::cm_48_consumption_overflow_is_a_typed_error",
   "crates/kernel/tests/commitment_time.rs::cm_48_money_takes_a_list_one_currency_with_a_minor_unit_and_no_fund",
+  "crates/kernel/tests/commitments.rs::cm_48_cm_49_consumption_claims_on_the_budget_condition_exhaust_it_and_hand_the_move_over",
 ]
 
 [[rule]]
@@ -2260,6 +2262,7 @@ tests = [
   "crates/kernel/tests/commitment_time.rs::cm_48_budget_and_consumption_bodies_match_their_vectors",
   "crates/kernel/tests/commitment_time.rs::cm_49_a_budget_never_widens_the_access_limit",
   "crates/kernel/tests/commitment_time.rs::cm_49_an_exhausted_budget_asks_the_accountable_party_and_changes_nothing",
+  "crates/kernel/tests/commitments.rs::cm_48_cm_49_consumption_claims_on_the_budget_condition_exhaust_it_and_hand_the_move_over",
   "crates/kernel/tests/commitments.rs::cm_58_the_next_move_follows_the_state",
 ]
 
@@ -2275,6 +2278,8 @@ tests = [
   "crates/kernel/tests/commitment_time.rs::cm_50_working_time_advance_and_count_agree",
   "crates/kernel/tests/commitment_time.rs::cm_50_zone_data_outside_tzif_version_2_is_refused",
   "crates/kernel/tests/commitment_time.rs::cm_50_zone_offsets_and_local_times_match_tzdb",
+  "crates/kernel/tests/commitments.rs::cm_47_a_breached_clock_of_a_sub_commitment_signals_its_parent",
+  "crates/kernel/tests/commitments.rs::cm_50_the_records_of_a_commitment_start_and_stop_its_clocks_by_target",
 ]
 
 [[rule]]
@@ -2289,6 +2294,8 @@ tests = [
   "crates/kernel/tests/commitment_time.rs::cm_50_working_time_advance_and_count_agree",
   "crates/kernel/tests/commitment_time.rs::cm_51_a_redefinition_applies_forward_without_rewriting_reached_tiers",
   "crates/kernel/tests/commitment_time.rs::cm_51_the_clock_is_recomputed_from_history_at_any_time",
+  "crates/kernel/tests/commitments.rs::cm_50_the_records_of_a_commitment_start_and_stop_its_clocks_by_target",
+  "crates/kernel/tests/commitments.rs::cm_51_a_superseding_condition_redefines_the_clock_forward_only",
 ]
 
 [[rule]]
@@ -2299,6 +2306,8 @@ title = ""
 tests = [
   "crates/kernel/tests/commitment_time.rs::cm_53_a_report_missing_beyond_the_tolerance_is_a_breach_signal",
   "crates/kernel/tests/commitment_time.rs::cm_53_recurrence_rules_match_their_vectors",
+  "crates/kernel/tests/commitments.rs::cm_47_a_breached_clock_of_a_sub_commitment_signals_its_parent",
+  "crates/kernel/tests/commitments.rs::cm_53_reports_referencing_the_request_meet_the_periodic_update",
 ]
 
 [[rule]]
@@ -2402,7 +2411,9 @@ family = "CM"
 status = "frozen-product"
 stage = 5
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/commitments.rs::cm_48_cm_49_consumption_claims_on_the_budget_condition_exhaust_it_and_hand_the_move_over",
+]
 
 [[rule]]
 id = "CM-64"
@@ -2411,7 +2422,9 @@ status = "frozen-protocol"
 stage = 5
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/commitments.rs::cm_53_reports_referencing_the_request_meet_the_periodic_update",
+]
 
 [[rule]]
 id = "RC-4"
