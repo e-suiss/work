@@ -14,8 +14,10 @@ use work_store::{CommittedRecord, LedgerId, PendingEvent, PointerKey, StoreError
 use crate::domain::{Event, StreamSettings};
 
 mod claims;
+mod doorbell;
 
 pub use claims::{ClaimQueue, ClaimSink};
+pub use doorbell::{DoorbellQueue, Ring};
 
 /// The outbox of the canonical store.
 pub trait Outbox: Send + Sync {

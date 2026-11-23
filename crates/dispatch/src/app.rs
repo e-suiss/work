@@ -26,6 +26,7 @@ use crate::domain::{
 use crate::ports::{Bus, BusError, Committed, Handler, Outbound, Outbox, Pull, PullSpec, Settle};
 
 pub mod claims;
+pub mod doorbell;
 
 /// Why one publishing pass stopped; the pointers not yet acknowledged stay pending.
 #[derive(Debug, thiserror::Error)]

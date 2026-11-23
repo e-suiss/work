@@ -15,7 +15,8 @@ use std::sync::atomic::AtomicBool;
 use suiss_crypto::secret::Secret;
 use tokio::task::JoinHandle;
 use work_dispatch::{
-    AccessClaims, ClaimConfig, ClaimDeliverer, JetStreamBus, PgClaims, PgOutbox, Publisher,
+    AccessClaims, ClaimConfig, ClaimDeliverer, Doorbells, HttpRing, JetStreamBus, PgClaims,
+    PgDoorbells, PgOutbox, Publisher,
 };
 use work_ledger::time::{LedgerTime, ProcessMonotonic};
 use work_ledger::{
@@ -205,6 +206,39 @@ impl Services {
                 event = "server.claim_delivery_unstarted",
                 %error,
                 "commitment_active Claim delivery does not start"
+            ),
+        }
+    }
+
+    /// Starts the executor doorbells, as `work_publisher`: each delivery the sequencer writes
+    /// rings its addressee's configured webhook, content-free, timed on the process's Access
+    /// client clock (E-39, T-105).
+    pub(crate) fn ring_doorbells(
+        &mut self,
+        config: &Config,
+        infrastructure: &Infrastructure,
+        access: &Arc<AccessClient>,
+    ) {
+        let started = config.doorbells().and_then(|(doorbells, tls)| {
+            let clock = Arc::clone(access);
+            let ring = HttpRing::new(tls, doorbells.call_timeout, move || clock.now_ms());
+            let queue = PgDoorbells::new(infrastructure.publisher.clone());
+            Ok(Doorbells::new(queue, ring, doorbells)?)
+        });
+        match started {
+            Ok(worker) => {
+                self.handles.push(tokio::spawn(async move {
+                    worker.run(std::future::pending()).await;
+                }));
+                tracing::info!(
+                    event = "server.executor_doorbell_started",
+                    "executor doorbells started"
+                );
+            }
+            Err(error) => tracing::error!(
+                event = "server.executor_doorbell_unstarted",
+                %error,
+                "executor doorbells do not start"
             ),
         }
     }
