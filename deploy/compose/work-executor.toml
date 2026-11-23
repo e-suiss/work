@@ -1,0 +1,42 @@
+# T-105, T-101, T-56, RC-42
+
+log = "info"
+script = ["wait 2000", "write the executor reports its first action", "wait 2000"]
+
+[work]
+api = "http://work-server:8090"
+pep_certificate = "/var/lib/access/product-tls/work-pep.crt"
+
+[access]
+issuer = "https://access-server:8443/realms/platform"
+region = "eu"
+tls_roots = "/var/lib/access/product-tls/ca.crt"
+product = "one"
+bootstrap_file = "/var/lib/access/bootstrap/bootstrap.json"
+pair_realm = "platform"
+
+[pkcs11]
+module = "/usr/lib/softhsm/libsofthsm2.so"
+token = "work-dev"
+pin_file = "/run/secrets/access-pin"
+client_key = "one-access-client"
+dpop_key = "one-access-dpop"
+service_key = "one-access-service"
+
+[executor]
+heartbeat_ms = 5000
+wait_s = 25
+doorbell = "0.0.0.0:8095"
+
+[capability]
+operations = ["cancel", "takeover", "pause_resume"]
+stop_types = ["pause", "immediate", "finish_then_stop"]
+non_cancellable = ["step-2"]
+safe_state = "idle"
+checkpoints = false
+depth = "full"
+
+[responses]
+stop = "accept"
+pause = "accept"
+takeover = "accept"

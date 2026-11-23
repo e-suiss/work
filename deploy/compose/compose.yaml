@@ -277,6 +277,38 @@ services:
       relay-register:
         condition: service_completed_successfully
 
+  # T-105, T-101, T-56, RC-42
+  work-executor:
+    <<: *hardening
+    profiles: [executor]
+    build:
+      context: ../..
+      dockerfile: deploy/compose/work/Dockerfile
+      target: executor
+    image: work-dev/work-executor:local
+    user: "65532:65532"
+    group_add: ["65532"]
+    read_only: true
+    environment:
+      WORK_EXECUTOR_CONFIG: /etc/work/work-executor.toml
+      WORK_EXECUTOR_LEDGER: ${WORK_EXECUTOR_LEDGER:-}
+    volumes:
+      - ./work-executor.toml:/etc/work/work-executor.toml:ro
+      - access-product-tls:/var/lib/access/product-tls:ro
+      - access-bootstrap:/var/lib/access/bootstrap:ro
+      - softhsm:/var/lib/softhsm/tokens
+    secrets:
+      - source: work_access_pin
+        target: /run/secrets/access-pin
+    ports:
+      - "127.0.0.1:${WORK_DEV_EXECUTOR_PORT:-8195}:8095"
+    networks: [default, access]
+    depends_on:
+      work-server:
+        condition: service_started
+      access:
+        condition: service_healthy
+
   # OP-33, OP-46, T-41
   witness:
     <<: *hardening
