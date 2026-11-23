@@ -570,7 +570,7 @@ impl Default for Config {
                 previous_position_key: None,
                 kek_version: 1,
             },
-            // E-39 T-105
+            // E-39
             executor: Executor {
                 webhooks: Vec::new(),
                 tls_roots: None,
@@ -1460,7 +1460,7 @@ mod tests {
         ));
     }
 
-    // E-39 T-105
+    // E-39
     #[test]
     fn e_39_executor_webhooks_are_operator_configuration_checked_at_start() {
         let (none, tls) = with("").unwrap().doorbells().unwrap();

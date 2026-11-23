@@ -2437,9 +2437,9 @@ tests = [
   "crates/dispatch/src/app.rs::t_21_run_polls_until_shutdown",
   "crates/dispatch/src/app.rs::t_21_run_waits_the_poll_interval_when_nothing_is_pending",
   "crates/dispatch/src/app.rs::t_21_unreachable_nats_reports_degraded",
-  "crates/dispatch/src/app/doorbell.rs::t_105_a_failed_doorbell_keeps_its_attempts_and_waits_its_backoff",
+  "crates/dispatch/src/app/doorbell.rs::t_21_a_failed_doorbell_keeps_its_attempts_and_waits_its_backoff",
   "crates/dispatch/src/domain.rs::t_21_backoff_doubles_up_to_the_maximum_and_resets",
-  "crates/dispatch/src/domain/doorbell.rs::t_105_a_failed_doorbell_waits_from_one_second_to_fifteen_minutes",
+  "crates/dispatch/src/domain/doorbell.rs::t_21_a_failed_doorbell_waits_from_one_second_to_fifteen_minutes",
 ]
 
 [[rule]]

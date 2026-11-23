@@ -149,7 +149,7 @@ mod tests {
 
     use super::*;
 
-    // E-39 T-105
+    // E-39
     #[test]
     fn e_39_a_doorbell_names_only_the_ledger_and_the_cursor() {
         let ledger = LedgerId::from_bytes([0xab; 32]);
@@ -160,9 +160,9 @@ mod tests {
         assert!(body["ledger"].as_str().unwrap().starts_with("led_"));
     }
 
-    // T-105 T-21
+    // T-21
     #[test]
-    fn t_105_a_failed_doorbell_waits_from_one_second_to_fifteen_minutes() {
+    fn t_21_a_failed_doorbell_waits_from_one_second_to_fifteen_minutes() {
         let config = DoorbellConfig::default();
         assert_eq!(config.validate(), Ok(()));
         assert_eq!(config.retry_min, Duration::from_secs(1));

@@ -69,11 +69,5 @@ roughtime = [
   { address = "roughtime-c:5319", public_key = "yFLhuJSAjDrmKPwqy0zrWYZcHfiuvQfW+iCgHsufKWU=", version = "rfc" },
 ]
 
-# E-39 T-105: the webhook each executor Party's doorbell is rung at, content-free; an executor
-# without one pulls GET /v1/ledgers/{ledger}/executor/deliveries. An https webhook needs tls_roots.
 [executor]
 call_timeout_ms = 5000
-# tls_roots = "/etc/work/executor-roots.pem"
-# [[executor.webhooks]]
-# party = "<executor PartyRef>"
-# url = "https://executor.example/work/doorbell"
