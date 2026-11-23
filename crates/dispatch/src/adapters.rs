@@ -7,6 +7,7 @@
 //! and in [`relay`] Work's credential for Relay (T-99 item 4).
 
 pub mod claims;
+pub mod doorbell;
 pub mod relay;
 
 use std::collections::BTreeMap;

@@ -152,6 +152,7 @@ async fn run(config: &Config, scan: Arc<dyn Scan>) -> ExitCode {
         }
     };
     services.deliver_claims(&infrastructure, &access.client);
+    services.ring_doorbells(config, &infrastructure, &access.client);
     let health = services.health(
         &infrastructure,
         Arc::clone(&access.up),

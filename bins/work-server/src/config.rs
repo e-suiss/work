@@ -1,5 +1,6 @@
 //! Typed process configuration, validated at start-up (T-32 rule 8).
 
+use std::collections::BTreeMap;
 use std::io::BufReader;
 use std::net::{Ipv4Addr, SocketAddr};
 use std::num::NonZeroU8;
@@ -14,7 +15,8 @@ use figment::providers::{Env, Format, Serialized, Toml};
 use serde::{Deserialize, Serialize};
 use work_access_client::adapters::{SERVER_TLS_LABEL, roots};
 use work_access_client::domain::discovery::Issuer;
-use work_dispatch::{PublisherConfig, StreamSettings};
+use work_dispatch::{DoorbellConfig, PublisherConfig, StreamSettings, Webhook};
+use work_kernel::id::PartyRef;
 use work_kernel::proof::{TimeSources, Verifier, WitnessProfile};
 use work_ledger::time::{
     NTS_KE_PORT, NtsServer, RoughtimeServer, RoughtimeVersion, TimeConfigError, check_sources,
@@ -79,6 +81,34 @@ pub(crate) struct Config {
     pub(crate) inbound: Inbound,
     /// The REST routes that act for a caller (P-56, T-97).
     pub(crate) api: Api,
+    /// The executor doorbells (E-39, T-105).
+    pub(crate) executor: Executor,
+}
+
+/// `[executor]`: the webhook each executor Party's doorbell is rung at (E-39, T-105); operator
+/// configuration, never a ledger write. A doorbell names only the ledger and the cursor the
+/// executor pulls `GET /v1/ledgers/{ledger}/executor/deliveries` from; an executor without a
+/// webhook pulls on its own.
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Executor {
+    /// One webhook per executor Party.
+    pub(crate) webhooks: Vec<ExecutorWebhook>,
+    /// A PEM file of the roots the certificates of `https` webhooks are verified against;
+    /// needed once any webhook is `https`.
+    pub(crate) tls_roots: Option<PathBuf>,
+    /// Upper bound on one doorbell exchange, in milliseconds.
+    pub(crate) call_timeout_ms: u64,
+}
+
+/// One `[[executor.webhooks]]` entry.
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct ExecutorWebhook {
+    /// The executor Party, its `PartyRef` as Work's records name it.
+    pub(crate) party: String,
+    /// Its webhook, `http(s)://host[:port][/path]`.
+    pub(crate) url: String,
 }
 
 /// `[api]`: what the routes that act for a caller need besides the Access client (P-56, T-97
@@ -540,6 +570,12 @@ impl Default for Config {
                 previous_position_key: None,
                 kek_version: 1,
             },
+            // E-39 T-105
+            executor: Executor {
+                webhooks: Vec::new(),
+                tls_roots: None,
+                call_timeout_ms: 5_000,
+            },
         }
     }
 }
@@ -611,6 +647,12 @@ pub(crate) enum ConfigError {
     ApiOrigin,
     #[error("api.kek_version must be positive")]
     KekVersion,
+    #[error("executor.webhooks[{0}].{1} is malformed or repeated")]
+    ExecutorWebhook(usize, &'static str),
+    #[error("executor.call_timeout_ms must be positive")]
+    ExecutorTimeout,
+    #[error("executor.tls_roots: {0}")]
+    ExecutorRoots(String),
 }
 
 impl Config {
@@ -676,7 +718,54 @@ impl Config {
         if self.api.kek_version == 0 {
             return Err(ConfigError::KekVersion);
         }
+        self.doorbells()?;
         Ok(())
+    }
+
+    /// The doorbell settings and the roots of `https` webhooks, after checking each webhook:
+    /// a valid and unique Party, an `http(s)` URL, and roots for an `https` one (E-39, T-105).
+    pub(crate) fn doorbells(
+        &self,
+    ) -> Result<
+        (
+            DoorbellConfig,
+            Option<Arc<tokio_rustls::rustls::ClientConfig>>,
+        ),
+        ConfigError,
+    > {
+        let e = &self.executor;
+        if e.call_timeout_ms == 0 {
+            return Err(ConfigError::ExecutorTimeout);
+        }
+        let tls = match &e.tls_roots {
+            Some(path) => {
+                let file = std::fs::File::open(path)
+                    .map_err(|err| ConfigError::ExecutorRoots(err.to_string()))?;
+                Some(
+                    witness_tls(&mut BufReader::new(file))
+                        .map_err(|err| ConfigError::ExecutorRoots(err.to_string()))?,
+                )
+            }
+            None => None,
+        };
+        let mut webhooks = BTreeMap::new();
+        for (i, w) in e.webhooks.iter().enumerate() {
+            if PartyRef::new(&w.party).is_none() || webhooks.contains_key(&w.party) {
+                return Err(ConfigError::ExecutorWebhook(i, "party"));
+            }
+            let hook =
+                Webhook::parse(&w.url).map_err(|_| ConfigError::ExecutorWebhook(i, "url"))?;
+            if hook.is_tls() && tls.is_none() {
+                return Err(ConfigError::ExecutorWebhook(i, "url"));
+            }
+            webhooks.insert(w.party.clone(), w.url.clone());
+        }
+        let config = DoorbellConfig {
+            webhooks,
+            call_timeout: Duration::from_millis(e.call_timeout_ms),
+            ..DoorbellConfig::default()
+        };
+        Ok((config, tls))
     }
 
     /// The Access issuer, Work's region and the PEM roots, read and checked (T-96 item 1, E-4).
@@ -1368,6 +1457,35 @@ mod tests {
         assert!(matches!(
             with("[api]\nkek_version = 0"),
             Err(ConfigError::KekVersion)
+        ));
+    }
+
+    // E-39 T-105
+    #[test]
+    fn e_39_executor_webhooks_are_operator_configuration_checked_at_start() {
+        let (none, tls) = with("").unwrap().doorbells().unwrap();
+        assert!(none.webhooks.is_empty());
+        assert!(tls.is_none());
+        let one = "[[executor.webhooks]]\nparty = \"party:acme:agent\"\nurl = \"http://agent.example:9000/doorbell\"\n";
+        let (config, _) = with(one).unwrap().doorbells().unwrap();
+        assert_eq!(
+            config.webhooks.get("party:acme:agent").map(String::as_str),
+            Some("http://agent.example:9000/doorbell")
+        );
+        assert_eq!(config.retry_max, Duration::from_mins(15));
+        let twice = format!("{one}{one}");
+        assert!(matches!(
+            with(&twice),
+            Err(ConfigError::ExecutorWebhook(1, "party"))
+        ));
+        let https_without_roots = "[[executor.webhooks]]\nparty = \"party:acme:agent\"\nurl = \"https://agent.example/doorbell\"\n";
+        assert!(matches!(
+            with(https_without_roots),
+            Err(ConfigError::ExecutorWebhook(0, "url"))
+        ));
+        assert!(matches!(
+            with("[executor]\ncall_timeout_ms = 0"),
+            Err(ConfigError::ExecutorTimeout)
         ));
     }
 

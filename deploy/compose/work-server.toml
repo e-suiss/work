@@ -1,4 +1,4 @@
-# OP-32, OP-42, OP-43, T-41, T-20, T-39, OP-33, T-76, OP-46, SEC-32, T-96, E-2, T-101, T-102, T-103, T-97
+# OP-32, OP-42, OP-43, T-41, T-20, T-39, OP-33, T-76, OP-46, SEC-32, T-96, E-2, T-101, T-102, T-103, T-97, E-39, T-105
 
 [suiss]
 access = "https://access-server:8443/realms/platform"
@@ -68,3 +68,12 @@ roughtime = [
   { address = "roughtime-b:5319", public_key = "RW6UPuZR++RA8vjZRifiCkVfPCvAggemi7RlkQRLdrk=", version = "rfc" },
   { address = "roughtime-c:5319", public_key = "yFLhuJSAjDrmKPwqy0zrWYZcHfiuvQfW+iCgHsufKWU=", version = "rfc" },
 ]
+
+# E-39 T-105: the webhook each executor Party's doorbell is rung at, content-free; an executor
+# without one pulls GET /v1/ledgers/{ledger}/executor/deliveries. An https webhook needs tls_roots.
+[executor]
+call_timeout_ms = 5000
+# tls_roots = "/etc/work/executor-roots.pem"
+# [[executor.webhooks]]
+# party = "<executor PartyRef>"
+# url = "https://executor.example/work/doorbell"
