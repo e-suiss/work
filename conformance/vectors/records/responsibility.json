@@ -2823,9 +2823,9 @@
         "cbor": "a3656f776e65727070617274793a61636d653a616c6963656a63616e64696461746573817470617274793a61636d653a62757965722d6f72676f63616e6469646174655f67726f75707067726f75703a61636d653a6c6567616c"
       },
       {
-        "id": "queue-definition-lease-without-expiry",
+        "id": "queue-definition-lease-without-expiry-left-to-the-kernel",
         "root": "queue-definition-params",
-        "schema_valid": false,
+        "schema_valid": true,
         "cbor": "a3656c6561736519ea60656f776e65727070617274793a61636d653a616c6963656a63616e64696461746573817470617274793a61636d653a62757965722d6f7267"
       },
       {

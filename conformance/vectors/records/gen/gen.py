@@ -2598,8 +2598,8 @@ PARAM_CASES = [
     ("queue-definition-without-owner", "queue-definition-params", {"candidates": [BUYER]}, False),
     ("queue-definition-two-candidate-sets", "queue-definition-params", {
         "owner": ALICE, "candidates": [BUYER], "candidate_group": "group:acme:legal"}, False),
-    ("queue-definition-lease-without-expiry", "queue-definition-params", {
-        "owner": ALICE, "candidates": [BUYER], "lease": 60000}, False),
+    ("queue-definition-lease-without-expiry-left-to-the-kernel", "queue-definition-params", {
+        "owner": ALICE, "candidates": [BUYER], "lease": 60000}, True),
     ("queue-definition-unknown-method", "queue-definition-params", {
         "owner": ALICE, "candidates": [BUYER], "distribution": "best_agent"}, False),
     ("org-rule-full", "org-rule-params", {
