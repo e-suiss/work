@@ -48,6 +48,23 @@ COPY --from=build /out/work-cli /usr/local/bin/work-cli
 USER 65532:65532
 ENTRYPOINT ["/usr/local/bin/work-cli"]
 
+# T-105
+FROM ${RUST_IMAGE} AS executor-build
+WORKDIR /src
+ENV RUSTUP_TOOLCHAIN=1.99.0 \
+    CARGO_TERM_COLOR=never \
+    SQLX_OFFLINE=true
+COPY . .
+RUN cargo build --locked --package work-executor \
+ && install -D -m 0755 target/debug/work-executor /out/work-executor
+
+FROM ${SERVER_IMAGE} AS executor
+COPY --from=hsm /out/ /
+COPY --from=executor-build /out/work-executor /usr/local/bin/work-executor
+USER 65532:65532
+EXPOSE 8095
+ENTRYPOINT ["/usr/local/bin/work-executor"]
+
 FROM ${SERVER_IMAGE} AS server
 COPY --from=hsm /out/ /
 COPY --from=build /out/work-server /usr/local/bin/work-server
