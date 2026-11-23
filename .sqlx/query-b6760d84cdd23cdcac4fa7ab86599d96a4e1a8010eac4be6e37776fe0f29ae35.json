@@ -1,0 +1,150 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT seq, pos AS \"pos!\", record_id::bytea AS \"record_id!\", addressee, kind,\n                      commitment::bytea AS \"commitment!\", body,\n                      (extract(epoch FROM issued_at) * 1000)::bigint AS \"issued_at_ms!\",\n                      doorbell, attempts,\n                      (extract(epoch FROM next_attempt_at) * 1000)::bigint AS \"next_attempt_ms!\",\n                      last_error,\n                      (extract(epoch FROM settled_at) * 1000)::bigint AS settled_ms\n               FROM work.executor_delivery\n               WHERE ledger_id = $1 AND addressee = $2 AND seq > $3\n               ORDER BY seq\n               LIMIT $4",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "seq",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "work.executor_delivery",
+            "name": "seq"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "pos!",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "work.executor_delivery",
+            "name": "pos"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "record_id!",
+        "type_info": "Bytea",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "addressee",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "work.executor_delivery",
+            "name": "addressee"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "work.executor_delivery",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "commitment!",
+        "type_info": "Bytea",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "body",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "work.executor_delivery",
+            "name": "body"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "issued_at_ms!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 8,
+        "name": "doorbell",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "work.executor_delivery",
+            "name": "doorbell"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "attempts",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "work.executor_delivery",
+            "name": "attempts"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "next_attempt_ms!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 11,
+        "name": "last_error",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "work.executor_delivery",
+            "name": "last_error"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "settled_ms",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Text",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null,
+      false,
+      false,
+      null,
+      false,
+      null,
+      false,
+      false,
+      null,
+      true,
+      null
+    ]
+  },
+  "hash": "b6760d84cdd23cdcac4fa7ab86599d96a4e1a8010eac4be6e37776fe0f29ae35"
+}

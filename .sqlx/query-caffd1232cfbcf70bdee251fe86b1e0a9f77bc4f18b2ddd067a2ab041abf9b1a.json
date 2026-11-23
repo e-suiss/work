@@ -1,0 +1,56 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT authority_digest::bytea AS \"authority!\", idem_key, pos AS \"pos!\",\n                      record_id::bytea AS \"record_id!\"\n               FROM work.single_use\n               WHERE ledger_id = $1 AND (authority_digest = $2 OR idem_key = $3)\n               ORDER BY pos",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "authority!",
+        "type_info": "Bytea",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "idem_key",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "work.single_use",
+            "name": "idem_key"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "pos!",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "work.single_use",
+            "name": "pos"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "record_id!",
+        "type_info": "Bytea",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Bytea",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null,
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "caffd1232cfbcf70bdee251fe86b1e0a9f77bc4f18b2ddd067a2ab041abf9b1a"
+}

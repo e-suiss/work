@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT l::bytea AS \"l!\"\n               FROM work.executor_delivery_ledgers($1::bytea::ledger.digest32, $2, $3) AS t(l)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "l!",
+        "type_info": "Bytea",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "1aa5b17d039b527810c4d11e1b12debe5ed6593c9b258fdd92028daa343ee448"
+}
