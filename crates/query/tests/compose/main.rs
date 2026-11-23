@@ -1657,6 +1657,7 @@ mod commit {
     use work_access_client::domain::keys::{DomainId, KernelId};
     use work_access_client::domain::metadata::thumbprint;
     use work_access_client::domain::{b64url, fixed_b64url, from_b64url};
+    use work_kernel::clock::{ClockDefinition, Target};
     use work_kernel::codec::{Decoded, body_commitment, decode_record, record_id};
     use work_kernel::id::{Digest, LedgerId};
     use work_kernel::record::{PartName, Record};
@@ -3281,6 +3282,133 @@ mod commit {
             "schema-not-accepted",
             "{asked:?}"
         );
+    }
+
+    /// A fresh Work identifier on Access's clock.
+    async fn fresh_work(local: &Local) -> Vec<u8> {
+        unhex(
+            &local
+                .uuid7(local.access_now_s().await * 1000)
+                .replace('-', ""),
+        )
+    }
+
+    /// The test user's clock Condition over a fresh Work carrying `definition` in its
+    /// `definition` part (WD-146 item 2).
+    async fn clock_condition(local: &Local, w: &Writer, definition: &[u8]) -> Vec<u8> {
+        let work = fresh_work(local).await;
+        let condition = reshaped(
+            &golden_commitment(
+                local,
+                "commitment/clock-condition",
+                (&w.led, &w.receipt),
+                None,
+                None,
+            ),
+            &[],
+            vec![("concerns", Cbor::Array(vec![Cbor::Bytes(work)]))],
+        );
+        with_body(
+            &condition,
+            &w.led,
+            &[("definition".to_owned(), definition.to_vec())],
+        )
+    }
+
+    // CM-50 CM-51 CM-64 E-45
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore = "needs the local environment with the Declaration the test user wrote"]
+    async fn cm_50_the_commitment_reads_the_clock_of_the_condition_its_request_lists() {
+        let local = Local::open();
+        let w = Writer::open(&local).await;
+        let declarations = format!("/v1/ledgers/{}/declarations", w.led);
+        let wrong = ClockDefinition {
+            version: 1,
+            target: Target::Response,
+            duration: 86_400_000,
+            calendar: None,
+            warnings: vec![500],
+            grace: 0,
+            pause: Vec::new(),
+            start: vec!["request".to_owned()],
+            stop: vec!["accept".to_owned()],
+        };
+        let refused_condition = clock_condition(&local, &w, &wrong.encode().unwrap()).await;
+        let body = w
+            .body_with(
+                &local,
+                &refused_condition,
+                &w.commit.bytes,
+                &[opening(&w.led, "definition", &wrong.encode().unwrap()).0],
+            )
+            .await;
+        let key = local.uuid7(local.access_now_s().await * 1000);
+        let refused = w.post(&local, &declarations, body, &key, "\"0\"").await;
+        assert_eq!(refused.status, 422, "{refused:?}");
+        assert_eq!(
+            refused.json()["reason"],
+            json!(["definition", "stop"]),
+            "{refused:?}"
+        );
+        let definition = ClockDefinition {
+            stop: vec!["promise".to_owned()],
+            ..wrong
+        }
+        .encode()
+        .unwrap();
+        let condition = clock_condition(&local, &w, &definition).await;
+        let body = w
+            .body_with(
+                &local,
+                &condition,
+                &w.commit.bytes,
+                &[opening(&w.led, "definition", &definition).0],
+            )
+            .await;
+        let key = local.uuid7(local.access_now_s().await * 1000);
+        let opened = w.post(&local, &declarations, body, &key, "\"0\"").await;
+        assert_eq!(opened.status, 201, "{opened:?}");
+        let me = Cbor::text(&local.user("party"));
+        let request = reshaped(
+            &golden_commitment(
+                &local,
+                "commitment/request-offer",
+                (&w.led, &w.receipt),
+                None,
+                None,
+            ),
+            &[
+                ("obligor", Some(me.clone())),
+                ("acceptor", Some(me)),
+                (
+                    "conditions",
+                    Some(Cbor::Array(vec![record_digest(&condition)])),
+                ),
+            ],
+            vec![(
+                "concerns",
+                Cbor::Array(vec![Cbor::Bytes(fresh_work(&local).await)]),
+            )],
+        );
+        let path = format!("/v1/ledgers/{}/commitments", w.led);
+        let cmt = written(&local, &w, &path, &request, "\"0\"", None).await;
+        let base = format!("/v1/ledgers/{}/commitments/{cmt}", w.led);
+        let read_back = local.read(&w.key, &base, &w.token).await;
+        assert_eq!(read_back.status, 200, "{read_back:?}");
+        let view = read_back.json();
+        let time = &view["time"];
+        assert_eq!(time["tzdb"], "2026f", "{view}");
+        assert_eq!(time["undefined"], json!([]), "{view}");
+        let clocks = time["clocks"].as_array().unwrap();
+        assert_eq!(clocks.len(), 1, "{view}");
+        assert_eq!(
+            clocks[0]["condition"],
+            record_id(&condition).to_external().as_str(),
+            "{view}"
+        );
+        assert_eq!(clocks[0]["target"], "response", "{view}");
+        assert_eq!(clocks[0]["state"], "running", "{view}");
+        assert_eq!(clocks[0]["version"], 1, "{view}");
     }
 
     // SEC-36 C-4 T-102

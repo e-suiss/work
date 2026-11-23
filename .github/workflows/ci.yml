@@ -682,6 +682,7 @@ jobs:
           just test-compose-live "$dir" commit::op_45_the_offer_texts_of_the_written_request_read_back_from_the_ledger
           just test-compose-only "$dir" commit::e_12_access_takes_the_commitment_active_false_claim_work_hands_it
           just test-compose-only "$dir" commit::cm_25_the_test_user_s_own_commitment_is_stated_and_its_acceptance_needs_work_close
+          just test-compose-only "$dir" commit::cm_50_the_commitment_reads_the_clock_of_the_condition_its_request_lists
       - name: The routes that act for a caller, the declaration write among them, are mounted and ask for a DPoP token first (T-97, P-56, C-9, SEC-18, P-13)
         run: |
           c() { docker compose -f deploy/compose/compose.yaml "$@"; }
