@@ -563,7 +563,7 @@ fn check_executor(
         return Ok(Executed::Fresh(None));
     };
     let contexts: Vec<Digest> = used.iter().map(|u| Digest::sha256(u.authority)).collect();
-    let uses: Vec<Use<'_>> = used
+    let earlier: Vec<Use<'_>> = used
         .iter()
         .zip(&contexts)
         .map(|(u, context)| Use {
@@ -576,7 +576,7 @@ fn check_executor(
         context: &context,
         key: binding.key.as_str(),
     };
-    match check_single_use(&uses, new).map_err(|r| ExecutorRefusal::Control(r.wire_name()))? {
+    match check_single_use(&earlier, new).map_err(|r| ExecutorRefusal::Control(r.wire_name()))? {
         SingleUse::Fresh => Ok(Executed::Fresh(Some(SingleUseRow {
             authority: binding.authority,
             key: binding.key,
