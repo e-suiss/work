@@ -1232,8 +1232,10 @@ stage = 5
 title = ""
 tests = [
   "crates/http/src/commitments/tests.rs::c_6_every_operation_a_caller_writes_has_one_typed_write_naming_its_action",
+  "crates/http/src/control/tests.rs::e_45_every_control_record_has_one_typed_write_naming_its_action",
   "crates/kernel/tests/commitments.rs::cm_7_an_offer_with_an_agent_side_needs_its_six_fields",
   "crates/query/src/domain/commitments/tests.rs::e_45_every_commitment_operation_a_caller_writes_names_one_action",
+  "crates/query/src/domain/control/tests.rs::c_6_a_consultation_and_a_correction_are_shapes_of_their_record_kinds",
 ]
 
 [[rule]]
@@ -1689,6 +1691,7 @@ title = ""
 tests = [
   "crates/access-client/src/domain/adp/tests.rs::t_101_work_builds_the_canonical_commit_intent_of_a_ledger_and_its_adp_form",
   "crates/http/src/commitments/tests.rs::c_6_every_operation_a_caller_writes_has_one_typed_write_naming_its_action",
+  "crates/http/src/control/tests.rs::e_45_every_control_record_has_one_typed_write_naming_its_action",
   "crates/http/src/writes.rs::p_54_a_declaration_carries_one_key_one_if_match_and_its_access_evidence",
   "crates/http/tests/openapi.rs::e_45_every_api_operation_names_exactly_one_action",
   "crates/proto/src/action.rs::e_45_effect_classes_and_params_follow_the_table",
@@ -2358,6 +2361,7 @@ title = ""
 tests = [
   "crates/kernel/tests/commitments.rs::cm_56_a_terms_amendment_needs_the_obligors_renewed_promise",
   "crates/kernel/tests/commitments.rs::cm_57_interrupt_and_rollback_need_the_executors_control_capability",
+  "crates/query/src/domain/control/tests.rs::rc_40_a_resumption_cites_its_stop_and_a_correction_needs_its_declared_policy",
 ]
 
 [[rule]]
@@ -2460,7 +2464,9 @@ family = "RC"
 status = "frozen-product"
 title = ""
 tests = [
+  "crates/http/src/control/tests.rs::rc_30_the_control_of_a_commitment_is_answered_by_its_wire_names",
   "crates/kernel/tests/responsibility.rs::rc_8_the_intervener_answers_from_the_takeover_on_and_a_leaseless_coordinator_is_marked",
+  "crates/query/src/domain/control/tests.rs::rc_8_an_act_under_a_control_lease_is_the_drivers_and_one_without_is_outside_coordination",
 ]
 
 [[rule]]
@@ -2540,8 +2546,10 @@ status = "frozen-product"
 stage = 7
 title = ""
 tests = [
+  "crates/http/src/control/tests.rs::rc_30_the_control_of_a_commitment_is_answered_by_its_wire_names",
   "crates/kernel/tests/responsibility.rs::rc_18_a_kept_lease_only_signals_the_owner",
   "crates/kernel/tests/responsibility.rs::rc_18_a_lease_runs_out_and_the_work_service_returns_the_work",
+  "crates/query/src/domain/control/tests.rs::rc_18_the_executors_status_and_heartbeats_are_its_lease_activity_and_no_one_elses",
 ]
 
 [[rule]]
@@ -2612,6 +2620,7 @@ title = ""
 tests = [
   "crates/kernel/tests/control.rs::rc_28_high_impact_or_weakly_evidenced_work_is_a_suggestion",
   "crates/kernel/tests/control.rs::rc_28_irreversible_binding_actions_require_a_gate_by_default",
+  "crates/query/src/domain/control/tests.rs::rc_27_the_policy_in_force_decides_the_autonomy_of_each_move",
 ]
 
 [[rule]]
@@ -2622,6 +2631,7 @@ title = ""
 tests = [
   "crates/kernel/tests/control.rs::rc_29_a_deviation_is_a_reasoned_event_and_repeats_only_suggest",
   "crates/kernel/tests/control.rs::rc_29_only_the_principal_expands_autonomy_and_an_expansion_notifies",
+  "crates/query/src/domain/control/tests.rs::rc_29_only_the_principal_in_person_expands_autonomy",
 ]
 
 [[rule]]
@@ -2630,7 +2640,9 @@ family = "RC"
 status = "frozen-product"
 title = ""
 tests = [
+  "crates/http/src/control/tests.rs::e_45_every_control_record_has_one_typed_write_naming_its_action",
   "crates/kernel/tests/control.rs::rc_31_attention_consultation_and_takeover_are_distinct_records",
+  "crates/query/src/domain/control/tests.rs::c_6_a_consultation_and_a_correction_are_shapes_of_their_record_kinds",
   "crates/query/src/domain/kinds/tests.rs::e_45_every_core_declaration_a_caller_writes_names_one_catalog_action",
 ]
 
@@ -2651,7 +2663,10 @@ status = "frozen-product"
 stage = 6
 title = ""
 tests = [
+  "crates/http/src/control/tests.rs::e_45_every_control_record_has_one_typed_write_naming_its_action",
   "crates/kernel/tests/control.rs::rc_33_one_driver_and_a_time_bound_lease_for_a_second",
+  "crates/query/src/domain/control/tests.rs::rc_33_one_second_driver_and_only_its_holder_releases_the_lease",
+  "crates/query/src/domain/control/tests.rs::rc_8_an_act_under_a_control_lease_is_the_drivers_and_one_without_is_outside_coordination",
   "crates/query/src/domain/kinds/tests.rs::e_45_every_core_declaration_a_caller_writes_names_one_catalog_action",
 ]
 
@@ -2663,6 +2678,8 @@ title = ""
 tests = [
   "crates/kernel/tests/control.rs::rc_34_an_unsupported_intervention_is_never_offered",
   "crates/kernel/tests/control.rs::rc_34_taking_control_runs_through_a_release_with_a_handover_note",
+  "crates/query/src/domain/control/tests.rs::rc_33_one_second_driver_and_only_its_holder_releases_the_lease",
+  "crates/query/src/domain/control/tests.rs::rc_3_only_the_requests_the_capability_declares_are_offered",
 ]
 
 [[rule]]
@@ -2680,8 +2697,12 @@ family = "RC"
 status = "frozen-product"
 title = ""
 tests = [
+  "crates/http/src/control/tests.rs::e_45_every_control_record_has_one_typed_write_naming_its_action",
+  "crates/http/src/control/tests.rs::rc_30_the_control_of_a_commitment_is_answered_by_its_wire_names",
   "crates/kernel/tests/control.rs::rc_36_a_stop_request_reads_pending_until_the_doer_answers",
   "crates/kernel/tests/records.rs::p_80_core_subtypes_require_their_reason_and_type_keys",
+  "crates/query/src/domain/control/tests.rs::rc_36_only_the_doer_answers_one_stop_request_and_a_refusal_gives_its_reason",
+  "crates/query/src/domain/control/tests.rs::sec_7_a_stop_the_capability_does_not_support_is_refused",
   "crates/query/src/domain/kinds/tests.rs::e_45_every_core_declaration_a_caller_writes_names_one_catalog_action",
 ]
 
@@ -2693,6 +2714,8 @@ stage = 6
 title = ""
 tests = [
   "crates/kernel/tests/control.rs::rc_38_only_the_executor_claim_shows_stopped_and_a_refusal_reaches_attention",
+  "crates/query/src/domain/control/tests.rs::rc_36_only_the_doer_answers_one_stop_request_and_a_refusal_gives_its_reason",
+  "crates/query/src/domain/control/tests.rs::rc_37_a_forced_stop_counts_only_from_the_executor_or_a_system_party",
 ]
 
 [[rule]]
@@ -2702,7 +2725,10 @@ status = "frozen-product"
 stage = 6
 title = ""
 tests = [
+  "crates/http/src/control/tests.rs::e_45_every_control_record_has_one_typed_write_naming_its_action",
   "crates/kernel/tests/control.rs::rc_40_resuming_takes_its_own_declaration_and_never_happens_by_itself",
+  "crates/query/src/domain/control/tests.rs::c_6_a_consultation_and_a_correction_are_shapes_of_their_record_kinds",
+  "crates/query/src/domain/control/tests.rs::rc_40_a_resumption_cites_its_stop_and_a_correction_needs_its_declared_policy",
 ]
 
 [[rule]]
@@ -2712,6 +2738,7 @@ status = "central-decision"
 title = ""
 tests = [
   "crates/kernel/tests/control.rs::rc_41_only_reports_of_an_assigned_executor_count",
+  "crates/query/src/domain/control/tests.rs::rc_18_the_executors_status_and_heartbeats_are_its_lease_activity_and_no_one_elses",
 ]
 
 [[rule]]
@@ -2724,7 +2751,8 @@ tests = [
   "crates/kernel/tests/control.rs::rc_42_contract_bodies_match_their_vectors",
   "crates/kernel/tests/control.rs::rc_42_missing_liveness_reads_stale_or_unknown_never_running",
   "crates/kernel/tests/control.rs::rc_42_reports_travel_as_their_record_kinds_and_never_carry_raw_thought",
-  "crates/query/src/domain/kinds/tests.rs::rc_42_the_executor_claims_are_six_distinct_extension_keys",
+  "crates/query/src/domain/control/tests.rs::rc_3_only_the_requests_the_capability_declares_are_offered",
+  "crates/query/src/domain/kinds/tests.rs::rc_42_the_executor_claims_are_distinct_extension_keys",
 ]
 
 [[rule]]
@@ -2735,7 +2763,7 @@ title = ""
 tests = [
   "crates/kernel/tests/control.rs::rc_43_attempts_are_grouped_by_session_and_keep_their_reasons",
   "crates/kernel/tests/control.rs::rc_43_the_integration_depth_bounds_what_work_delivers",
-  "crates/query/src/domain/kinds/tests.rs::rc_42_the_executor_claims_are_six_distinct_extension_keys",
+  "crates/query/src/domain/kinds/tests.rs::rc_42_the_executor_claims_are_distinct_extension_keys",
 ]
 
 [[rule]]
@@ -2787,6 +2815,8 @@ pd = "set"
 title = ""
 tests = [
   "crates/kernel/tests/control.rs::rc_49_bulk_over_ten_objects_and_eighty_percent_of_a_limit_are_near_the_boundary",
+  "crates/query/src/domain/control/tests.rs::rc_27_the_policy_in_force_decides_the_autonomy_of_each_move",
+  "crates/query/src/domain/control/tests.rs::rc_29_only_the_principal_in_person_expands_autonomy",
 ]
 
 [[rule]]
@@ -4021,6 +4051,7 @@ tests = [
   "crates/http/src/commitments/tests.rs::c_6_every_operation_a_caller_writes_has_one_typed_write_naming_its_action",
   "crates/http/src/conditional.rs::p_54_a_changing_request_sends_one_idempotency_key",
   "crates/http/src/conditional.rs::p_54_if_match_is_the_item_version_and_becomes_the_basis",
+  "crates/http/src/control/tests.rs::e_45_every_control_record_has_one_typed_write_naming_its_action",
   "crates/http/src/deprecation.rs::p_54_a_deprecated_route_announces_deprecation_and_sunset",
   "crates/http/src/json.rs::p_54_large_integers_travel_as_canonical_decimal_strings",
   "crates/http/src/rate.rs::p_54_a_caller_past_its_quota_waits_for_the_next_window",

@@ -1095,7 +1095,11 @@ family = "RC"
 status = "canonical-invariant"
 stage = 6
 title = ""
-tests = []
+tests = [
+  "crates/http/src/control/tests.rs::rc_30_the_control_of_a_commitment_is_answered_by_its_wire_names",
+  "crates/query/src/domain/control/tests.rs::rc_3_only_the_requests_the_capability_declares_are_offered",
+  "crates/query/src/domain/control/tests.rs::sec_7_a_stop_the_capability_does_not_support_is_refused",
+]
 
 [[rule]]
 id = "RC-6"
@@ -1183,7 +1187,11 @@ status = "canonical-invariant"
 stage = 6
 title = ""
 tests = [
+  "crates/http/src/control/tests.rs::e_45_every_control_record_has_one_typed_write_naming_its_action",
+  "crates/http/src/control/tests.rs::rc_30_the_control_of_a_commitment_is_answered_by_its_wire_names",
   "crates/kernel/tests/control.rs::rc_27_access_deny_is_final_and_autonomy_stays_inside_authority",
+  "crates/query/src/domain/control/tests.rs::rc_27_the_policy_in_force_decides_the_autonomy_of_each_move",
+  "crates/query/src/domain/control/tests.rs::rc_29_only_the_principal_in_person_expands_autonomy",
   "crates/query/src/domain/restriction.rs::rc_27_an_autonomy_rule_set_verdict_narrows_the_kernel_evaluation",
 ]
 
@@ -1194,7 +1202,10 @@ status = "canonical-invariant"
 stage = 6
 title = ""
 tests = [
+  "crates/http/src/control/tests.rs::rc_30_the_control_of_a_commitment_is_answered_by_its_wire_names",
   "crates/kernel/tests/control.rs::rc_30_revoked_authority_is_not_a_stopped_execution",
+  "crates/query/src/domain/control/tests.rs::rc_37_a_forced_stop_counts_only_from_the_executor_or_a_system_party",
+  "crates/query/src/domain/control/tests.rs::st_4_liveness_is_stale_at_twice_the_declared_heartbeat_interval",
 ]
 
 [[rule]]
@@ -1204,7 +1215,10 @@ status = "canonical-invariant"
 stage = 6
 title = ""
 tests = [
+  "crates/http/src/control/tests.rs::e_45_every_control_record_has_one_typed_write_naming_its_action",
   "crates/kernel/tests/control.rs::rc_37_a_forced_stop_is_recorded_and_never_confirms_the_stop",
+  "crates/query/src/domain/control/tests.rs::rc_37_a_forced_stop_counts_only_from_the_executor_or_a_system_party",
+  "crates/query/src/domain/kinds/tests.rs::rc_42_the_executor_claims_are_distinct_extension_keys",
 ]
 
 [[rule]]
@@ -1250,7 +1264,10 @@ family = "ST"
 status = "canonical-invariant"
 stage = 7
 title = ""
-tests = []
+tests = [
+  "crates/http/src/control/tests.rs::rc_30_the_control_of_a_commitment_is_answered_by_its_wire_names",
+  "crates/query/src/domain/control/tests.rs::st_4_liveness_is_stale_at_twice_the_declared_heartbeat_interval",
+]
 
 [[rule]]
 id = "ST-10"
@@ -1676,7 +1693,9 @@ family = "SEC"
 status = "canonical-invariant"
 stage = 6
 title = ""
-tests = []
+tests = [
+  "crates/query/src/domain/control/tests.rs::sec_7_a_stop_the_capability_does_not_support_is_refused",
+]
 
 [[rule]]
 id = "SEC-8"
