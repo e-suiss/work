@@ -2,6 +2,7 @@
 
 use serde::Deserialize;
 use suiss_restriction::{CompileError, Denial, Engine, InputRejected, Limits, Narrow, Outcome};
+use work_kernel::derive::Restriction;
 use work_kernel::explanation::{Explanation, ExplanationError};
 use work_proto::explanation::{Requirements, RuleOutcome, explain};
 
@@ -173,6 +174,17 @@ impl RuleVerdict {
         explain(outcome, reference, requirements)
     }
 
+    /// The kernel input of this verdict, as an autonomy evaluation takes the principal's rule set
+    /// verdict (RC-27).
+    #[must_use]
+    pub const fn restriction(&self) -> Restriction {
+        match self {
+            Self::NoObjection => Restriction::NoObjection,
+            Self::Require(_) => Restriction::Require,
+            Self::Deny { .. } => Restriction::Deny,
+        }
+    }
+
     /// The verdict of a transition refused for its rule set count.
     #[must_use]
     pub const fn too_many_rule_sets() -> Self {
@@ -225,6 +237,10 @@ mod tests {
     use std::fmt::Write as _;
 
     use suiss_restriction::RequestJson;
+    use work_kernel::commitment::AccessAnswer;
+    use work_kernel::control::autonomy::{
+        AccessView, ActionRisk, AutonomyOutcome, Evidence, Impact, evaluate,
+    };
 
     use super::*;
 
@@ -356,6 +372,44 @@ action write appliesTo { principal: [Actor], resource: [Resource], context: Ctx 
             .unwrap();
         assert_eq!(denied, Explanation::restricted(Some(&[1; 16])));
         assert_eq!(REQUIRE_UNNAMED, "policy-require");
+    }
+
+    // RC-27
+    #[test]
+    fn rc_27_an_autonomy_rule_set_verdict_narrows_the_kernel_evaluation() {
+        let engine = RestrictionLimits::default()
+            .compile(SCHEMA, &rule_set(1))
+            .unwrap();
+        let risk = ActionRisk {
+            action: "write",
+            objects: 1,
+            reversible: true,
+            binds_other_party: false,
+            impact: Impact::Normal,
+            evidence: Evidence::Strong,
+        };
+        let access = AccessView {
+            answer: AccessAnswer::Allow,
+            limits: &[],
+        };
+        let outcome = |entities: &str| {
+            let verdict = RuleVerdict::of(engine.evaluate(&request(r#"{"note":"ok"}"#, entities)));
+            evaluate(&risk, &access, None, verdict.restriction()).outcome
+        };
+        assert_eq!(outcome(&entities("t1")), AutonomyOutcome::Proceed);
+        assert_eq!(outcome(&entities("t2")), AutonomyOutcome::Deny);
+        assert_eq!(
+            RuleVerdict::Require(vec!["rs-a".to_owned()]).restriction(),
+            Restriction::Require
+        );
+        let denied = AccessView {
+            answer: AccessAnswer::Deny,
+            limits: &[],
+        };
+        assert_eq!(
+            evaluate(&risk, &denied, None, RuleVerdict::NoObjection.restriction()).outcome,
+            AutonomyOutcome::Deny
+        );
     }
 
     // PR-23 T-33
