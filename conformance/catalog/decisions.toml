@@ -1369,7 +1369,9 @@ family = "C"
 status = "frozen-product"
 stage = 5
 title = ""
-tests = []
+tests = [
+  "crates/query/src/domain/executor/tests.rs::rc_43_a_report_travels_as_the_record_kind_its_event_takes_and_a_session_names_its_commitment",
+]
 
 [[rule]]
 id = "C-39"
@@ -1689,6 +1691,7 @@ title = ""
 tests = [
   "crates/access-client/src/domain/adp/tests.rs::t_101_work_builds_the_canonical_commit_intent_of_a_ledger_and_its_adp_form",
   "crates/http/src/commitments/tests.rs::c_6_every_operation_a_caller_writes_has_one_typed_write_naming_its_action",
+  "crates/http/src/executor/tests.rs::rc_42_every_executor_element_has_one_typed_write_naming_its_action",
   "crates/http/src/writes.rs::p_54_a_declaration_carries_one_key_one_if_match_and_its_access_evidence",
   "crates/http/tests/openapi.rs::e_45_every_api_operation_names_exactly_one_action",
   "crates/proto/src/action.rs::e_45_effect_classes_and_params_follow_the_table",
@@ -2682,6 +2685,7 @@ title = ""
 tests = [
   "crates/kernel/tests/control.rs::rc_36_a_stop_request_reads_pending_until_the_doer_answers",
   "crates/kernel/tests/records.rs::p_80_core_subtypes_require_their_reason_and_type_keys",
+  "crates/query/src/domain/executor/tests.rs::rc_42_a_stop_request_and_a_resume_deliver_their_request_and_other_records_none",
   "crates/query/src/domain/kinds/tests.rs::e_45_every_core_declaration_a_caller_writes_names_one_catalog_action",
 ]
 
@@ -2703,6 +2707,7 @@ stage = 6
 title = ""
 tests = [
   "crates/kernel/tests/control.rs::rc_40_resuming_takes_its_own_declaration_and_never_happens_by_itself",
+  "crates/query/src/domain/executor/tests.rs::rc_42_a_stop_request_and_a_resume_deliver_their_request_and_other_records_none",
 ]
 
 [[rule]]
@@ -2712,6 +2717,7 @@ status = "central-decision"
 title = ""
 tests = [
   "crates/kernel/tests/control.rs::rc_41_only_reports_of_an_assigned_executor_count",
+  "crates/query/src/domain/executor/tests.rs::op_4_a_record_is_acted_upon_by_the_first_action_of_the_executor_relying_on_it",
 ]
 
 [[rule]]
@@ -2721,9 +2727,15 @@ status = "frozen-protocol"
 acceptance = "to-fill"
 title = ""
 tests = [
+  "crates/http/src/executor/tests.rs::rc_42_a_delivery_is_answered_with_decimal_numbers_and_its_body_in_base64url",
+  "crates/http/src/executor/tests.rs::rc_42_every_executor_element_has_one_typed_write_naming_its_action",
+  "crates/kernel/tests/commitments.rs::rc_42_the_view_a_proposed_record_gives_is_the_one_the_fold_derives_once_it_is_written",
   "crates/kernel/tests/control.rs::rc_42_contract_bodies_match_their_vectors",
   "crates/kernel/tests/control.rs::rc_42_missing_liveness_reads_stale_or_unknown_never_running",
   "crates/kernel/tests/control.rs::rc_42_reports_travel_as_their_record_kinds_and_never_carry_raw_thought",
+  "crates/query/src/domain/executor/tests.rs::rc_42_a_body_that_does_not_decode_is_refused_naming_its_member",
+  "crates/query/src/domain/executor/tests.rs::rc_42_a_stop_request_and_a_resume_deliver_their_request_and_other_records_none",
+  "crates/query/src/domain/executor/tests.rs::rc_42_each_contract_element_travels_as_a_record_of_its_fixed_kind",
   "crates/query/src/domain/kinds/tests.rs::rc_42_the_executor_claims_are_six_distinct_extension_keys",
 ]
 
@@ -2735,6 +2747,8 @@ title = ""
 tests = [
   "crates/kernel/tests/control.rs::rc_43_attempts_are_grouped_by_session_and_keep_their_reasons",
   "crates/kernel/tests/control.rs::rc_43_the_integration_depth_bounds_what_work_delivers",
+  "crates/query/src/domain/executor/tests.rs::rc_42_each_contract_element_travels_as_a_record_of_its_fixed_kind",
+  "crates/query/src/domain/executor/tests.rs::rc_43_a_report_travels_as_the_record_kind_its_event_takes_and_a_session_names_its_commitment",
   "crates/query/src/domain/kinds/tests.rs::rc_42_the_executor_claims_are_six_distinct_extension_keys",
 ]
 
@@ -4022,6 +4036,8 @@ tests = [
   "crates/http/src/conditional.rs::p_54_a_changing_request_sends_one_idempotency_key",
   "crates/http/src/conditional.rs::p_54_if_match_is_the_item_version_and_becomes_the_basis",
   "crates/http/src/deprecation.rs::p_54_a_deprecated_route_announces_deprecation_and_sunset",
+  "crates/http/src/executor/tests.rs::rc_42_a_delivery_is_answered_with_decimal_numbers_and_its_body_in_base64url",
+  "crates/http/src/executor/tests.rs::t_105_the_delivery_read_takes_a_cursor_and_a_wait_of_at_most_thirty_seconds",
   "crates/http/src/json.rs::p_54_large_integers_travel_as_canonical_decimal_strings",
   "crates/http/src/rate.rs::p_54_a_caller_past_its_quota_waits_for_the_next_window",
   "crates/http/src/reads.rs::p_57_a_changes_query_names_its_cursor_and_limit_once",
@@ -6858,11 +6874,14 @@ stage = 2
 acceptance = "to-fill"
 title = ""
 tests = [
+  "crates/http/src/reads.rs::op_4_the_evidence_answer_names_the_action_report_that_acted_upon_the_record",
   "crates/kernel/tests/control.rs::op_4_a_record_is_acted_upon_once_the_executor_reports_an_act_on_it",
   "crates/ledger/src/checkpoint.rs::p_20_the_acknowledgement_is_the_log_signed_checkpoint_asked_for",
   "crates/ledger/src/replica.rs::op_4_a_mirrored_entry_and_its_received_bytes_are_written_once",
   "crates/ledger/src/witness.rs::op_33_only_a_configured_witness_cosigning_the_stored_tree_is_taken",
   "crates/ledger/src/witness.rs::op_4_a_checkpoint_the_replica_does_not_hold_is_not_sent_to_witnesses",
+  "crates/query/src/domain/executor/tests.rs::op_4_a_record_is_acted_upon_by_the_first_action_of_the_executor_relying_on_it",
+  "crates/query/src/domain/executor/tests.rs::sec_15_an_action_report_binds_one_context_to_one_key_and_the_same_pair_is_a_replay",
   "crates/query/src/domain/reads.rs::p_20_the_audit_path_proves_every_leaf_under_the_tree_root",
 ]
 
