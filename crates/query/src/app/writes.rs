@@ -1,4 +1,4 @@
-//! The commitment Declaration write path (P-13, P-21, P-105, P-116, P-12, E-13, E-14, E-45, MD-4 item 5, OP-8, T-28, T-101 item 7): the caller is named by Access first; the `Idempotency-Key` and `If-Match` are decided against the ledger's canonical rows; then every Access answer the record depends on is asked online under a bound, never from a cache that outlives Access's own rules: the realm's governing domain from Work's pairing, the signing key's binding through the signed key lookup or the realm keys of an `auth_context` artifact, and the Exercise with its decision receipt. Only then does the kernel admit the record, with the receipt kept as received beside it; its body openings, checked against the record's commitments before Access is asked, are scanned for secrets and sealed, and the ledger's writer commits the record with its parts in one transaction. When Access cannot answer, nothing is written (fail-closed).
+//! The commitment Declaration write path (P-13, P-21, P-105, P-116, P-12, E-13, E-14, E-45, MD-4 item 5, OP-8, T-28, T-101 item 7): the caller is named by Access first; the `Idempotency-Key` and `If-Match` are decided against the ledger's canonical rows; then every Access answer the record depends on is asked online under a bound, never from a cache that outlives Access's own rules: the realm's governing domain from Work's pairing, the signing key's binding through the signed key lookup or the realm keys of an `auth_context` artifact, and the Exercise with its decision receipt. Only then does the kernel admit the record, with the receipt kept as received beside it; its body openings, checked against the record's commitments once the ledger's rows decided the request and before Access is asked, are scanned for secrets and sealed, and the ledger's writer commits the record with its parts in one transaction. When Access cannot answer, nothing is written (fail-closed).
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::future::Future;
@@ -756,7 +756,6 @@ where
         let carried = carried(request)?;
         let record = &carried.record;
         expected_operation(record, request)?;
-        check_openings(record.core(), &request.body)?;
         let caller_ref = CallerRef::new(
             caller
                 .party()
@@ -772,6 +771,7 @@ where
             Precheck::Fresh(fresh) => *fresh,
             Precheck::Done(answer) => return answer,
         };
+        check_openings(record.core(), &request.body)?;
         let (given, intent) = authority_of(record, request, ledger, now_ms)?;
         let (domain, paired) = self.realm(caller).await?;
         let exercise = self.exercise(domain, given, &intent, audience).await?;
