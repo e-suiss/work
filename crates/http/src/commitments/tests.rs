@@ -75,16 +75,10 @@ fn p_55_what_a_transition_still_needs_and_the_next_move_are_spelled_by_their_wir
     );
 }
 
-// CM-50 CM-51 CM-48 CM-49 CM-53 CM-64
-#[test]
-fn cm_50_clocks_periodic_updates_and_budgets_are_answered_by_their_wire_names() {
-    use work_kernel::budget::{Budget, BudgetView, Choice, Decision, Measure};
-    use work_kernel::clock::{ClockView, Due, PeriodicView, Reached};
-    use work_kernel::currency;
+fn breached_clock(condition: RecordId, later: RecordId) -> ClockProjection {
+    use work_kernel::clock::{ClockView, Reached};
 
-    let condition = RecordId(Digest::sha256([8; 32]));
-    let later = RecordId(Digest::sha256([9; 32]));
-    let breached = ClockProjection {
+    ClockProjection {
         condition,
         definition: later,
         target: Target::Finish,
@@ -114,7 +108,19 @@ fn cm_50_clocks_periodic_updates_and_budgets_are_answered_by_their_wire_names() 
             tzdb: None,
         }),
         ignored: Vec::new(),
-    };
+    }
+}
+
+// CM-50 CM-51 CM-48 CM-49 CM-53 CM-64
+#[test]
+fn cm_50_clocks_periodic_updates_and_budgets_are_answered_by_their_wire_names() {
+    use work_kernel::budget::{Budget, BudgetView, Choice, Decision, Measure};
+    use work_kernel::clock::{Due, PeriodicView};
+    use work_kernel::currency;
+
+    let condition = RecordId(Digest::sha256([8; 32]));
+    let later = RecordId(Digest::sha256([9; 32]));
+    let breached = breached_clock(condition, later);
     let answer = clock(&breached);
     assert_eq!(answer.target, "finish");
     assert_eq!(answer.state.as_deref(), Some("running"));
