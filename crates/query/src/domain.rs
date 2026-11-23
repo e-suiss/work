@@ -12,6 +12,7 @@ pub mod caller;
 pub mod ceiling;
 pub mod commitments;
 pub mod control;
+pub mod executor;
 pub mod kinds;
 pub mod notices;
 pub mod reads;

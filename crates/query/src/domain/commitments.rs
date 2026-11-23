@@ -7,8 +7,10 @@ use work_kernel::codec::{Decoded, decode_record, leaf_hash, record_id};
 use work_kernel::commitment::{
     self, AccessAnswer, ActiveEnd, Allowed, Caller as Asking, CommitmentView, Facts,
     ImplicitAcceptance, Mover, Operation, Proposed, Refusal, StepOutcome, SupportSignal,
-    TimeInputs, TimeProjection, clock_signals, definition_records, project_time, zones_named,
+    TimeInputs, TimeProjection, clock_signals, condition_of, definition_records, project_time,
+    zones_named,
 };
+use work_kernel::commitment_time::TimeCondition;
 use work_kernel::cose::parse_container;
 use work_kernel::derive::{
     AuthorityIssuer, BusinessCalendar, DerivationInputs, Entry, ProfileVersion, Restriction,
@@ -456,6 +458,67 @@ impl Folded {
             &self.proposed(asked),
             &records,
         )))
+    }
+}
+
+/// What the executor rules and the deliveries of one record read from the commitments
+/// (RC-41, RC-42): the commitment it names, its view before and with the record applied next,
+/// its budget Condition, the records it cites and those its `request` cites.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Scope {
+    /// The commitment the record names, by its `request`.
+    pub commitment: Option<RecordId>,
+    /// Its view before the record.
+    pub before: Option<CommitmentView>,
+    /// Its view with the record applied next.
+    pub after: Option<CommitmentView>,
+    /// Its budget Condition record.
+    pub budget: Option<RecordId>,
+    /// The records the record cites in its basis that the fold reads.
+    pub cited: Vec<(RecordId, Record)>,
+    /// The records its `request` cites.
+    pub context: Vec<RecordId>,
+}
+
+impl Folded {
+    /// The [`Scope`] of `asked` (RC-41, RC-42).
+    ///
+    /// # Errors
+    /// [`FoldError::Derive`] when the kernel refuses the sequence.
+    pub fn scope(&self, asked: &Asked<'_>, facts: &Facts<'_>) -> Result<Scope, FoldError> {
+        let (entries, views) = self.derived(facts)?;
+        let records: BTreeMap<RecordId, &Record> =
+            entries.iter().map(|e| (e.id(), e.record())).collect();
+        let commitment = crate::domain::executor::named(&views, &records, asked.record);
+        let before = commitment
+            .and_then(|c| views.iter().find(|v| v.root == c))
+            .cloned();
+        let after = before
+            .as_ref()
+            .map(|v| commitment::applied(v, &self.proposed(asked), &records, facts));
+        let budget = before.as_ref().and_then(|v| {
+            v.conditions.iter().copied().find(|c| {
+                records.get(c).and_then(|r| condition_of(r)) == Some(TimeCondition::Budget)
+            })
+        });
+        let cited = asked
+            .record
+            .basis()
+            .iter()
+            .filter_map(|b| records.get(b).map(|r| (*b, (*r).clone())))
+            .collect();
+        let context = commitment
+            .and_then(|c| records.get(&c))
+            .map(|r| r.basis().to_vec())
+            .unwrap_or_default();
+        Ok(Scope {
+            commitment,
+            before,
+            after,
+            budget,
+            cited,
+            context,
+        })
     }
 }
 
