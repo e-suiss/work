@@ -6,6 +6,7 @@ pub mod commitments;
 pub mod common;
 pub mod conditional;
 pub mod deprecation;
+pub mod executor;
 pub mod gateway;
 pub mod inbound;
 pub mod json;

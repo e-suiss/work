@@ -15,6 +15,7 @@ use crate::commitments::{
     PeriodicAnswer, ReachedAnswer, SignalAnswer, StatementAnswer, StepAnswer, TermsAnswer,
     TimeAnswer,
 };
+use crate::executor::{DeliveriesAnswer, DeliveryAnswer};
 use crate::problem::{FieldError, Problem, ProblemCode, ProblemType};
 use crate::reads::{
     AuthContextAnswer, AuthorSignature, ChangeEntry, ChangesAnswer, CheckpointAnswer,
@@ -86,7 +87,17 @@ fn security_scheme() -> Value {
         crate::commitments::notice,
         crate::commitments::declare_obsolete,
         crate::commitments::administrative_close,
-        crate::commitments::implicit_acceptance_terms
+        crate::commitments::implicit_acceptance_terms,
+        crate::executor::list_executor_deliveries,
+        crate::executor::capability,
+        crate::executor::status,
+        crate::executor::control_mode,
+        crate::executor::heartbeat,
+        crate::executor::session,
+        crate::executor::report,
+        crate::executor::stop_response,
+        crate::executor::request_response,
+        crate::executor::handover
     ),
     components(schemas(
         Problem,
@@ -136,7 +147,9 @@ fn security_scheme() -> Value {
         ReachedAnswer,
         PeriodicAnswer,
         DueAnswer,
-        BudgetAnswer
+        BudgetAnswer,
+        DeliveriesAnswer,
+        DeliveryAnswer
     ))
 )]
 struct Api;
