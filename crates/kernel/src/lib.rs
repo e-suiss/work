@@ -14,6 +14,7 @@ pub mod codec;
 pub mod commitment;
 pub mod commitment_time;
 pub mod compromise;
+pub mod control;
 pub mod cose;
 pub mod currency;
 pub mod derive;
