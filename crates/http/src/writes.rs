@@ -470,14 +470,10 @@ mod tests {
         assert_eq!(note.content, b"note");
         assert_eq!(note.salt, [0; 32]);
         assert_eq!(purpose.media_type, "text/markdown");
-        assert!(purpose.content.is_empty());
-        let none = serde_json::to_vec(&body()).unwrap();
-        assert!(
-            declaration_request(&none, &both, String::new())
-                .unwrap()
-                .body
-                .is_empty()
-        );
+        assert_eq!(purpose.content, Vec::<u8>::new());
+        let without = serde_json::to_vec(&body()).unwrap();
+        let unopened = declaration_request(&without, &both, String::new()).unwrap();
+        assert_eq!(unopened.body, Vec::new());
         let refused = |part: Value| {
             let mut b = body();
             b["body"] = json!([part]);
