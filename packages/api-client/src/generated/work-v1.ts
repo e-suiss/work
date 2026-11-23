@@ -348,6 +348,159 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/ledgers/{ledger}/commitments/{commitment}/executor/capability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Declares the executor's control capability; Work offers only what it declares (RC-39, RC-42, RC-43). */
+        post: operations["declare_executor_capability"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/ledgers/{ledger}/commitments/{commitment}/executor/control-mode": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reports the control mode the executor runs in, with the control lease in force (RC-32, RC-33, RC-42). */
+        post: operations["report_executor_control_mode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/ledgers/{ledger}/commitments/{commitment}/executor/handover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Hands the work over with a `handoff_note` in the handover schema (RC-34, RC-42, CM-45). */
+        post: operations["hand_over_executor_work"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/ledgers/{ledger}/commitments/{commitment}/executor/heartbeat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reports that the executor is alive, or leaving on purpose (RC-42, ST-4). */
+        post: operations["report_executor_heartbeat"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/ledgers/{ledger}/commitments/{commitment}/executor/reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reports an action as an Act bound to a single-use authority context and one idempotency key, or a question, answer, error, plan update or rationale summary as a Claim (RC-42, RC-43, SEC-15, OP-4). */
+        post: operations["report_executor_progress"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/ledgers/{ledger}/commitments/{commitment}/executor/request-responses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Answers a takeover, a return of control, a resume, a change or a budget notice with an `observation` Claim carrying a `request-response` body and citing the request (RC-33, RC-40, RC-42). */
+        post: operations["respond_executor_request"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/ledgers/{ledger}/commitments/{commitment}/executor/responses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Answers a stop request with a `stop_response` citing it: accept, finish then stop, or refuse with a reason (RC-36, RC-42). */
+        post: operations["respond_executor_stop"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/ledgers/{ledger}/commitments/{commitment}/executor/session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Opens or closes an execution session, one attempt of the commitment, keeping why a failed or abandoned attempt ended (RC-43). */
+        post: operations["report_executor_session"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/ledgers/{ledger}/commitments/{commitment}/executor/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reports the execution's status, what was done and what is needed; only this report shows a stop (RC-38, RC-42). */
+        post: operations["report_executor_status"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/ledgers/{ledger}/commitments/{commitment}/implicit-acceptance-terms": {
         parameters: {
             query?: never;
@@ -588,6 +741,29 @@ export interface paths {
          *     `auth_context`. When Access cannot be asked, nothing is written.
          */
         post: operations["create_declaration"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/ledgers/{ledger}/executor/deliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Reads the deliveries addressed to the caller.
+         * @description The commitments bound to the caller and the requests made of it as the executor assigned to
+         *     the work, after `after`, oldest first, at most 100 (RC-42, T-105). With none and a `wait`,
+         *     the read waits up to that many seconds for the next one. A webhook only rings a doorbell
+         *     naming the ledger and a cursor (E-39); the executor reads the deliveries here.
+         */
+        get: operations["list_executor_deliveries"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1052,6 +1228,37 @@ export interface components {
             /** @description The window's end, the declaration's commit time, RFC 3339 UTC. */
             window_to: string;
         };
+        /** @description The deliveries addressed to the caller (RC-42, T-105). */
+        DeliveriesAnswer: {
+            /**
+             * @description The sequence number of the last delivery answered, or `after` when none is; the next
+             *     read names it as `after`.
+             */
+            cursor: string;
+            /** @description At most 100, oldest first. */
+            deliveries: components["schemas"]["DeliveryAnswer"][];
+        };
+        /** @description One delivery to the executor (RC-42). */
+        DeliveryAnswer: {
+            /** @description The record's ledger time, RFC 3339 UTC. */
+            at: string;
+            /**
+             * @description The `work/control/1` `commitment-delivery` or `request` body, unpadded base64url of its
+             *     deterministic CBOR.
+             */
+            body: string;
+            /** @description The commitment, `cmt_…`. */
+            commitment: string;
+            /**
+             * @description `commitment`: the commitment is bound to the executor; `request`: Work asks it to stop,
+             *     resume, take over, return control or apply a change.
+             */
+            kind: string;
+            /** @description The record that caused it, `rec_…`. */
+            record: string;
+            /** @description Its sequence number in the ledger, a decimal string. */
+            seq: string;
+        };
         /** @description One expected report of a periodic update (CM-53). */
         DueAnswer: {
             /** @description The last time a report still counts, RFC 3339 UTC. */
@@ -1068,6 +1275,11 @@ export interface components {
          *     the inclusion proof and the external time and witnesses are never shown as one another.
          */
         EvidenceAnswer: {
+            /**
+             * @description The first action report of the executor assigned to the work relying on the record,
+             *     `rec_…`, which makes it `acted upon` (OP-4); absent while no action relies on it.
+             */
+            acted_upon?: string | null;
             auth_context?: components["schemas"]["AuthContextAnswer"] | null;
             /** @description The Party that wrote it, `pty_…`. */
             author: string;
@@ -4680,6 +4892,1770 @@ export interface operations {
             };
         };
     };
+    declare_executor_capability: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A UUIDv7; the same key with the same body answers the first result. */
+                "Idempotency-Key": string;
+                /** @description The strong ETag of the commitment's version. */
+                "If-Match": string;
+            };
+            path: {
+                /** @description The ledger, `led_…`. */
+                ledger: string;
+                /** @description The commitment, `cmt_…`. */
+                commitment: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewDeclaration"];
+            };
+        };
+        responses: {
+            /** @description The record is in the ledger, or, for an action report whose authority context and idempotency key an earlier report bound, that report with `replayed`. */
+            201: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommitmentWritten"];
+                };
+            };
+            /** @description A body, identifier or header that does not open, or a record of another element. */
+            400: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description No valid Access access token and DPoP proof. */
+            401: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    /** @description The DPoP challenge. */
+                    "WWW-Authenticate"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The Access evidence does not authorise this record. */
+            403: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description No such ledger. */
+            404: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The commitment is no longer at the If-Match version. */
+            412: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description A body part is above its bound. */
+            413: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The record is refused with its reason, kept under its key: `control`, `not_executor` for a writer that is not the executor assigned to the work; `definition` and the member for a body that does not decode; `control`, `context_reused` or `key_reused` for an authority context or idempotency key another report bound; `control`, `commitment` for a record that names another commitment; or a body part carries a secret. */
+            422: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description No If-Match. */
+            428: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The caller has spent its quota. */
+            429: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    /** @description Seconds until the next window. */
+                    "Retry-After"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Access cannot be reached, the ledger is busy, or the outcome is being checked; send the same request again. */
+            503: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    /** @description Seconds to wait when the ledger is busy. */
+                    "Retry-After"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    report_executor_control_mode: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A UUIDv7; the same key with the same body answers the first result. */
+                "Idempotency-Key": string;
+                /** @description The strong ETag of the commitment's version. */
+                "If-Match": string;
+            };
+            path: {
+                /** @description The ledger, `led_…`. */
+                ledger: string;
+                /** @description The commitment, `cmt_…`. */
+                commitment: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewDeclaration"];
+            };
+        };
+        responses: {
+            /** @description The record is in the ledger, or, for an action report whose authority context and idempotency key an earlier report bound, that report with `replayed`. */
+            201: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommitmentWritten"];
+                };
+            };
+            /** @description A body, identifier or header that does not open, or a record of another element. */
+            400: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description No valid Access access token and DPoP proof. */
+            401: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    /** @description The DPoP challenge. */
+                    "WWW-Authenticate"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The Access evidence does not authorise this record. */
+            403: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description No such ledger. */
+            404: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The commitment is no longer at the If-Match version. */
+            412: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description A body part is above its bound. */
+            413: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The record is refused with its reason, kept under its key: `control`, `not_executor` for a writer that is not the executor assigned to the work; `definition` and the member for a body that does not decode; `control`, `context_reused` or `key_reused` for an authority context or idempotency key another report bound; `control`, `commitment` for a record that names another commitment; or a body part carries a secret. */
+            422: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description No If-Match. */
+            428: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The caller has spent its quota. */
+            429: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    /** @description Seconds until the next window. */
+                    "Retry-After"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Access cannot be reached, the ledger is busy, or the outcome is being checked; send the same request again. */
+            503: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    /** @description Seconds to wait when the ledger is busy. */
+                    "Retry-After"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    hand_over_executor_work: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A UUIDv7; the same key with the same body answers the first result. */
+                "Idempotency-Key": string;
+                /** @description The strong ETag of the commitment's version. */
+                "If-Match": string;
+            };
+            path: {
+                /** @description The ledger, `led_…`. */
+                ledger: string;
+                /** @description The commitment, `cmt_…`. */
+                commitment: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewDeclaration"];
+            };
+        };
+        responses: {
+            /** @description The record is in the ledger, or, for an action report whose authority context and idempotency key an earlier report bound, that report with `replayed`. */
+            201: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommitmentWritten"];
+                };
+            };
+            /** @description A body, identifier or header that does not open, or a record of another element. */
+            400: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description No valid Access access token and DPoP proof. */
+            401: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    /** @description The DPoP challenge. */
+                    "WWW-Authenticate"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The Access evidence does not authorise this record. */
+            403: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description No such ledger. */
+            404: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The commitment is no longer at the If-Match version. */
+            412: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description A body part is above its bound. */
+            413: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The record is refused with its reason, kept under its key: `control`, `not_executor` for a writer that is not the executor assigned to the work; `definition` and the member for a body that does not decode; `control`, `context_reused` or `key_reused` for an authority context or idempotency key another report bound; `control`, `commitment` for a record that names another commitment; or a body part carries a secret. */
+            422: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description No If-Match. */
+            428: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The caller has spent its quota. */
+            429: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    /** @description Seconds until the next window. */
+                    "Retry-After"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Access cannot be reached, the ledger is busy, or the outcome is being checked; send the same request again. */
+            503: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    /** @description Seconds to wait when the ledger is busy. */
+                    "Retry-After"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    report_executor_heartbeat: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A UUIDv7; the same key with the same body answers the first result. */
+                "Idempotency-Key": string;
+                /** @description The strong ETag of the commitment's version. */
+                "If-Match": string;
+            };
+            path: {
+                /** @description The ledger, `led_…`. */
+                ledger: string;
+                /** @description The commitment, `cmt_…`. */
+                commitment: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewDeclaration"];
+            };
+        };
+        responses: {
+            /** @description The record is in the ledger, or, for an action report whose authority context and idempotency key an earlier report bound, that report with `replayed`. */
+            201: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommitmentWritten"];
+                };
+            };
+            /** @description A body, identifier or header that does not open, or a record of another element. */
+            400: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description No valid Access access token and DPoP proof. */
+            401: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    /** @description The DPoP challenge. */
+                    "WWW-Authenticate"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The Access evidence does not authorise this record. */
+            403: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description No such ledger. */
+            404: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The commitment is no longer at the If-Match version. */
+            412: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description A body part is above its bound. */
+            413: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The record is refused with its reason, kept under its key: `control`, `not_executor` for a writer that is not the executor assigned to the work; `definition` and the member for a body that does not decode; `control`, `context_reused` or `key_reused` for an authority context or idempotency key another report bound; `control`, `commitment` for a record that names another commitment; or a body part carries a secret. */
+            422: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description No If-Match. */
+            428: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The caller has spent its quota. */
+            429: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    /** @description Seconds until the next window. */
+                    "Retry-After"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Access cannot be reached, the ledger is busy, or the outcome is being checked; send the same request again. */
+            503: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    /** @description Seconds to wait when the ledger is busy. */
+                    "Retry-After"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    report_executor_progress: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A UUIDv7; the same key with the same body answers the first result. */
+                "Idempotency-Key": string;
+                /** @description The strong ETag of the commitment's version. */
+                "If-Match": string;
+            };
+            path: {
+                /** @description The ledger, `led_…`. */
+                ledger: string;
+                /** @description The commitment, `cmt_…`. */
+                commitment: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewDeclaration"];
+            };
+        };
+        responses: {
+            /** @description The record is in the ledger, or, for an action report whose authority context and idempotency key an earlier report bound, that report with `replayed`. */
+            201: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommitmentWritten"];
+                };
+            };
+            /** @description A body, identifier or header that does not open, or a record of another element. */
+            400: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description No valid Access access token and DPoP proof. */
+            401: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    /** @description The DPoP challenge. */
+                    "WWW-Authenticate"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The Access evidence does not authorise this record. */
+            403: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description No such ledger. */
+            404: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The commitment is no longer at the If-Match version. */
+            412: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description A body part is above its bound. */
+            413: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The record is refused with its reason, kept under its key: `control`, `not_executor` for a writer that is not the executor assigned to the work; `definition` and the member for a body that does not decode; `control`, `context_reused` or `key_reused` for an authority context or idempotency key another report bound; `control`, `commitment` for a record that names another commitment; or a body part carries a secret. */
+            422: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description No If-Match. */
+            428: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The caller has spent its quota. */
+            429: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    /** @description Seconds until the next window. */
+                    "Retry-After"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Access cannot be reached, the ledger is busy, or the outcome is being checked; send the same request again. */
+            503: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    /** @description Seconds to wait when the ledger is busy. */
+                    "Retry-After"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    respond_executor_request: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A UUIDv7; the same key with the same body answers the first result. */
+                "Idempotency-Key": string;
+                /** @description The strong ETag of the commitment's version. */
+                "If-Match": string;
+            };
+            path: {
+                /** @description The ledger, `led_…`. */
+                ledger: string;
+                /** @description The commitment, `cmt_…`. */
+                commitment: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewDeclaration"];
+            };
+        };
+        responses: {
+            /** @description The record is in the ledger, or, for an action report whose authority context and idempotency key an earlier report bound, that report with `replayed`. */
+            201: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommitmentWritten"];
+                };
+            };
+            /** @description A body, identifier or header that does not open, or a record of another element. */
+            400: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description No valid Access access token and DPoP proof. */
+            401: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    /** @description The DPoP challenge. */
+                    "WWW-Authenticate"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The Access evidence does not authorise this record. */
+            403: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description No such ledger. */
+            404: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The commitment is no longer at the If-Match version. */
+            412: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description A body part is above its bound. */
+            413: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The record is refused with its reason, kept under its key: `control`, `not_executor` for a writer that is not the executor assigned to the work; `definition` and the member for a body that does not decode; `control`, `context_reused` or `key_reused` for an authority context or idempotency key another report bound; `control`, `commitment` for a record that names another commitment; or a body part carries a secret. */
+            422: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description No If-Match. */
+            428: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The caller has spent its quota. */
+            429: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    /** @description Seconds until the next window. */
+                    "Retry-After"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Access cannot be reached, the ledger is busy, or the outcome is being checked; send the same request again. */
+            503: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    /** @description Seconds to wait when the ledger is busy. */
+                    "Retry-After"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    respond_executor_stop: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A UUIDv7; the same key with the same body answers the first result. */
+                "Idempotency-Key": string;
+                /** @description The strong ETag of the commitment's version. */
+                "If-Match": string;
+            };
+            path: {
+                /** @description The ledger, `led_…`. */
+                ledger: string;
+                /** @description The commitment, `cmt_…`. */
+                commitment: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewDeclaration"];
+            };
+        };
+        responses: {
+            /** @description The record is in the ledger, or, for an action report whose authority context and idempotency key an earlier report bound, that report with `replayed`. */
+            201: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommitmentWritten"];
+                };
+            };
+            /** @description A body, identifier or header that does not open, or a record of another element. */
+            400: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description No valid Access access token and DPoP proof. */
+            401: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    /** @description The DPoP challenge. */
+                    "WWW-Authenticate"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The Access evidence does not authorise this record. */
+            403: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description No such ledger. */
+            404: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The commitment is no longer at the If-Match version. */
+            412: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description A body part is above its bound. */
+            413: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The record is refused with its reason, kept under its key: `control`, `not_executor` for a writer that is not the executor assigned to the work; `definition` and the member for a body that does not decode; `control`, `context_reused` or `key_reused` for an authority context or idempotency key another report bound; `control`, `commitment` for a record that names another commitment; or a body part carries a secret. */
+            422: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description No If-Match. */
+            428: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The caller has spent its quota. */
+            429: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    /** @description Seconds until the next window. */
+                    "Retry-After"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Access cannot be reached, the ledger is busy, or the outcome is being checked; send the same request again. */
+            503: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    /** @description Seconds to wait when the ledger is busy. */
+                    "Retry-After"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    report_executor_session: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A UUIDv7; the same key with the same body answers the first result. */
+                "Idempotency-Key": string;
+                /** @description The strong ETag of the commitment's version. */
+                "If-Match": string;
+            };
+            path: {
+                /** @description The ledger, `led_…`. */
+                ledger: string;
+                /** @description The commitment, `cmt_…`. */
+                commitment: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewDeclaration"];
+            };
+        };
+        responses: {
+            /** @description The record is in the ledger, or, for an action report whose authority context and idempotency key an earlier report bound, that report with `replayed`. */
+            201: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommitmentWritten"];
+                };
+            };
+            /** @description A body, identifier or header that does not open, or a record of another element. */
+            400: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description No valid Access access token and DPoP proof. */
+            401: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    /** @description The DPoP challenge. */
+                    "WWW-Authenticate"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The Access evidence does not authorise this record. */
+            403: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description No such ledger. */
+            404: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The commitment is no longer at the If-Match version. */
+            412: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description A body part is above its bound. */
+            413: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The record is refused with its reason, kept under its key: `control`, `not_executor` for a writer that is not the executor assigned to the work; `definition` and the member for a body that does not decode; `control`, `context_reused` or `key_reused` for an authority context or idempotency key another report bound; `control`, `commitment` for a record that names another commitment; or a body part carries a secret. */
+            422: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description No If-Match. */
+            428: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The caller has spent its quota. */
+            429: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    /** @description Seconds until the next window. */
+                    "Retry-After"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Access cannot be reached, the ledger is busy, or the outcome is being checked; send the same request again. */
+            503: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    /** @description Seconds to wait when the ledger is busy. */
+                    "Retry-After"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    report_executor_status: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A UUIDv7; the same key with the same body answers the first result. */
+                "Idempotency-Key": string;
+                /** @description The strong ETag of the commitment's version. */
+                "If-Match": string;
+            };
+            path: {
+                /** @description The ledger, `led_…`. */
+                ledger: string;
+                /** @description The commitment, `cmt_…`. */
+                commitment: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewDeclaration"];
+            };
+        };
+        responses: {
+            /** @description The record is in the ledger, or, for an action report whose authority context and idempotency key an earlier report bound, that report with `replayed`. */
+            201: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommitmentWritten"];
+                };
+            };
+            /** @description A body, identifier or header that does not open, or a record of another element. */
+            400: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description No valid Access access token and DPoP proof. */
+            401: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    /** @description The DPoP challenge. */
+                    "WWW-Authenticate"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The Access evidence does not authorise this record. */
+            403: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description No such ledger. */
+            404: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The commitment is no longer at the If-Match version. */
+            412: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description A body part is above its bound. */
+            413: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The record is refused with its reason, kept under its key: `control`, `not_executor` for a writer that is not the executor assigned to the work; `definition` and the member for a body that does not decode; `control`, `context_reused` or `key_reused` for an authority context or idempotency key another report bound; `control`, `commitment` for a record that names another commitment; or a body part carries a secret. */
+            422: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description No If-Match. */
+            428: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The caller has spent its quota. */
+            429: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    /** @description Seconds until the next window. */
+                    "Retry-After"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Access cannot be reached, the ledger is busy, or the outcome is being checked; send the same request again. */
+            503: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    /** @description Seconds to wait when the ledger is busy. */
+                    "Retry-After"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     declare_commitment_implicit_acceptance_terms: {
         parameters: {
             query?: never;
@@ -7414,6 +9390,119 @@ export interface operations {
                     "Request-Id"?: string;
                     /** @description Seconds to wait when the ledger is busy. */
                     "Retry-After"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_executor_deliveries: {
+        parameters: {
+            query?: {
+                /** @description The `cursor` of the previous answer, a decimal string; `0` without one. */
+                after?: string;
+                /** @description Seconds to wait for a delivery when none is there yet, 0 to 30; 0 without one. */
+                wait?: number;
+            };
+            header?: never;
+            path: {
+                /** @description The ledger, `led_…`. */
+                ledger: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The deliveries. */
+            200: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeliveriesAnswer"];
+                };
+            };
+            /** @description An identifier, an `after` or a `wait` that does not open. */
+            400: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description No valid Access access token and DPoP proof. */
+            401: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    /** @description The DPoP challenge. */
+                    "WWW-Authenticate"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description No such ledger. */
+            404: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The caller has spent its quota. */
+            429: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    /** @description Seconds until the next window. */
+                    "Retry-After"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Access or the database cannot be reached. */
+            503: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
                     [name: string]: unknown;
                 };
                 content: {
