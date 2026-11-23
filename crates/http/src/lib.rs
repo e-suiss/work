@@ -14,5 +14,6 @@ pub mod position;
 pub mod problem;
 pub mod rate;
 pub mod reads;
+pub mod responsibility;
 pub mod works;
 pub mod writes;

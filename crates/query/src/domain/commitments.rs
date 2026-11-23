@@ -5,14 +5,15 @@ use std::collections::BTreeMap;
 use work_kernel::catalog::DeclarationSubtype;
 use work_kernel::codec::{Decoded, decode_record, leaf_hash, record_id};
 use work_kernel::commitment::{
-    self, AccessAnswer, ActiveEnd, Allowed, Caller as Asking, CommitmentView, Facts,
-    ImplicitAcceptance, Mover, Operation, Proposed, Refusal, StepOutcome, SupportSignal,
-    TimeInputs, TimeProjection, clock_signals, definition_records, project_time, zones_named,
+    self, AccessAnswer, ActiveEnd, Allowed, AllowedResponsibility, Caller as Asking,
+    CommitmentView, Facts, ImplicitAcceptance, Mover, Operation, Proposed, Refusal, StepOutcome,
+    SupportSignal, TimeInputs, TimeProjection, clock_signals, definition_records, project_time,
+    zones_named,
 };
 use work_kernel::cose::parse_container;
 use work_kernel::derive::{
-    AuthorityIssuer, BusinessCalendar, DerivationInputs, Entry, ProfileVersion, Restriction,
-    TrustInputs, derive,
+    AuthorityIssuer, BusinessCalendar, Derivation, DerivationInputs, Entry, ProfileVersion,
+    Restriction, TrustInputs, derive,
 };
 use work_kernel::envelope::{Envelope, decode_envelope};
 use work_kernel::id::{LedgerId, PartyRef, RecordId, Time};
@@ -31,6 +32,7 @@ use work_proto::id::PositionToken;
 use work_store::StoredLogEntry;
 
 use crate::domain::reads::ReadRefusal;
+use crate::domain::responsibility::{self, Responsibility};
 use crate::domain::tzdb;
 
 /// The Access action of each commitment operation a caller may write (E-45 item 2); `expire`
@@ -250,7 +252,12 @@ impl Folded {
         self.areas.version(&ItemKey::Commitment(root))
     }
 
-    fn entries(&self) -> Vec<Entry<'_>> {
+    /// The verified record entries the fold reads, in ledger order.
+    pub(crate) fn verified(&self) -> &[VerifiedEntry] {
+        &self.verified
+    }
+
+    pub(crate) fn entries(&self) -> Vec<Entry<'_>> {
         self.verified
             .iter()
             .map_while(|r| Entry::verified(r, Restriction::NoObjection, AuthorityIssuer::Local))
@@ -282,11 +289,20 @@ impl Folded {
         &self,
         facts: &Facts<'_>,
     ) -> Result<(Vec<Entry<'_>>, Vec<CommitmentView>), FoldError> {
+        self.derive_all(facts)
+            .map(|(entries, _, views)| (entries, views))
+    }
+
+    /// The entries, the kernel's derivation of them and every commitment they derive.
+    pub(crate) fn derive_all(
+        &self,
+        facts: &Facts<'_>,
+    ) -> Result<(Vec<Entry<'_>>, Derivation, Vec<CommitmentView>), FoldError> {
         let entries = self.entries();
         let derivation =
             derive(&entries, &self.inputs()).map_err(|e| FoldError::Derive(e.code()))?;
         let views = commitment::derive_commitments(&entries, &derivation, facts);
-        Ok((entries, views))
+        Ok((entries, derivation, views))
     }
 
     /// The clock, periodic and budget Condition records of the commitment `root` and of the commitments that support it, each with its position, whose `definition` part its read opens (CM-48, CM-50, CM-53).
@@ -419,29 +435,49 @@ impl Folded {
     }
 }
 
-/// The commitment `record` opened or continues among `views`.
+/// The commitment `record` opened or continues among `views`: its `request`, a commitment step
+/// or an assignment history entry, so a record may continue a `claim` or an `acknowledgement`
+/// (RC-17, RC-19).
 #[must_use]
 pub fn commitment_of<'v>(
     views: &'v [CommitmentView],
     record: &RecordId,
 ) -> Option<&'v CommitmentView> {
-    views
-        .iter()
-        .find(|v| v.root == *record || v.steps.iter().any(|s| s.record == *record))
+    views.iter().find(|v| v.continues(record))
 }
 
-/// Whether `party` holds a role on `view`, so it may read it (P-56): the obligee, the obligor,
-/// the acceptor, a principal, the requester's chain or the Party a pending delegation or
-/// assignment proposes.
+/// Whether `party` holds a role on `view`, so it may read it (P-56, RC-11): the obligee, the
+/// obligor, the acceptor, a principal, the requester's chain, the Party a pending delegation,
+/// assignment or accountability transfer proposes, the explicit accountable Party, the Party an
+/// open offer or a nomination names, and, while the work is pooled, the queue owner and every
+/// Party a forwarded candidate list or the Party list of the queue in force admits; membership of
+/// an Access group is unknowable here, so a group's members do not read pooled work by it.
 #[must_use]
 pub fn involves(view: &CommitmentView, party: &PartyRef) -> bool {
     let obligor = matches!(&view.obligor, Obligor::Party(p) if p == party);
-    let proposed = [&view.pending.delegation, &view.pending.transfer]
-        .into_iter()
-        .flatten()
-        .any(|p| &p.to == party);
+    let proposed = [
+        &view.pending.delegation,
+        &view.pending.transfer,
+        &view.accountability.transfer,
+    ]
+    .into_iter()
+    .flatten()
+    .any(|p| &p.to == party);
+    let allocation = &view.allocation;
+    let named = allocation.offer.as_ref().is_some_and(|o| &o.to == party)
+        || allocation.nominations.iter().any(|n| &n.party == party)
+        || view
+            .accountability
+            .explicit
+            .as_ref()
+            .is_some_and(|e| &e.party == party);
+    let pooled = matches!(view.obligor, Obligor::Queue(_))
+        && !view.is_terminal()
+        && (allocation.owned_by(party) == Some(true) || allocation.admits(party) == Some(true));
     obligor
         || proposed
+        || named
+        || pooled
         || &view.obligee == party
         || &view.acceptor == party
         || view.principal.contains(party)
@@ -449,22 +485,29 @@ pub fn involves(view: &CommitmentView, party: &PartyRef) -> bool {
         || view.active_ends.iter().any(|e| &e.obligor == party)
 }
 
-/// What a caller may do next on one commitment and who holds the next move (P-55, CM-58).
+/// What a caller may do next on one commitment and who holds the next move (P-55, CM-58,
+/// RC-17).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Next {
     /// The transitions the caller may make now; Access decides each at the write, so each one
     /// still needs its Exercise.
     pub allowed: Vec<Allowed>,
+    /// The responsibility operations the caller may write now, each still needing its Exercise.
+    pub responsibility: Vec<AllowedResponsibility>,
     /// Who holds the next move.
     pub moves: Vec<Mover>,
 }
 
-/// The transitions `caller` may make on `view` now and who holds the next move (P-55, CM-58):
-/// Access is asked for each one only when it is written, so its answer here is `require`.
+/// The transitions and responsibility operations `caller` may make on `view` now and who holds
+/// the next move (P-55, CM-58, RC-17): Access is asked for each one only when it is written, so
+/// its answer here is `require`.
 #[must_use]
 pub fn next_for(view: &CommitmentView, caller: &Asking<'_>, facts: &Facts<'_>) -> Next {
     Next {
         allowed: commitment::allowed(view, caller, &[], &|_| AccessAnswer::Require),
+        responsibility: commitment::allowed_responsibility(view, caller, &|_| {
+            AccessAnswer::Require
+        }),
         moves: commitment::next_moves(view, facts),
     }
 }
@@ -489,6 +532,8 @@ pub struct CommitmentRead {
     pub time: TimeProjection,
     /// The tzdb release the clocks and periodic updates count in (CM-64).
     pub tzdb: &'static str,
+    /// Its accountability, assignment, lease, ping-pong and assignment history (RC-1…RC-25).
+    pub responsibility: Responsibility,
     /// The evaluation time of the time projection, never before the head's ledger time.
     pub evaluated_at_ms: u64,
     /// The ledger time the read reflects.
@@ -524,8 +569,8 @@ pub fn read(
     evaluation: Evaluation<'_>,
 ) -> Result<CommitmentRead, ReadRefusal> {
     let base = facts();
-    let (entries, views) = folded
-        .derived(&base)
+    let (entries, derivation, views) = folded
+        .derive_all(&base)
         .map_err(|_| ReadRefusal::Unavailable)?;
     let view = views
         .iter()
@@ -567,7 +612,9 @@ pub fn read(
         actor,
         step_up: false,
     };
+    let ledger = responsibility::Ledger::of(folded, &entries, &derivation);
     Ok(CommitmentRead {
+        responsibility: ledger.commitment(view, now),
         ledger: *folded.ledger(),
         next: next_for(view, &asking, &decided),
         implicit: commitment::implicit_acceptance(view, Time(at_ms), &base),
