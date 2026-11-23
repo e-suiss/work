@@ -11,8 +11,9 @@ use sqlx::PgPool;
 
 use crate::publisher::check_role;
 use crate::{
-    AppendError, BodyPartRow, CallerRef, ClaimRow, IdempotencyKey, InboundRow, ItemRef, LedgerId,
-    LedgerTx, ReceivedRow, SignerRow, Skeleton, StoreError, StoredKey,
+    AppendError, BodyPartRow, CallerRef, ClaimRow, ExecutorDeliveryRow, IdempotencyKey, InboundRow,
+    ItemRef, LedgerId, LedgerTx, ReceivedRow, SignerRow, SingleUseRow, Skeleton, StoreError,
+    StoredKey,
 };
 
 /// The login role a [`SequencerPool`] must have.
@@ -152,6 +153,11 @@ pub struct LogRow {
     /// The `commitment_active` Claims of the ends of `commitment.active` the record gives,
     /// delivered to Access from `work.claim_delivery` (E-8, E-12).
     pub claims: Vec<ClaimRow>,
+    /// The commitments and requests the record delivers to the executor assigned to the work,
+    /// pulled from `work.executor_delivery` (RC-42, T-105).
+    pub deliveries: Vec<ExecutorDeliveryRow>,
+    /// The binding of an action report's authority context to its idempotency key (SEC-15).
+    pub single_use: Option<SingleUseRow>,
 }
 
 impl std::fmt::Debug for LogRow {
@@ -166,6 +172,8 @@ impl std::fmt::Debug for LogRow {
             .field("body", &self.body.len())
             .field("activation", &self.activation)
             .field("claims", &self.claims.len())
+            .field("deliveries", &self.deliveries.len())
+            .field("single_use", &self.single_use.is_some())
             .finish_non_exhaustive()
     }
 }
@@ -412,6 +420,8 @@ fn lone_activation(b: &AppendBatch) -> bool {
                 && r.body.is_empty()
                 && r.signer.is_none()
                 && r.claims.is_empty()
+                && r.deliveries.is_empty()
+                && r.single_use.is_none()
                 && b.items.is_empty()
                 && b.outbox.is_empty()
                 && b.keys.is_empty()
@@ -423,7 +433,8 @@ fn lone_activation(b: &AppendBatch) -> bool {
 
 /// The rows each record writes beside its log row, in the T-90 order: the bytes as received,
 /// the skeleton, then the links from the record to its received bytes; then its encrypted body
-/// parts and part keys (OP-45), then the `commitment_active` Claims it gives (E-8, E-12).
+/// parts and part keys (OP-45), then the `commitment_active` Claims it gives (E-8, E-12), then
+/// its executor deliveries and single-use binding (RC-42, SEC-15).
 async fn insert_record_rows(tx: &mut LedgerTx<'_>, records: &[LogRow]) -> Result<(), AppendError> {
     for r in records {
         tx.insert_received(r.pos, &r.received)
@@ -454,6 +465,17 @@ async fn insert_record_rows(tx: &mut LedgerTx<'_>, records: &[LogRow]) -> Result
         tx.insert_claims(r.pos, &r.record_id, r.recorded_at_ms, &r.claims)
             .await
             .map_err(row_failure)?;
+    }
+    for r in records {
+        tx.insert_executor(
+            r.pos,
+            &r.record_id,
+            r.recorded_at_ms,
+            &r.deliveries,
+            r.single_use.as_ref(),
+        )
+        .await
+        .map_err(row_failure)?;
     }
     Ok(())
 }

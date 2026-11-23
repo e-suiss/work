@@ -63,10 +63,11 @@ definer_allowed (fq, rolname) AS (
            ('work.partition_ledgers', 'work_archive'),
            ('ledger.outbox_ledgers', 'work_publisher'),
            ('ledger.outbox_ledgers', 'work_deriver'),
-           ('work.claim_delivery_ledgers', 'work_publisher')
+           ('work.claim_delivery_ledgers', 'work_publisher'),
+           ('work.executor_delivery_ledgers', 'work_publisher')
 ),
 scope_exception_allowed (fq) AS (
-    VALUES ('ledger.outbox'), ('work.claim_delivery')
+    VALUES ('ledger.outbox'), ('work.claim_delivery'), ('work.executor_delivery')
 ),
 partitioned_allowed (fq) AS (
     VALUES ('work.idempotency_key'), ('work.inbound_seen')
@@ -282,10 +283,12 @@ violations (check_id, object) AS (
     UNION ALL
     SELECT 'scope_exception_setter_exact', fq FROM funcs
      WHERE config LIKE '%outbox_scan%'
-       AND fq NOT IN ('ledger.outbox_ledgers', 'work.claim_delivery_ledgers')
+       AND fq NOT IN ('ledger.outbox_ledgers', 'work.claim_delivery_ledgers',
+                      'work.executor_delivery_ledgers')
     UNION ALL
     SELECT 'definer_result_ids_only', fq FROM funcs
-     WHERE fq IN ('ledger.outbox_ledgers', 'work.partition_ledgers', 'work.claim_delivery_ledgers')
+     WHERE fq IN ('ledger.outbox_ledgers', 'work.partition_ledgers', 'work.claim_delivery_ledgers',
+                  'work.executor_delivery_ledgers')
        AND pg_catalog.pg_get_function_result(oid) <> 'SETOF ledger.digest32'
     UNION ALL
     SELECT 'role_attributes', rolname FROM pg_catalog.pg_roles
