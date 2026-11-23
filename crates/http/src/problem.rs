@@ -245,6 +245,13 @@ pub struct Problem {
     /// Seconds after which the request may be sent again.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub retry_after: Option<u32>,
+    /// The body part a `secret_detected` refusal names (P-95 item 1).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub part: Option<String>,
+    /// The scanner rule a `secret_detected` refusal names (P-95 item 1); the matched bytes are
+    /// never shown.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rule: Option<String>,
 }
 
 impl Problem {
@@ -263,6 +270,8 @@ impl Problem {
             code_detail: None,
             errors: None,
             retry_after: matches!(code, ProblemCode::Busy).then_some(1),
+            part: None,
+            rule: None,
         }
     }
 
@@ -284,6 +293,15 @@ impl Problem {
     #[must_use]
     pub fn with_code_detail(mut self, code_detail: impl Into<String>) -> Self {
         self.code_detail = Some(code_detail.into());
+        self
+    }
+
+    /// This problem naming the body `part` and the scanner `rule` of a detected secret (P-95
+    /// item 1).
+    #[must_use]
+    pub fn with_secret(mut self, part: impl Into<String>, rule: impl Into<String>) -> Self {
+        self.part = Some(part.into());
+        self.rule = Some(rule.into());
         self
     }
 

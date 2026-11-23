@@ -22,7 +22,7 @@ use crate::reads::{
 };
 use crate::works::{NewWork, OpenedWork};
 use crate::writes::{
-    ActorTypesInput, AuthContextInput, AuthorityInput, NewDeclaration, WrittenAnswer,
+    ActorTypesInput, AuthContextInput, AuthorityInput, BodyPartInput, NewDeclaration, WrittenAnswer,
 };
 
 /// The committed document, relative to the workspace root.
@@ -107,6 +107,7 @@ fn security_scheme() -> Value {
         AuthContextInput,
         AuthorityInput,
         ActorTypesInput,
+        BodyPartInput,
         WrittenAnswer,
         NewWork,
         OpenedWork,

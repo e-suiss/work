@@ -14,8 +14,8 @@ use work_kernel::id::LedgerId;
 use work_kernel::validate::ActorType;
 use work_proto::id::ExternalId as _;
 use work_query::domain::writes::{
-    AuthContextGiven, AuthorityGiven, DeclarationRequest, DeclaredTypes, ExerciseId, WriteRefusal,
-    Written, base64url,
+    AuthContextGiven, AuthorityGiven, BodyOpening, DeclarationRequest, DeclaredTypes, ExerciseId,
+    WriteRefusal, Written, base64url,
 };
 
 use crate::common::RequestContext;
@@ -58,6 +58,30 @@ pub struct ActorTypesInput {
     pub evidence: Vec<String>,
 }
 
+/// The opening of one body part the record commits to (P-68): the record's `body` entry for
+/// the part is the commitment of exactly these values.
+#[derive(Clone, PartialEq, Eq, Deserialize, Serialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct BodyPartInput {
+    /// The part name in the subtype schema, such as `note`.
+    pub part: String,
+    /// The media type of the content, at most 255 bytes.
+    pub media_type: String,
+    /// The content, unpadded base64url of at most 262 144 bytes.
+    pub content: String,
+    /// The part's salt, unpadded base64url of 32 bytes.
+    pub salt: String,
+}
+
+impl std::fmt::Debug for BodyPartInput {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BodyPartInput")
+            .field("part", &self.part)
+            .field("content", &self.content.len())
+            .finish_non_exhaustive()
+    }
+}
+
 /// One commitment Declaration.
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize, ToSchema)]
 #[serde(deny_unknown_fields)]
@@ -72,6 +96,11 @@ pub struct NewDeclaration {
     pub authority: AuthorityInput,
     /// The declared actor types.
     pub actor_types: ActorTypesInput,
+    /// The openings of every body part the record commits to; Work seals them under the
+    /// ledger's keys after the secret scan and writes them with the record (P-68, OP-45,
+    /// SEC-35).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub body: Vec<BodyPartInput>,
 }
 
 /// The written record.
@@ -127,6 +156,10 @@ pub fn write_problem(refusal: WriteRefusal) -> Problem {
             Problem::new(ProblemCode::Busy).with_retry_after(retry_after_s)
         }
         WriteRefusal::NotRecorded => Problem::new(ProblemCode::NotRecorded),
+        WriteRefusal::SecretDetected { part, rule } => {
+            Problem::new(ProblemCode::SecretDetected).with_secret(part, rule)
+        }
+        WriteRefusal::TooLarge => Problem::new(ProblemCode::RequestTooLarge),
     }
 }
 
@@ -136,6 +169,17 @@ fn actor(name: &str) -> Result<ActorType, Box<Problem>> {
 
 fn bytes(text: &str, code: &'static str) -> Result<Vec<u8>, Box<Problem>> {
     base64url(text).ok_or_else(|| Box::new(invalid(code)))
+}
+
+fn opening(input: &BodyPartInput) -> Result<BodyOpening, Box<Problem>> {
+    Ok(BodyOpening {
+        part: input.part.clone(),
+        media_type: input.media_type.clone(),
+        content: bytes(&input.content, "body")?,
+        salt: bytes(&input.salt, "body")?
+            .try_into()
+            .map_err(|_| Box::new(invalid("body")))?,
+    })
 }
 
 /// The write path's request for `body`, received as `raw` with `headers`.
@@ -196,6 +240,7 @@ pub fn declaration_request(
         if_match,
         traceparent,
         expected: None,
+        body: body.body.iter().map(opening).collect::<Result<_, _>>()?,
     })
 }
 
@@ -271,7 +316,13 @@ fn created(ledger: &LedgerId, written: &Written) -> Response {
             ("RateLimit-Policy" = String, description = "The quota policy."),
             ("RateLimit" = String, description = "What is left of the quota.")
         )),
-        (status = 422, description = "The kernel rejected the record, its auth_context does not verify, or the key was reused with another body.", body = Problem,
+        (status = 413, description = "A body part is above its bound.", body = Problem,
+            content_type = "application/problem+json", headers(
+            ("Request-Id" = String, description = "The request, `<trace id>-<span id>`."),
+            ("RateLimit-Policy" = String, description = "The quota policy."),
+            ("RateLimit" = String, description = "What is left of the quota.")
+        )),
+        (status = 422, description = "The kernel rejected the record, its auth_context does not verify, a body part carries a secret, or the key was reused with another body.", body = Problem,
             content_type = "application/problem+json", headers(
             ("Request-Id" = String, description = "The request, `<trace id>-<span id>`."),
             ("RateLimit-Policy" = String, description = "The quota policy."),
@@ -396,6 +447,92 @@ mod tests {
         no_authority.as_object_mut().unwrap().remove("authority");
         let no_authority = serde_json::to_vec(&no_authority).unwrap();
         assert_eq!(code(&both, &no_authority), ProblemCode::InvalidRequest);
+    }
+
+    // P-68 OP-45 P-54
+    #[test]
+    fn p_68_a_declaration_carries_the_openings_of_its_body_parts() {
+        let both = headers(&[(IDEMPOTENCY_KEY, UUID7), (header::IF_MATCH, "\"0\"")]);
+        let salt = "A".repeat(43);
+        let mut with_body = body();
+        with_body["body"] = json!([
+            {"part": "note", "media_type": "text/plain", "content": "bm90ZQ", "salt": salt},
+            {"part": "purpose", "media_type": "text/markdown", "content": "", "salt": salt},
+        ]);
+        let raw = serde_json::to_vec(&with_body).unwrap();
+        let request = declaration_request(&raw, &both, String::new()).unwrap();
+        assert_eq!(request.digest, *plain_digest(&raw).as_bytes());
+        let [note, purpose] = request.body.as_slice() else {
+            panic!("{:?}", request.body);
+        };
+        assert_eq!(note.part, "note");
+        assert_eq!(note.media_type, "text/plain");
+        assert_eq!(note.content, b"note");
+        assert_eq!(note.salt, [0; 32]);
+        assert_eq!(purpose.media_type, "text/markdown");
+        assert!(purpose.content.is_empty());
+        let none = serde_json::to_vec(&body()).unwrap();
+        assert!(
+            declaration_request(&none, &both, String::new())
+                .unwrap()
+                .body
+                .is_empty()
+        );
+        let refused = |part: Value| {
+            let mut b = body();
+            b["body"] = json!([part]);
+            let raw = serde_json::to_vec(&b).unwrap();
+            let problem = declaration_request(&raw, &both, String::new()).unwrap_err();
+            (problem.code, problem.code_detail)
+        };
+        let invalid = (ProblemCode::InvalidRequest, Some("body".to_owned()));
+        let short = "A".repeat(42);
+        assert_eq!(
+            refused(
+                json!({"part": "note", "media_type": "text/plain", "content": "", "salt": short})
+            ),
+            invalid
+        );
+        assert_eq!(
+            refused(
+                json!({"part": "note", "media_type": "text/plain", "content": "bm90ZQ==", "salt": salt})
+            ),
+            invalid
+        );
+        assert_eq!(
+            refused(
+                json!({"part": "note", "media_type": "text/plain", "content": "", "salt": salt, "rule": "x"})
+            ),
+            invalid
+        );
+        assert_eq!(
+            refused(json!({"part": "note", "content": "", "salt": salt})),
+            invalid
+        );
+    }
+
+    // SEC-35 P-95 P-33
+    #[test]
+    fn sec_35_a_secret_is_422_naming_only_its_part_and_rule() {
+        let problem = write_problem(WriteRefusal::SecretDetected {
+            part: "note".to_owned(),
+            rule: "github-pat".to_owned(),
+        });
+        assert_eq!(problem.code, ProblemCode::SecretDetected);
+        assert_eq!(problem.status, 422);
+        assert_eq!(problem.part.as_deref(), Some("note"));
+        assert_eq!(problem.rule.as_deref(), Some("github-pat"));
+        assert!(problem.reason.is_none());
+        let json = serde_json::to_value(&problem).unwrap();
+        assert_eq!(json["part"], "note");
+        assert_eq!(json["rule"], "github-pat");
+        let large = write_problem(WriteRefusal::TooLarge);
+        assert_eq!(large.code, ProblemCode::RequestTooLarge);
+        assert_eq!(large.status, 413);
+        let unopened =
+            serde_json::to_value(write_problem(WriteRefusal::Invalid("body_unopened"))).unwrap();
+        assert_eq!(unopened["code_detail"], "body_unopened");
+        assert!(unopened.get("part").is_none(), "{unopened}");
     }
 
     // T-28 P-13 P-105 E-13 P-93

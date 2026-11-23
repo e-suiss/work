@@ -954,7 +954,13 @@ async fn write(
             ("RateLimit-Policy" = String, description = "The quota policy."),
             ("RateLimit" = String, description = "What is left of the quota.")
         )),
-        (status = 422, description = "The kernel refused the record, with its reason; a refused commitment operation is kept under its key.", body = Problem,
+        (status = 413, description = "A body part is above its bound.", body = Problem,
+            content_type = "application/problem+json", headers(
+            ("Request-Id" = String, description = "The request, `<trace id>-<span id>`."),
+            ("RateLimit-Policy" = String, description = "The quota policy."),
+            ("RateLimit" = String, description = "What is left of the quota.")
+        )),
+        (status = 422, description = "The kernel refused the record, with its reason; a refused commitment operation is kept under its key; or a body part carries a secret.", body = Problem,
             content_type = "application/problem+json", headers(
             ("Request-Id" = String, description = "The request, `<trace id>-<span id>`."),
             ("RateLimit-Policy" = String, description = "The quota policy."),
@@ -1057,7 +1063,13 @@ macro_rules! operation {
                     ("RateLimit-Policy" = String, description = "The quota policy."),
                     ("RateLimit" = String, description = "What is left of the quota.")
                 )),
-                (status = 422, description = "The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key.", body = Problem,
+                (status = 413, description = "A body part is above its bound.", body = Problem,
+                    content_type = "application/problem+json", headers(
+                    ("Request-Id" = String, description = "The request, `<trace id>-<span id>`."),
+                    ("RateLimit-Policy" = String, description = "The quota policy."),
+                    ("RateLimit" = String, description = "What is left of the quota.")
+                )),
+                (status = 422, description = "The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key; or a body part carries a secret.", body = Problem,
                     content_type = "application/problem+json", headers(
                     ("Request-Id" = String, description = "The request, `<trace id>-<span id>`."),
                     ("RateLimit-Policy" = String, description = "The quota policy."),
