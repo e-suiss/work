@@ -291,7 +291,7 @@ wire_enum! {
         let root = crate::workspace_root();
         assert!(check_event_catalog(&root).unwrap().is_empty());
         let actions = actions(&std::fs::read_to_string(root.join(ACTIONS_RS)).unwrap());
-        assert_eq!(actions.len(), 23);
+        assert_eq!(actions.len(), 24);
         assert!(actions.contains("work:version_activate"));
     }
 
