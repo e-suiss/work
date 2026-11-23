@@ -850,7 +850,7 @@ fn commitment_params_ok(record: &Record, subtype: DeclarationSubtype) -> bool {
     }
 }
 
-/// The body parts and relations a commitment subtype requires (CM-17, CM-25, CM-33, CM-45, CM-61, CM-48, CM-50, CM-53): the `definition` part of a clock, periodic or budget Condition, the handover note's free-text parts, a `note` beside a bare `other` reason, the justification of an administrative close, the fulfilment of a `state`, and the validity basis of an `expire`.
+/// The body parts and relations a commitment or control subtype requires (CM-17, CM-25, CM-33, CM-45, CM-61, CM-48, CM-50, CM-53, RC-27, RC-33, RC-40): the `definition` part of a clock, periodic or budget Condition and of a control lease or autonomy policy, the handover note's free-text parts, a `note` beside a bare `other` reason, the justification of an administrative close, the fulfilment of a `state`, and the validity basis of an `expire` and of a `resume_after_stop`.
 fn commitment_shape(record: &Record, subtype: DeclarationSubtype) -> Result<(), Reason> {
     reject_if(
         !commitment_params_ok(record, subtype),
@@ -866,12 +866,20 @@ fn commitment_shape(record: &Record, subtype: DeclarationSubtype) -> Result<(), 
         && text_param(record, "condition_type")
             .and_then(TimeCondition::from_uri)
             .is_some();
-    let parts_missing = (timed && !has_part(record, DEFINITION_PART))
+    let control = matches!(
+        subtype,
+        DeclarationSubtype::ControlLease | DeclarationSubtype::AutonomyPolicy
+    );
+    let parts_missing = ((timed || control) && !has_part(record, DEFINITION_PART))
         || (handover && !HANDOVER_PARTS.iter().all(|p| has_part(record, p)))
         || ((other || subtype == DeclarationSubtype::AdministrativeClose)
             && !has_part(record, "note"));
     reject_if(
-        parts_missing || (subtype == DeclarationSubtype::Expire && record.basis().is_empty()),
+        parts_missing
+            || (matches!(
+                subtype,
+                DeclarationSubtype::Expire | DeclarationSubtype::ResumeAfterStop
+            ) && record.basis().is_empty()),
         Reason::Schema(Schema::RequiredField),
     )?;
     reject_if(

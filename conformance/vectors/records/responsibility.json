@@ -2,6 +2,7 @@
   "file": "responsibility.json",
   "notes": [
     "one accepted record per responsibility Declaration (RC-17), the queue definition, the organisation rule, the accountability fields and transfer, the waiver and the participation policy, then single-rule rejections; the folding rules that need the ledger are kernel rule tests",
+    "the control lease and autonomy policy take no params but effective_at and carry their work/control/1 body in the definition part; resume_after_stop takes no params but effective_at and cites the stop request it lifts in basis (RC-27, RC-33, RC-40)",
     "cddl is pass for every case: work-record.cddl leaves these params to its open alternative and the kernel decides; the params maps alone are under params, against work-responsibility.cddl"
   ],
   "cases": [
@@ -1423,6 +1424,275 @@
       }
     },
     {
+      "id": "responsibility/control-lease",
+      "rules": [
+        "RC-33",
+        "RC-34"
+      ],
+      "hex": "ab64626f647981a264706172746a646566696e6974696f6e66636f6d6d6974822f5820ab7b923e907ef0e8268b4f18b53604d7f1e2b70b0677f1b07d5d81de4ff902ce646b696e646b6465636c61726174696f6e6474797065783368747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f636f6e74726f6c5f6c6561736565626173697381822f58203287bc190e3e7480cd50b017bf544edd270fa1383e36b15ecdf36c496a00d39566617574686f727070617274793a61636d653a616c696365666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f58206e30ee612f3e16c91eed1a217e9e20ded67804e8a57d338ee9199e2a7eb7627d6870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f5820a728199d555d0ef8655ba7ec1103d724d3f6a114379fc2e05a88699d643d33406a7669736962696c697479a16373656564776f726b",
+      "decoded": {
+        "body": [
+          {
+            "part": "definition",
+            "commit": [
+              -16,
+              "ab7b923e907ef0e8268b4f18b53604d7f1e2b70b0677f1b07d5d81de4ff902ce"
+            ]
+          }
+        ],
+        "kind": "declaration",
+        "type": "https://suiss.app/ns/work/declaration/control_lease",
+        "basis": [
+          [
+            -16,
+            "3287bc190e3e7480cd50b017bf544edd270fa1383e36b15ecdf36c496a00d395"
+          ]
+        ],
+        "author": "party:acme:alice",
+        "ledger": [
+          -16,
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
+        ],
+        "capacity": "own",
+        "concerns": [
+          "019a2f4c8e1b7c3da5e6f70812345678"
+        ],
+        "versions": {
+          "schema": [
+            -16,
+            "6e30ee612f3e16c91eed1a217e9e20ded67804e8a57d338ee9199e2a7eb7627d"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "authority": {
+          "proof": "decision_receipt",
+          "digest": [
+            -16,
+            "a728199d555d0ef8655ba7ec1103d724d3f6a114379fc2e05a88699d643d3340"
+          ]
+        },
+        "visibility": {
+          "see": "work"
+        }
+      },
+      "context": {
+        "origin": "direct",
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": []
+      },
+      "cddl": "pass",
+      "expect": {
+        "outcome": "accept"
+      }
+    },
+    {
+      "id": "responsibility/control-lease-effective-at",
+      "rules": [
+        "RC-33",
+        "P-80"
+      ],
+      "hex": "ac64626f647981a264706172746a646566696e6974696f6e66636f6d6d6974822f5820ab7b923e907ef0e8268b4f18b53604d7f1e2b70b0677f1b07d5d81de4ff902ce646b696e646b6465636c61726174696f6e6474797065783368747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f636f6e74726f6c5f6c6561736565626173697381822f58203287bc190e3e7480cd50b017bf544edd270fa1383e36b15ecdf36c496a00d39566617574686f727070617274793a61636d653a616c696365666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee766706172616d73a16c6566666563746976655f61741b000001a14206a858686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f58206e30ee612f3e16c91eed1a217e9e20ded67804e8a57d338ee9199e2a7eb7627d6870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f582017a372f879c2913ac7fcab7d2407a24cd4a2086f50c787e85e6180d52738359f6a7669736962696c697479a16373656564776f726b",
+      "decoded": {
+        "body": [
+          {
+            "part": "definition",
+            "commit": [
+              -16,
+              "ab7b923e907ef0e8268b4f18b53604d7f1e2b70b0677f1b07d5d81de4ff902ce"
+            ]
+          }
+        ],
+        "kind": "declaration",
+        "type": "https://suiss.app/ns/work/declaration/control_lease",
+        "basis": [
+          [
+            -16,
+            "3287bc190e3e7480cd50b017bf544edd270fa1383e36b15ecdf36c496a00d395"
+          ]
+        ],
+        "author": "party:acme:alice",
+        "ledger": [
+          -16,
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
+        ],
+        "params": {
+          "effective_at": 1792109095000
+        },
+        "capacity": "own",
+        "concerns": [
+          "019a2f4c8e1b7c3da5e6f70812345678"
+        ],
+        "versions": {
+          "schema": [
+            -16,
+            "6e30ee612f3e16c91eed1a217e9e20ded67804e8a57d338ee9199e2a7eb7627d"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "authority": {
+          "proof": "decision_receipt",
+          "digest": [
+            -16,
+            "17a372f879c2913ac7fcab7d2407a24cd4a2086f50c787e85e6180d52738359f"
+          ]
+        },
+        "visibility": {
+          "see": "work"
+        }
+      },
+      "context": {
+        "origin": "direct",
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": [],
+        "recorded_at": 1792109090000
+      },
+      "cddl": "pass",
+      "expect": {
+        "outcome": "accept"
+      }
+    },
+    {
+      "id": "responsibility/autonomy-policy",
+      "rules": [
+        "RC-27",
+        "RC-29"
+      ],
+      "hex": "ab64626f647981a264706172746a646566696e6974696f6e66636f6d6d6974822f5820432b09ed662a81ba9a05263443e0922bdc63eed55357b450276c911576492785646b696e646b6465636c61726174696f6e6474797065783568747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f6175746f6e6f6d795f706f6c6963796562617369738066617574686f727070617274793a61636d653a616c696365666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f5820c1d0726abb39b2d3599e8473a27eccb40f1d2fb543e0536dfd6da7553c06abce6870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f5820892d659e5864021ea2a3eaca781aea684fc6bc89a3ebd4f20071eedcf5d081f26a7669736962696c697479a16373656564776f726b",
+      "decoded": {
+        "body": [
+          {
+            "part": "definition",
+            "commit": [
+              -16,
+              "432b09ed662a81ba9a05263443e0922bdc63eed55357b450276c911576492785"
+            ]
+          }
+        ],
+        "kind": "declaration",
+        "type": "https://suiss.app/ns/work/declaration/autonomy_policy",
+        "basis": [],
+        "author": "party:acme:alice",
+        "ledger": [
+          -16,
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
+        ],
+        "capacity": "own",
+        "concerns": [
+          "019a2f4c8e1b7c3da5e6f70812345678"
+        ],
+        "versions": {
+          "schema": [
+            -16,
+            "c1d0726abb39b2d3599e8473a27eccb40f1d2fb543e0536dfd6da7553c06abce"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "authority": {
+          "proof": "decision_receipt",
+          "digest": [
+            -16,
+            "892d659e5864021ea2a3eaca781aea684fc6bc89a3ebd4f20071eedcf5d081f2"
+          ]
+        },
+        "visibility": {
+          "see": "work"
+        }
+      },
+      "context": {
+        "origin": "direct",
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": []
+      },
+      "cddl": "pass",
+      "expect": {
+        "outcome": "accept"
+      }
+    },
+    {
+      "id": "responsibility/resume-after-stop",
+      "rules": [
+        "RC-40"
+      ],
+      "hex": "aa646b696e646b6465636c61726174696f6e6474797065783768747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f726573756d655f61667465725f73746f7065626173697381822f58205e7118e2da39b10430567679e7a10d83530bb73be5704c1a86b5f008608bae0066617574686f727070617274793a61636d653a616c696365666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f5820bb6e0c5c9605f2bd35e18a6aad765771a0f2b52a33268c17d4f8043dec35071e6870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f5820c2c7f78525b45bbdec38390dd37a09b771eb95e4f59acf217c493025a6e69fdd6a7669736962696c697479a16373656564776f726b",
+      "decoded": {
+        "kind": "declaration",
+        "type": "https://suiss.app/ns/work/declaration/resume_after_stop",
+        "basis": [
+          [
+            -16,
+            "5e7118e2da39b10430567679e7a10d83530bb73be5704c1a86b5f008608bae00"
+          ]
+        ],
+        "author": "party:acme:alice",
+        "ledger": [
+          -16,
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
+        ],
+        "capacity": "own",
+        "concerns": [
+          "019a2f4c8e1b7c3da5e6f70812345678"
+        ],
+        "versions": {
+          "schema": [
+            -16,
+            "bb6e0c5c9605f2bd35e18a6aad765771a0f2b52a33268c17d4f8043dec35071e"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "authority": {
+          "proof": "decision_receipt",
+          "digest": [
+            -16,
+            "c2c7f78525b45bbdec38390dd37a09b771eb95e4f59acf217c493025a6e69fdd"
+          ]
+        },
+        "visibility": {
+          "see": "work"
+        }
+      },
+      "context": {
+        "origin": "direct",
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": []
+      },
+      "cddl": "pass",
+      "expect": {
+        "outcome": "accept"
+      }
+    },
+    {
       "id": "responsibility-reject/queue-definition-without-owner",
       "rules": [
         "RC-12"
@@ -2776,6 +3046,387 @@
           "see": "work"
         },
         "occurred_at": 1792109070002
+      },
+      "context": {
+        "origin": "direct",
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": []
+      },
+      "cddl": "pass",
+      "expect": {
+        "outcome": "reject",
+        "reason": "schema:params"
+      }
+    },
+    {
+      "id": "responsibility-reject/control-lease-without-definition",
+      "rules": [
+        "RC-33"
+      ],
+      "hex": "aa646b696e646b6465636c61726174696f6e6474797065783368747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f636f6e74726f6c5f6c6561736565626173697381822f58203287bc190e3e7480cd50b017bf544edd270fa1383e36b15ecdf36c496a00d39566617574686f727070617274793a61636d653a616c696365666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f58206e30ee612f3e16c91eed1a217e9e20ded67804e8a57d338ee9199e2a7eb7627d6870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f58208f04b14bfbadc8723e62b76dad62fe24057e4a382cac2858a42c7bbae31a9c7a6a7669736962696c697479a16373656564776f726b",
+      "decoded": {
+        "kind": "declaration",
+        "type": "https://suiss.app/ns/work/declaration/control_lease",
+        "basis": [
+          [
+            -16,
+            "3287bc190e3e7480cd50b017bf544edd270fa1383e36b15ecdf36c496a00d395"
+          ]
+        ],
+        "author": "party:acme:alice",
+        "ledger": [
+          -16,
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
+        ],
+        "capacity": "own",
+        "concerns": [
+          "019a2f4c8e1b7c3da5e6f70812345678"
+        ],
+        "versions": {
+          "schema": [
+            -16,
+            "6e30ee612f3e16c91eed1a217e9e20ded67804e8a57d338ee9199e2a7eb7627d"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "authority": {
+          "proof": "decision_receipt",
+          "digest": [
+            -16,
+            "8f04b14bfbadc8723e62b76dad62fe24057e4a382cac2858a42c7bbae31a9c7a"
+          ]
+        },
+        "visibility": {
+          "see": "work"
+        }
+      },
+      "context": {
+        "origin": "direct",
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": []
+      },
+      "cddl": "pass",
+      "expect": {
+        "outcome": "reject",
+        "reason": "schema:required_field"
+      }
+    },
+    {
+      "id": "responsibility-reject/control-lease-with-params",
+      "rules": [
+        "RC-33",
+        "P-80"
+      ],
+      "hex": "ac64626f647981a264706172746a646566696e6974696f6e66636f6d6d6974822f5820ab7b923e907ef0e8268b4f18b53604d7f1e2b70b0677f1b07d5d81de4ff902ce646b696e646b6465636c61726174696f6e6474797065783368747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f636f6e74726f6c5f6c6561736565626173697381822f58203287bc190e3e7480cd50b017bf544edd270fa1383e36b15ecdf36c496a00d39566617574686f727070617274793a61636d653a616c696365666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee766706172616d73a1666472697665727470617274793a61636d653a62757965722d6f7267686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f58206e30ee612f3e16c91eed1a217e9e20ded67804e8a57d338ee9199e2a7eb7627d6870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f58204cff94093c475273b4aad0f518569b096f0b492b41024f4db28b05389bcedd8a6a7669736962696c697479a16373656564776f726b",
+      "decoded": {
+        "body": [
+          {
+            "part": "definition",
+            "commit": [
+              -16,
+              "ab7b923e907ef0e8268b4f18b53604d7f1e2b70b0677f1b07d5d81de4ff902ce"
+            ]
+          }
+        ],
+        "kind": "declaration",
+        "type": "https://suiss.app/ns/work/declaration/control_lease",
+        "basis": [
+          [
+            -16,
+            "3287bc190e3e7480cd50b017bf544edd270fa1383e36b15ecdf36c496a00d395"
+          ]
+        ],
+        "author": "party:acme:alice",
+        "ledger": [
+          -16,
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
+        ],
+        "params": {
+          "driver": "party:acme:buyer-org"
+        },
+        "capacity": "own",
+        "concerns": [
+          "019a2f4c8e1b7c3da5e6f70812345678"
+        ],
+        "versions": {
+          "schema": [
+            -16,
+            "6e30ee612f3e16c91eed1a217e9e20ded67804e8a57d338ee9199e2a7eb7627d"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "authority": {
+          "proof": "decision_receipt",
+          "digest": [
+            -16,
+            "4cff94093c475273b4aad0f518569b096f0b492b41024f4db28b05389bcedd8a"
+          ]
+        },
+        "visibility": {
+          "see": "work"
+        }
+      },
+      "context": {
+        "origin": "direct",
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": []
+      },
+      "cddl": "pass",
+      "expect": {
+        "outcome": "reject",
+        "reason": "schema:params"
+      }
+    },
+    {
+      "id": "responsibility-reject/autonomy-policy-without-definition",
+      "rules": [
+        "RC-27"
+      ],
+      "hex": "aa646b696e646b6465636c61726174696f6e6474797065783568747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f6175746f6e6f6d795f706f6c6963796562617369738066617574686f727070617274793a61636d653a616c696365666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f5820c1d0726abb39b2d3599e8473a27eccb40f1d2fb543e0536dfd6da7553c06abce6870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f58209b74484ce1cea26384efdf1dbfaf0a6c979ba2548b9a801e3b73c20768295f886a7669736962696c697479a16373656564776f726b",
+      "decoded": {
+        "kind": "declaration",
+        "type": "https://suiss.app/ns/work/declaration/autonomy_policy",
+        "basis": [],
+        "author": "party:acme:alice",
+        "ledger": [
+          -16,
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
+        ],
+        "capacity": "own",
+        "concerns": [
+          "019a2f4c8e1b7c3da5e6f70812345678"
+        ],
+        "versions": {
+          "schema": [
+            -16,
+            "c1d0726abb39b2d3599e8473a27eccb40f1d2fb543e0536dfd6da7553c06abce"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "authority": {
+          "proof": "decision_receipt",
+          "digest": [
+            -16,
+            "9b74484ce1cea26384efdf1dbfaf0a6c979ba2548b9a801e3b73c20768295f88"
+          ]
+        },
+        "visibility": {
+          "see": "work"
+        }
+      },
+      "context": {
+        "origin": "direct",
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": []
+      },
+      "cddl": "pass",
+      "expect": {
+        "outcome": "reject",
+        "reason": "schema:required_field"
+      }
+    },
+    {
+      "id": "responsibility-reject/autonomy-policy-with-params",
+      "rules": [
+        "RC-27",
+        "P-80"
+      ],
+      "hex": "ac64626f647981a264706172746a646566696e6974696f6e66636f6d6d6974822f5820432b09ed662a81ba9a05263443e0922bdc63eed55357b450276c911576492785646b696e646b6465636c61726174696f6e6474797065783568747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f6175746f6e6f6d795f706f6c6963796562617369738066617574686f727070617274793a61636d653a616c696365666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee766706172616d73a16776657273696f6e02686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f5820c1d0726abb39b2d3599e8473a27eccb40f1d2fb543e0536dfd6da7553c06abce6870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f5820be53aacdb9f3098735d7996c3510a924045059f6897371eb46244ee4067b75426a7669736962696c697479a16373656564776f726b",
+      "decoded": {
+        "body": [
+          {
+            "part": "definition",
+            "commit": [
+              -16,
+              "432b09ed662a81ba9a05263443e0922bdc63eed55357b450276c911576492785"
+            ]
+          }
+        ],
+        "kind": "declaration",
+        "type": "https://suiss.app/ns/work/declaration/autonomy_policy",
+        "basis": [],
+        "author": "party:acme:alice",
+        "ledger": [
+          -16,
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
+        ],
+        "params": {
+          "version": 2
+        },
+        "capacity": "own",
+        "concerns": [
+          "019a2f4c8e1b7c3da5e6f70812345678"
+        ],
+        "versions": {
+          "schema": [
+            -16,
+            "c1d0726abb39b2d3599e8473a27eccb40f1d2fb543e0536dfd6da7553c06abce"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "authority": {
+          "proof": "decision_receipt",
+          "digest": [
+            -16,
+            "be53aacdb9f3098735d7996c3510a924045059f6897371eb46244ee4067b7542"
+          ]
+        },
+        "visibility": {
+          "see": "work"
+        }
+      },
+      "context": {
+        "origin": "direct",
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": []
+      },
+      "cddl": "pass",
+      "expect": {
+        "outcome": "reject",
+        "reason": "schema:params"
+      }
+    },
+    {
+      "id": "responsibility-reject/resume-after-stop-without-basis",
+      "rules": [
+        "RC-40"
+      ],
+      "hex": "aa646b696e646b6465636c61726174696f6e6474797065783768747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f726573756d655f61667465725f73746f706562617369738066617574686f727070617274793a61636d653a616c696365666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f5820bb6e0c5c9605f2bd35e18a6aad765771a0f2b52a33268c17d4f8043dec35071e6870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f58200c3414880a367e150cc6fee89db97456f86830a77cefab5cce0514620327fb9b6a7669736962696c697479a16373656564776f726b",
+      "decoded": {
+        "kind": "declaration",
+        "type": "https://suiss.app/ns/work/declaration/resume_after_stop",
+        "basis": [],
+        "author": "party:acme:alice",
+        "ledger": [
+          -16,
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
+        ],
+        "capacity": "own",
+        "concerns": [
+          "019a2f4c8e1b7c3da5e6f70812345678"
+        ],
+        "versions": {
+          "schema": [
+            -16,
+            "bb6e0c5c9605f2bd35e18a6aad765771a0f2b52a33268c17d4f8043dec35071e"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "authority": {
+          "proof": "decision_receipt",
+          "digest": [
+            -16,
+            "0c3414880a367e150cc6fee89db97456f86830a77cefab5cce0514620327fb9b"
+          ]
+        },
+        "visibility": {
+          "see": "work"
+        }
+      },
+      "context": {
+        "origin": "direct",
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": []
+      },
+      "cddl": "pass",
+      "expect": {
+        "outcome": "reject",
+        "reason": "schema:required_field"
+      }
+    },
+    {
+      "id": "responsibility-reject/resume-after-stop-with-params",
+      "rules": [
+        "RC-40",
+        "P-80"
+      ],
+      "hex": "ab646b696e646b6465636c61726174696f6e6474797065783768747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f726573756d655f61667465725f73746f7065626173697381822f58205e7118e2da39b10430567679e7a10d83530bb73be5704c1a86b5f008608bae0066617574686f727070617274793a61636d653a616c696365666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee766706172616d73a16973746f705f74797065657061757365686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f5820bb6e0c5c9605f2bd35e18a6aad765771a0f2b52a33268c17d4f8043dec35071e6870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f5820bd536ab5c52c7a483342eda5f96d8f1336a81b5d2bdb9652062c541c68a683a96a7669736962696c697479a16373656564776f726b",
+      "decoded": {
+        "kind": "declaration",
+        "type": "https://suiss.app/ns/work/declaration/resume_after_stop",
+        "basis": [
+          [
+            -16,
+            "5e7118e2da39b10430567679e7a10d83530bb73be5704c1a86b5f008608bae00"
+          ]
+        ],
+        "author": "party:acme:alice",
+        "ledger": [
+          -16,
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
+        ],
+        "params": {
+          "stop_type": "pause"
+        },
+        "capacity": "own",
+        "concerns": [
+          "019a2f4c8e1b7c3da5e6f70812345678"
+        ],
+        "versions": {
+          "schema": [
+            -16,
+            "bb6e0c5c9605f2bd35e18a6aad765771a0f2b52a33268c17d4f8043dec35071e"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "authority": {
+          "proof": "decision_receipt",
+          "digest": [
+            -16,
+            "bd536ab5c52c7a483342eda5f96d8f1336a81b5d2bdb9652062c541c68a683a9"
+          ]
+        },
+        "visibility": {
+          "see": "work"
+        }
       },
       "context": {
         "origin": "direct",

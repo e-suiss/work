@@ -905,10 +905,11 @@ def commitment_shape(rec):
     handover = name == "handoff_note" or (name == "delegate" and params.get("step") == "proposal")
     other = any(params.get(k) == "other" for k in ("reason", "handover_reason"))
     timed = name == "open_condition" and params.get("condition_type") in TIME_CONDITIONS
-    missing = (timed and not has_part(rec, "definition")) or \
+    control = name in ("control_lease", "autonomy_policy")
+    missing = ((timed or control) and not has_part(rec, "definition")) or \
         (handover and not all(has_part(rec, x) for x in HANDOVER_PARTS)) or \
         ((other or name == "administrative_close") and not has_part(rec, "note"))
-    if missing or (name == "expire" and not rec.get("basis")):
+    if missing or (name in ("expire", "resume_after_stop") and not rec.get("basis")):
         return "schema:required_field"
     if name == "state" and not fulfils(rec):
         return "schema:relation"
@@ -2521,6 +2522,13 @@ r_accept_cases = [
     ("waiver-commitment", commitment("waiver", ALICE, {"guarantee": "advance_notice", "commitment": R_REQ_ID,
                                                        "until": 1793000000000}), {}, ["RC-9"]),
     ("participation-proactive", participation_claim({"participation": "proactive"}), {}, ["RC-44"]),
+    ("control-lease", commitment("control_lease", ALICE, body=["definition"], basis=[R_REQ_ID]), {},
+     ["RC-33", "RC-34"]),
+    ("control-lease-effective-at", commitment("control_lease", ALICE, {"effective_at": 1792109095000},
+                                              body=["definition"], basis=[R_REQ_ID], n=1),
+     {"recorded_at": 1792109090000}, ["RC-33", "P-80"]),
+    ("autonomy-policy", commitment("autonomy_policy", ALICE, body=["definition"]), {}, ["RC-27", "RC-29"]),
+    ("resume-after-stop", commitment("resume_after_stop", ALICE, basis=[R_CLAIM]), {}, ["RC-40"]),
 ]
 r_reject_cases = [
     ("queue-definition-without-owner", commitment("queue_definition", params={"candidates": [BUYER]}, n=2),
@@ -2571,6 +2579,18 @@ r_reject_cases = [
     ("participation-without-engaged-in", participation_claim({"participation": "on_call"}, relations=None, n=1),
      "schema:params", ["RC-44"]),
     ("participation-unknown", participation_claim({"participation": "always"}, n=2), "schema:params", ["RC-44"]),
+    ("control-lease-without-definition", commitment("control_lease", ALICE, basis=[R_REQ_ID], n=2),
+     "schema:required_field", ["RC-33"]),
+    ("control-lease-with-params", commitment("control_lease", ALICE, {"driver": BUYER}, body=["definition"],
+                                             basis=[R_REQ_ID], n=3), "schema:params", ["RC-33", "P-80"]),
+    ("autonomy-policy-without-definition", commitment("autonomy_policy", ALICE, n=1), "schema:required_field",
+     ["RC-27"]),
+    ("autonomy-policy-with-params", commitment("autonomy_policy", ALICE, {"version": 2}, body=["definition"], n=2),
+     "schema:params", ["RC-27", "P-80"]),
+    ("resume-after-stop-without-basis", commitment("resume_after_stop", ALICE, n=1), "schema:required_field",
+     ["RC-40"]),
+    ("resume-after-stop-with-params", commitment("resume_after_stop", ALICE, {"stop_type": "pause"},
+                                                 basis=[R_CLAIM], n=2), "schema:params", ["RC-40", "P-80"]),
 ]
 out_rc = []
 for name, rec, kw, rules in r_accept_cases:
@@ -2640,6 +2660,7 @@ PARAM_CASES = [
 write_json("responsibility.json", {
     "file": "responsibility.json",
     "notes": ["one accepted record per responsibility Declaration (RC-17), the queue definition, the organisation rule, the accountability fields and transfer, the waiver and the participation policy, then single-rule rejections; the folding rules that need the ledger are kernel rule tests",
+              "the control lease and autonomy policy take no params but effective_at and carry their work/control/1 body in the definition part; resume_after_stop takes no params but effective_at and cites the stop request it lifts in basis (RC-27, RC-33, RC-40)",
               "cddl is pass for every case: work-record.cddl leaves these params to its open alternative and the kernel decides; the params maps alone are under params, against work-responsibility.cddl"],
     "cases": out_rc,
     "params": {
