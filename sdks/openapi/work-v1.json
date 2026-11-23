@@ -248,67 +248,6 @@
         ],
         "type": "object"
       },
-      "AssignmentAnswer": {
-        "description": "One assignment history entry: who, to whom, why, when, under which policy version and its\nresult; reassignment never erases one (RC-19).",
-        "properties": {
-          "act": {
-            "description": "The responsibility or commitment operation's wire name, or `acknowledgement`.",
-            "type": "string"
-          },
-          "at": {
-            "description": "Its ledger time, RFC 3339 UTC.",
-            "type": "string"
-          },
-          "by": {
-            "description": "The Party it speaks for.",
-            "type": "string"
-          },
-          "outcome": {
-            "description": "`applied` or `refused`.",
-            "type": "string"
-          },
-          "policy": {
-            "description": "The queue definition version in force, `rec_…`.",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "reason": {
-            "description": "The kernel's reason of a refused record.",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "record": {
-            "description": "The record, `rec_…`.",
-            "type": "string"
-          },
-          "to": {
-            "description": "The Party it names.",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "why": {
-            "description": "The reason a forwarding gives.",
-            "type": [
-              "string",
-              "null"
-            ]
-          }
-        },
-        "required": [
-          "record",
-          "act",
-          "by",
-          "at",
-          "outcome"
-        ],
-        "type": "object"
-      },
       "AuthContextAnswer": {
         "description": "The Access authentication context an unsigned human record names; not an author signature\n(P-21 item 3).",
         "properties": {
@@ -1268,6 +1207,67 @@
           "commitment",
           "via",
           "since"
+        ],
+        "type": "object"
+      },
+      "HistoryAnswer": {
+        "description": "One assignment history entry: who, to whom, why, when, under which policy version and its\nresult; reassignment never erases one (RC-19).",
+        "properties": {
+          "act": {
+            "description": "The responsibility or commitment operation's wire name, or `acknowledgement`.",
+            "type": "string"
+          },
+          "at": {
+            "description": "Its ledger time, RFC 3339 UTC.",
+            "type": "string"
+          },
+          "by": {
+            "description": "The Party it speaks for.",
+            "type": "string"
+          },
+          "outcome": {
+            "description": "`applied` or `refused`.",
+            "type": "string"
+          },
+          "policy": {
+            "description": "The queue definition version in force, `rec_…`.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reason": {
+            "description": "The kernel's reason of a refused record.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "record": {
+            "description": "The record, `rec_…`.",
+            "type": "string"
+          },
+          "to": {
+            "description": "The Party it names.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "why": {
+            "description": "The reason a forwarding gives.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "record",
+          "act",
+          "by",
+          "at",
+          "outcome"
         ],
         "type": "object"
       },
@@ -2376,7 +2376,7 @@
           "history": {
             "description": "The assignment history.",
             "items": {
-              "$ref": "#/components/schemas/AssignmentAnswer"
+              "$ref": "#/components/schemas/HistoryAnswer"
             },
             "type": "array"
           },
