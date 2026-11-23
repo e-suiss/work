@@ -9,6 +9,7 @@
 !sdks
 !xtask
 !.sqlx
+!conformance/tzdb
 !deploy/compose/work/signer-entrypoint.sh
 **/target
 **/node_modules
