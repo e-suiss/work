@@ -342,6 +342,7 @@ mod tests {
             kid: None,
             instance: None,
             tenant: None,
+            claims: Vec::new(),
         }
     }
 

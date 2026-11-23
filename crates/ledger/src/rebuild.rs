@@ -136,6 +136,7 @@ pub(crate) fn replayed(
         kid: None,
         instance: None,
         tenant: None,
+        claims: Vec::new(),
     })
 }
 

@@ -1,9 +1,10 @@
 use sqlx::{AssertSqlSafe, Executor};
 use work_store::{
-    AppendBatch, AppendError, CallerRef, CellId, Cluster, Durability, Expect, Genesis, HeaderRow,
-    IdempotencyKey, InboundEvent, InboundRow, InboundSeen, ItemHeadRow, ItemRef, KeyRow, LedgerId,
-    LedgerTx, LogRow, NewHead, OutboxRow, ReceivedKind, ReceivedRole, ReceivedRow, Seat,
-    SequencerPool, Skeleton, StoreError, StoredHead, StoredKey, StoredOutcome,
+    AppendBatch, AppendError, CallerRef, CellId, ClaimAnswer, ClaimRow, Cluster, Delivery,
+    Durability, Expect, Genesis, HeaderRow, IdempotencyKey, InboundEvent, InboundRow, InboundSeen,
+    ItemHeadRow, ItemRef, KeyRow, LedgerId, LedgerTx, LogRow, NewHead, OutboxRow, PublisherPool,
+    ReceivedKind, ReceivedRole, ReceivedRow, Seat, SequencerPool, Skeleton, StoreError, StoredHead,
+    StoredKey, StoredOutcome,
 };
 
 use crate::env::{Env, L, M, commit_fails, fails, hex, run, scalar, with_ledgers};
@@ -53,6 +54,7 @@ fn record(pos: u64, prev: [u8; 32], leaf: [u8; 32], at: u64) -> LogRow {
         body: vec![],
         activation: false,
         signer: None,
+        claims: vec![],
     }
 }
 
@@ -945,4 +947,223 @@ async fn op_7_no_transition_on_a_stale_conflict_area_head_is_ever_committed() {
         scalar(&publisher, &hex(&L), pointers, false).await,
         i64::try_from(after).unwrap()
     );
+}
+
+fn claim(subject: u8) -> ClaimRow {
+    ClaimRow {
+        subject: [subject; 16],
+        commitment: [0xc0; 32],
+        issuer: [0x11; 16],
+        domain: [0x22; 32],
+        pep: [0x33; 32],
+    }
+}
+
+fn answer(at_ms: u64) -> ClaimAnswer {
+    ClaimAnswer {
+        claim: [0x44; 16],
+        position: 9,
+        at_ms,
+    }
+}
+
+// E-12 E-8
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs Docker"]
+async fn e_12_a_claim_is_written_with_its_record_and_settled_by_its_delivery_only() {
+    let (env, seq) = opened().await;
+    let ledger = LedgerId::from_bytes(L);
+    let head = seq.acquire(&ledger, &seat(), any).await.unwrap();
+    let mut refused = batch(head.epoch, 0, 2);
+    refused.records[0].claims = vec![claim(1)];
+    assert!(matches!(
+        seq.append(&ledger, &refused).await,
+        Err(AppendError::Refused(StoreError::ItemConflict(ITEM)))
+    ));
+    let app = env.canonical("work_app");
+    let l = hex(&L);
+    let rows = "SELECT count(*) FROM work.claim_delivery";
+    assert_eq!(scalar(&app, &l, rows, false).await, 0);
+    let mut written = batch(head.epoch, 0, 1);
+    written.records[0].claims = vec![claim(1), claim(2)];
+    seq.append(&ledger, &written).await.unwrap();
+    assert_eq!(scalar(&app, &l, rows, false).await, 2);
+    let at = plus(AT, 1);
+    let record = written.records[0].record_id;
+    let publisher = PublisherPool::new(env.canonical("work_publisher"))
+        .await
+        .unwrap();
+    assert_eq!(
+        publisher.claim_ledgers(None, at, 10).await.unwrap(),
+        [ledger]
+    );
+    assert!(
+        publisher
+            .claim_ledgers(None, plus(AT, 0), 10)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        publisher
+            .claim_ledgers(Some(&ledger), at, 10)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    let mut tx = publisher.begin(&ledger).await.unwrap();
+    let due = tx.claims_due(at, 10).await.unwrap();
+    assert_eq!(due.len(), 2);
+    let first = &due[0];
+    assert_eq!(first.key.record, record);
+    assert_eq!(first.key.subject, [1; 16]);
+    assert_eq!(first.claim, claim(1));
+    assert_eq!(first.issued_at_ms, at);
+    assert_eq!(first.pos, 1);
+    assert_eq!(first.attempts, 0);
+    assert_eq!(
+        first.delivery,
+        Delivery::Pending {
+            next_attempt_ms: at,
+            last_error: None,
+        }
+    );
+    let (one, two) = (due[0].key, due[1].key);
+    assert!(
+        tx.claim_retry(&one, "access_unreachable", plus(at, 1000))
+            .await
+            .unwrap()
+    );
+    assert_eq!(tx.claims_due(at, 10).await.unwrap().len(), 1);
+    assert!(
+        tx.claim_quarantined(&two, &answer(at), "source-not-accepted")
+            .await
+            .unwrap()
+    );
+    assert!(tx.claims_due(at, 10).await.unwrap().is_empty());
+    let later = tx.claims_due(plus(at, 1000), 10).await.unwrap();
+    assert_eq!(later.len(), 1);
+    assert_eq!(later[0].attempts, 1);
+    assert_eq!(
+        later[0].delivery,
+        Delivery::Pending {
+            next_attempt_ms: plus(at, 1000),
+            last_error: Some("access_unreachable".to_owned()),
+        }
+    );
+    assert!(
+        tx.claim_delivered(&one, &answer(plus(at, 1000)), true)
+            .await
+            .unwrap()
+    );
+    assert!(
+        !tx.claim_delivered(&one, &answer(plus(at, 2000)), false)
+            .await
+            .unwrap()
+    );
+    assert!(
+        !tx.claim_retry(&two, "access_timeout", plus(at, 5000))
+            .await
+            .unwrap()
+    );
+    tx.commit().await.unwrap();
+    assert!(
+        publisher
+            .claim_ledgers(None, plus(at, 86_400_000), 10)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    let mut read = LedgerTx::begin(&app, &ledger).await.unwrap();
+    let kept = read.claim_deliveries(&record).await.unwrap();
+    read.rollback().await.unwrap();
+    assert_eq!(kept.len(), 2);
+    assert_eq!(kept[0].attempts, 2);
+    assert_eq!(
+        kept[0].delivery,
+        Delivery::Delivered {
+            claim: [0x44; 16],
+            position: 9,
+            replayed: true,
+            at_ms: plus(at, 1000),
+        }
+    );
+    assert_eq!(
+        kept[1].delivery,
+        Delivery::Quarantined {
+            claim: [0x44; 16],
+            position: 9,
+            reason: "source-not-accepted".to_owned(),
+            at_ms: at,
+        }
+    );
+}
+
+// E-12 E-8
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs Docker"]
+async fn e_12_only_the_sequencer_writes_a_claim_and_only_its_delivery_settles_it_once() {
+    let (env, seq) = opened().await;
+    let ledger = LedgerId::from_bytes(L);
+    let head = seq.acquire(&ledger, &seat(), any).await.unwrap();
+    let mut written = batch(head.epoch, 0, 1);
+    written.records[0].claims = vec![claim(1)];
+    seq.append(&ledger, &written).await.unwrap();
+    let l = hex(&L);
+    let insert = "INSERT INTO work.claim_delivery \
+                  (ledger_id, record_id, subject, pos, commitment, issuer, domain_id, pep, \
+                   issued_at, delivery, attempts, next_attempt_at) \
+                  SELECT ledger_id, record_id, decode(repeat('09', 16), 'hex'), pos, commitment, \
+                   issuer, domain_id, pep, issued_at, 'pending', 0, next_attempt_at \
+                  FROM work.claim_delivery";
+    let settle = "UPDATE work.claim_delivery SET attempts = attempts + 1";
+    for role in ["work_app", "work_publisher", "work_checkpointer"] {
+        fails(&env.canonical(role), &l, &[insert], Some("42501")).await;
+    }
+    for role in ["work_app", "work_sequencer", "work_checkpointer"] {
+        fails(&env.canonical(role), &l, &[settle], Some("42501")).await;
+    }
+    let publisher = env.canonical("work_publisher");
+    for stmt in [
+        "DELETE FROM work.claim_delivery",
+        "TRUNCATE work.claim_delivery",
+        "UPDATE work.claim_delivery SET issued_at = issued_at + interval '1 millisecond'",
+    ] {
+        fails(&publisher, &l, &[stmt], Some("42501")).await;
+    }
+    fails(
+        &publisher,
+        &l,
+        &["UPDATE work.claim_delivery SET attempts = 0, delivery = 'delivered'"],
+        Some("23514"),
+    )
+    .await;
+    run(&publisher, &l, &[settle]).await;
+    fails(
+        &publisher,
+        &l,
+        &["UPDATE work.claim_delivery SET attempts = 0"],
+        Some("23514"),
+    )
+    .await;
+    run(
+        &publisher,
+        &l,
+        &["UPDATE work.claim_delivery SET delivery = 'quarantined', \
+           access_claim = decode(repeat('44', 16), 'hex'), access_pos = 9, \
+           held_reason = 'source-not-accepted', settled_at = next_attempt_at"],
+    )
+    .await;
+    fails(&publisher, &l, &[settle], Some("23514")).await;
+    let other = hex(&M);
+    let seen = "SELECT count(*) FROM work.claim_delivery";
+    assert_eq!(scalar(&publisher, &other, seen, false).await, 0);
+    assert_eq!(scalar(&publisher, &l, seen, false).await, 1);
+    fails(
+        &env.canonical("work_app"),
+        &l,
+        &["SELECT count(*) FROM work.claim_delivery_ledgers(NULL, 0, 10)"],
+        Some("42501"),
+    )
+    .await;
 }

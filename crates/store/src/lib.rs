@@ -10,6 +10,7 @@ mod approval;
 mod archive;
 mod body;
 mod checkpoint;
+mod claim;
 mod compromise;
 mod cursor;
 mod erasure;
@@ -42,6 +43,7 @@ pub use checkpoint::{
     CHECKPOINTER_ROLE, CheckpointRow, CheckpointerPool, CosignatureRow, HeadSnapshot, MirrorEntry,
     RecordDurability,
 };
+pub use claim::{ClaimAnswer, ClaimDelivery, ClaimKey, ClaimRow, Delivery};
 pub use compromise::{NoticeView, WindowHit};
 pub use erasure::{ERASURE_SCOPE, ErasureScope};
 pub use error::{AppendError, StoreError};

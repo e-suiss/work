@@ -135,4 +135,8 @@ impl<R: DiscoveryRole> DiscoveryPool<R> {
     pub async fn begin(&self, ledger: &LedgerId) -> Result<LedgerTx<'static>, StoreError> {
         LedgerTx::begin(&self.pool, ledger).await
     }
+
+    pub(crate) const fn pool(&self) -> &PgPool {
+        &self.pool
+    }
 }

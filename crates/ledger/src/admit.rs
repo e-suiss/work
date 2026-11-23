@@ -673,6 +673,7 @@ pub fn admit<V: SignatureVerifier + ?Sized>(
         kid: a.kid,
         instance: a.instance,
         tenant: None,
+        claims: Vec::new(),
     })
 }
 

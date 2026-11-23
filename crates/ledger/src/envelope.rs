@@ -4,8 +4,8 @@ use suiss_ledger::Hash;
 use suiss_ledger::sequencer::{Entry, Slot};
 use work_kernel::record::ProtocolVersion;
 use work_store::{
-    BodyPartRow, CallerRef, Expect, IdempotencyKey, ItemRef, LedgerId, ReceivedRow, SignerRow,
-    Skeleton, Stored,
+    BodyPartRow, CallerRef, ClaimRow, Expect, IdempotencyKey, ItemRef, LedgerId, ReceivedRow,
+    SignerRow, Skeleton, Stored,
 };
 
 use crate::admit::auth_context_value;
@@ -50,6 +50,9 @@ pub struct PendingRecord {
     /// The tenant the record is written for, which the SEC-36 lookup of a tenant's ledgers
     /// reads (WD-123).
     pub(crate) tenant: Option<String>,
+    /// The `commitment_active` Claims of the ends of `commitment.active` the record gives,
+    /// written with it for their durable delivery to Access (E-8, E-12).
+    pub(crate) claims: Vec<ClaimRow>,
 }
 
 /// An inbound event or federated record by its source and id (OP-8, P-35 item 4).
@@ -83,6 +86,20 @@ impl PendingRecord {
     /// it by its `kid` or, unsigned, by its `auth_context` Instance or its author (WD-123).
     pub fn for_tenant(&mut self, tenant: &str) {
         self.tenant = Some(tenant.to_owned());
+    }
+
+    /// Hands Access, once the record is written, the `commitment_active` Claim of each end of
+    /// `commitment.active` it gives: the rows are written in the same transaction as the record
+    /// and delivered from there, so an end is never lost and never sent for a record that was
+    /// not written (E-8, E-12).
+    pub fn end_claims(&mut self, claims: Vec<ClaimRow>) {
+        self.claims = claims;
+    }
+
+    /// The `commitment_active` Claims written with the record (E-8, E-12).
+    #[must_use]
+    pub fn claims(&self) -> &[ClaimRow] {
+        &self.claims
     }
 
     /// Who signed or wrote the record, for the tenant it is written for (WD-123).
@@ -283,6 +300,7 @@ impl Entry for Activating<'_> {
             kid: None,
             instance: None,
             tenant: None,
+            claims: Vec::new(),
         };
         Ok((
             leaf_hash(&bytes),
@@ -409,6 +427,7 @@ mod tests {
                 kid: None,
                 instance: None,
                 tenant: None,
+                claims: Vec::new(),
             };
             let (leaf, sealed) = Bound {
                 ledger: &ledger,
@@ -443,6 +462,7 @@ mod tests {
             kid: None,
             instance: None,
             tenant: None,
+            claims: Vec::new(),
         };
         let expected = decode(
             &hex(signed["record_digest"].as_str().unwrap()),

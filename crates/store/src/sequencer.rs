@@ -11,8 +11,8 @@ use sqlx::PgPool;
 
 use crate::publisher::check_role;
 use crate::{
-    AppendError, BodyPartRow, CallerRef, IdempotencyKey, InboundRow, ItemRef, LedgerId, LedgerTx,
-    ReceivedRow, SignerRow, Skeleton, StoreError, StoredKey,
+    AppendError, BodyPartRow, CallerRef, ClaimRow, IdempotencyKey, InboundRow, ItemRef, LedgerId,
+    LedgerTx, ReceivedRow, SignerRow, Skeleton, StoreError, StoredKey,
 };
 
 /// The login role a [`SequencerPool`] must have.
@@ -149,6 +149,9 @@ pub struct LogRow {
     /// Who signed or wrote the record, for the SEC-36 lookup of a tenant's ledgers; none for a
     /// rebuild or a record admitted for no tenant (WD-123).
     pub signer: Option<SignerRow>,
+    /// The `commitment_active` Claims of the ends of `commitment.active` the record gives,
+    /// delivered to Access from `work.claim_delivery` (E-8, E-12).
+    pub claims: Vec<ClaimRow>,
 }
 
 impl std::fmt::Debug for LogRow {
@@ -162,6 +165,7 @@ impl std::fmt::Debug for LogRow {
             .field("skeleton", &self.skeleton.is_some())
             .field("body", &self.body.len())
             .field("activation", &self.activation)
+            .field("claims", &self.claims.len())
             .finish_non_exhaustive()
     }
 }
@@ -407,6 +411,7 @@ fn lone_activation(b: &AppendBatch) -> bool {
                 && r.skeleton.is_none()
                 && r.body.is_empty()
                 && r.signer.is_none()
+                && r.claims.is_empty()
                 && b.items.is_empty()
                 && b.outbox.is_empty()
                 && b.keys.is_empty()
@@ -418,7 +423,7 @@ fn lone_activation(b: &AppendBatch) -> bool {
 
 /// The rows each record writes beside its log row, in the T-90 order: the bytes as received,
 /// the skeleton, then the links from the record to its received bytes; then its encrypted body
-/// parts and part keys (OP-45).
+/// parts and part keys (OP-45), then the `commitment_active` Claims it gives (E-8, E-12).
 async fn insert_record_rows(tx: &mut LedgerTx<'_>, records: &[LogRow]) -> Result<(), AppendError> {
     for r in records {
         tx.insert_received(r.pos, &r.received)
@@ -444,6 +449,11 @@ async fn insert_record_rows(tx: &mut LedgerTx<'_>, records: &[LogRow]) -> Result
     }
     for r in records {
         tx.insert_body(r.pos, &r.body).await.map_err(row_failure)?;
+    }
+    for r in records {
+        tx.insert_claims(r.pos, &r.record_id, r.recorded_at_ms, &r.claims)
+            .await
+            .map_err(row_failure)?;
     }
     Ok(())
 }
@@ -886,7 +896,8 @@ impl SequencerPool {
 
     /// Appends `b` to `ledger` in one transaction (T-74 m.1, OP-5, T-90): locks the head and
     /// checks it is at `b.after` under `b.epoch`, inserts the log rows, the bytes each record was
-    /// received as, the skeletons and the links to the received bytes, then the item heads, the
+    /// received as, the skeletons, the links to the received bytes, the body parts and the
+    /// `commitment_active` Claims the records give, then the item heads, the
     /// outbox pointers with the versions those heads took, the idempotency keys and the inbound
     /// events, then moves the head with its frontier by compare-and-set. A version activation is
     /// a batch of its own, one log row and its `ledger.version_activation` position and nothing
