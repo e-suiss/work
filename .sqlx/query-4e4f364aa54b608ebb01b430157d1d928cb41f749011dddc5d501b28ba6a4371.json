@@ -1,0 +1,64 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO work.claim_delivery\n                 (ledger_id, record_id, subject, pos, commitment, issuer, domain_id, pep,\n                  issued_at, delivery, attempts, next_attempt_at)\n                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8,\n                  pg_catalog.to_timestamp(0) + interval '1 millisecond' * $9::bigint::double precision,\n                  'pending', 0,\n                  pg_catalog.to_timestamp(0) + interval '1 millisecond' * $9::bigint::double precision)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "ledger.digest32",
+            "kind": {
+              "Domain": "Bytea"
+            }
+          }
+        },
+        {
+          "Custom": {
+            "name": "ledger.digest32",
+            "kind": {
+              "Domain": "Bytea"
+            }
+          }
+        },
+        "Bytea",
+        {
+          "Custom": {
+            "name": "ledger.log_pos",
+            "kind": {
+              "Domain": "Int8"
+            }
+          }
+        },
+        {
+          "Custom": {
+            "name": "ledger.digest32",
+            "kind": {
+              "Domain": "Bytea"
+            }
+          }
+        },
+        "Bytea",
+        {
+          "Custom": {
+            "name": "ledger.digest32",
+            "kind": {
+              "Domain": "Bytea"
+            }
+          }
+        },
+        {
+          "Custom": {
+            "name": "ledger.digest32",
+            "kind": {
+              "Domain": "Bytea"
+            }
+          }
+        },
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4e4f364aa54b608ebb01b430157d1d928cb41f749011dddc5d501b28ba6a4371"
+}

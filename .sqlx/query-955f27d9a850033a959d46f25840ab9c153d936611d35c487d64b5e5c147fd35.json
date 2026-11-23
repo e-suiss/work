@@ -1,0 +1,186 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT record_id::bytea AS \"record_id!\", subject, pos AS \"pos!\",\n                      commitment::bytea AS \"commitment!\", issuer, domain_id::bytea AS \"domain_id!\",\n                      pep::bytea AS \"pep!\",\n                      (extract(epoch FROM issued_at) * 1000)::bigint AS \"issued_at_ms!\",\n                      delivery, attempts,\n                      (extract(epoch FROM next_attempt_at) * 1000)::bigint AS \"next_attempt_ms!\",\n                      last_error, access_claim, access_pos, replayed, held_reason,\n                      (extract(epoch FROM settled_at) * 1000)::bigint AS settled_ms\n               FROM work.claim_delivery\n               WHERE ledger_id = $1 AND record_id = $2\n               ORDER BY subject",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "record_id!",
+        "type_info": "Bytea",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "subject",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "work.claim_delivery",
+            "name": "subject"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "pos!",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "work.claim_delivery",
+            "name": "pos"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "commitment!",
+        "type_info": "Bytea",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "issuer",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "work.claim_delivery",
+            "name": "issuer"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "domain_id!",
+        "type_info": "Bytea",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "pep!",
+        "type_info": "Bytea",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 7,
+        "name": "issued_at_ms!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 8,
+        "name": "delivery",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "work.claim_delivery",
+            "name": "delivery"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "attempts",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "work.claim_delivery",
+            "name": "attempts"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "next_attempt_ms!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 11,
+        "name": "last_error",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "work.claim_delivery",
+            "name": "last_error"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "access_claim",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "work.claim_delivery",
+            "name": "access_claim"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "access_pos",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "work.claim_delivery",
+            "name": "access_pos"
+          }
+        }
+      },
+      {
+        "ordinal": 14,
+        "name": "replayed",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "work.claim_delivery",
+            "name": "replayed"
+          }
+        }
+      },
+      {
+        "ordinal": 15,
+        "name": "held_reason",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "work.claim_delivery",
+            "name": "held_reason"
+          }
+        }
+      },
+      {
+        "ordinal": 16,
+        "name": "settled_ms",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Bytea"
+      ]
+    },
+    "nullable": [
+      null,
+      false,
+      false,
+      null,
+      false,
+      null,
+      null,
+      null,
+      false,
+      false,
+      null,
+      true,
+      true,
+      true,
+      true,
+      true,
+      null
+    ]
+  },
+  "hash": "955f27d9a850033a959d46f25840ab9c153d936611d35c487d64b5e5c147fd35"
+}

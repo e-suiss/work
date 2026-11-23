@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE work.claim_delivery\n             SET delivery = 'quarantined', attempts = attempts + 1, access_claim = $3,\n                 access_pos = $4, held_reason = $5,\n                 settled_at = pg_catalog.to_timestamp(0)\n                     + interval '1 millisecond' * $6::bigint::double precision\n             WHERE ledger_id = $1 AND record_id = $2 AND subject = $7 AND delivery = 'pending'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Bytea",
+        "Bytea",
+        "Int8",
+        "Text",
+        "Int8",
+        "Bytea"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1ce6d4ad036f1bbc71c69609fbd28267c059422ded9ec6fd970f4e7eb2c17dbb"
+}
