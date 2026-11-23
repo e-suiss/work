@@ -15,6 +15,7 @@ use crate::ceiling;
 use crate::commitments;
 use crate::common::{self, Common, TraceIds};
 use crate::control;
+use crate::executor;
 use crate::gateway::Limits;
 use crate::problem::{Problem, ProblemCode, ProblemType};
 use crate::rate::RatePolicy;
@@ -117,6 +118,7 @@ pub fn router_with(
         )
         .merge(commitments::routes())
         .merge(control::routes())
+        .merge(executor::routes())
         .route("/v1/works", post(works::create_work))
         .route(
             "/v1/authority-requests",

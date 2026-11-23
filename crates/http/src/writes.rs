@@ -240,6 +240,7 @@ pub fn declaration_request(
         if_match,
         traceparent,
         expected: None,
+        executor: false,
         body: body.body.iter().map(opening).collect::<Result<_, _>>()?,
     })
 }

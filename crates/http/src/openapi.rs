@@ -20,6 +20,7 @@ use crate::control::{
     ControlInterventionAnswer, ControlLeaseAnswer, ControlMoveAnswer, ControlRequestAnswer,
     ControlStopAnswer,
 };
+use crate::executor::{DeliveriesAnswer, DeliveryAnswer};
 use crate::problem::{FieldError, Problem, ProblemCode, ProblemType};
 use crate::reads::{
     AuthContextAnswer, AuthorSignature, ChangeEntry, ChangesAnswer, CheckpointAnswer,
@@ -102,7 +103,17 @@ fn security_scheme() -> Value {
         crate::control::record_forced_stop,
         crate::control::resume_after_stop,
         crate::control::correct,
-        crate::control::set_autonomy_policy
+        crate::control::set_autonomy_policy,
+        crate::executor::list_executor_deliveries,
+        crate::executor::capability,
+        crate::executor::status,
+        crate::executor::control_mode,
+        crate::executor::heartbeat,
+        crate::executor::session,
+        crate::executor::report,
+        crate::executor::stop_response,
+        crate::executor::request_response,
+        crate::executor::handover
     ),
     components(schemas(
         Problem,
@@ -161,7 +172,9 @@ fn security_scheme() -> Value {
         ControlDriverAnswer,
         ControlStopAnswer,
         ControlInterventionAnswer,
-        ControlLeaseAnswer
+        ControlLeaseAnswer,
+        DeliveriesAnswer,
+        DeliveryAnswer
     ))
 )]
 struct Api;

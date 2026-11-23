@@ -355,6 +355,10 @@ pub struct EvidenceAnswer {
     pub witnesses: Vec<WitnessAnswer>,
     /// The compromise windows the record falls in; empty outside every window.
     pub compromise_window: Vec<CompromiseWindowAnswer>,
+    /// The first action report of the executor assigned to the work relying on the record,
+    /// `rec_…`, which makes it `acted upon` (OP-4); absent while no action relies on it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub acted_upon: Option<String>,
     /// The positions the answer reflects, `pos_…` (T-97 item 2).
     pub position: String,
 }
@@ -425,6 +429,7 @@ impl EvidenceAnswer {
                     window_to: time(i64::try_from(m.window_to_ms).unwrap_or(i64::MAX)),
                 })
                 .collect(),
+            acted_upon: e.acted_upon.map(|r| r.to_external()),
             position: e.position.to_external(),
         }
     }
@@ -779,6 +784,7 @@ mod tests {
                 window_from_ms: 1_792_749_000_000,
                 window_to_ms: 1_792_749_700_000,
             }],
+            acted_upon: Some(RecordId(Digest::sha256([7; 32]))),
             position: PositionToken::new(vec![1, 2, 3]).unwrap(),
         };
         serde_json::to_value(EvidenceAnswer::of(&e)).unwrap()
@@ -889,5 +895,12 @@ mod tests {
         assert_eq!(window["window_to"], "2026-10-23T10:01:40.000Z");
         assert_eq!(marked["compromise_window"].as_array().unwrap().len(), 1);
         assert!(marked.get("author_signature").is_none());
+    }
+
+    // OP-4
+    #[test]
+    fn op_4_the_evidence_answer_names_the_action_report_that_acted_upon_the_record() {
+        let read = evidence(None, Inclusion::Pending);
+        assert_eq!(read["acted_upon"], format!("rec_{}", "07".repeat(32)));
     }
 }

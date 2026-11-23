@@ -846,7 +846,7 @@ impl CommitmentAnswer {
     }
 }
 
-fn written(ledger: &LedgerId, commitment: &RecordId, w: &Written) -> Response {
+pub(crate) fn written(ledger: &LedgerId, commitment: &RecordId, w: &Written) -> Response {
     let body = CommitmentWritten {
         ledger: ledger.to_external(),
         commitment: CommitmentId(*commitment).to_external(),
