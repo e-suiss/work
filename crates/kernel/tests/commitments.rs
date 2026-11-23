@@ -19,9 +19,10 @@ use work_kernel::commitment::{
     AccessAnswer, ActiveEndCause, AggregateStatus, AggregationPolicy, Answer, Caller,
     CommitmentState, CommitmentView, Definition, Facts, ImplicitAcceptance, Initiator, Missing,
     Mover, Operation, Policy, Proposed, REPORT_EXT_KEY, REPORT_PARTS, RULES, Refusal, StepOutcome,
-    Summary, SupportCause, TimeInputs, TimeProjection, active_ends_of, aggregate, allowed, check,
-    clock_events, clock_signals, definition_records, derive_commitments, implicit_acceptance,
-    needed, next_moves, offer_gaps, project_time, support_chain, support_signals, zones_named,
+    Summary, SupportCause, TimeInputs, TimeProjection, active_ends_of, aggregate, allowed, applied,
+    check, clock_events, clock_signals, definition_records, derive_commitments,
+    implicit_acceptance, needed, next_moves, offer_gaps, project_time, support_chain,
+    support_signals, zones_named,
 };
 use work_kernel::commitment_time::{BodyError, TimeCondition};
 use work_kernel::currency;
@@ -1386,6 +1387,57 @@ fn cm_13_a_pool_request_binds_whoever_promises() {
     );
     ledger.push(decl(CAROL, "promise", Some(root), &[]));
     assert_eq!(ledger.view(root).obligor, Obligor::Party(party(CAROL)));
+}
+
+// RC-42 E-8
+#[test]
+fn rc_42_the_view_a_proposed_record_gives_is_the_one_the_fold_derives_once_it_is_written() {
+    let mut ledger = Ledger::new();
+    let root = request(&mut ledger, &[]);
+    let view = ledger.view(root);
+    let records = ledger.records();
+    let promise = decl(SUPPLIER, "promise", Some(root), &[]);
+    let proposed = Proposed {
+        id: id(700),
+        record: &promise,
+        position: 2,
+        recorded_at: Time(2000),
+        author_actor: ActorType::Organization,
+        step_up: false,
+        access: AccessAnswer::Allow,
+        agent_side: false,
+        control_supported: false,
+    };
+    let after = applied(&view, &proposed, &records, &ledger.facts());
+    let hold = after.allocation.hold.clone().unwrap();
+    assert_eq!(hold.record, id(700));
+    assert_eq!(hold.party, party(SUPPLIER));
+    assert_eq!(after.obligor, Obligor::Party(party(SUPPLIER)));
+    let mut written = Ledger::new();
+    let root_w = request(&mut written, &[]);
+    let promise_w = written.push(decl(SUPPLIER, "promise", Some(root_w), &[]));
+    let derived = written.view(root_w).allocation.hold.unwrap();
+    assert_eq!(derived.record, promise_w);
+    assert_eq!(derived.party, hold.party);
+    assert_eq!(summary(&after), summary(&written.view(root_w)));
+    let by_alice = decl(ALICE, "promise", Some(root), &[]);
+    let refused = Proposed {
+        record: &by_alice,
+        author_actor: ActorType::Human,
+        ..proposed
+    };
+    assert_eq!(
+        applied(&view, &refused, &records, &ledger.facts())
+            .allocation
+            .hold,
+        None
+    );
+    let no_operation = claim(SUPPLIER);
+    let untouched = Proposed {
+        record: &no_operation,
+        ..proposed
+    };
+    assert_eq!(applied(&view, &untouched, &records, &ledger.facts()), view);
 }
 
 // CM-58 CM-49

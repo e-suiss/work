@@ -484,6 +484,38 @@ pub fn active_ends_of(
         .collect()
 }
 
+/// The commitment `view` with a proposed commitment or responsibility record, or an `acknowledgement`, applied next, as the fold derives it once the record is written (RC-42, E-8): a record the rules refuse leaves only its refusal, and a record that is none of these leaves the view as it is. A `forward` to a queue does not refresh the queue definition in force, which only the ledger's queue definitions give.
+#[must_use]
+pub fn applied(
+    view: &CommitmentView,
+    proposed: &Proposed<'_>,
+    records: &dyn Records,
+    facts: &Facts<'_>,
+) -> CommitmentView {
+    let mut after = view.clone();
+    let Some(act) = duty::act_of(proposed.record) else {
+        return after;
+    };
+    let input = Input {
+        id: proposed.id,
+        record: proposed.record,
+        position: proposed.position,
+        recorded_at: proposed.recorded_at,
+        actor: Some(proposed.author_actor),
+        step_up: proposed.step_up,
+    };
+    match act {
+        Act::Commitment(Operation::Request) => {}
+        Act::Commitment(op) => step(&mut after, &input, op, records, facts),
+        Act::Responsibility(op) => {
+            settle(&mut after, facts, input.position);
+            duty::step(&mut after, &input, op, records, &[]);
+        }
+        Act::Acknowledgement => duty::acknowledge(&mut after, &input),
+    }
+    after
+}
+
 /// How the implicit acceptance of the statement in force stands at ledger time `now` (CM-41, CM-42): the window starts at the statement's ledger time; past it, the Work service writes an `accept` marked implicit only when no evidence, four-eyes or step-up rule blocks it.
 #[must_use]
 pub fn implicit_acceptance(
