@@ -343,6 +343,8 @@ mod tests {
             instance: None,
             tenant: None,
             claims: Vec::new(),
+            deliveries: Vec::new(),
+            single_use: None,
         }
     }
 

@@ -87,9 +87,11 @@ const COMPARED: [(&str, &str); 15] = [
 
 /// The tables whose rows carry what the request said and are checked against the log row they
 /// answer instead of being rebuilt, each with the statement that reads the rows that do not
-/// match it (OP-8, OP-36 item 1, OP-38 item 5, T-91 item 5). [`LedgerTx::log_mismatches`] runs
-/// the same files, checked at compile time, in this order.
-const CHECKED: [(&str, &str); 2] = [
+/// match it (OP-8, OP-36 item 1, OP-38 item 5, T-91 item 5); a single-use binding is read from
+/// its action report's `definition` body part, which the log commits to but does not carry, so
+/// it is checked against that record and its commitment (SEC-15, OP-47).
+/// [`LedgerTx::log_mismatches`] runs the same files, checked at compile time, in this order.
+const CHECKED: [(&str, &str); 3] = [
     (
         "work.idempotency_key",
         include_str!("../queries/rebuild/idempotency_key.sql"),
@@ -97,6 +99,10 @@ const CHECKED: [(&str, &str); 2] = [
     (
         "work.inbound_seen",
         include_str!("../queries/rebuild/inbound_seen.sql"),
+    ),
+    (
+        "work.single_use",
+        include_str!("../queries/rebuild/single_use.sql"),
     ),
 ];
 
@@ -471,7 +477,8 @@ impl LedgerTx<'_> {
 
     /// The idempotency keys and inbound events whose stored result does not match the log row
     /// it names: another record id, or a time other than that record's ledger time (OP-8,
-    /// OP-38 item 5, T-91 item 5).
+    /// OP-38 item 5, T-91 item 5); and the single-use bindings whose action report is not the
+    /// record at their position or commits to no `definition` part (SEC-15, OP-47).
     ///
     /// # Errors
     /// [`StoreError::Db`].
@@ -483,6 +490,9 @@ impl LedgerTx<'_> {
                 .fetch_all(self.conn())
                 .await?,
             sqlx::query_file_scalar!("queries/rebuild/inbound_seen.sql", id)
+                .fetch_all(self.conn())
+                .await?,
+            sqlx::query_file_scalar!("queries/rebuild/single_use.sql", id)
                 .fetch_all(self.conn())
                 .await?,
         ];

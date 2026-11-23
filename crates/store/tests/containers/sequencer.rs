@@ -1,10 +1,10 @@
 use sqlx::{AssertSqlSafe, Executor};
 use work_store::{
     AppendBatch, AppendError, CallerRef, CellId, ClaimAnswer, ClaimRow, Cluster, Delivery,
-    Durability, Expect, Genesis, HeaderRow, IdempotencyKey, InboundEvent, InboundRow, InboundSeen,
-    ItemHeadRow, ItemRef, KeyRow, LedgerId, LedgerTx, LogRow, NewHead, OutboxRow, PublisherPool,
-    ReceivedKind, ReceivedRole, ReceivedRow, Seat, SequencerPool, Skeleton, StoreError, StoredHead,
-    StoredKey, StoredOutcome,
+    DeliveryKind, Doorbell, Durability, ExecutorDeliveryRow, Expect, Genesis, HeaderRow,
+    IdempotencyKey, InboundEvent, InboundRow, InboundSeen, ItemHeadRow, ItemRef, KeyRow, LedgerId,
+    LedgerTx, LogRow, NewHead, OutboxRow, PublisherPool, ReceivedKind, ReceivedRole, ReceivedRow,
+    Seat, SequencerPool, SingleUseRow, Skeleton, StoreError, StoredHead, StoredKey, StoredOutcome,
 };
 
 use crate::env::{Env, L, M, commit_fails, fails, hex, run, scalar, with_ledgers};
@@ -55,6 +55,8 @@ fn record(pos: u64, prev: [u8; 32], leaf: [u8; 32], at: u64) -> LogRow {
         activation: false,
         signer: None,
         claims: vec![],
+        deliveries: vec![],
+        single_use: None,
     }
 }
 
@@ -1171,4 +1173,219 @@ async fn e_12_only_the_sequencer_writes_a_claim_and_only_its_delivery_settles_it
         Some("42501"),
     )
     .await;
+}
+
+fn delivery(addressee: &str, kind: DeliveryKind) -> ExecutorDeliveryRow {
+    ExecutorDeliveryRow {
+        addressee: addressee.to_owned(),
+        kind,
+        commitment: [0xc0; 32],
+        body: vec![0xa1, 0x01, 0x02],
+    }
+}
+
+fn binding(authority: u8, key: &str) -> SingleUseRow {
+    SingleUseRow {
+        authority: [authority; 32],
+        key: key.to_owned(),
+        relies_on: vec![[0x0d; 32], [0x0e; 32]],
+    }
+}
+
+// RC-42 T-105 E-39
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs Docker"]
+async fn rc_42_a_delivery_is_written_with_its_record_in_order_and_its_doorbell_settled_once() {
+    let (env, seq) = opened().await;
+    let ledger = LedgerId::from_bytes(L);
+    let head = seq.acquire(&ledger, &seat(), any).await.unwrap();
+    let mut refused = batch(head.epoch, 0, 2);
+    refused.records[0].deliveries = vec![delivery("party:acme:agent", DeliveryKind::Commitment)];
+    assert!(matches!(
+        seq.append(&ledger, &refused).await,
+        Err(AppendError::Refused(StoreError::ItemConflict(ITEM)))
+    ));
+    let app = env.canonical("work_app");
+    let l = hex(&L);
+    let rows = "SELECT count(*) FROM work.executor_delivery";
+    assert_eq!(scalar(&app, &l, rows, false).await, 0);
+    let mut first = batch(head.epoch, 0, 1);
+    first.records[0].deliveries = vec![
+        delivery("party:acme:agent", DeliveryKind::Commitment),
+        delivery("party:acme:agent", DeliveryKind::Request),
+    ];
+    seq.append(&ledger, &first).await.unwrap();
+    let mut second = batch(head.epoch, 1, 2);
+    second.records[0].deliveries = vec![delivery("party:acme:robot", DeliveryKind::Request)];
+    seq.append(&ledger, &second).await.unwrap();
+    let mut read = LedgerTx::begin(&app, &ledger).await.unwrap();
+    let mine = read
+        .executor_deliveries("party:acme:agent", 0, 100)
+        .await
+        .unwrap();
+    assert_eq!(mine.iter().map(|d| d.seq).collect::<Vec<_>>(), [1, 2]);
+    assert_eq!(mine[0].row.kind, DeliveryKind::Commitment);
+    assert_eq!(mine[0].record, first.records[0].record_id);
+    assert_eq!(mine[0].issued_at_ms, plus(AT, 1));
+    assert_eq!(mine[1].row.body, vec![0xa1, 0x01, 0x02]);
+    let after = read
+        .executor_deliveries("party:acme:agent", 1, 100)
+        .await
+        .unwrap();
+    assert_eq!(after.len(), 1);
+    let other = read
+        .executor_deliveries("party:acme:robot", 0, 100)
+        .await
+        .unwrap();
+    assert_eq!(other.iter().map(|d| d.seq).collect::<Vec<_>>(), [3]);
+    read.rollback().await.unwrap();
+    let publisher = PublisherPool::new(env.canonical("work_publisher"))
+        .await
+        .unwrap();
+    let at = plus(AT, 2);
+    assert_eq!(
+        publisher.doorbell_ledgers(None, at, 10).await.unwrap(),
+        [ledger]
+    );
+    let mut tx = publisher.begin(&ledger).await.unwrap();
+    assert_eq!(tx.doorbells_due(at, 10).await.unwrap().len(), 3);
+    assert!(
+        tx.doorbell_retry(1, "webhook_unreachable", plus(at, 1000))
+            .await
+            .unwrap()
+    );
+    assert!(tx.doorbell_settled(2, true, at).await.unwrap());
+    assert!(!tx.doorbell_settled(2, false, at).await.unwrap());
+    assert!(tx.doorbell_settled(3, false, at).await.unwrap());
+    assert_eq!(tx.doorbells_due(at, 10).await.unwrap(), []);
+    let later = tx.doorbells_due(plus(at, 1000), 10).await.unwrap();
+    assert_eq!(later.len(), 1);
+    assert_eq!(later[0].attempts, 1);
+    assert_eq!(
+        later[0].doorbell,
+        Doorbell::Pending {
+            next_attempt_ms: plus(at, 1000),
+            last_error: Some("webhook_unreachable".to_owned()),
+        }
+    );
+    tx.commit().await.unwrap();
+    let mut read = LedgerTx::begin(&app, &ledger).await.unwrap();
+    let kept = read
+        .executor_deliveries("party:acme:agent", 0, 100)
+        .await
+        .unwrap();
+    read.rollback().await.unwrap();
+    assert_eq!(kept[1].doorbell, Doorbell::Rung { at_ms: at });
+}
+
+// RC-42 T-105 Access OP-73
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs Docker"]
+async fn rc_42_only_the_sequencer_writes_a_delivery_and_only_its_doorbell_changes() {
+    let (env, seq) = opened().await;
+    let ledger = LedgerId::from_bytes(L);
+    let head = seq.acquire(&ledger, &seat(), any).await.unwrap();
+    let mut written = batch(head.epoch, 0, 1);
+    written.records[0].deliveries = vec![delivery("party:acme:agent", DeliveryKind::Request)];
+    seq.append(&ledger, &written).await.unwrap();
+    let l = hex(&L);
+    let insert = "INSERT INTO work.executor_delivery \
+                  (ledger_id, seq, pos, record_id, addressee, kind, commitment, body, issued_at, \
+                   doorbell, attempts, next_attempt_at) \
+                  SELECT ledger_id, seq + 1, pos, record_id, 'party:acme:mallory', kind, \
+                   commitment, body, issued_at, 'pending', 0, next_attempt_at \
+                  FROM work.executor_delivery";
+    let settle = "UPDATE work.executor_delivery SET attempts = attempts + 1";
+    for role in ["work_app", "work_publisher", "work_checkpointer"] {
+        fails(&env.canonical(role), &l, &[insert], Some("42501")).await;
+    }
+    for role in ["work_app", "work_sequencer", "work_checkpointer"] {
+        fails(&env.canonical(role), &l, &[settle], Some("42501")).await;
+    }
+    let publisher = env.canonical("work_publisher");
+    for stmt in [
+        "DELETE FROM work.executor_delivery",
+        "TRUNCATE work.executor_delivery",
+        "UPDATE work.executor_delivery SET addressee = 'party:acme:mallory'",
+        "UPDATE work.executor_delivery SET body = '\\x00'",
+    ] {
+        fails(&publisher, &l, &[stmt], Some("42501")).await;
+    }
+    run(&publisher, &l, &[settle]).await;
+    fails(
+        &publisher,
+        &l,
+        &["UPDATE work.executor_delivery SET attempts = 0"],
+        Some("23514"),
+    )
+    .await;
+    run(
+        &publisher,
+        &l,
+        &["UPDATE work.executor_delivery SET doorbell = 'rung', settled_at = next_attempt_at"],
+    )
+    .await;
+    fails(&publisher, &l, &[settle], Some("23514")).await;
+    let other = hex(&M);
+    let seen = "SELECT count(*) FROM work.executor_delivery";
+    assert_eq!(scalar(&publisher, &other, seen, false).await, 0);
+    assert_eq!(scalar(&publisher, &l, seen, false).await, 1);
+    fails(
+        &env.canonical("work_app"),
+        &l,
+        &["SELECT count(*) FROM work.executor_delivery_ledgers(NULL, 0, 10)"],
+        Some("42501"),
+    )
+    .await;
+}
+
+// SEC-15 OP-4 OP-47
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs Docker"]
+async fn sec_15_a_binding_is_written_once_with_its_record_and_names_what_it_relied_on() {
+    let (env, seq) = opened().await;
+    let ledger = LedgerId::from_bytes(L);
+    let head = seq.acquire(&ledger, &seat(), any).await.unwrap();
+    let mut first = batch(head.epoch, 0, 1);
+    first.records[0].single_use = Some(binding(4, "cmt_a/rec_b"));
+    seq.append(&ledger, &first).await.unwrap();
+    for (authority, key) in [(4, "cmt_a/rec_c"), (5, "cmt_a/rec_b")] {
+        let mut reused = batch(head.epoch, 1, 2);
+        reused.records[0].single_use = Some(binding(authority, key));
+        assert!(matches!(
+            seq.append(&ledger, &reused).await,
+            Err(AppendError::Refused(StoreError::Constraint(_)))
+        ));
+    }
+    let app = env.canonical("work_app");
+    let mut read = LedgerTx::begin(&app, &ledger).await.unwrap();
+    let used = read.single_uses(&[4; 32], "cmt_a/rec_x").await.unwrap();
+    assert_eq!(used.len(), 1);
+    assert_eq!(used[0].key, "cmt_a/rec_b");
+    assert_eq!(used[0].pos, 1);
+    assert_eq!(used[0].record, first.records[0].record_id);
+    assert_eq!(
+        read.single_uses(&[9; 32], "cmt_a/rec_b")
+            .await
+            .unwrap()
+            .len(),
+        1
+    );
+    assert_eq!(read.single_uses(&[9; 32], "none").await.unwrap(), []);
+    assert_eq!(
+        read.acted_upon(&[0x0e; 32]).await.unwrap(),
+        Some(first.records[0].record_id)
+    );
+    assert_eq!(read.acted_upon(&[0x0f; 32]).await.unwrap(), None);
+    read.rollback().await.unwrap();
+    let l = hex(&L);
+    for role in ["work_app", "work_publisher", "work_sequencer"] {
+        for stmt in [
+            "UPDATE work.single_use SET idem_key = 'other'",
+            "DELETE FROM work.single_use",
+            "TRUNCATE work.single_use",
+        ] {
+            fails(&env.canonical(role), &l, &[stmt], None).await;
+        }
+    }
 }

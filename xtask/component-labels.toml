@@ -72,6 +72,7 @@ tables = [
   "work.ledger_profile",
   "work.one_time_flag",
   "work.record_signer",
+  "work.single_use",
   "work.work_root",
 ]
 never = "only the sequencer writes the log and the head, the other writers write only what the T-79 list gives them, and the application role only reads"
@@ -164,7 +165,7 @@ open = "the query service is not written yet"
 name = "event-dispatcher"
 label = "PROJECTION"
 crates = ["crates/dispatch"]
-tables = ["derived.consumer_cursor", "work.claim_delivery"]
+tables = ["derived.consumer_cursor", "work.claim_delivery", "work.executor_delivery"]
 never = "an event is not a commit"
 enforced_by = [
   "crates/dispatch/src/domain.rs::t_17_event_is_derived_deterministically_from_the_committed_row",

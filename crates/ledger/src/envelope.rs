@@ -4,8 +4,8 @@ use suiss_ledger::Hash;
 use suiss_ledger::sequencer::{Entry, Slot};
 use work_kernel::record::ProtocolVersion;
 use work_store::{
-    BodyPartRow, CallerRef, ClaimRow, Expect, IdempotencyKey, ItemRef, LedgerId, ReceivedRow,
-    SignerRow, Skeleton, Stored,
+    BodyPartRow, CallerRef, ClaimRow, ExecutorDeliveryRow, Expect, IdempotencyKey, ItemRef,
+    LedgerId, ReceivedRow, SignerRow, SingleUseRow, Skeleton, Stored,
 };
 
 use crate::admit::auth_context_value;
@@ -53,6 +53,12 @@ pub struct PendingRecord {
     /// The `commitment_active` Claims of the ends of `commitment.active` the record gives,
     /// written with it for their durable delivery to Access (E-8, E-12).
     pub(crate) claims: Vec<ClaimRow>,
+    /// The commitments and requests the record delivers to the executor assigned to the work,
+    /// written with it for the executor to pull (RC-42, T-105).
+    pub(crate) deliveries: Vec<ExecutorDeliveryRow>,
+    /// The binding of an action report's authority context to its idempotency key, written
+    /// with it (SEC-15).
+    pub(crate) single_use: Option<SingleUseRow>,
 }
 
 /// An inbound event or federated record by its source and id (OP-8, P-35 item 4).
@@ -100,6 +106,32 @@ impl PendingRecord {
     #[must_use]
     pub fn claims(&self) -> &[ClaimRow] {
         &self.claims
+    }
+
+    /// Hands the executor assigned to the work, once the record is written, each commitment or
+    /// request the record delivers: the rows are written in the same transaction as the record,
+    /// so a delivery is never lost and never made for a record that was not written (RC-42,
+    /// T-105).
+    pub fn deliver(&mut self, deliveries: Vec<ExecutorDeliveryRow>) {
+        self.deliveries = deliveries;
+    }
+
+    /// The executor deliveries written with the record (RC-42).
+    #[must_use]
+    pub fn deliveries(&self) -> &[ExecutorDeliveryRow] {
+        &self.deliveries
+    }
+
+    /// Binds an action report's single-use authority context to its idempotency key in the
+    /// same transaction as the record (SEC-15).
+    pub fn use_once(&mut self, binding: SingleUseRow) {
+        self.single_use = Some(binding);
+    }
+
+    /// The single-use binding written with the record (SEC-15).
+    #[must_use]
+    pub const fn single_use(&self) -> Option<&SingleUseRow> {
+        self.single_use.as_ref()
     }
 
     /// Who signed or wrote the record, for the tenant it is written for (WD-123).
@@ -301,6 +333,8 @@ impl Entry for Activating<'_> {
             instance: None,
             tenant: None,
             claims: Vec::new(),
+            deliveries: Vec::new(),
+            single_use: None,
         };
         Ok((
             leaf_hash(&bytes),
@@ -428,6 +462,8 @@ mod tests {
                 instance: None,
                 tenant: None,
                 claims: Vec::new(),
+                deliveries: Vec::new(),
+                single_use: None,
             };
             let (leaf, sealed) = Bound {
                 ledger: &ledger,
@@ -463,6 +499,8 @@ mod tests {
             instance: None,
             tenant: None,
             claims: Vec::new(),
+            deliveries: Vec::new(),
+            single_use: None,
         };
         let expected = decode(
             &hex(signed["record_digest"].as_str().unwrap()),

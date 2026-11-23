@@ -15,6 +15,7 @@ mod compromise;
 mod cursor;
 mod erasure;
 mod error;
+mod executor;
 mod export;
 mod id;
 mod idempotency;
@@ -47,6 +48,9 @@ pub use claim::{ClaimAnswer, ClaimDelivery, ClaimKey, ClaimRow, Delivery};
 pub use compromise::{NoticeView, WindowHit};
 pub use erasure::{ERASURE_SCOPE, ErasureScope};
 pub use error::{AppendError, StoreError};
+pub use executor::{
+    DeliveryKind, Doorbell, ExecutorDelivery, ExecutorDeliveryRow, SingleUseRow, UsedRow,
+};
 pub use export::{CosignedCheckpoint, EXPORT_INPUTS, EXPORT_READS, ExportLog};
 pub use id::{ItemRef, LedgerId};
 pub use idempotency::{
