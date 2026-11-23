@@ -330,13 +330,13 @@ mod tests {
             Some(RecordId(Digest::sha256([0x09; 32])))
         );
         for bad in [
-            "",
-            "09",
-            &"0G".repeat(32),
-            &"AB".repeat(32),
-            &"0".repeat(65),
+            String::new(),
+            "09".to_owned(),
+            "0G".repeat(32),
+            "AB".repeat(32),
+            "0".repeat(65),
         ] {
-            assert_eq!(basis_of(bad), None, "{bad}");
+            assert_eq!(basis_of(&bad), None, "{bad}");
         }
         assert_eq!(
             event_ref("https://relay.example", "evt 1"),
