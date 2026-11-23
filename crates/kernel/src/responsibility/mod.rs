@@ -11,8 +11,8 @@ mod participation;
 mod queue;
 
 pub use accountability::{
-    Accountability, AccountabilitySource, Accountable, Directory, Explicit, accountability,
-    queue_accountability,
+    Accountability, AccountabilitySource, Accountable, ChainLink, Directory, Explicit,
+    accountability, accountability_chain, queue_accountability,
 };
 pub use allocation::{
     AccessWait, Allocation, AllocationAct, AllocationEvent, AllocationSignal, AllocationSignalKind,
