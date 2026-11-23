@@ -1958,7 +1958,7 @@ fn cm_50_the_records_of_a_commitment_start_and_stop_its_clocks_by_target() {
         false,
     );
     let projection = timing(&ledger, root, &defs, 200_000);
-    assert!(projection.undefined.is_empty());
+    assert_eq!(projection.undefined, Vec::<RecordId>::new());
     let response = clock_of(&projection, clocks[0]);
     assert_eq!(response.state, ClockState::Met);
     assert_eq!(response.elapsed, 10_000);
@@ -2101,7 +2101,7 @@ fn cm_48_cm_49_consumption_claims_on_the_budget_condition_exhaust_it_and_hand_th
     ledger.budget_exhausted = exhausted.budget_exhausted();
     assert_eq!(
         next_moves(&ledger.view(root), &ledger.facts()),
-        vec![Mover::Accountable]
+        vec![Mover::Party(party(SUPPLIER)), Mover::Accountable]
     );
     assert_eq!(
         summary(&ledger.view(root)),
