@@ -188,11 +188,11 @@ impl LedgerTx<'_> {
                 "INSERT INTO work.executor_delivery
                  (ledger_id, seq, pos, record_id, addressee, kind, commitment, body, issued_at,
                   doorbell, attempts, next_attempt_at)
-                 SELECT $1, COALESCE(MAX(e.seq), 0) + 1, $2, $3, $4, $5, $6, $7,
+                 SELECT $1::bytea, COALESCE(MAX(e.seq), 0) + 1, $2, $3, $4, $5, $6, $7,
                   pg_catalog.to_timestamp(0) + interval '1 millisecond' * $8::bigint::double precision,
                   'pending', 0,
                   pg_catalog.to_timestamp(0) + interval '1 millisecond' * $8::bigint::double precision
-                 FROM work.executor_delivery e WHERE e.ledger_id = $1",
+                 FROM work.executor_delivery e WHERE e.ledger_id = $1::bytea",
                 ledger.as_slice(),
                 signed(pos)?,
                 record_id.as_slice(),
