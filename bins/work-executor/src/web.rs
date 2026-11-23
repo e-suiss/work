@@ -14,6 +14,9 @@ use tokio::net::TcpStream;
 use tokio::time::timeout;
 use tokio_rustls::TlsConnector;
 
+/// The longest a connection or a TLS handshake may take.
+const CONNECT: Duration = Duration::from_secs(10);
+
 /// The largest answer read.
 const MAX_BODY: usize = 4_194_304;
 
@@ -172,15 +175,19 @@ impl Http {
         let request = builder
             .body(Full::new(Bytes::from(body.unwrap_or_default())))
             .map_err(|e| failed(&e))?;
-        let tcp = TcpStream::connect((t.host.as_str(), t.port))
+        let tcp = timeout(CONNECT, TcpStream::connect((t.host.as_str(), t.port)))
             .await
+            .map_err(|_| HttpError::Timeout)?
             .map_err(|e| failed(&e))?;
         if t.tls {
             let name = ServerName::try_from(t.host.clone()).map_err(|e| failed(&e))?;
-            let stream = TlsConnector::from(Arc::clone(&self.tls))
-                .connect(name, tcp)
-                .await
-                .map_err(|e| failed(&e))?;
+            let stream = timeout(
+                CONNECT,
+                TlsConnector::from(Arc::clone(&self.tls)).connect(name, tcp),
+            )
+            .await
+            .map_err(|_| HttpError::Timeout)?
+            .map_err(|e| failed(&e))?;
             exchange(stream, request).await
         } else {
             exchange(tcp, request).await
