@@ -3083,7 +3083,7 @@ mod commit {
         let asked = authority_answer(&local, &close, &nonce, &[], None).await;
         assert_eq!(
             denied(&asked)["code_detail"],
-            "evaluation_refused",
+            "schema-not-accepted",
             "{asked:?}"
         );
     }
