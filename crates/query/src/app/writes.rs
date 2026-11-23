@@ -872,7 +872,7 @@ where
     /// E-12, WD-146 items 1 and 5): computed before the write from the fold of the log with the
     /// record applied after the head, and written in the same transaction as the record, so
     /// every end a committed record gives reaches Access from its delivery row and none is
-    /// sent for a record that was not written. An obligor without an Access PartyID gets none;
+    /// sent for a record that was not written. An obligor without an Access `PartyID` gets none;
     /// Work only ends commitment-scoped authority and never starts it.
     async fn claims(
         &self,

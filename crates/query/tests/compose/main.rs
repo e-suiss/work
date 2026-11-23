@@ -2895,7 +2895,7 @@ mod commit {
     /// its reason and kept under the request's key, so the same request answers it again; the
     /// commitment then reads as its records derive it, with the transitions the user may make
     /// and the obligor holding the next move (CM-19, P-55, CM-58, CM-2, C-6). The release ends
-    /// the obligor's `commitment.active`, and since that obligor has no Access PartyID no
+    /// the obligor's `commitment.active`, and since that obligor has no Access `PartyID` no
     /// `commitment_active` Claim is queued for Access with the record (E-8, E-12, WD-146 item 1).
     async fn refused_and_read(local: &Local, w: &Writer, opened: work_kernel::id::RecordId) {
         let cmt = work_proto::id::CommitmentId(opened).to_external();

@@ -6,7 +6,7 @@ use crate::{DiscoveryPool, LedgerId, LedgerTx, PublisherRole, StoreError};
 /// One end of `commitment.active` the sequencer writes beside its record (E-8, E-12).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ClaimRow {
-    /// The obligor whose commitment ended, its Access PartyID.
+    /// The obligor whose commitment ended, its Access `PartyID`.
     pub subject: [u8; 16],
     /// The commitment, by the digest of its `request`.
     pub commitment: [u8; 32],
