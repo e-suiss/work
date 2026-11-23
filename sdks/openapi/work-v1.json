@@ -308,6 +308,35 @@
         ],
         "type": "object"
       },
+      "BodyPartInput": {
+        "additionalProperties": false,
+        "description": "The opening of one body part the record commits to (P-68): the record's `body` entry for\nthe part is the commitment of exactly these values.",
+        "properties": {
+          "content": {
+            "description": "The content, unpadded base64url of at most 262 144 bytes.",
+            "type": "string"
+          },
+          "media_type": {
+            "description": "The media type of the content, at most 255 bytes.",
+            "type": "string"
+          },
+          "part": {
+            "description": "The part name in the subtype schema, such as `note`.",
+            "type": "string"
+          },
+          "salt": {
+            "description": "The part's salt, unpadded base64url of 32 bytes.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "part",
+          "media_type",
+          "content",
+          "salt"
+        ],
+        "type": "object"
+      },
       "BudgetAnswer": {
         "description": "A budget of the commitment (CM-48, CM-49).",
         "properties": {
@@ -1253,6 +1282,13 @@
             "$ref": "#/components/schemas/AuthorityInput",
             "description": "The Exercise the record's `authority` refers to."
           },
+          "body": {
+            "description": "The openings of every body part the record commits to; Work seals them under the\nledger's keys after the secret scan and writes them with the record (P-68, OP-45,\nSEC-35).",
+            "items": {
+              "$ref": "#/components/schemas/BodyPartInput"
+            },
+            "type": "array"
+          },
           "record": {
             "description": "The tagged `COSE_Sign1` of a signed record, or the `SignedRecord` bytes of an unsigned\nhuman one sent with `auth_context`, unpadded base64url.",
             "type": "string"
@@ -1440,6 +1476,13 @@
               "null"
             ]
           },
+          "part": {
+            "description": "The body part a `secret_detected` refusal names (P-95 item 1).",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "reason": {
             "description": "The protocol reason pair `[code, detail]` of a kernel refusal (P-93).",
             "items": {
@@ -1462,6 +1505,13 @@
           "retryable": {
             "description": "Whether the same request may be sent again.",
             "type": "boolean"
+          },
+          "rule": {
+            "description": "The scanner rule a `secret_detected` refusal names (P-95 item 1); the matched bytes are\nnever shown.",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "status": {
             "description": "The HTTP status.",
@@ -2921,6 +2971,36 @@
               }
             }
           },
+          "413": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "A body part is above its bound.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
           "422": {
             "content": {
               "application/problem+json": {
@@ -2929,7 +3009,7 @@
                 }
               }
             },
-            "description": "The kernel refused the record, with its reason; a refused commitment operation is kept under its key.",
+            "description": "The kernel refused the record, with its reason; a refused commitment operation is kept under its key; or a body part carries a secret.",
             "headers": {
               "RateLimit": {
                 "description": "What is left of the quota.",
@@ -3558,6 +3638,36 @@
               }
             }
           },
+          "413": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "A body part is above its bound.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
           "422": {
             "content": {
               "application/problem+json": {
@@ -3566,7 +3676,7 @@
                 }
               }
             },
-            "description": "The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key.",
+            "description": "The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key; or a body part carries a secret.",
             "headers": {
               "RateLimit": {
                 "description": "What is left of the quota.",
@@ -3941,6 +4051,36 @@
               }
             }
           },
+          "413": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "A body part is above its bound.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
           "422": {
             "content": {
               "application/problem+json": {
@@ -3949,7 +4089,7 @@
                 }
               }
             },
-            "description": "The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key.",
+            "description": "The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key; or a body part carries a secret.",
             "headers": {
               "RateLimit": {
                 "description": "What is left of the quota.",
@@ -4324,6 +4464,36 @@
               }
             }
           },
+          "413": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "A body part is above its bound.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
           "422": {
             "content": {
               "application/problem+json": {
@@ -4332,7 +4502,7 @@
                 }
               }
             },
-            "description": "The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key.",
+            "description": "The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key; or a body part carries a secret.",
             "headers": {
               "RateLimit": {
                 "description": "What is left of the quota.",
@@ -4707,6 +4877,36 @@
               }
             }
           },
+          "413": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "A body part is above its bound.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
           "422": {
             "content": {
               "application/problem+json": {
@@ -4715,7 +4915,7 @@
                 }
               }
             },
-            "description": "The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key.",
+            "description": "The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key; or a body part carries a secret.",
             "headers": {
               "RateLimit": {
                 "description": "What is left of the quota.",
@@ -5090,6 +5290,36 @@
               }
             }
           },
+          "413": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "A body part is above its bound.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
           "422": {
             "content": {
               "application/problem+json": {
@@ -5098,7 +5328,7 @@
                 }
               }
             },
-            "description": "The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key.",
+            "description": "The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key; or a body part carries a secret.",
             "headers": {
               "RateLimit": {
                 "description": "What is left of the quota.",
@@ -5473,6 +5703,36 @@
               }
             }
           },
+          "413": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "A body part is above its bound.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
           "422": {
             "content": {
               "application/problem+json": {
@@ -5481,7 +5741,7 @@
                 }
               }
             },
-            "description": "The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key.",
+            "description": "The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key; or a body part carries a secret.",
             "headers": {
               "RateLimit": {
                 "description": "What is left of the quota.",
@@ -5856,6 +6116,36 @@
               }
             }
           },
+          "413": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "A body part is above its bound.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
           "422": {
             "content": {
               "application/problem+json": {
@@ -5864,7 +6154,7 @@
                 }
               }
             },
-            "description": "The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key.",
+            "description": "The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key; or a body part carries a secret.",
             "headers": {
               "RateLimit": {
                 "description": "What is left of the quota.",
@@ -6239,6 +6529,36 @@
               }
             }
           },
+          "413": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "A body part is above its bound.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
           "422": {
             "content": {
               "application/problem+json": {
@@ -6247,7 +6567,7 @@
                 }
               }
             },
-            "description": "The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key.",
+            "description": "The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key; or a body part carries a secret.",
             "headers": {
               "RateLimit": {
                 "description": "What is left of the quota.",
@@ -6622,6 +6942,36 @@
               }
             }
           },
+          "413": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "A body part is above its bound.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
           "422": {
             "content": {
               "application/problem+json": {
@@ -6630,7 +6980,7 @@
                 }
               }
             },
-            "description": "The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key.",
+            "description": "The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key; or a body part carries a secret.",
             "headers": {
               "RateLimit": {
                 "description": "What is left of the quota.",
@@ -7005,6 +7355,36 @@
               }
             }
           },
+          "413": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "A body part is above its bound.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
           "422": {
             "content": {
               "application/problem+json": {
@@ -7013,7 +7393,7 @@
                 }
               }
             },
-            "description": "The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key.",
+            "description": "The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key; or a body part carries a secret.",
             "headers": {
               "RateLimit": {
                 "description": "What is left of the quota.",
@@ -7388,6 +7768,36 @@
               }
             }
           },
+          "413": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "A body part is above its bound.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
           "422": {
             "content": {
               "application/problem+json": {
@@ -7396,7 +7806,7 @@
                 }
               }
             },
-            "description": "The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key.",
+            "description": "The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key; or a body part carries a secret.",
             "headers": {
               "RateLimit": {
                 "description": "What is left of the quota.",
@@ -7771,6 +8181,36 @@
               }
             }
           },
+          "413": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "A body part is above its bound.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
           "422": {
             "content": {
               "application/problem+json": {
@@ -7779,7 +8219,7 @@
                 }
               }
             },
-            "description": "The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key.",
+            "description": "The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key; or a body part carries a secret.",
             "headers": {
               "RateLimit": {
                 "description": "What is left of the quota.",
@@ -8154,6 +8594,36 @@
               }
             }
           },
+          "413": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "A body part is above its bound.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
           "422": {
             "content": {
               "application/problem+json": {
@@ -8162,7 +8632,7 @@
                 }
               }
             },
-            "description": "The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key.",
+            "description": "The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key; or a body part carries a secret.",
             "headers": {
               "RateLimit": {
                 "description": "What is left of the quota.",
@@ -8537,6 +9007,36 @@
               }
             }
           },
+          "413": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "A body part is above its bound.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
           "422": {
             "content": {
               "application/problem+json": {
@@ -8545,7 +9045,7 @@
                 }
               }
             },
-            "description": "The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key.",
+            "description": "The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key; or a body part carries a secret.",
             "headers": {
               "RateLimit": {
                 "description": "What is left of the quota.",
@@ -8920,6 +9420,36 @@
               }
             }
           },
+          "413": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "A body part is above its bound.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
           "422": {
             "content": {
               "application/problem+json": {
@@ -8928,7 +9458,7 @@
                 }
               }
             },
-            "description": "The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key.",
+            "description": "The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key; or a body part carries a secret.",
             "headers": {
               "RateLimit": {
                 "description": "What is left of the quota.",
@@ -9303,6 +9833,36 @@
               }
             }
           },
+          "413": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "A body part is above its bound.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
           "422": {
             "content": {
               "application/problem+json": {
@@ -9311,7 +9871,7 @@
                 }
               }
             },
-            "description": "The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key.",
+            "description": "The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key; or a body part carries a secret.",
             "headers": {
               "RateLimit": {
                 "description": "What is left of the quota.",
@@ -9686,6 +10246,36 @@
               }
             }
           },
+          "413": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "A body part is above its bound.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
           "422": {
             "content": {
               "application/problem+json": {
@@ -9694,7 +10284,7 @@
                 }
               }
             },
-            "description": "The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key.",
+            "description": "The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key; or a body part carries a secret.",
             "headers": {
               "RateLimit": {
                 "description": "What is left of the quota.",
@@ -10069,6 +10659,36 @@
               }
             }
           },
+          "413": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "A body part is above its bound.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
           "422": {
             "content": {
               "application/problem+json": {
@@ -10077,7 +10697,7 @@
                 }
               }
             },
-            "description": "The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key.",
+            "description": "The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key; or a body part carries a secret.",
             "headers": {
               "RateLimit": {
                 "description": "What is left of the quota.",
@@ -10452,6 +11072,36 @@
               }
             }
           },
+          "413": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "A body part is above its bound.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
           "422": {
             "content": {
               "application/problem+json": {
@@ -10460,7 +11110,7 @@
                 }
               }
             },
-            "description": "The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key.",
+            "description": "The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key; or a body part carries a secret.",
             "headers": {
               "RateLimit": {
                 "description": "What is left of the quota.",
@@ -10835,6 +11485,36 @@
               }
             }
           },
+          "413": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "A body part is above its bound.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
           "422": {
             "content": {
               "application/problem+json": {
@@ -10843,7 +11523,7 @@
                 }
               }
             },
-            "description": "The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key.",
+            "description": "The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key; or a body part carries a secret.",
             "headers": {
               "RateLimit": {
                 "description": "What is left of the quota.",
@@ -11218,6 +11898,36 @@
               }
             }
           },
+          "413": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "A body part is above its bound.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
           "422": {
             "content": {
               "application/problem+json": {
@@ -11226,7 +11936,7 @@
                 }
               }
             },
-            "description": "The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key.",
+            "description": "The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key; or a body part carries a secret.",
             "headers": {
               "RateLimit": {
                 "description": "What is left of the quota.",
@@ -11601,6 +12311,36 @@
               }
             }
           },
+          "413": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "A body part is above its bound.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
           "422": {
             "content": {
               "application/problem+json": {
@@ -11609,7 +12349,7 @@
                 }
               }
             },
-            "description": "The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key.",
+            "description": "The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key; or a body part carries a secret.",
             "headers": {
               "RateLimit": {
                 "description": "What is left of the quota.",
@@ -11984,6 +12724,36 @@
               }
             }
           },
+          "413": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "A body part is above its bound.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
           "422": {
             "content": {
               "application/problem+json": {
@@ -11992,7 +12762,7 @@
                 }
               }
             },
-            "description": "The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key.",
+            "description": "The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key; or a body part carries a secret.",
             "headers": {
               "RateLimit": {
                 "description": "What is left of the quota.",
@@ -12367,6 +13137,36 @@
               }
             }
           },
+          "413": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "A body part is above its bound.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
           "422": {
             "content": {
               "application/problem+json": {
@@ -12375,7 +13175,7 @@
                 }
               }
             },
-            "description": "The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key.",
+            "description": "The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key; or a body part carries a secret.",
             "headers": {
               "RateLimit": {
                 "description": "What is left of the quota.",
@@ -12750,6 +13550,36 @@
               }
             }
           },
+          "413": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "A body part is above its bound.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
           "422": {
             "content": {
               "application/problem+json": {
@@ -12758,7 +13588,7 @@
                 }
               }
             },
-            "description": "The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key.",
+            "description": "The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key; or a body part carries a secret.",
             "headers": {
               "RateLimit": {
                 "description": "What is left of the quota.",
@@ -13133,6 +13963,36 @@
               }
             }
           },
+          "413": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "A body part is above its bound.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
           "422": {
             "content": {
               "application/problem+json": {
@@ -13141,7 +14001,7 @@
                 }
               }
             },
-            "description": "The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key.",
+            "description": "The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key; or a body part carries a secret.",
             "headers": {
               "RateLimit": {
                 "description": "What is left of the quota.",
@@ -13508,6 +14368,36 @@
               }
             }
           },
+          "413": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "A body part is above its bound.",
+            "headers": {
+              "RateLimit": {
+                "description": "What is left of the quota.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "RateLimit-Policy": {
+                "description": "The quota policy.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Request-Id": {
+                "description": "The request, `<trace id>-<span id>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
           "422": {
             "content": {
               "application/problem+json": {
@@ -13516,7 +14406,7 @@
                 }
               }
             },
-            "description": "The kernel rejected the record, its auth_context does not verify, or the key was reused with another body.",
+            "description": "The kernel rejected the record, its auth_context does not verify, a body part carries a secret, or the key was reused with another body.",
             "headers": {
               "RateLimit": {
                 "description": "What is left of the quota.",
