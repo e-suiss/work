@@ -2424,6 +2424,7 @@ acceptance = "to-fill"
 title = ""
 tests = [
   "crates/kernel/tests/commitments.rs::cm_53_reports_referencing_the_request_meet_the_periodic_update",
+  "crates/query/src/domain/tzdb.rs::cm_64_every_vendored_zone_reads_at_the_pinned_release",
 ]
 
 [[rule]]

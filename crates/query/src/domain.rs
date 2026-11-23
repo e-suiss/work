@@ -13,6 +13,7 @@ pub mod commitments;
 pub mod notices;
 pub mod reads;
 pub mod restriction;
+pub mod tzdb;
 pub mod works;
 pub mod writes;
 

@@ -409,6 +409,10 @@ pub(crate) const GENERATORS: &[Generator] = &[
         name: "iso4217",
         check: crate::iso4217::check,
     },
+    Generator {
+        name: "tzdb",
+        check: crate::tzdb::check,
+    },
 ];
 
 const RECORD_VECTORS: &str = "conformance/vectors/records";
