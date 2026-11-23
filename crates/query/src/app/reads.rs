@@ -2,6 +2,7 @@
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
+use std::time::Duration;
 
 use work_access_client::ports::Clock;
 use work_kernel::commitment_time::DEFINITION_PART;
@@ -18,12 +19,16 @@ use crate::app::writes::log_of;
 use crate::domain::caller::{Caller, CallerKind};
 use crate::domain::commitments::{self, CommitmentRead, Evaluation, Folded, fold};
 use crate::domain::reads::{
-    Attestation, Change, Changes, CheckpointRef, CursorAt, Evidence, Inclusion, MAX_CHANGES,
-    MAX_PROOF_LEAVES, Opened, ReadRefusal, WorkView, audit_path, compromise_marks,
+    Attestation, Change, Changes, CheckpointRef, CursorAt, DELIVERY_PAGE, Deliveries, Delivery,
+    Evidence, Inclusion, MAX_CHANGES, MAX_DELIVERY_WAIT_S, MAX_PROOF_LEAVES, Opened, ReadRefusal,
+    WorkView, audit_path, compromise_marks,
 };
 use crate::domain::writes::header_kid;
 use crate::domain::{PositionRefusal, check_heads};
 use crate::ports::{Bodies, Pending, WorkReads};
+
+/// How often a delivery read that waits reads again (T-105).
+pub const DELIVERY_POLL: Duration = Duration::from_millis(500);
 
 /// The reads over the canonical database, as `work_app`, with the read position keys and the
 /// body store.
@@ -326,10 +331,58 @@ impl Reads {
         })
     }
 
+    /// The deliveries of `ledger` addressed to `caller` after the sequence number `after`, at
+    /// most [`DELIVERY_PAGE`], oldest first (RC-42, T-105, E-39): each pass reads one snapshot;
+    /// with none, the read polls every [`DELIVERY_POLL`] until one is committed or `wait_s`
+    /// seconds, at most [`MAX_DELIVERY_WAIT_S`], pass. A caller sees only its own deliveries.
+    ///
+    /// # Errors
+    /// [`ReadRefusal::NotFound`] for no such ledger or a caller that names no Party,
+    /// [`ReadRefusal::Unavailable`] when the database cannot be read.
+    pub async fn read_deliveries(
+        &self,
+        caller: &Caller,
+        ledger: &LedgerId,
+        after: u64,
+        wait_s: u32,
+    ) -> Result<Deliveries, ReadRefusal> {
+        let party = caller.party().map_err(|_| ReadRefusal::NotFound)?;
+        let now = tokio::time::Instant::now;
+        let deadline = now()
+            .checked_add(Duration::from_secs(u64::from(
+                wait_s.min(MAX_DELIVERY_WAIT_S),
+            )))
+            .unwrap_or_else(now);
+        loop {
+            let (mut tx, _) = self.snapshot(ledger).await?;
+            let read = tx
+                .executor_deliveries(party.reference.as_str(), after, DELIVERY_PAGE)
+                .await;
+            let _closed = tx.rollback().await;
+            let deliveries: Vec<Delivery> = read?
+                .into_iter()
+                .map(|d| Delivery {
+                    seq: d.seq,
+                    kind: d.row.kind.as_str(),
+                    commitment: RecordId(Digest::sha256(d.row.commitment)),
+                    record: RecordId(Digest::sha256(d.record)),
+                    body: d.row.body,
+                    at_ms: d.issued_at_ms,
+                })
+                .collect();
+            if !deliveries.is_empty() || now() >= deadline {
+                let cursor = deliveries.last().map_or(after, |d| d.seq);
+                return Ok(Deliveries { deliveries, cursor });
+            }
+            let next = now().checked_add(DELIVERY_POLL).unwrap_or(deadline);
+            tokio::time::sleep_until(deadline.min(next)).await;
+        }
+    }
+
     /// The evidence of `record` of `ledger`, each kind apart (P-20): the author signature only
     /// when the author signed it, the Access `auth_context` of an unsigned human record apart
     /// from it, the ledger's log entry, the audit path to the first checkpoint that covers it,
-    /// checked before it is answered, and that checkpoint's witness cosignatures.
+    /// checked before it is answered, and that checkpoint's witness cosignatures; and the first action report relying on it (OP-4).
     ///
     /// # Errors
     /// [`ReadRefusal`].
@@ -354,11 +407,12 @@ impl Reads {
                 Some(c) if c.size <= MAX_PROOF_LEAVES => Some(tx.leaf_hashes(c.size).await?),
                 _ => None,
             };
-            Ok::<_, StoreError>(Some((row, notices, checkpoint, leaves)))
+            let acted = tx.acted_upon(record.0.as_bytes()).await?;
+            Ok::<_, StoreError>(Some((row, notices, checkpoint, leaves, acted)))
         }
         .await;
         let _closed = tx.rollback().await;
-        let Some((row, notices, checkpoint, leaves)) = read? else {
+        let Some((row, notices, checkpoint, leaves, acted)) = read? else {
             return Err(ReadRefusal::NotFound);
         };
         let leaf_hash = Digest::sha256(row.leaf_hash);
@@ -404,6 +458,7 @@ impl Reads {
             inclusion,
             witnesses,
             compromise_window,
+            acted_upon: acted.map(|r| RecordId(Digest::sha256(r))),
             position: self.position(caller, ledger, head)?,
         })
     }
@@ -447,5 +502,15 @@ impl WorkReads for Reads {
         min: Option<&'a PositionToken>,
     ) -> Pending<'a, Result<CommitmentRead, ReadRefusal>> {
         Box::pin(self.read_commitment(caller, ledger, root, min))
+    }
+
+    fn deliveries<'a>(
+        &'a self,
+        caller: &'a Caller,
+        ledger: &'a LedgerId,
+        after: u64,
+        wait_s: u32,
+    ) -> Pending<'a, Result<Deliveries, ReadRefusal>> {
+        Box::pin(self.read_deliveries(caller, ledger, after, wait_s))
     }
 }

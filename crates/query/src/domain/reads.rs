@@ -149,8 +149,43 @@ pub struct Evidence {
     /// The compromise windows it falls in, derived from the notices of its ledger (SEC-36
     /// item 4, C-4); empty for a record outside every window.
     pub compromise_window: Vec<CompromiseMark>,
+    /// The first action report of the executor assigned to the work relying on it, which makes
+    /// it `acted upon` (OP-4); `None` while no action relies on it.
+    pub acted_upon: Option<RecordId>,
     /// The positions the answer reflects (T-97 item 2).
     pub position: PositionToken,
+}
+
+/// The longest a delivery read waits for a delivery (T-105).
+pub const MAX_DELIVERY_WAIT_S: u32 = 30;
+
+/// The most deliveries one read answers (T-105).
+pub const DELIVERY_PAGE: u32 = 100;
+
+/// One delivery to the executor (RC-42).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Delivery {
+    /// Its sequence number in the ledger.
+    pub seq: u64,
+    /// `commitment` or `request`.
+    pub kind: &'static str,
+    /// The commitment, by its `request`.
+    pub commitment: RecordId,
+    /// The record that caused it.
+    pub record: RecordId,
+    /// The `work/control/1` body, deterministic CBOR.
+    pub body: Vec<u8>,
+    /// The record's ledger time, Unix milliseconds.
+    pub at_ms: u64,
+}
+
+/// The deliveries addressed to the caller after a cursor, oldest first (RC-42, T-105).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Deliveries {
+    /// The deliveries.
+    pub deliveries: Vec<Delivery>,
+    /// The sequence number of the last one answered, or the cursor asked after.
+    pub cursor: u64,
 }
 
 /// A compromise window a record falls in, derived from a SEC-36 notice and never canonical

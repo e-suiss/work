@@ -106,6 +106,9 @@ pub struct DeclarationRequest {
     /// The record kind and commitment a typed endpoint names; `None` for the Declaration
     /// endpoint, which takes any record a caller writes (C-6).
     pub expected: Option<Expected>,
+    /// Whether the record is written on the executor contract, which only the executor
+    /// assigned to the work writes (RC-41, RC-42, T-105).
+    pub executor: bool,
     /// The openings of the body parts the record commits to, in request order (P-68).
     pub body: Vec<BodyOpening>,
 }

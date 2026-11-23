@@ -9,7 +9,7 @@ use work_proto::id::{Cursor, PositionToken};
 use crate::domain::authority::{ApprovalReturned, AuthorityAnswer, AuthorityAsk};
 use crate::domain::caller::{Caller, CallerRefusal, Presented};
 use crate::domain::commitments::CommitmentRead;
-use crate::domain::reads::{Changes, Evidence, ReadRefusal, WorkView};
+use crate::domain::reads::{Changes, Deliveries, Evidence, ReadRefusal, WorkView};
 use crate::domain::writes::{DeclarationRequest, WriteRefusal, Written};
 
 /// A future the API layer awaits.
@@ -61,6 +61,16 @@ pub trait WorkReads: Send + Sync {
         root: &'a RecordId,
         min: Option<&'a PositionToken>,
     ) -> Pending<'a, Result<CommitmentRead, ReadRefusal>>;
+
+    /// The deliveries of `ledger` addressed to `caller` after the sequence number `after`,
+    /// oldest first; with none, waits up to `wait_s` seconds for one (RC-42, T-105).
+    fn deliveries<'a>(
+        &'a self,
+        caller: &'a Caller,
+        ledger: &'a LedgerId,
+        after: u64,
+        wait_s: u32,
+    ) -> Pending<'a, Result<Deliveries, ReadRefusal>>;
 }
 
 /// The consequential writes of a named caller (P-13, P-21, E-45).

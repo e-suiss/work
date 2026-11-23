@@ -15,6 +15,11 @@ use work_kernel::catalog::DeclarationSubtype;
 use work_kernel::codec::{Decoded, decode_record, record_id};
 use work_kernel::commitment::{Definition, Operation, Refusal, condition_of};
 use work_kernel::commitment_time::DEFINITION_PART;
+use work_kernel::control::body::ProgressReport;
+use work_kernel::control::executor::{
+    CONTRACT_PART, REPORT_EXT_KEY, SingleUse, Use, check_single_use,
+};
+use work_kernel::control::stop::check_response;
 use work_kernel::cose::{AuthorKeys, KeySet, parse_container};
 use work_kernel::id::{Digest, LedgerId, PartyRef, RecordId};
 use work_kernel::items::{ItemKey, touched};
@@ -28,13 +33,18 @@ use work_ledger::{
     SubmitError, admit,
 };
 use work_store::{
-    AccessPool, CallerRef, ClaimRow, IdempotencyDecision, ItemRef, LedgerTx, Pool, RealmState,
-    StoreError, StoredLogEntry, StoredOutcome,
+    AccessPool, CallerRef, ClaimRow, DeliveryKind, ExecutorDeliveryRow, IdempotencyDecision,
+    ItemRef, LedgerTx, Pool, RealmState, SingleUseRow, StoreError, StoredLogEntry, StoredOutcome,
+    UsedRow,
 };
 
 use crate::app::caller::ACCESS_BOUND;
 use crate::domain::caller::Caller;
-use crate::domain::commitments::{Asked, Folded, LOG_PAGE, facts, fold, operation_of};
+use crate::domain::commitments::{Asked, Folded, LOG_PAGE, Scope, facts, fold, operation_of};
+use crate::domain::executor::{
+    Element, ExecutorRefusal, bound_to, change_of, check_body, commitment_delivery, element_of,
+    executor_of, request_of,
+};
 use crate::domain::kinds::{Kind, kind_of, record_action};
 use crate::domain::writes::{
     AuthContextGiven, AuthorityGiven, DeclarationRequest, WriteRefusal, Written, actor_type,
@@ -165,11 +175,36 @@ pub(crate) async fn log_of(tx: &mut LedgerTx<'_>) -> Result<Vec<StoredLogEntry>,
 }
 
 /// Whether the write of `record` reads the ledger's records: a commitment or responsibility
-/// operation or another record whose validity the kernel checks against earlier records, or a
-/// continuation, whose conflict area the records give (CM-19, RC-17, T-89).
-fn folds(record: &Record) -> bool {
+/// operation or another record whose validity the kernel checks against earlier records, a
+/// continuation, whose conflict area the records give, or an element of the executor contract,
+/// whose commitment and executor the records give (CM-19, RC-17, RC-41, T-89).
+fn folds(record: &Record, request: &DeclarationRequest) -> bool {
     !matches!(kind_of(record), None | Some(Kind::Claim | Kind::Act))
         || record.supersedes().next().is_some()
+        || element_of(record, request.executor).is_some()
+}
+
+/// The opened `definition` part a request carries.
+fn definition_of(request: &DeclarationRequest) -> Option<&[u8]> {
+    request
+        .body
+        .iter()
+        .find(|o| o.part == CONTRACT_PART)
+        .map(|o| o.content.as_slice())
+}
+
+/// The authority context and idempotency key an action report binds, read before Access is
+/// asked so the bindings already used are read in the same snapshot (SEC-15).
+fn binding_of(record: &Record, request: &DeclarationRequest) -> Option<([u8; 32], String)> {
+    if element_of(record, request.executor) != Some(Element::Report) {
+        return None;
+    }
+    let report = ProgressReport::decode(definition_of(request)?).ok()?;
+    let binding = report.binding?;
+    Some((
+        *binding.authority_context.as_bytes(),
+        binding.idempotency_key,
+    ))
 }
 
 async fn decide(
@@ -213,10 +248,17 @@ async fn decide(
             .unwrap_or(0),
         None => 0,
     };
-    let log = if folds(record) {
+    let log = if folds(record, request) {
         Some(log_of(tx).await.map_err(|_| WriteRefusal::NotRecorded)?)
     } else {
         None
+    };
+    let used = match binding_of(record, request) {
+        Some((authority, key)) => tx
+            .single_uses(&authority, &key)
+            .await
+            .map_err(|_| WriteRefusal::NotRecorded)?,
+        None => Vec::new(),
     };
     Ok(Precheck::Fresh(Box::new(Fresh {
         claim: KeyClaim {
@@ -226,15 +268,18 @@ async fn decide(
         },
         version,
         log,
+        used,
     })))
 }
 
 /// A new request as the ledger's snapshot found it: its key, the version of the first Work
-/// it touches and, for a write that reads the commitments, every stored entry.
+/// it touches, for a write that reads the commitments every stored entry, and for an action
+/// report the bindings that already use its authority context or idempotency key (SEC-15).
 struct Fresh {
     claim: KeyClaim,
     version: u64,
     log: Option<Vec<StoredLogEntry>>,
+    used: Vec<UsedRow>,
 }
 
 /// What the ledger's rows decide before Access is asked.
@@ -326,10 +371,16 @@ fn authority_of<'a>(
     Ok((given, intent))
 }
 
-/// The record a typed endpoint carries must be the kind it names (C-6).
+/// The record a typed endpoint carries must be the kind it names (C-6); the executor report
+/// endpoint takes a report Claim or the Act an action report travels as (RC-42, RC-43).
 fn expected_operation(record: &Record, request: &DeclarationRequest) -> Result<(), WriteRefusal> {
     match &request.expected {
-        Some(expected) if kind_of(record) != Some(expected.kind) => {
+        Some(expected)
+            if kind_of(record) != Some(expected.kind)
+                && !(request.executor
+                    && expected.kind == Kind::Executor(REPORT_EXT_KEY)
+                    && element_of(record, true) == Some(Element::Report)) =>
+        {
             Err(WriteRefusal::Invalid("operation"))
         }
         _ => Ok(()),
@@ -338,7 +389,9 @@ fn expected_operation(record: &Record, request: &DeclarationRequest) -> Result<(
 
 /// The version `If-Match` names: the commitment or Condition a continuation touches, otherwise
 /// the first Work the record concerns; a typed endpoint's continuation must continue the
-/// commitment it names (P-54 item 5, T-89, C-6).
+/// commitment it names (P-54 item 5, T-89, C-6). An element of the executor contract that
+/// continues nothing names the version of the commitment its route names, which its write
+/// checks it names (RC-42).
 fn expected_version(
     record: &Record,
     request: &DeclarationRequest,
@@ -346,6 +399,16 @@ fn expected_version(
     work_version: u64,
 ) -> Result<(), WriteRefusal> {
     let area = folded.and_then(|f| f.area_for(record));
+    if area.is_none()
+        && element_of(record, request.executor).is_some()
+        && let Some(commitment) = request.expected.and_then(|e| e.commitment)
+    {
+        let version = folded.map_or(0, |f| f.version_of(commitment));
+        if version != request.if_match {
+            return Err(WriteRefusal::PreconditionFailed);
+        }
+        return Ok(());
+    }
     if let Some(commitment) = request.expected.and_then(|e| e.commitment)
         && area.as_ref().map(|a| a.item) != Some(ItemKey::Commitment(commitment))
     {
@@ -401,6 +464,149 @@ struct Admitted {
 
 fn kernel_id(party: &PartyRef) -> Option<KernelId> {
     KernelId::parse(party.as_str()).ok()
+}
+
+/// What the executor rules decided of an element.
+enum Executed {
+    /// A new element, with the binding an action report writes beside it.
+    Fresh(Option<SingleUseRow>),
+    /// The action report that first used the same binding (SEC-15).
+    Replay(Written),
+}
+
+/// The commitment scope of the record, for a write that reads the commitments (RC-41, RC-42).
+fn scope_of(at: &Admission<'_>, admitted: &Admitted) -> Result<Option<Scope>, WriteRefusal> {
+    let Some(folded) = at.folded else {
+        return Ok(None);
+    };
+    let record = &at.carried.record;
+    let asked = Asked {
+        record,
+        id: record_id(&at.carried.bytes),
+        author_actor: admitted.author_actor,
+        step_up: admitted.pending.step_up(),
+        agent_side: false,
+        now_ms: at.now_ms,
+    };
+    folded
+        .scope(&asked, &facts())
+        .map(Some)
+        .map_err(|_| WriteRefusal::NotRecorded)
+}
+
+/// The executor contract rules of `element` (RC-41, RC-42, RC-43, RC-36, SEC-15).
+fn check_executor(
+    element: Element,
+    at: &Admission<'_>,
+    scope: &Scope,
+    used: &[UsedRow],
+) -> Result<Executed, ExecutorRefusal> {
+    let record = &at.carried.record;
+    let commitment = scope.commitment.ok_or(ExecutorRefusal::Commitment)?;
+    if at
+        .request
+        .expected
+        .and_then(|e| e.commitment)
+        .is_some_and(|named| named != commitment)
+    {
+        return Err(ExecutorRefusal::Commitment);
+    }
+    let view = scope.before.as_ref().ok_or(ExecutorRefusal::Commitment)?;
+    let executor = executor_of(view).ok_or(ExecutorRefusal::NotExecutor)?;
+    if &record.core().author != executor {
+        return Err(ExecutorRefusal::NotExecutor);
+    }
+    let binding = check_body(element, record, &commitment, definition_of(at.request))?;
+    if element == Element::StopResponse {
+        let cited: Vec<(RecordId, &Record)> = scope.cited.iter().map(|(i, r)| (*i, r)).collect();
+        check_response(record, &cited, executor)
+            .map_err(|r| ExecutorRefusal::Control(r.wire_name()))?;
+    }
+    let Some(binding) = binding else {
+        return Ok(Executed::Fresh(None));
+    };
+    let contexts: Vec<Digest> = used.iter().map(|u| Digest::sha256(u.authority)).collect();
+    let uses: Vec<Use<'_>> = used
+        .iter()
+        .zip(&contexts)
+        .map(|(u, context)| Use {
+            context,
+            key: u.key.as_str(),
+        })
+        .collect();
+    let context = Digest::sha256(binding.authority);
+    let new = Use {
+        context: &context,
+        key: binding.key.as_str(),
+    };
+    match check_single_use(&uses, new).map_err(|r| ExecutorRefusal::Control(r.wire_name()))? {
+        SingleUse::Fresh => Ok(Executed::Fresh(Some(SingleUseRow {
+            authority: binding.authority,
+            key: binding.key,
+            relies_on: binding.relies_on,
+        }))),
+        SingleUse::Replay => {
+            let first = used
+                .iter()
+                .find(|u| u.authority == binding.authority && u.key == binding.key)
+                .ok_or(ExecutorRefusal::Control("context_reused"))?;
+            Ok(Executed::Replay(Written {
+                record: RecordId(Digest::sha256(first.record)),
+                pos: first.pos,
+                replayed: true,
+            }))
+        }
+    }
+}
+
+/// The deliveries a record makes to the executor assigned to its commitment, computed from the
+/// fold with the record applied next and written in the same transaction (RC-42, T-105, E-39):
+/// the commitment to the Party a binding record binds it to, with the record's Access decision
+/// receipt digest as its single-use authority context, and to the executor in force the request
+/// a stop request, a control lease, a resume after a stop or a correction carries.
+fn deliveries(
+    at: &Admission<'_>,
+    scope: Option<&Scope>,
+) -> Result<Vec<ExecutorDeliveryRow>, WriteRefusal> {
+    let Some(scope) = scope else {
+        return Ok(Vec::new());
+    };
+    let (Some(before), Some(after)) = (scope.before.as_ref(), scope.after.as_ref()) else {
+        return Ok(Vec::new());
+    };
+    let record = &at.carried.record;
+    let id = record_id(&at.carried.bytes);
+    let mut out = Vec::new();
+    if let Some(party) = bound_to(before, after, id) {
+        let authority = record
+            .core()
+            .authority
+            .as_ref()
+            .map(|a| *a.digest.as_bytes())
+            .ok_or_else(|| WriteRefusal::Rejected("authority_missing".to_owned()))?;
+        let mut cited: Vec<RecordId> = record.basis().to_vec();
+        cited.extend(scope.context.iter().copied());
+        let body = commitment_delivery(after, id, authority, scope.budget, &cited)
+            .encode()
+            .map_err(|_| WriteRefusal::NotRecorded)?;
+        out.push(ExecutorDeliveryRow {
+            addressee: party.as_str().to_owned(),
+            kind: DeliveryKind::Commitment,
+            commitment: *after.root.0.as_bytes(),
+            body,
+        });
+    }
+    let asked =
+        request_of(record, id, definition_of(at.request)).or_else(|| change_of(before, after, id));
+    if let (Some(request), Some(executor)) = (asked, executor_of(after)) {
+        out.push(ExecutorDeliveryRow {
+            addressee: executor.as_str().to_owned(),
+            kind: DeliveryKind::Request,
+            commitment: *after.root.0.as_bytes(),
+            body: request.encode().map_err(|_| WriteRefusal::NotRecorded)?,
+        });
+    }
+    Ok(out)
 }
 
 impl<T, C, P> Writes<T, C, P>
@@ -760,6 +966,40 @@ where
         Err(WriteRefusal::Rejected(reason))
     }
 
+    /// The executor contract rules of an element (RC-41, RC-42, RC-43, SEC-15): the record names
+    /// the commitment its route names, its author is the executor assigned to it, its
+    /// `definition` body decodes as its element, a `stop_response` answers one stop request it
+    /// cites, and an action report binds an authority context and an idempotency key neither of
+    /// which another report used. The same binding again is a replay of the report that first
+    /// used it: nothing is written and its record is answered with `replayed`. A refusal is a
+    /// decision kept under the request's idempotency key like the kernel's.
+    async fn executor(
+        &self,
+        at: &Admission<'_>,
+        scope: Option<&Scope>,
+        used: &[UsedRow],
+        claim: Option<&KeyClaim>,
+    ) -> Result<Executed, WriteRefusal> {
+        let record = &at.carried.record;
+        let Some(element) = element_of(record, at.request.executor) else {
+            return Ok(Executed::Fresh(None));
+        };
+        let checked = check_executor(element, at, scope.ok_or(WriteRefusal::NotRecorded)?, used);
+        match checked {
+            Ok(executed) => Ok(executed),
+            Err(refusal) => {
+                let reason = refusal.reason();
+                if let Some(claim) = claim {
+                    self.sequence
+                        .reject(&store_ledger(at.ledger), claim, &reason, at.now_ms)
+                        .await
+                        .map_err(|_| WriteRefusal::NotRecorded)?;
+                }
+                Err(WriteRefusal::Rejected(reason))
+            }
+        }
+    }
+
     /// The `definition` part a clock, periodic or budget Condition carries must be a
     /// `work/commitment-time/1` body of its type, and one that supersedes an earlier Condition
     /// must continue that Condition's definition (CM-48, CM-50, CM-51, CM-53, WD-146); a
@@ -865,9 +1105,22 @@ where
             None => self.signed(&at, claim).await?,
         };
         self.gate(&at, &admitted, kept.as_ref()).await?;
+        let scope = scope_of(&at, &admitted)?;
+        let single_use = match self
+            .executor(&at, scope.as_ref(), &fresh.used, kept.as_ref())
+            .await?
+        {
+            Executed::Fresh(single_use) => single_use,
+            Executed::Replay(written) => return Ok(written),
+        };
+        let deliveries = deliveries(&at, scope.as_ref())?;
         let claims = self.claims(&at, &admitted).await?;
         let mut pending = admitted.pending;
         pending.end_claims(claims);
+        pending.deliver(deliveries);
+        if let Some(binding) = single_use {
+            pending.use_once(binding);
+        }
         pending
             .keep_authority_proof(AuthorityProofKind::DecisionReceipt, &exercise.receipt)
             .map_err(|_| WriteRefusal::Denied("authority_digest"))?;
