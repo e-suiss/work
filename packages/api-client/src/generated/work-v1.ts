@@ -1035,30 +1035,6 @@ export interface components {
             render_digest: string;
         };
         /**
-         * @description One assignment history entry: who, to whom, why, when, under which policy version and its
-         *     result; reassignment never erases one (RC-19).
-         */
-        AssignmentAnswer: {
-            /** @description The responsibility or commitment operation's wire name, or `acknowledgement`. */
-            act: string;
-            /** @description Its ledger time, RFC 3339 UTC. */
-            at: string;
-            /** @description The Party it speaks for. */
-            by: string;
-            /** @description `applied` or `refused`. */
-            outcome: string;
-            /** @description The queue definition version in force, `rec_…`. */
-            policy?: string | null;
-            /** @description The kernel's reason of a refused record. */
-            reason?: string | null;
-            /** @description The record, `rec_…`. */
-            record: string;
-            /** @description The Party it names. */
-            to?: string | null;
-            /** @description The reason a forwarding gives. */
-            why?: string | null;
-        };
-        /**
          * @description The Access authentication context an unsigned human record names; not an author signature
          *     (P-21 item 3).
          */
@@ -1424,6 +1400,30 @@ export interface components {
             since: string;
             /** @description `claim`, `promise`, `offer` or `delegation`. */
             via: string;
+        };
+        /**
+         * @description One assignment history entry: who, to whom, why, when, under which policy version and its
+         *     result; reassignment never erases one (RC-19).
+         */
+        HistoryAnswer: {
+            /** @description The responsibility or commitment operation's wire name, or `acknowledgement`. */
+            act: string;
+            /** @description Its ledger time, RFC 3339 UTC. */
+            at: string;
+            /** @description The Party it speaks for. */
+            by: string;
+            /** @description `applied` or `refused`. */
+            outcome: string;
+            /** @description The queue definition version in force, `rec_…`. */
+            policy?: string | null;
+            /** @description The kernel's reason of a refused record. */
+            reason?: string | null;
+            /** @description The record, `rec_…`. */
+            record: string;
+            /** @description The Party it names. */
+            to?: string | null;
+            /** @description The reason a forwarding gives. */
+            why?: string | null;
         };
         /** @description The obligor's hold on the work (RC-18, RC-25). */
         HoldAnswer: {
@@ -1846,7 +1846,7 @@ export interface components {
             /** @description Derived rather than declared or accepted (RC-5). */
             derived: boolean;
             /** @description The assignment history. */
-            history: components["schemas"]["AssignmentAnswer"][];
+            history: components["schemas"]["HistoryAnswer"][];
             /** @description The internal responsible under the `organization` regime (RC-48). */
             internal?: string | null;
             /** @description The ownership lease. */
