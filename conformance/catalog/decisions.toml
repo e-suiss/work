@@ -2663,6 +2663,7 @@ status = "frozen-product"
 stage = 6
 title = ""
 tests = [
+  "bins/work-executor/src/protocol.rs::rc_42_only_what_the_capability_declares_is_accepted",
   "crates/http/src/control/tests.rs::e_45_every_control_record_has_one_typed_write_naming_its_action",
   "crates/kernel/tests/control.rs::rc_33_one_driver_and_a_time_bound_lease_for_a_second",
   "crates/query/src/domain/control/tests.rs::rc_33_one_second_driver_and_only_its_holder_releases_the_lease",
@@ -2676,6 +2677,7 @@ family = "RC"
 status = "frozen-product"
 title = ""
 tests = [
+  "bins/work-executor/src/record.rs::rc_36_a_stop_response_cites_its_request_and_a_refusal_carries_its_note",
   "crates/kernel/tests/control.rs::rc_34_an_unsupported_intervention_is_never_offered",
   "crates/kernel/tests/control.rs::rc_34_taking_control_runs_through_a_release_with_a_handover_note",
   "crates/query/src/domain/control/tests.rs::rc_33_one_second_driver_and_only_its_holder_releases_the_lease",
@@ -2697,6 +2699,10 @@ family = "RC"
 status = "frozen-product"
 title = ""
 tests = [
+  "bins/work-executor/src/protocol.rs::rc_36_a_stop_is_accepted_finished_then_stopped_or_refused_with_its_reason",
+  "bins/work-executor/src/protocol.rs::rc_39_an_immediate_stop_during_a_non_cancellable_step_applies_after_the_step",
+  "bins/work-executor/src/protocol.rs::rc_42_only_what_the_capability_declares_is_accepted",
+  "bins/work-executor/src/record.rs::rc_36_a_stop_response_cites_its_request_and_a_refusal_carries_its_note",
   "crates/http/src/control/tests.rs::e_45_every_control_record_has_one_typed_write_naming_its_action",
   "crates/http/src/control/tests.rs::rc_30_the_control_of_a_commitment_is_answered_by_its_wire_names",
   "crates/kernel/tests/control.rs::rc_36_a_stop_request_reads_pending_until_the_doer_answers",
@@ -2748,6 +2754,15 @@ status = "frozen-protocol"
 acceptance = "to-fill"
 title = ""
 tests = [
+  "bins/work-executor/src/config.rs::t_105_a_configuration_outside_its_rules_is_refused",
+  "bins/work-executor/src/config.rs::t_105_the_configuration_names_work_access_the_token_the_capability_and_the_script",
+  "bins/work-executor/src/doorbell.rs::e_39_the_doorbell_is_content_free_and_only_wakes_the_pull",
+  "bins/work-executor/src/protocol.rs::rc_36_a_stop_is_accepted_finished_then_stopped_or_refused_with_its_reason",
+  "bins/work-executor/src/protocol.rs::rc_42_a_delivery_is_read_with_the_kernel_decoders",
+  "bins/work-executor/src/protocol.rs::rc_42_only_what_the_capability_declares_is_accepted",
+  "bins/work-executor/src/protocol.rs::sec_15_an_action_report_binds_the_delivery_s_context_to_its_key",
+  "bins/work-executor/src/record.rs::rc_42_a_contract_element_is_a_record_of_its_kind_with_the_body_in_definition",
+  "bins/work-executor/src/script.rs::t_105_a_run_steps_through_the_script_and_names_the_step_under_way",
   "crates/kernel/tests/control.rs::rc_42_contract_bodies_match_their_vectors",
   "crates/kernel/tests/control.rs::rc_42_missing_liveness_reads_stale_or_unknown_never_running",
   "crates/kernel/tests/control.rs::rc_42_reports_travel_as_their_record_kinds_and_never_carry_raw_thought",
@@ -2761,6 +2776,7 @@ family = "RC"
 status = "frozen-product"
 title = ""
 tests = [
+  "bins/work-executor/src/protocol.rs::sec_15_an_action_report_binds_the_delivery_s_context_to_its_key",
   "crates/kernel/tests/control.rs::rc_43_attempts_are_grouped_by_session_and_keep_their_reasons",
   "crates/kernel/tests/control.rs::rc_43_the_integration_depth_bounds_what_work_delivers",
   "crates/query/src/domain/kinds/tests.rs::rc_42_the_executor_claims_are_distinct_extension_keys",
@@ -4189,6 +4205,7 @@ stage = 1
 acceptance = "to-fill"
 title = ""
 tests = [
+  "bins/work-executor/src/record.rs::rc_42_a_contract_element_is_a_record_of_its_kind_with_the_body_in_definition",
   "crates/http/src/writes.rs::p_68_a_declaration_carries_the_openings_of_its_body_parts",
   "crates/kernel/src/codec/mod.rs::p_104_a_part_above_64_kib_commits_to_the_digest_of_its_content",
   "crates/kernel/src/record/parts.rs::p_68_part_names_are_lowercase_snake_case_up_to_64_bytes",
@@ -4472,6 +4489,7 @@ stage = 1
 acceptance = "filled"
 title = ""
 tests = [
+  "bins/work-executor/src/record.rs::rc_36_a_stop_response_cites_its_request_and_a_refusal_carries_its_note",
   "crates/kernel/tests/records.rs::p_83_acts_and_claims_need_no_authority",
 ]
 
@@ -6611,6 +6629,7 @@ status = "frozen-technical"
 acceptance = "filled"
 title = ""
 tests = [
+  "bins/work-executor/src/access.rs::t_105_a_refusal_keeps_the_exact_problem_work_answered",
   "crates/dispatch/src/domain.rs::t_98_changed_data_names_the_cause_and_revoked_data_the_kind",
   "crates/http/src/api.rs::t_98_a_problem_type_is_described_without_an_identity",
   "crates/http/src/problem.rs::t_33_a_problem_carries_a_stable_code_and_no_internal_detail",
@@ -6724,6 +6743,7 @@ status = "frozen-technical"
 acceptance = "filled"
 title = ""
 tests = [
+  "bins/work-executor/src/access.rs::t_105_the_client_ids_and_the_pep_come_from_what_the_environment_holds",
   "crates/access-client/src/adapters.rs::t_101_a_certificate_of_another_key_is_refused",
   "crates/access-client/src/adapters.rs::t_101_a_platform_call_carries_a_fresh_es256_assertion",
   "crates/access-client/src/adapters.rs::t_101_a_service_key_that_is_not_ed25519_is_refused",
@@ -6905,6 +6925,7 @@ stage = 2
 acceptance = "to-fill"
 title = ""
 tests = [
+  "bins/work-executor/src/clock.rs::t_105_an_idempotency_key_is_a_version_7_uuid_of_its_time",
   "crates/store/src/idempotency.rs::op_8_a_caller_reference_is_bounded_and_not_printed",
   "crates/store/src/idempotency.rs::op_8_a_stored_row_maps_to_one_outcome_or_is_corrupt",
 ]

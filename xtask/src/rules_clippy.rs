@@ -31,6 +31,10 @@ pub(crate) const ADAPTERS: &[(&str, &str)] = &[
         "bins/work-cli/src/clock.rs",
         "the wall clock of `work-cli access pair`, whose assertion and challenge times Access checks against its own clock (T-103)",
     ),
+    (
+        "bins/work-executor/src/clock.rs",
+        "the wall clock and Rng of the test executor, whose assertion, proof and statement times Access checks against its own clock (T-105)",
+    ),
 ];
 
 fn v(path: String, message: String) -> Violation {

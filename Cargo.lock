@@ -5323,6 +5323,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "work-executor"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "base64 0.22.1",
+ "bytes",
+ "esuiss-crypto",
+ "esuiss-work-kernel",
+ "http",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
+ "rustls",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+ "tokio",
+ "tokio-rustls",
+ "toml 1.1.6+spec-1.1.0",
+ "tracing",
+ "work-access-client",
+ "work-proto",
+ "work-telemetry",
+]
+
+[[package]]
 name = "work-export"
 version = "0.1.0"
 dependencies = [
