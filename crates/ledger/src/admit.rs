@@ -734,6 +734,39 @@ impl PendingRecord {
         self.received.push(row);
         Ok(())
     }
+
+    /// Seals `body`, the openings of the parts the record commits to, through `writer` into its
+    /// encrypted parts, so the record, its skeleton and its parts with their keys commit in one
+    /// transaction (OP-45, P-68). The writer scans the openings for secrets first, and a
+    /// detection leaves the record without a body (SEC-35 item 2, P-95 item 2). The parts' data
+    /// subject is the record's author (OP-45 item 7); `now_ms` is the time the DEK cache and the
+    /// object store use. No opening seals nothing.
+    ///
+    /// # Errors
+    /// [`BodyError::NoSkeleton`] for a record without a skeleton that comes with a body;
+    /// otherwise as [`BodyWriter::seal`]; the record is unchanged.
+    pub async fn seal_body<O: ObjectStore>(
+        &mut self,
+        ledger: &LedgerId,
+        writer: &BodyWriter<O>,
+        body: &[BodyOpening],
+        now_ms: u64,
+    ) -> Result<(), BodyError> {
+        if body.is_empty() {
+            return Ok(());
+        }
+        let skeleton = self.skeleton.as_ref().ok_or(BodyError::NoSkeleton)?;
+        self.body = writer
+            .seal(
+                ledger,
+                &skeleton.header.author,
+                &skeleton.body,
+                body,
+                now_ms,
+            )
+            .await?;
+        Ok(())
+    }
 }
 
 impl GroupCommit {
@@ -774,22 +807,10 @@ impl GroupCommit {
         now_ms: u64,
     ) -> Result<Committed, SubmitError> {
         let mut record = admit(verifier, self.ledger(), s).map_err(SubmitError::from)?;
-        if !body.is_empty() {
-            let skeleton = record
-                .skeleton
-                .as_ref()
-                .ok_or(SubmitError::Body(BodyError::NoSkeleton))?;
-            record.body = writer
-                .seal(
-                    self.ledger(),
-                    &skeleton.header.author,
-                    &skeleton.body,
-                    body,
-                    now_ms,
-                )
-                .await
-                .map_err(SubmitError::Body)?;
-        }
+        record
+            .seal_body(self.ledger(), writer, body, now_ms)
+            .await
+            .map_err(SubmitError::Body)?;
         self.submit(record).await
     }
 }
