@@ -2,7 +2,7 @@
   "file": "responsibility.json",
   "notes": [
     "one accepted record per responsibility Declaration (RC-17), the queue definition, the organisation rule, the accountability fields and transfer, the waiver and the participation policy, then single-rule rejections; the folding rules that need the ledger are kernel rule tests",
-    "cddl is pass for every case: work-record.cddl leaves these params to its open alternative and the kernel decides; the params maps alone are in responsibility-params.json against work-responsibility.cddl"
+    "cddl is pass for every case: work-record.cddl leaves these params to its open alternative and the kernel decides; the params maps alone are under params, against work-responsibility.cddl"
   ],
   "cases": [
     {
@@ -2793,5 +2793,191 @@
         "reason": "schema:params"
       }
     }
-  ]
+  ],
+  "params": {
+    "contract": "work/responsibility-params/1",
+    "cddl": "conformance/cddl/work-responsibility.cddl",
+    "cases": [
+      {
+        "id": "queue-definition-full",
+        "root": "queue-definition-params",
+        "schema_valid": true,
+        "cbor": "aa656c656173651a001b7740656f776e65727070617274793a61636d653a616c69636566736b696c6c7381783468747470733a2f2f70726f637572656d656e742e6578616d706c652f6e732f736b696c6c2f636f6e74726163745f726576696577686578636c7564656481781a70617274793a61636d653a6167656e742d70726f637572652d37697769705f6c696d6974056a63616e64696461746573827470617274793a61636d653a62757965722d6f72677570617274793a676c6f6265783a737570706c6965726c646973747269627574696f6e65736b696c6c6c6c656173655f6578706972796f6b6565705f616e645f7369676e616c6c73746172745f77697468696e1a0036ee807370696e675f706f6e675f7468726573686f6c6403"
+      },
+      {
+        "id": "queue-definition-group",
+        "root": "queue-definition-params",
+        "schema_valid": true,
+        "cbor": "a2656f776e65727070617274793a61636d653a616c6963656f63616e6469646174655f67726f75707067726f75703a61636d653a6c6567616c"
+      },
+      {
+        "id": "queue-definition-without-owner",
+        "root": "queue-definition-params",
+        "schema_valid": false,
+        "cbor": "a16a63616e64696461746573817470617274793a61636d653a62757965722d6f7267"
+      },
+      {
+        "id": "queue-definition-two-candidate-sets",
+        "root": "queue-definition-params",
+        "schema_valid": false,
+        "cbor": "a3656f776e65727070617274793a61636d653a616c6963656a63616e64696461746573817470617274793a61636d653a62757965722d6f72676f63616e6469646174655f67726f75707067726f75703a61636d653a6c6567616c"
+      },
+      {
+        "id": "queue-definition-lease-without-expiry",
+        "root": "queue-definition-params",
+        "schema_valid": false,
+        "cbor": "a3656c6561736519ea60656f776e65727070617274793a61636d653a616c6963656a63616e64696461746573817470617274793a61636d653a62757965722d6f7267"
+      },
+      {
+        "id": "queue-definition-unknown-method",
+        "root": "queue-definition-params",
+        "schema_valid": false,
+        "cbor": "a3656f776e65727070617274793a61636d653a616c6963656a63616e64696461746573817470617274793a61636d653a62757965722d6f72676c646973747269627574696f6e6a626573745f6167656e74"
+      },
+      {
+        "id": "org-rule-full",
+        "root": "org-rule-params",
+        "schema_valid": true,
+        "cbor": "a765726f6c65738174726f6c653a61636d653a6e696768742d6c65616466726567696d656764656661756c746770617274696573817070617274793a61636d653a616c6963656866616c6c6261636b7070617274793a61636d653a616c6963656b726f6c655f67726f757073817067726f75703a61636d653a6e696768746c6f7267616e697a6174696f6e7470617274793a61636d653a62757965722d6f72676c70617274795f67726f757073817067726f75703a61636d653a6c6567616c"
+      },
+      {
+        "id": "org-rule-without-fallback",
+        "root": "org-rule-params",
+        "schema_valid": false,
+        "cbor": "a16c6f7267616e697a6174696f6e7470617274793a61636d653a62757965722d6f7267"
+      },
+      {
+        "id": "org-rule-unknown-regime",
+        "root": "org-rule-params",
+        "schema_valid": false,
+        "cbor": "a366726567696d65666167656e74736866616c6c6261636b7070617274793a61636d653a616c6963656c6f7267616e697a6174696f6e7470617274793a61636d653a62757965722d6f7267"
+      },
+      {
+        "id": "org-rule-unpaired-groups-left-to-the-kernel",
+        "root": "org-rule-params",
+        "schema_valid": true,
+        "cbor": "a46770617274696573817070617274793a61636d653a616c6963656866616c6c6261636b7070617274793a61636d653a616c6963656c6f7267616e697a6174696f6e7470617274793a61636d653a62757965722d6f72676c70617274795f67726f757073827067726f75703a61636d653a6c6567616c6e67726f75703a61636d653a746178"
+      },
+      {
+        "id": "claim-effective-at",
+        "root": "paramless-params",
+        "schema_valid": true,
+        "cbor": "a16c6566666563746976655f61741b000001a142066dc0"
+      },
+      {
+        "id": "forward-queue",
+        "root": "forward-params",
+        "schema_valid": true,
+        "cbor": "a2657175657565822f5820478f6ad91726fc4a528fe4dd0cd643404eb21b78af4c27e3698227befc0f863a66726561736f6e6f77726f6e675f726563697069656e74"
+      },
+      {
+        "id": "forward-sub-code",
+        "root": "forward-params",
+        "schema_valid": true,
+        "cbor": "a266726561736f6e78356578706572746973653a68747470733a2f2f70726f637572656d656e742e6578616d706c652f6e732f726561736f6e2f6c6567616c6a63616e64696461746573817470617274793a61636d653a62757965722d6f7267"
+      },
+      {
+        "id": "forward-two-targets",
+        "root": "forward-params",
+        "schema_valid": false,
+        "cbor": "a3657175657565822f5820478f6ad91726fc4a528fe4dd0cd643404eb21b78af4c27e3698227befc0f863a66726561736f6e6863617061636974796a63616e64696461746573817470617274793a61636d653a62757965722d6f7267"
+      },
+      {
+        "id": "forward-without-reason",
+        "root": "forward-params",
+        "schema_valid": false,
+        "cbor": "a1657175657565822f5820478f6ad91726fc4a528fe4dd0cd643404eb21b78af4c27e3698227befc0f863a"
+      },
+      {
+        "id": "nominate",
+        "root": "party-params",
+        "schema_valid": true,
+        "cbor": "a16570617274797470617274793a61636d653a62757965722d6f7267"
+      },
+      {
+        "id": "nominate-without-party",
+        "root": "party-params",
+        "schema_valid": false,
+        "cbor": "a16c6566666563746976655f617401"
+      },
+      {
+        "id": "offer-policy",
+        "root": "offer-params",
+        "schema_valid": true,
+        "cbor": "a36570617274797570617274793a676c6f6265783a737570706c69657266696e7075747381822f582083066ef4092e0c55eb7f18cfae037289bba4615123b97178a86ac5ade8564a9a66706f6c696379822f5820478f6ad91726fc4a528fe4dd0cd643404eb21b78af4c27e3698227befc0f863a"
+      },
+      {
+        "id": "offer-inputs-without-policy",
+        "root": "offer-params",
+        "schema_valid": false,
+        "cbor": "a26570617274797570617274793a676c6f6265783a737570706c69657266696e7075747381822f582083066ef4092e0c55eb7f18cfae037289bba4615123b97178a86ac5ade8564a9a"
+      },
+      {
+        "id": "waiver-commitment",
+        "root": "waiver-params",
+        "schema_valid": true,
+        "cbor": "a365756e74696c1b000001a17720ca006967756172616e7465656e616476616e63655f6e6f746963656a636f6d6d69746d656e74822f58203287bc190e3e7480cd50b017bf544edd270fa1383e36b15ecdf36c496a00d395"
+      },
+      {
+        "id": "waiver-work",
+        "root": "waiver-params",
+        "schema_valid": true,
+        "cbor": "a264776f726b50019a2f4c8e1b7c3da5e6f708123456786967756172616e74656570696d6d6564696174655f6e6f74696365"
+      },
+      {
+        "id": "waiver-oversight",
+        "root": "waiver-params",
+        "schema_valid": false,
+        "cbor": "a26967756172616e746565696f76657273696768746a636f6d6d69746d656e74822f58203287bc190e3e7480cd50b017bf544edd270fa1383e36b15ecdf36c496a00d395"
+      },
+      {
+        "id": "waiver-two-scopes",
+        "root": "waiver-params",
+        "schema_valid": false,
+        "cbor": "a364776f726b50019a2f4c8e1b7c3da5e6f708123456786967756172616e7465656c696e74657276656e74696f6e6a636f6d6d69746d656e74822f58203287bc190e3e7480cd50b017bf544edd270fa1383e36b15ecdf36c496a00d395"
+      },
+      {
+        "id": "acknowledgement-transfer",
+        "root": "acknowledgement-params",
+        "schema_valid": true,
+        "cbor": "a16870726f706f73616c822f58205e7118e2da39b10430567679e7a10d83530bb73be5704c1a86b5f008608bae00"
+      },
+      {
+        "id": "acknowledgement-empty",
+        "root": "acknowledgement-params",
+        "schema_valid": false,
+        "cbor": "a0"
+      },
+      {
+        "id": "transfer",
+        "root": "transfer-params",
+        "schema_valid": true,
+        "cbor": "a16b6163636f756e7461626c657070617274793a61636d653a616c696365"
+      },
+      {
+        "id": "request-accountable",
+        "root": "request-accountability",
+        "schema_valid": true,
+        "cbor": "a16b6163636f756e7461626c657470617274793a61636d653a62757965722d6f7267"
+      },
+      {
+        "id": "request-accountable-and-group",
+        "root": "request-accountability",
+        "schema_valid": false,
+        "cbor": "a26b6163636f756e7461626c657470617274793a61636d653a62757965722d6f7267716163636f756e7461626c655f67726f75707067726f75703a61636d653a6c6567616c"
+      },
+      {
+        "id": "participation-on-call",
+        "root": "participation-params",
+        "schema_valid": true,
+        "cbor": "a16d70617274696369706174696f6e676f6e5f63616c6c"
+      },
+      {
+        "id": "participation-unknown",
+        "root": "participation-params",
+        "schema_valid": false,
+        "cbor": "a16d70617274696369706174696f6e66616c77617973"
+      }
+    ]
+  }
 }

@@ -2588,12 +2588,6 @@ for name, rec, reason, rules in r_reject_cases:
     out_rc.append({"id": "responsibility-reject/" + name, "rules": rules, "hex": b.hex(),
                    "decoded": decoded(b, rec), "context": c, "cddl": "pass",
                    "expect": {"outcome": "reject", "reason": reason}})
-write_json("responsibility.json", {
-    "file": "responsibility.json",
-    "notes": ["one accepted record per responsibility Declaration (RC-17), the queue definition, the organisation rule, the accountability fields and transfer, the waiver and the participation policy, then single-rule rejections; the folding rules that need the ledger are kernel rule tests",
-              "cddl is pass for every case: work-record.cddl leaves these params to its open alternative and the kernel decides; the params maps alone are in responsibility-params.json against work-responsibility.cddl"],
-    "cases": out_rc})
-
 PARAM_CASES = [
     ("queue-definition-full", "queue-definition-params", {
         "owner": ALICE, "candidates": [BUYER, SUPPLIER], "distribution": "skill", "start_within": 3600000,
@@ -2643,12 +2637,16 @@ PARAM_CASES = [
     ("participation-on-call", "participation-params", {"participation": "on_call"}, True),
     ("participation-unknown", "participation-params", {"participation": "always"}, False),
 ]
-write_json("responsibility-params.json", {
-    "contract": "work/responsibility-params/1",
-    "cddl": "conformance/cddl/work-responsibility.cddl",
-    "cases": [{"id": name, "root": root, "schema_valid": valid, "cbor": enc(value).hex()}
-              for name, root, value, valid in PARAM_CASES]})
-
+write_json("responsibility.json", {
+    "file": "responsibility.json",
+    "notes": ["one accepted record per responsibility Declaration (RC-17), the queue definition, the organisation rule, the accountability fields and transfer, the waiver and the participation policy, then single-rule rejections; the folding rules that need the ledger are kernel rule tests",
+              "cddl is pass for every case: work-record.cddl leaves these params to its open alternative and the kernel decides; the params maps alone are under params, against work-responsibility.cddl"],
+    "cases": out_rc,
+    "params": {
+        "contract": "work/responsibility-params/1",
+        "cddl": "conformance/cddl/work-responsibility.cddl",
+        "cases": [{"id": name, "root": root, "schema_valid": valid, "cbor": enc(value).hex()}
+                  for name, root, value, valid in PARAM_CASES]}})
 
 V2 = dict(rec_comment["versions"], protocol=[2, 0])
 v2_new_field = variant(rec_comment, versions=V2)

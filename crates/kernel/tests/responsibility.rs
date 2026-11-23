@@ -381,7 +381,7 @@ fn summary(view: &CommitmentView) -> Summary {
     view.summary()
 }
 
-fn proposed<'r>(record: &'r Record, access: AccessAnswer) -> Proposed<'r> {
+fn proposed(record: &Record, access: AccessAnswer) -> Proposed<'_> {
     Proposed {
         id: id(9999),
         record,
@@ -553,9 +553,9 @@ fn rc_17_claim_promises_and_unclaim_returns_to_requested_without_a_release() {
         assignment_state(&held, Time(0), None),
         AssignmentState::Held
     );
-    let hold = held.assignment.hold.as_ref().unwrap();
-    assert_eq!((hold.via, hold.record), (HoldVia::Claim, claim));
-    assert!(held.steps.is_empty());
+    let taken = held.assignment.hold.as_ref().unwrap();
+    assert_eq!((taken.via, taken.record), (HoldVia::Claim, claim));
+    assert_eq!(held.steps.len(), 0);
     let unclaim = ledger.push(decl(BOB, "unclaim", Some(claim), &[]));
     let back = ledger.view(root);
     assert_eq!(summary(&back), Summary::Uniform(CommitmentState::Requested));
@@ -1803,7 +1803,7 @@ fn rc_17_allowed_responsibility_follows_roles_state_and_access() {
             ResponsibilityOperation::Reassign,
         ]
     );
-    assert!(ops(&party(DAVE), &view).is_empty());
+    assert_eq!(ops(&party(DAVE), &view), Vec::new());
     ledger.push(decl(BOB, "claim", Some(root), &[]));
     let held = ledger.view(root);
     assert_eq!(

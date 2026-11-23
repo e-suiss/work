@@ -374,7 +374,7 @@ cddl:
     [ "$bad" = 0 ] && echo "CDDL: $(wc -l < "$tv/manifest" | tr -d ' ') commitment-time vectors match their cddl expectation"
     rv="$dir/responsibility"
     mkdir -p "$rv"
-    python3 -I -c 'import json, pathlib, sys; v = json.loads(pathlib.Path(sys.argv[1]).read_text()); out = pathlib.Path(sys.argv[2]); [(out / (c["id"] + ".cbor")).write_bytes(bytes.fromhex(c["cbor"])) for c in v["cases"]]; (out / "manifest").write_text("".join(c["id"] + " " + c["root"] + " " + ("pass" if c["schema_valid"] else "fail") + "\n" for c in v["cases"]))' {{record_vectors}}/responsibility-params.json "$rv"
+    python3 -I -c 'import json, pathlib, sys; v = json.loads(pathlib.Path(sys.argv[1]).read_text()); out = pathlib.Path(sys.argv[2]); [(out / (c["id"] + ".cbor")).write_bytes(bytes.fromhex(c["cbor"])) for c in v["params"]["cases"]]; (out / "manifest").write_text("".join(c["id"] + " " + c["root"] + " " + ("pass" if c["schema_valid"] else "fail") + "\n" for c in v["params"]["cases"]))' {{record_vectors}}/responsibility.json "$rv"
     while read -r name root want; do
       schema="$rv/$root.cddl"
       [ -e "$schema" ] || { printf 'root = %s\n' "$root"; cat conformance/cddl/work-responsibility.cddl; } > "$schema"
