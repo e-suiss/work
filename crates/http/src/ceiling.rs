@@ -174,6 +174,7 @@ pub async fn create_agent_ceiling_decision(
     request.expected = Some(Expected {
         kind: Kind::Declaration(DeclarationSubtype::Acknowledgement),
         commitment: None,
+        form: None,
     });
     match services.writes.declare(&caller, &ledger, &request).await {
         Ok(written) => {
