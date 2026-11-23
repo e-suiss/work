@@ -80,11 +80,12 @@ fn millis(d: Duration) -> u64 {
 
 fn spread(key: &ClaimKey, attempts: u64) -> u64 {
     key.record
-        .chunks_exact(8)
-        .chain(key.subject.chunks_exact(8))
-        .filter_map(|c| <[u8; 8]>::try_from(c).ok())
+        .as_chunks::<8>()
+        .0
+        .iter()
+        .chain(key.subject.as_chunks::<8>().0.iter())
         .fold(attempts.rotate_left(29), |acc, c| {
-            acc ^ u64::from_le_bytes(c)
+            acc ^ u64::from_le_bytes(*c)
         })
 }
 

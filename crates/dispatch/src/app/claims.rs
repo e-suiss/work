@@ -296,86 +296,96 @@ mod tests {
     }
 
     impl ClaimQueue for MemQueue {
-        async fn ledgers(
+        fn ledgers(
             &self,
             _: Option<&LedgerId>,
             now_ms: u64,
             _: u32,
-        ) -> Result<Vec<LedgerId>, StoreError> {
-            let rows = self.rows.lock().unwrap();
-            let due = rows.values().any(|r| {
-                matches!(r.delivery, Delivery::Pending { next_attempt_ms, .. } if next_attempt_ms <= now_ms)
-            });
-            Ok(if due { vec![ledger()] } else { vec![] })
+        ) -> impl Future<Output = Result<Vec<LedgerId>, StoreError>> + Send {
+            std::future::ready({
+                let rows = self.rows.lock().unwrap();
+                let due = rows.values().any(|r| {
+                    matches!(r.delivery, Delivery::Pending { next_attempt_ms, .. } if next_attempt_ms <= now_ms)
+                });
+                Ok(if due { vec![ledger()] } else { vec![] })
+            })
         }
 
-        async fn due(
+        fn due(
             &self,
             _: &LedgerId,
             now_ms: u64,
             limit: u32,
-        ) -> Result<Vec<ClaimDelivery>, StoreError> {
-            let rows = self.rows.lock().unwrap();
-            Ok(rows
-                .values()
-                .filter(|r| {
-                    matches!(r.delivery, Delivery::Pending { next_attempt_ms, .. } if next_attempt_ms <= now_ms)
-                })
-                .take(usize::try_from(limit).unwrap())
-                .cloned()
-                .collect())
+        ) -> impl Future<Output = Result<Vec<ClaimDelivery>, StoreError>> + Send {
+            std::future::ready({
+                let rows = self.rows.lock().unwrap();
+                Ok(rows
+                    .values()
+                    .filter(|r| {
+                        matches!(r.delivery, Delivery::Pending { next_attempt_ms, .. } if next_attempt_ms <= now_ms)
+                    })
+                    .take(usize::try_from(limit).unwrap())
+                    .cloned()
+                    .collect())
+            })
         }
 
-        async fn delivered(
+        fn delivered(
             &self,
             _: &LedgerId,
             key: &ClaimKey,
             answer: &ClaimAnswer,
             replayed: bool,
-        ) -> Result<bool, StoreError> {
-            Ok(self.settle(
-                key,
-                Delivery::Delivered {
-                    claim: answer.claim,
-                    position: answer.position,
-                    replayed,
-                    at_ms: answer.at_ms,
-                },
-            ))
+        ) -> impl Future<Output = Result<bool, StoreError>> + Send {
+            std::future::ready({
+                Ok(self.settle(
+                    key,
+                    Delivery::Delivered {
+                        claim: answer.claim,
+                        position: answer.position,
+                        replayed,
+                        at_ms: answer.at_ms,
+                    },
+                ))
+            })
         }
 
-        async fn quarantined(
+        fn quarantined(
             &self,
             _: &LedgerId,
             key: &ClaimKey,
             answer: &ClaimAnswer,
             reason: &str,
-        ) -> Result<bool, StoreError> {
-            Ok(self.settle(
-                key,
-                Delivery::Quarantined {
-                    claim: answer.claim,
-                    position: answer.position,
-                    reason: reason.to_owned(),
-                    at_ms: answer.at_ms,
-                },
-            ))
+        ) -> impl Future<Output = Result<bool, StoreError>> + Send {
+            std::future::ready({
+                Ok(self.settle(
+                    key,
+                    Delivery::Quarantined {
+                        claim: answer.claim,
+                        position: answer.position,
+                        reason: reason.to_owned(),
+                        at_ms: answer.at_ms,
+                    },
+                ))
+            })
         }
 
-        async fn retry(
+        fn retry(
             &self,
             _: &LedgerId,
             key: &ClaimKey,
             error: &str,
             next_attempt_ms: u64,
-        ) -> Result<bool, StoreError> {
-            Ok(self.settle(
-                key,
-                Delivery::Pending {
-                    next_attempt_ms,
-                    last_error: Some(error.to_owned()),
-                },
-            ))
+        ) -> impl Future<Output = Result<bool, StoreError>> + Send {
+            std::future::ready({
+                Ok(self.settle(
+                    key,
+                    Delivery::Pending {
+                        next_attempt_ms,
+                        last_error: Some(error.to_owned()),
+                    },
+                ))
+            })
         }
     }
 
@@ -408,26 +418,28 @@ mod tests {
             *self.now.lock().unwrap()
         }
 
-        async fn deliver(&self, e: &Ended) -> Result<Verdict, AccessError> {
-            self.seen.lock().unwrap().push(*e);
-            let claim = [e.subject.0[0]; 16];
-            match *self.answer.lock().unwrap() {
-                Answer::Admit => {
-                    let mut admitted = self.admitted.lock().unwrap();
-                    let replayed = admitted.insert(e.subject.0, claim).is_some();
-                    Ok(Verdict::Admitted {
+        fn deliver(&self, e: &Ended) -> impl Future<Output = Result<Verdict, AccessError>> + Send {
+            std::future::ready({
+                self.seen.lock().unwrap().push(*e);
+                let claim = [e.subject.0[0]; 16];
+                match *self.answer.lock().unwrap() {
+                    Answer::Admit => {
+                        let mut admitted = self.admitted.lock().unwrap();
+                        let replayed = admitted.insert(e.subject.0, claim).is_some();
+                        Ok(Verdict::Admitted {
+                            claim,
+                            position: 9,
+                            replayed,
+                        })
+                    }
+                    Answer::Hold => Ok(Verdict::Quarantined {
                         claim,
                         position: 9,
-                        replayed,
-                    })
+                        reason: "source-not-accepted".to_owned(),
+                    }),
+                    Answer::Down => Err(AccessError::Transport("reset".to_owned())),
                 }
-                Answer::Hold => Ok(Verdict::Quarantined {
-                    claim,
-                    position: 9,
-                    reason: "source-not-accepted".to_owned(),
-                }),
-                Answer::Down => Err(AccessError::Transport("reset".to_owned())),
-            }
+            })
         }
     }
 
