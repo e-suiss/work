@@ -194,7 +194,7 @@ pub struct ControlAnswer {
     pub lease: ControlLeaseAnswer,
 }
 
-fn request(r: &Request) -> ControlRequestAnswer {
+fn request(r: Request) -> ControlRequestAnswer {
     ControlRequestAnswer {
         kind: r.kind.wire_name().to_owned(),
         stop_type: r.stop_type.map(|s| s.wire_name().to_owned()),
@@ -206,7 +206,7 @@ fn movement(m: &MoveAutonomy) -> ControlMoveAnswer {
     ControlMoveAnswer {
         action: m.action.clone(),
         operation: m.operation.map(|o| o.wire_name().to_owned()),
-        request: m.request.as_ref().map(request),
+        request: m.request.map(request),
         outcome: m.autonomy.outcome.wire_name().to_owned(),
         causes: m
             .autonomy
@@ -277,7 +277,7 @@ impl ControlAnswer {
         Self {
             executor: read.executor.as_ref().map(|p| p.as_str().to_owned()),
             capability: read.capability.as_ref().map(rec),
-            offered_requests: read.offered.iter().map(request).collect(),
+            offered_requests: read.offered.iter().copied().map(request).collect(),
             autonomy: ControlAutonomyAnswer {
                 policy: read.policy.as_ref().map(rec),
                 moves: read.autonomy.iter().map(movement).collect(),
