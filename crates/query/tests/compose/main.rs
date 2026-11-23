@@ -2815,7 +2815,7 @@ mod commit {
         let names: Vec<&str> = parts.iter().map(|(p, _)| p.as_str()).collect();
         assert_eq!(
             names,
-            ["purpose", "delivery", "scope", "acceptance_criterion"],
+            ["acceptance_criterion", "delivery", "purpose", "scope"],
             "{parts:?}"
         );
         for (part, read) in &parts {
