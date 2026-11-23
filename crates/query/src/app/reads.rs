@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use work_access_client::ports::Clock;
 use work_kernel::commitment_time::DEFINITION_PART;
-use work_kernel::id::{Digest, LedgerId, RecordId, WorkId};
+use work_kernel::id::{Digest, LedgerId, PartyRef, RecordId, WorkId};
 use work_kernel::proof::verify_inclusion;
 use work_kernel::validate::ActorType;
 use work_ledger::{BodyError, PartRead};
@@ -23,6 +23,7 @@ use crate::domain::reads::{
     Evidence, Inclusion, MAX_CHANGES, MAX_DELIVERY_WAIT_S, MAX_PROOF_LEAVES, Opened, ReadRefusal,
     WorkView, audit_path, compromise_marks,
 };
+use crate::domain::responsibility::{self, QueueRead, WorkloadRead};
 use crate::domain::writes::header_kid;
 use crate::domain::{PositionRefusal, check_heads};
 use crate::ports::{Bodies, Pending, WorkReads};
@@ -251,6 +252,64 @@ impl Reads {
                 control: &control,
                 now_ms: self.clock.as_ref().map_or(0, |c| c.now_ms()),
             },
+        )
+    }
+
+    async fn folded(
+        &self,
+        caller: &Caller,
+        ledger: &LedgerId,
+        min: Option<&PositionToken>,
+    ) -> Result<(Folded, u64), ReadRefusal> {
+        let (mut tx, head) = self.snapshot(ledger).await?;
+        let log = log_of(&mut tx).await.map_err(ReadRefusal::from);
+        let _closed = tx.rollback().await;
+        self.check_min(caller, ledger, head, min)?;
+        let folded = fold(ledger, &log?).map_err(|_| ReadRefusal::Unavailable)?;
+        Ok((folded, head))
+    }
+
+    /// The queue `queue` of `ledger` as `caller` may read it: its definition versions, its open
+    /// work with each one's assignment and the candidates over its WIP limit, derived by the
+    /// kernel from the records in one snapshot (RC-10…RC-14, RC-24).
+    ///
+    /// # Errors
+    /// [`ReadRefusal`].
+    pub async fn read_queue(
+        &self,
+        caller: &Caller,
+        ledger: &LedgerId,
+        queue: &RecordId,
+        min: Option<&PositionToken>,
+    ) -> Result<QueueRead, ReadRefusal> {
+        let party = caller.party().map_err(|_| ReadRefusal::NotFound)?;
+        let (folded, head) = self.folded(caller, ledger, min).await?;
+        responsibility::queue(
+            &folded,
+            queue,
+            &party.reference,
+            self.position(caller, ledger, head)?,
+        )
+    }
+
+    /// The open workload of `party` in `ledger` as `caller` may read it (RC-24).
+    ///
+    /// # Errors
+    /// [`ReadRefusal`].
+    pub async fn read_workload(
+        &self,
+        caller: &Caller,
+        ledger: &LedgerId,
+        party: &PartyRef,
+        min: Option<&PositionToken>,
+    ) -> Result<WorkloadRead, ReadRefusal> {
+        let asking = caller.party().map_err(|_| ReadRefusal::NotFound)?;
+        let (folded, head) = self.folded(caller, ledger, min).await?;
+        responsibility::party_workload(
+            &folded,
+            party,
+            &asking.reference,
+            self.position(caller, ledger, head)?,
         )
     }
 
@@ -527,5 +586,25 @@ impl WorkReads for Reads {
         wait_s: u32,
     ) -> Pending<'a, Result<Deliveries, ReadRefusal>> {
         Box::pin(self.read_deliveries(caller, ledger, after, wait_s))
+    }
+
+    fn queue<'a>(
+        &'a self,
+        caller: &'a Caller,
+        ledger: &'a LedgerId,
+        queue: &'a RecordId,
+        min: Option<&'a PositionToken>,
+    ) -> Pending<'a, Result<QueueRead, ReadRefusal>> {
+        Box::pin(self.read_queue(caller, ledger, queue, min))
+    }
+
+    fn workload<'a>(
+        &'a self,
+        caller: &'a Caller,
+        ledger: &'a LedgerId,
+        party: &'a PartyRef,
+        min: Option<&'a PositionToken>,
+    ) -> Pending<'a, Result<WorkloadRead, ReadRefusal>> {
+        Box::pin(self.read_workload(caller, ledger, party, min))
     }
 }

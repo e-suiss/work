@@ -3,13 +3,14 @@
 use std::future::Future;
 use std::pin::Pin;
 
-use work_kernel::id::{LedgerId, RecordId, WorkId};
+use work_kernel::id::{LedgerId, PartyRef, RecordId, WorkId};
 use work_proto::id::{Cursor, PositionToken};
 
 use crate::domain::authority::{ApprovalReturned, AuthorityAnswer, AuthorityAsk};
 use crate::domain::caller::{Caller, CallerRefusal, Presented};
 use crate::domain::commitments::CommitmentRead;
 use crate::domain::reads::{Changes, Deliveries, Evidence, ReadRefusal, WorkView};
+use crate::domain::responsibility::{QueueRead, WorkloadRead};
 use crate::domain::writes::{DeclarationRequest, WriteRefusal, Written};
 
 /// A future the API layer awaits.
@@ -71,6 +72,18 @@ pub trait WorkReads: Send + Sync {
         after: u64,
         wait_s: u32,
     ) -> Pending<'a, Result<Deliveries, ReadRefusal>>;
+    /// The queue `queue` of `ledger`, by the root of its definition chain, as `caller` may read
+    /// it (RC-10…RC-14, RC-24); `min` is a `Work-Min-Position` token.
+    fn queue<'a>(
+        queue: &'a RecordId,
+        min: Option<&'a PositionToken>,
+    ) -> Pending<'a, Result<QueueRead, ReadRefusal>>;
+
+    /// The open workload of `party` in `ledger` as `caller` may read it (RC-24); `min` is a
+    /// `Work-Min-Position` token.
+    fn workload<'a>(
+        party: &'a PartyRef,
+    ) -> Pending<'a, Result<WorkloadRead, ReadRefusal>>;
 }
 
 /// The consequential writes of a named caller (P-13, P-21, E-45).

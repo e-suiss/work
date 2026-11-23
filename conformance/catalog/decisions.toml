@@ -1233,6 +1233,7 @@ title = ""
 tests = [
   "crates/http/src/commitments/tests.rs::c_6_every_operation_a_caller_writes_has_one_typed_write_naming_its_action",
   "crates/http/src/control/tests.rs::e_45_every_control_record_has_one_typed_write_naming_its_action",
+  "crates/http/src/responsibility/tests.rs::c_6_every_responsibility_operation_has_one_typed_write_naming_its_action",
   "crates/kernel/tests/commitments.rs::cm_7_an_offer_with_an_agent_side_needs_its_six_fields",
   "crates/query/src/domain/commitments/tests.rs::e_45_every_commitment_operation_a_caller_writes_names_one_action",
   "crates/query/src/domain/control/tests.rs::c_6_a_consultation_and_a_correction_are_shapes_of_their_record_kinds",
@@ -1704,6 +1705,8 @@ tests = [
   "crates/http/src/commitments/tests.rs::c_6_every_operation_a_caller_writes_has_one_typed_write_naming_its_action",
   "crates/http/src/control/tests.rs::e_45_every_control_record_has_one_typed_write_naming_its_action",
   "crates/http/src/executor/tests.rs::rc_42_every_executor_element_has_one_typed_write_naming_its_action",
+  "crates/http/src/responsibility/tests.rs::c_6_every_responsibility_operation_has_one_typed_write_naming_its_action",
+  "crates/http/src/responsibility/tests.rs::rc_5_accountability_queues_rules_waivers_and_participation_write_under_their_actions",
   "crates/http/src/writes.rs::p_54_a_declaration_carries_one_key_one_if_match_and_its_access_evidence",
   "crates/http/tests/openapi.rs::e_23_the_ceiling_decision_route_asks_for_work_agent_ceiling_decide",
   "crates/http/tests/openapi.rs::e_45_every_api_operation_names_exactly_one_action",
@@ -1714,6 +1717,7 @@ tests = [
   "crates/query/src/domain/kinds/tests.rs::e_23_an_acknowledgement_carrying_a_ceiling_decision_takes_work_agent_ceiling_decide",
   "crates/query/src/domain/kinds/tests.rs::e_45_every_core_declaration_a_caller_writes_names_one_catalog_action",
   "crates/query/src/domain/kinds/tests.rs::e_45_every_responsibility_operation_takes_work_claim_or_work_assign",
+  "crates/query/src/domain/responsibility/tests.rs::rc_7_a_transfer_is_an_amend_through_the_commitment_route_and_its_acceptance_an_acknowledgement",
   "crates/query/src/domain/writes/tests.rs::e_45_the_exercise_is_the_work_commit_intent_of_this_ledger_and_valid_now",
   "crates/query/src/domain/writes/tests.rs::e_45_the_route_writes_only_operations_work_commit_covers",
   "crates/query/src/domain/writes/tests.rs::e_45_work_s_pep_commits_the_intent_of_every_commitment_write_action_and_no_other",
@@ -2469,8 +2473,12 @@ family = "RC"
 status = "frozen-product"
 title = ""
 tests = [
+  "crates/http/src/responsibility/tests.rs::rc_5_accountability_queues_rules_waivers_and_participation_write_under_their_actions",
   "crates/kernel/tests/responsibility.rs::rc_5_accountability_is_one_party_explicit_or_derived_and_marked_derived",
+  "crates/kernel/tests/responsibility.rs::rc_5_the_accountability_chain_lists_the_links_in_the_order_the_derivation_walks",
   "crates/kernel/tests/responsibility.rs::rc_7_an_accountability_transfer_needs_the_new_party_s_acceptance",
+  "crates/query/src/domain/responsibility/tests.rs::rc_5_pooled_work_names_the_queue_owner_as_its_derived_accountable_and_its_chain",
+  "crates/query/src/domain/responsibility/tests.rs::rc_7_a_transfer_is_an_amend_through_the_commitment_route_and_its_acceptance_an_acknowledgement",
 ]
 
 [[rule]]
@@ -2491,9 +2499,12 @@ status = "frozen-protocol"
 acceptance = "to-fill"
 title = ""
 tests = [
+  "crates/http/src/responsibility/tests.rs::rc_5_accountability_queues_rules_waivers_and_participation_write_under_their_actions",
   "crates/kernel/tests/commitments.rs::cm_13_a_pool_request_binds_whoever_promises",
   "crates/kernel/tests/record_vectors.rs::rc_17_responsibility_record_vectors",
   "crates/kernel/tests/responsibility.rs::rc_10_rc_11_a_queue_definition_is_a_versioned_declaration_with_pull_by_default",
+  "crates/query/src/domain/responsibility/tests.rs::rc_10_a_queue_reads_its_versions_and_open_work_for_its_owner_and_candidates",
+  "crates/query/src/domain/responsibility/tests.rs::rc_10_a_queue_version_supersedes_the_version_in_force_and_names_an_accountable_owner",
 ]
 
 [[rule]]
@@ -2506,6 +2517,7 @@ title = ""
 tests = [
   "crates/kernel/tests/responsibility.rs::rc_10_rc_11_a_queue_definition_is_a_versioned_declaration_with_pull_by_default",
   "crates/kernel/tests/responsibility.rs::rc_11_claims_follow_the_candidates_the_exclusions_and_the_pull_method",
+  "crates/query/src/domain/responsibility/tests.rs::rc_11_pooled_work_is_read_by_the_queue_owner_and_its_listed_candidates_only",
 ]
 
 [[rule]]
@@ -2516,6 +2528,7 @@ stage = 7
 title = ""
 tests = [
   "crates/kernel/tests/responsibility.rs::rc_13_nobody_took_it_after_the_start_deadline_or_without_candidates",
+  "crates/query/src/domain/responsibility/tests.rs::rc_10_a_queue_reads_its_versions_and_open_work_for_its_owner_and_candidates",
 ]
 
 [[rule]]
@@ -2524,7 +2537,9 @@ family = "RC"
 status = "frozen-product"
 title = ""
 tests = [
+  "crates/http/src/responsibility/tests.rs::rc_18_the_lease_forwardings_and_history_are_answered_by_their_wire_names",
   "crates/kernel/tests/responsibility.rs::rc_14_every_forwarding_counts_and_past_the_threshold_signals_the_owner",
+  "crates/query/src/domain/responsibility/tests.rs::rc_14_forwardings_keep_their_reason_and_raise_ping_pong_past_the_threshold",
 ]
 
 [[rule]]
@@ -2535,6 +2550,7 @@ acceptance = "to-fill"
 title = ""
 tests = [
   "crates/kernel/tests/responsibility.rs::rc_17_claim_promises_and_unclaim_returns_to_requested_without_a_release",
+  "crates/query/src/domain/responsibility/tests.rs::rc_5_pooled_work_names_the_queue_owner_as_its_derived_accountable_and_its_chain",
 ]
 
 [[rule]]
@@ -2544,6 +2560,7 @@ status = "frozen-protocol"
 acceptance = "to-fill"
 title = ""
 tests = [
+  "crates/http/src/responsibility/tests.rs::c_6_every_responsibility_operation_has_one_typed_write_naming_its_action",
   "crates/kernel/tests/record_vectors.rs::rc_17_responsibility_record_vectors",
   "crates/kernel/tests/responsibility.rs::rc_11_claims_follow_the_candidates_the_exclusions_and_the_pull_method",
   "crates/kernel/tests/responsibility.rs::rc_17_allowed_responsibility_follows_roles_state_and_access",
@@ -2552,6 +2569,7 @@ tests = [
   "crates/kernel/tests/responsibility.rs::rc_17_reassign_keeps_the_obligor_until_the_delegation_is_accepted",
   "crates/kernel/tests/responsibility.rs::rc_17_the_responsibility_set_is_closed_and_maps_to_the_commitment_axis",
   "crates/query/src/domain/kinds/tests.rs::e_45_every_responsibility_operation_takes_work_claim_or_work_assign",
+  "crates/query/src/domain/responsibility/tests.rs::rc_17_a_record_continuing_a_claim_or_an_acknowledgement_finds_its_commitment",
 ]
 
 [[rule]]
@@ -2562,9 +2580,11 @@ stage = 7
 title = ""
 tests = [
   "crates/http/src/control/tests.rs::rc_30_the_control_of_a_commitment_is_answered_by_its_wire_names",
+  "crates/http/src/responsibility/tests.rs::rc_18_the_lease_forwardings_and_history_are_answered_by_their_wire_names",
   "crates/kernel/tests/responsibility.rs::rc_18_a_kept_lease_only_signals_the_owner",
   "crates/kernel/tests/responsibility.rs::rc_18_a_lease_runs_out_and_the_work_service_returns_the_work",
   "crates/query/src/domain/control/tests.rs::rc_18_the_executors_status_and_heartbeats_are_its_lease_activity_and_no_one_elses",
+  "crates/query/src/domain/responsibility/tests.rs::rc_18_the_lease_runs_from_the_claim_and_its_expiry_returns_the_work_to_the_pool",
 ]
 
 [[rule]]
@@ -2573,7 +2593,10 @@ family = "RC"
 status = "frozen-product"
 title = ""
 tests = [
+  "crates/http/src/responsibility/tests.rs::rc_18_the_lease_forwardings_and_history_are_answered_by_their_wire_names",
   "crates/kernel/tests/responsibility.rs::rc_19_the_history_keeps_every_assignment_record_with_its_policy_version",
+  "crates/query/src/domain/responsibility/tests.rs::rc_14_forwardings_keep_their_reason_and_raise_ping_pong_past_the_threshold",
+  "crates/query/src/domain/responsibility/tests.rs::rc_17_a_record_continuing_a_claim_or_an_acknowledgement_finds_its_commitment",
 ]
 
 [[rule]]
@@ -2615,6 +2638,7 @@ status = "frozen-product"
 title = ""
 tests = [
   "crates/kernel/tests/responsibility.rs::rc_24_open_workload_is_derived_and_a_wip_limit_signals_overload",
+  "crates/query/src/domain/responsibility/tests.rs::rc_24_the_workload_counts_held_work_against_the_wip_limits_that_list_the_party",
 ]
 
 [[rule]]
@@ -2816,8 +2840,10 @@ family = "RC"
 status = "frozen-product"
 title = ""
 tests = [
+  "crates/http/src/responsibility/tests.rs::rc_5_accountability_queues_rules_waivers_and_participation_write_under_their_actions",
   "crates/kernel/tests/record_vectors.rs::rc_17_responsibility_record_vectors",
   "crates/kernel/tests/responsibility.rs::rc_44_participation_is_an_engaged_in_parameter_and_only_a_principal_changes_it",
+  "crates/query/src/domain/responsibility/tests.rs::rc_9_a_waiver_scopes_a_commitment_of_the_ledger_and_participation_names_one_agent",
 ]
 
 [[rule]]
@@ -2841,6 +2867,7 @@ status = "frozen-protocol"
 acceptance = "to-fill"
 title = ""
 tests = [
+  "crates/http/src/responsibility/tests.rs::rc_5_accountability_queues_rules_waivers_and_participation_write_under_their_actions",
   "crates/kernel/tests/record_vectors.rs::rc_17_responsibility_record_vectors",
   "crates/kernel/tests/responsibility.rs::rc_12_pooled_work_and_the_queue_are_the_owner_s_and_never_ownerless",
   "crates/kernel/tests/responsibility.rs::rc_1_a_group_is_accountable_only_once_the_org_rule_resolves_it",
@@ -2849,6 +2876,9 @@ tests = [
   "crates/kernel/tests/responsibility.rs::rc_7_a_disabled_party_falls_to_the_upper_accountable_or_the_fallback",
   "crates/proto/src/action.rs::e_45_the_catalog_is_the_24_actions_of_the_work_namespace",
   "crates/query/src/domain/kinds/tests.rs::e_45_every_core_declaration_a_caller_writes_names_one_catalog_action",
+  "crates/query/src/domain/responsibility/tests.rs::rc_1_without_a_named_organisation_the_fallback_to_it_is_no_party",
+  "crates/query/src/domain/responsibility/tests.rs::rc_48_an_organisation_has_one_rule_chain_with_an_accountable_fallback",
+  "crates/query/src/domain/responsibility/tests.rs::rc_5_pooled_work_names_the_queue_owner_as_its_derived_accountable_and_its_chain",
 ]
 
 [[rule]]
@@ -4102,6 +4132,7 @@ tests = [
   "crates/http/src/json.rs::p_54_large_integers_travel_as_canonical_decimal_strings",
   "crates/http/src/rate.rs::p_54_a_caller_past_its_quota_waits_for_the_next_window",
   "crates/http/src/reads.rs::p_57_a_changes_query_names_its_cursor_and_limit_once",
+  "crates/http/src/responsibility/tests.rs::c_6_every_responsibility_operation_has_one_typed_write_naming_its_action",
   "crates/http/src/works.rs::c_8_a_work_opens_with_no_required_field",
   "crates/http/src/writes.rs::p_54_a_declaration_carries_one_key_one_if_match_and_its_access_evidence",
   "crates/http/src/writes.rs::p_68_a_declaration_carries_the_openings_of_its_body_parts",

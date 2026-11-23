@@ -26,6 +26,12 @@ use crate::reads::{
     AuthContextAnswer, AuthorSignature, ChangeEntry, ChangesAnswer, CheckpointAnswer,
     EvidenceAnswer, InclusionAnswer, LedgerAttestation, WitnessAnswer, WorkAnswer,
 };
+use crate::responsibility::{
+    AllocationAnswer, AssignmentAnswer, ChainLinkAnswer, ForwardAnswer, HeldAnswer, HoldAnswer,
+    LeaseAnswer, NominationAnswer, OfferAnswer, PingPongAnswer, QueueAnswer, QueueDefinitionAnswer,
+    QueueItemAnswer, QueueSignalAnswer, QueueVersionAnswer, ResponsibilityAnswer, TransferAnswer,
+    WipLimitAnswer, WorkloadAnswer,
+};
 use crate::works::{NewWork, OpenedWork};
 use crate::writes::{
     ActorTypesInput, AuthContextInput, AuthorityInput, BodyPartInput, NewDeclaration, WrittenAnswer,
@@ -113,7 +119,21 @@ fn security_scheme() -> Value {
         crate::executor::report,
         crate::executor::stop_response,
         crate::executor::request_response,
-        crate::executor::handover
+        crate::executor::handover,
+        crate::responsibility::claim,
+        crate::responsibility::unclaim,
+        crate::responsibility::forward,
+        crate::responsibility::nominate,
+        crate::responsibility::offer_work,
+        crate::responsibility::reassign,
+        crate::responsibility::renew_lease,
+        crate::responsibility::acknowledge,
+        crate::responsibility::create_queue,
+        crate::responsibility::create_org_rule,
+        crate::responsibility::create_waiver,
+        crate::responsibility::create_participation,
+        crate::responsibility::get_queue,
+        crate::responsibility::get_party_workload
     ),
     components(schemas(
         Problem,
@@ -174,7 +194,26 @@ fn security_scheme() -> Value {
         ControlInterventionAnswer,
         ControlLeaseAnswer,
         DeliveriesAnswer,
-        DeliveryAnswer
+        DeliveryAnswer,
+        ResponsibilityAnswer,
+        ChainLinkAnswer,
+        TransferAnswer,
+        AllocationAnswer,
+        HoldAnswer,
+        OfferAnswer,
+        NominationAnswer,
+        LeaseAnswer,
+        ForwardAnswer,
+        PingPongAnswer,
+        AssignmentAnswer,
+        QueueAnswer,
+        QueueDefinitionAnswer,
+        QueueVersionAnswer,
+        QueueItemAnswer,
+        QueueSignalAnswer,
+        WorkloadAnswer,
+        HeldAnswer,
+        WipLimitAnswer
     ))
 )]
 struct Api;

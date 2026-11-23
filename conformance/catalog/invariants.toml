@@ -1086,6 +1086,8 @@ tests = [
   "crates/kernel/tests/ontology.rs::c_30_roles_live_on_commitments_and_relations_never_on_the_party",
   "crates/kernel/tests/responsibility.rs::rc_1_a_group_is_accountable_only_once_the_org_rule_resolves_it",
   "crates/kernel/tests/responsibility.rs::rc_5_accountability_is_one_party_explicit_or_derived_and_marked_derived",
+  "crates/query/src/domain/responsibility/tests.rs::rc_1_without_a_named_organisation_the_fallback_to_it_is_no_party",
+  "crates/query/src/domain/responsibility/tests.rs::rc_5_pooled_work_names_the_queue_owner_as_its_derived_accountable_and_its_chain",
 ]
 
 [[rule]]
@@ -1116,8 +1118,12 @@ stage = 6
 title = ""
 tests = [
   "crates/kernel/tests/responsibility.rs::rc_5_accountability_is_one_party_explicit_or_derived_and_marked_derived",
+  "crates/kernel/tests/responsibility.rs::rc_5_the_accountability_chain_lists_the_links_in_the_order_the_derivation_walks",
   "crates/kernel/tests/responsibility.rs::rc_6_the_regime_decides_the_end_and_an_agent_never_ends_the_chain",
   "crates/kernel/tests/responsibility.rs::rc_7_an_accountability_transfer_needs_the_new_party_s_acceptance",
+  "crates/query/src/domain/responsibility/tests.rs::rc_10_a_queue_version_supersedes_the_version_in_force_and_names_an_accountable_owner",
+  "crates/query/src/domain/responsibility/tests.rs::rc_48_an_organisation_has_one_rule_chain_with_an_accountable_fallback",
+  "crates/query/src/domain/responsibility/tests.rs::rc_9_a_waiver_scopes_a_commitment_of_the_ledger_and_participation_names_one_agent",
 ]
 
 [[rule]]
@@ -1127,9 +1133,12 @@ status = "canonical-invariant"
 stage = 6
 title = ""
 tests = [
+  "crates/http/src/responsibility/tests.rs::rc_5_accountability_queues_rules_waivers_and_participation_write_under_their_actions",
   "crates/kernel/tests/responsibility.rs::rc_12_pooled_work_and_the_queue_are_the_owner_s_and_never_ownerless",
+  "crates/kernel/tests/responsibility.rs::rc_5_the_accountability_chain_lists_the_links_in_the_order_the_derivation_walks",
   "crates/kernel/tests/responsibility.rs::rc_7_a_disabled_party_falls_to_the_upper_accountable_or_the_fallback",
   "crates/kernel/tests/responsibility.rs::rc_7_an_accountability_transfer_needs_the_new_party_s_acceptance",
+  "crates/query/src/domain/responsibility/tests.rs::rc_7_a_transfer_is_an_amend_through_the_commitment_route_and_its_acceptance_an_acknowledgement",
 ]
 
 [[rule]]
@@ -1139,8 +1148,10 @@ status = "canonical-invariant"
 stage = 6
 title = ""
 tests = [
+  "crates/http/src/responsibility/tests.rs::rc_5_accountability_queues_rules_waivers_and_participation_write_under_their_actions",
   "crates/kernel/tests/record_vectors.rs::rc_17_responsibility_record_vectors",
   "crates/kernel/tests/responsibility.rs::rc_9_four_guarantees_are_never_waived_and_a_waiver_is_scoped_and_recorded",
+  "crates/query/src/domain/responsibility/tests.rs::rc_9_a_waiver_scopes_a_commitment_of_the_ledger_and_participation_names_one_agent",
 ]
 
 [[rule]]
@@ -1153,6 +1164,8 @@ tests = [
   "crates/kernel/tests/record_vectors.rs::rc_17_responsibility_record_vectors",
   "crates/kernel/tests/responsibility.rs::rc_12_a_queue_without_an_owner_is_a_schema_error",
   "crates/kernel/tests/responsibility.rs::rc_12_pooled_work_and_the_queue_are_the_owner_s_and_never_ownerless",
+  "crates/query/src/domain/responsibility/tests.rs::rc_10_a_queue_reads_its_versions_and_open_work_for_its_owner_and_candidates",
+  "crates/query/src/domain/responsibility/tests.rs::rc_10_a_queue_version_supersedes_the_version_in_force_and_names_an_accountable_owner",
 ]
 
 [[rule]]
@@ -1164,6 +1177,7 @@ title = ""
 tests = [
   "crates/kernel/tests/responsibility.rs::rc_13_nobody_took_it_after_the_start_deadline_or_without_candidates",
   "crates/kernel/tests/responsibility.rs::rc_17_claim_promises_and_unclaim_returns_to_requested_without_a_release",
+  "crates/query/src/domain/responsibility/tests.rs::rc_5_pooled_work_names_the_queue_owner_as_its_derived_accountable_and_its_chain",
 ]
 
 [[rule]]
@@ -2216,6 +2230,7 @@ tests = [
   "crates/http/src/reads.rs::p_56_what_a_caller_may_not_see_is_not_found",
   "crates/query/src/adapters.rs::p_57_a_sync_cursor_opens_only_for_its_caller_and_expires_with_its_key",
   "crates/query/src/domain/reads.rs::p_57_a_cursor_lays_out_its_place_and_names_its_caller_in_the_mac",
+  "crates/query/src/domain/responsibility/tests.rs::rc_11_pooled_work_is_read_by_the_queue_owner_and_its_listed_candidates_only",
 ]
 
 [[rule]]

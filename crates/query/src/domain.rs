@@ -16,6 +16,7 @@ pub mod executor;
 pub mod kinds;
 pub mod notices;
 pub mod reads;
+pub mod responsibility;
 pub mod restriction;
 pub mod tzdb;
 pub mod works;

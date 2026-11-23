@@ -20,6 +20,7 @@ use crate::gateway::Limits;
 use crate::problem::{Problem, ProblemCode, ProblemType};
 use crate::rate::RatePolicy;
 use crate::reads::{self, ApiServices};
+use crate::responsibility;
 use crate::works;
 use crate::writes;
 
@@ -119,6 +120,7 @@ pub fn router_with(
         .merge(commitments::routes())
         .merge(control::routes())
         .merge(executor::routes())
+        .merge(responsibility::routes())
         .route("/v1/works", post(works::create_work))
         .route(
             "/v1/authority-requests",

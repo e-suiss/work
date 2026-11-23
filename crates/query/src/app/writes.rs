@@ -26,6 +26,7 @@ use work_kernel::items::{ItemKey, touched};
 use work_kernel::limits::SemanticLimits;
 use work_kernel::ontology::{Commitment, Obligor};
 use work_kernel::record::{AuthorityProofKind, Record};
+use work_kernel::responsibility::PARTICIPATION_KEY;
 use work_kernel::validate::{ActorType, Origin};
 use work_ledger::{
     ActorBindings, AdmitError, Arrival, AuthContext, BodyError, Committed, Declared,
@@ -47,6 +48,7 @@ use crate::domain::executor::{
     executor_of, request_of,
 };
 use crate::domain::kinds::{Kind, kind_of, record_action};
+use crate::domain::responsibility;
 use crate::domain::writes::{
     AuthContextGiven, AuthorityGiven, DeclarationRequest, WriteRefusal, Written, actor_type,
     body_refusal, check_action, check_authority, check_openings, header_kid, party_ref, signer,
@@ -373,7 +375,9 @@ fn authority_of<'a>(
 }
 
 /// The record a typed endpoint carries must be the kind and shape it names (C-6); the executor
-/// report endpoint takes a report Claim or the Act an action report travels as (RC-42, RC-43).
+/// report endpoint takes a report Claim or the Act an action report travels as (RC-42, RC-43),
+/// and the only other typed write of a plain Claim is the participation policy, which must carry
+/// it (RC-44).
 fn expected_operation(record: &Record, request: &DeclarationRequest) -> Result<(), WriteRefusal> {
     match &request.expected {
         Some(expected)
@@ -388,6 +392,13 @@ fn expected_operation(record: &Record, request: &DeclarationRequest) -> Result<(
             if expected
                 .form
                 .is_some_and(|form| !control::has_form(record, form)) =>
+        {
+            Err(WriteRefusal::Invalid("operation"))
+        }
+        Some(expected)
+            if expected.kind == Kind::Claim
+                && !request.executor
+                && record.param(PARTICIPATION_KEY).is_none() =>
         {
             Err(WriteRefusal::Invalid("operation"))
         }
@@ -1103,6 +1114,54 @@ where
         }
     }
 
+    /// The ledger-state check of a responsibility Declaration before it is written (RC-6, RC-9,
+    /// RC-10, RC-12, RC-44, RC-48): the Access actor type of every Party it names is asked
+    /// online, and a refusal is kept under the request's idempotency key and answered
+    /// `responsibility:<code>` like the kernel's own refusals.
+    async fn responsibility_gate(
+        &self,
+        at: &Admission<'_>,
+        claim: Option<&KeyClaim>,
+    ) -> Result<(), WriteRefusal> {
+        let record = &at.carried.record;
+        if !responsibility::checked(record) {
+            return Ok(());
+        }
+        let named: Vec<KernelId> = responsibility::named_parties(record)
+            .iter()
+            .filter_map(kernel_id)
+            .collect();
+        let kinds = if named.is_empty() {
+            BTreeMap::new()
+        } else {
+            bounded(self.parties.kinds(at.domain, &named))
+                .await
+                .map_err(|e| unverifiable(&e))?
+        };
+        let actors: BTreeMap<PartyRef, ActorType> = kinds
+            .into_iter()
+            .filter_map(|(id, kind)| party_ref(&id).map(|p| (p, actor_type(kind))))
+            .collect();
+        let checked = responsibility::check_declaration(
+            record,
+            record_id(&at.carried.bytes),
+            at.folded,
+            &actors,
+        )
+        .map_err(|_| WriteRefusal::NotRecorded)?;
+        let Err(refusal) = checked else {
+            return Ok(());
+        };
+        let reason = format!("responsibility:{}", refusal.wire_name());
+        if let Some(claim) = claim {
+            self.sequence
+                .reject(&store_ledger(at.ledger), claim, &reason, at.now_ms)
+                .await
+                .map_err(|_| WriteRefusal::NotRecorded)?;
+        }
+        Err(WriteRefusal::Rejected(reason))
+    }
+
     /// The `definition` part a clock, periodic or budget Condition carries must be a
     /// `work/commitment-time/1` body of its type, and one that supersedes an earlier Condition
     /// must continue that Condition's definition (CM-48, CM-50, CM-51, CM-53, WD-146); a
@@ -1208,6 +1267,7 @@ where
             None => self.signed(&at, claim).await?,
         };
         self.gate(&at, &admitted, kept.as_ref()).await?;
+        self.responsibility_gate(&at, kept.as_ref()).await?;
         let scope = scope_of(&at, &admitted)?;
         let single_use = match self
             .executor(&at, scope.as_ref(), &fresh.used, kept.as_ref())

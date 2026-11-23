@@ -30,6 +30,7 @@ use crate::json::rfc3339_millis;
 use crate::position::{WORK_POSITION, min_position, position_header};
 use crate::problem::{Problem, ProblemCode};
 use crate::reads::{ApiServices, caller_of, read_problem};
+use crate::responsibility::ResponsibilityAnswer;
 use crate::writes::{declaration_request, write_problem};
 
 /// A written commitment record.
@@ -268,7 +269,7 @@ pub struct CommitmentAnswer {
     pub steps: Vec<StepAnswer>,
     /// How the implicit acceptance stands.
     pub implicit_acceptance: ImplicitAnswer,
-    /// The transitions the caller may make now (P-55).
+    /// The transitions and responsibility operations the caller may make now (P-55, RC-17).
     pub allowed: Vec<AllowedAnswer>,
     /// Who holds the next move (CM-58).
     pub next_move: Vec<MoverAnswer>,
@@ -277,6 +278,8 @@ pub struct CommitmentAnswer {
     pub signals: Vec<SignalAnswer>,
     /// Its clocks, periodic updates and budgets at the evaluation time (CM-48, CM-50, CM-53).
     pub time: TimeAnswer,
+    /// Its accountability, assignment, lease, ping-pong and assignment history (RC-1…RC-25).
+    pub responsibility: ResponsibilityAnswer,
     /// The ledger time the answer reflects, RFC 3339 UTC.
     pub at: String,
     /// The positions the answer reflects, `pos_…` (T-97 item 2).
@@ -358,7 +361,7 @@ fn step(s: &Step) -> StepAnswer {
     }
 }
 
-fn missing(m: &Missing) -> String {
+pub(crate) fn missing(m: &Missing) -> String {
     match m {
         Missing::StepUp => "step_up".to_owned(),
         Missing::Gate(g) => format!("gate:{}", rec(g)),
@@ -835,10 +838,22 @@ impl CommitmentAnswer {
             active_ends: v.active_ends.iter().map(active_end).collect(),
             steps: v.steps.iter().map(step).collect(),
             implicit_acceptance: implicit(read.implicit),
-            allowed: read.next.allowed.iter().map(allowed).collect(),
+            allowed: read
+                .next
+                .allowed
+                .iter()
+                .map(allowed)
+                .chain(
+                    read.next
+                        .responsibility
+                        .iter()
+                        .map(crate::responsibility::allowed),
+                )
+                .collect(),
             next_move: read.next.moves.iter().map(mover).collect(),
             signals: read.signals.iter().map(signal).collect(),
             time: time_answer(read),
+            responsibility: ResponsibilityAnswer::of(read),
             at: time(Time(read.at_ms)),
             position: read.position.to_external(),
             control: ControlAnswer::of(&read.control),
