@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "-- T-10 SEC-15 OP-47\nSELECT ROW(s.authority_digest, s.idem_key, s.pos)::text AS \"row!\" FROM work.single_use s\nLEFT JOIN ledger.log l ON l.ledger_id = s.ledger_id AND l.pos = s.pos\nLEFT JOIN work.body_commitment b ON b.ledger_id = s.ledger_id AND b.pos = s.pos AND b.part = 'definition'\nWHERE s.ledger_id = $1\nAND (l.record_id IS DISTINCT FROM s.record_id OR b.part IS NULL)\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "row!",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "93242db30ef19b801f2b0f641975d4908c4a2977e706d90960ea4c9dc53099cb"
+}

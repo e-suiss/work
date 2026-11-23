@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT record_id::bytea AS \"record_id!\"\n               FROM work.single_use\n               WHERE ledger_id = $1 AND $2::bytea = ANY (relies_on::bytea[])\n               ORDER BY pos\n               LIMIT 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "record_id!",
+        "type_info": "Bytea",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Bytea"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "c9264e36fb0b5a8dab65d35222b3af976ccba4ef19555b0807e3feb6ed3842ee"
+}

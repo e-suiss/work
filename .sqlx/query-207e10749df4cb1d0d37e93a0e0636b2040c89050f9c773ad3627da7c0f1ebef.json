@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE work.executor_delivery\n             SET attempts = attempts + 1, last_error = $3,\n                 next_attempt_at = pg_catalog.to_timestamp(0)\n                     + interval '1 millisecond' * $4::bigint::double precision\n             WHERE ledger_id = $1 AND seq = $2 AND doorbell = 'pending'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Int8",
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "207e10749df4cb1d0d37e93a0e0636b2040c89050f9c773ad3627da7c0f1ebef"
+}

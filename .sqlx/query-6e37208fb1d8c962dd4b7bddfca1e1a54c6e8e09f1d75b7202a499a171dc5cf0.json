@@ -1,0 +1,47 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO work.single_use\n                 (ledger_id, authority_digest, idem_key, pos, record_id, relies_on)\n                 VALUES ($1, $2, $3, $4, $5, $6::bytea[]::ledger.digest32[])",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "ledger.digest32",
+            "kind": {
+              "Domain": "Bytea"
+            }
+          }
+        },
+        {
+          "Custom": {
+            "name": "ledger.digest32",
+            "kind": {
+              "Domain": "Bytea"
+            }
+          }
+        },
+        "Text",
+        {
+          "Custom": {
+            "name": "ledger.log_pos",
+            "kind": {
+              "Domain": "Int8"
+            }
+          }
+        },
+        {
+          "Custom": {
+            "name": "ledger.digest32",
+            "kind": {
+              "Domain": "Bytea"
+            }
+          }
+        },
+        "ByteaArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6e37208fb1d8c962dd4b7bddfca1e1a54c6e8e09f1d75b7202a499a171dc5cf0"
+}
