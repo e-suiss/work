@@ -207,15 +207,12 @@ fn explicit_links(
     })
 }
 
-/// Derives the single accountable Party of a commitment: the explicit Party (or the group the organisation rule resolves) first; otherwise, by the derived chain, the queue owner while the work is pooled, the bound obligor and the principals of its binding record, or the requester and its principals while no Party is bound; the first link that is not disabled in Access and that the regime counts as an end is accountable; a chain that ends nowhere falls to the rule's fallback Party, or to the organisation itself; under the `organization` regime the end is always the organisation Party. An agent is never the end, and a derived result is marked derived (RC-1, RC-5, RC-6, RC-7, RC-48).
-#[must_use]
-pub fn accountability(
+fn chain_links(
     view: &CommitmentView,
     organization: &PartyRef,
-    rules: &[OrgRuleVersion],
+    rule: Option<&OrgRuleVersion>,
     directory: &dyn Directory,
-) -> Accountability {
-    let rule = rule_for(rules, organization);
+) -> Vec<Link> {
     let mut links: Vec<Link> = Vec::new();
     links.extend(explicit_links(view, organization, rule, directory));
     match (&view.obligor, &view.allocation.hold) {
@@ -246,13 +243,54 @@ pub fn accountability(
             links.push(link(p, AccountabilitySource::OnBehalfOf));
         }
     }
+    links
+}
+
+/// Derives the single accountable Party of a commitment: the explicit Party (or the group the organisation rule resolves) first; otherwise, by the derived chain, the queue owner while the work is pooled, the bound obligor and the principals of its binding record, or the requester and its principals while no Party is bound; the first link that is not disabled in Access and that the regime counts as an end is accountable; a chain that ends nowhere falls to the rule's fallback Party, or to the organisation itself; under the `organization` regime the end is always the organisation Party. An agent is never the end, and a derived result is marked derived (RC-1, RC-5, RC-6, RC-7, RC-48).
+#[must_use]
+pub fn accountability(
+    view: &CommitmentView,
+    organization: &PartyRef,
+    rules: &[OrgRuleVersion],
+    directory: &dyn Directory,
+) -> Accountability {
+    let rule = rule_for(rules, organization);
     walk(
-        links,
+        chain_links(view, organization, rule, directory),
         organization,
         rule,
         directory,
         view.accountability.transfer.clone(),
     )
+}
+
+/// One link of a commitment's accountability chain: the Party, where it comes from, and whether Access reports it disabled (RC-5, RC-7).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ChainLink {
+    /// The Party.
+    pub party: PartyRef,
+    /// Where it comes from.
+    pub source: AccountabilitySource,
+    /// Access reports it disabled, so the derivation passes over it (RC-7).
+    pub disabled: bool,
+}
+
+/// The accountability chain of a commitment in the order [`accountability`] walks it, before the organisation rule's fallback: the explicit Party or resolved group, then the queue owner and its definition's author chain, the bound obligor and its binding record's chain, or the requester and its principals; the accountable Party is the first link that is not disabled and that the regime counts as an end (RC-1, RC-5, RC-6, RC-48).
+#[must_use]
+pub fn accountability_chain(
+    view: &CommitmentView,
+    organization: &PartyRef,
+    rules: &[OrgRuleVersion],
+    directory: &dyn Directory,
+) -> Vec<ChainLink> {
+    chain_links(view, organization, rule_for(rules, organization), directory)
+        .into_iter()
+        .map(|l| ChainLink {
+            disabled: directory.disabled(&l.party),
+            party: l.party,
+            source: l.source,
+        })
+        .collect()
 }
 
 /// Derives the single accountable Party of a queue: its owner, then the author chain of the definition in force, then the organisation rule's fallback; a queue is never ownerless (RC-7, RC-12, RC-48).

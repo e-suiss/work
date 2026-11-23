@@ -36,9 +36,9 @@ use work_kernel::responsibility::{
     CommitmentEffect, ControlSpan, Directory, DistributionMethod, ForwardTarget, HoldVia,
     InterventionMark, LeaseExpiry, LeaseStatus, ParticipationPolicy, PrincipalGuarantee,
     QueueDefinition, Regime, ResponsibilityOperation, SUGGESTED_PARTICIPATION, access_wait,
-    accountability, allocation_signals, allocation_state, decisions, guarantees, in_force,
-    interventions, lease_status, org_rules, participation, ping_pong, queue_accountability,
-    queue_versions, resolve_group, rule_for, waivers, workload,
+    accountability, accountability_chain, allocation_signals, allocation_state, decisions,
+    guarantees, in_force, interventions, lease_status, org_rules, participation, ping_pong,
+    queue_accountability, queue_versions, resolve_group, rule_for, waivers, workload,
 };
 use work_kernel::rules::RuleSet;
 use work_kernel::uri::TypeUri;
@@ -1824,5 +1824,40 @@ fn rc_17_allowed_responsibility_follows_roles_state_and_access() {
         denied
             .iter()
             .all(|a| a.missing == vec![work_kernel::commitment::Missing::AccessDenied])
+    );
+}
+
+// RC-5 RC-6 RC-7
+#[test]
+fn rc_5_the_accountability_chain_lists_the_links_in_the_order_the_derivation_walks() {
+    let mut ledger = Ledger::new();
+    let q = queue(&mut ledger, &[]);
+    let root = pooled(&mut ledger, q);
+    let org = party(ORG);
+    let gone = Dir {
+        disabled: vec![OWNER],
+        roles: Vec::new(),
+    };
+    let pool = accountability_chain(&ledger.view(root), &org, &[], &gone);
+    assert_eq!(
+        pool.iter()
+            .map(|l| (l.party.as_str(), l.source, l.disabled))
+            .collect::<Vec<_>>(),
+        [
+            (OWNER, AccountabilitySource::QueueOwner, true),
+            (ALICE, AccountabilitySource::Requester, false),
+        ]
+    );
+    let first_end = pool.iter().find(|l| !l.disabled).unwrap();
+    assert_eq!(
+        accountability(&ledger.view(root), &org, &[], &gone).party,
+        first_end.party
+    );
+    ledger.push(decl(BOB, "claim", Some(root), &[]));
+    let held = accountability_chain(&ledger.view(root), &org, &[], &Dir::new());
+    assert_eq!(held.len(), 1);
+    assert_eq!(
+        (held[0].party.as_str(), held[0].source),
+        (BOB, AccountabilitySource::Obligor)
     );
 }
