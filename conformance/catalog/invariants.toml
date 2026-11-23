@@ -718,6 +718,7 @@ tests = [
   "crates/kernel/tests/commitments.rs::cm_29_cm_30_cancel_and_release_differ_and_end_commitment_active",
   "crates/kernel/tests/commitments.rs::cm_43_cm_44_delegation_is_two_records_and_the_old_obligor_stays_until_acceptance",
   "crates/kernel/tests/commitments.rs::e_12_the_ends_a_proposed_record_gives_are_those_the_fold_derives_once_it_is_written",
+  "crates/kernel/tests/commitments.rs::rc_42_the_view_a_proposed_record_gives_is_the_one_the_fold_derives_once_it_is_written",
 ]
 
 [[rule]]
@@ -871,7 +872,12 @@ stage = 3
 title = ""
 tests = [
   "bins/work-executor/src/doorbell.rs::e_39_the_doorbell_is_content_free_and_only_wakes_the_pull",
+  "bins/work-server/src/config.rs::e_39_executor_webhooks_are_operator_configuration_checked_at_start",
   "crates/access-client/src/domain/eligibility.rs::e_15_access_receives_only_opaque_references_and_the_typed_set",
+  "crates/dispatch/src/adapters/doorbell.rs::e_39_a_webhook_url_is_http_or_https_without_credentials_query_or_fragment",
+  "crates/dispatch/src/app/doorbell.rs::e_39_a_doorbell_rings_the_addressee_s_webhook_and_an_unrouted_one_is_settled",
+  "crates/dispatch/src/domain/doorbell.rs::e_39_a_doorbell_names_only_the_ledger_and_the_cursor",
+  "crates/http/src/executor/tests.rs::rc_42_a_delivery_is_answered_with_decimal_numbers_and_its_body_in_base64url",
 ]
 
 [[rule]]
@@ -1774,6 +1780,7 @@ title = ""
 tests = [
   "bins/work-executor/src/protocol.rs::sec_15_an_action_report_binds_the_delivery_s_context_to_its_key",
   "crates/kernel/tests/control.rs::sec_15_an_authority_context_binds_exactly_one_idempotency_key",
+  "crates/query/src/domain/executor/tests.rs::sec_15_an_action_report_binds_one_context_to_one_key_and_the_same_pair_is_a_replay",
 ]
 
 [[rule]]
@@ -2455,7 +2462,9 @@ tests = [
   "crates/dispatch/src/app.rs::t_21_run_polls_until_shutdown",
   "crates/dispatch/src/app.rs::t_21_run_waits_the_poll_interval_when_nothing_is_pending",
   "crates/dispatch/src/app.rs::t_21_unreachable_nats_reports_degraded",
+  "crates/dispatch/src/app/doorbell.rs::t_105_a_failed_doorbell_keeps_its_attempts_and_waits_its_backoff",
   "crates/dispatch/src/domain.rs::t_21_backoff_doubles_up_to_the_maximum_and_resets",
+  "crates/dispatch/src/domain/doorbell.rs::t_105_a_failed_doorbell_waits_from_one_second_to_fifteen_minutes",
 ]
 
 [[rule]]
