@@ -870,6 +870,7 @@ status = "canonical-invariant"
 stage = 3
 title = ""
 tests = [
+  "bins/work-executor/src/doorbell.rs::e_39_the_doorbell_is_content_free_and_only_wakes_the_pull",
   "crates/access-client/src/domain/eligibility.rs::e_15_access_receives_only_opaque_references_and_the_typed_set",
 ]
 
@@ -1214,6 +1215,9 @@ status = "canonical-invariant"
 stage = 6
 title = ""
 tests = [
+  "bins/work-executor/src/config.rs::t_105_a_configuration_outside_its_rules_is_refused",
+  "bins/work-executor/src/protocol.rs::rc_39_an_immediate_stop_during_a_non_cancellable_step_applies_after_the_step",
+  "bins/work-executor/src/script.rs::t_105_a_run_steps_through_the_script_and_names_the_step_under_way",
   "crates/kernel/tests/control.rs::rc_39_a_non_cancellable_step_finishes_before_the_stop_applies",
 ]
 
@@ -1749,6 +1753,7 @@ status = "canonical-invariant"
 stage = 6
 title = ""
 tests = [
+  "bins/work-executor/src/protocol.rs::sec_15_an_action_report_binds_the_delivery_s_context_to_its_key",
   "crates/kernel/tests/control.rs::sec_15_an_authority_context_binds_exactly_one_idempotency_key",
 ]
 
@@ -1951,6 +1956,7 @@ status = "canonical-invariant"
 stage = 1
 title = ""
 tests = [
+  "bins/work-executor/src/access.rs::t_105_a_refusal_keeps_the_exact_problem_work_answered",
   "crates/access-client/src/domain/adp/tests.rs::t_101_access_s_decision_reads_as_allow_deny_or_require_action",
   "crates/access-client/src/domain/exercise/tests.rs::t_101_an_allowed_exercise_with_its_receipt_is_the_authority_proof",
   "crates/access-client/src/domain/exercise/tests.rs::t_101_an_exercise_for_another_intent_is_refused",
