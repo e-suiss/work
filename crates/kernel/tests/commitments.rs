@@ -19,9 +19,9 @@ use work_kernel::commitment::{
     AccessAnswer, ActiveEndCause, AggregateStatus, AggregationPolicy, Answer, Caller,
     CommitmentState, CommitmentView, Definition, Facts, ImplicitAcceptance, Initiator, Missing,
     Mover, Operation, Policy, Proposed, REPORT_EXT_KEY, REPORT_PARTS, RULES, Refusal, StepOutcome,
-    Summary, SupportCause, TimeInputs, TimeProjection, aggregate, allowed, check, clock_events,
-    clock_signals, definition_records, derive_commitments, implicit_acceptance, needed, next_moves,
-    offer_gaps, project_time, support_chain, support_signals, zones_named,
+    Summary, SupportCause, TimeInputs, TimeProjection, active_ends_of, aggregate, allowed, check,
+    clock_events, clock_signals, definition_records, derive_commitments, implicit_acceptance,
+    needed, next_moves, offer_gaps, project_time, support_chain, support_signals, zones_named,
 };
 use work_kernel::commitment_time::{BodyError, TimeCondition};
 use work_kernel::currency;
@@ -1116,6 +1116,102 @@ fn cm_43_cm_44_delegation_is_two_records_and_the_old_obligor_stays_until_accepta
     assert_eq!(view.active_ends[0].obligor, party(SUPPLIER));
     assert_eq!(view.active_ends[0].record, acceptance);
     assert_eq!(view.active_ends[0].cause, ActiveEndCause::Delegated);
+}
+
+// E-12 E-8
+#[test]
+fn e_12_the_ends_a_proposed_record_gives_are_those_the_fold_derives_once_it_is_written() {
+    let mut ledger = Ledger::new();
+    let root = request(&mut ledger, &[]);
+    let promise = ledger.push(decl(SUPPLIER, "promise", Some(root), &[]));
+    let view = ledger.view(root);
+    let records = ledger.records();
+    let cancel = decl(
+        SUPPLIER,
+        "cancel",
+        Some(promise),
+        &[("reason", t("failed"))],
+    );
+    let proposed = Proposed {
+        id: id(700),
+        record: &cancel,
+        position: 3,
+        recorded_at: Time(3000),
+        author_actor: ActorType::Organization,
+        step_up: false,
+        access: AccessAnswer::Allow,
+        agent_side: false,
+        control_supported: false,
+    };
+    let ends = active_ends_of(&view, &proposed, &records, &ledger.facts());
+    assert_eq!(ends.len(), 1);
+    assert_eq!(ends[0].obligor, party(SUPPLIER));
+    assert_eq!(ends[0].record, id(700));
+    assert_eq!(ends[0].cause, ActiveEndCause::Closed);
+    let mut written = Ledger::new();
+    let root_w = request(&mut written, &[]);
+    let promise_w = written.push(decl(SUPPLIER, "promise", Some(root_w), &[]));
+    let cancel_w = written.push(decl(
+        SUPPLIER,
+        "cancel",
+        Some(promise_w),
+        &[("reason", t("failed"))],
+    ));
+    let derived = written.view(root_w).active_ends;
+    assert_eq!(derived.len(), 1);
+    assert_eq!(derived[0].record, cancel_w);
+    assert_eq!(derived[0].obligor, ends[0].obligor);
+    assert_eq!(derived[0].cause, ends[0].cause);
+    let by_alice = decl(ALICE, "cancel", Some(promise), &[("reason", t("failed"))]);
+    let refused = Proposed {
+        record: &by_alice,
+        author_actor: ActorType::Human,
+        ..proposed
+    };
+    assert!(active_ends_of(&view, &refused, &records, &ledger.facts()).is_empty());
+    let again = decl(SUPPLIER, "promise", Some(promise), &[]);
+    let no_end = Proposed {
+        record: &again,
+        ..proposed
+    };
+    assert!(active_ends_of(&view, &no_end, &records, &ledger.facts()).is_empty());
+    let mut delegated = Ledger::new();
+    let root_d = request(&mut delegated, &[]);
+    let promise_d = delegated.push(decl(SUPPLIER, "promise", Some(root_d), &[]));
+    let proposal = delegated.push(with_body(
+        decl(
+            SUPPLIER,
+            "delegate",
+            Some(promise_d),
+            &[
+                ("step", t("proposal")),
+                ("obligor", t(BUYER)),
+                ("handover_reason", t("capacity")),
+                ("stateful", yes()),
+            ],
+        ),
+        &["summary", "done", "changed", "open_questions", "next_steps"],
+    ));
+    let view = delegated.view(root_d);
+    let records = delegated.records();
+    let acceptance = decl(
+        BUYER,
+        "delegate",
+        Some(proposal),
+        &[("step", t("acceptance")), ("proposal", d(proposal))],
+    );
+    let accepted = Proposed {
+        id: id(701),
+        record: &acceptance,
+        position: 4,
+        recorded_at: Time(4000),
+        author_actor: ActorType::Organization,
+        ..proposed
+    };
+    let ends = active_ends_of(&view, &accepted, &records, &delegated.facts());
+    assert_eq!(ends.len(), 1);
+    assert_eq!(ends[0].obligor, party(SUPPLIER));
+    assert_eq!(ends[0].cause, ActiveEndCause::Delegated);
 }
 
 // CM-43 CM-37

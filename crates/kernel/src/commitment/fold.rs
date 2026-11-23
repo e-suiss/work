@@ -425,6 +425,37 @@ pub fn check(
     }
 }
 
+/// The ends of `commitment.active` a proposed record gives once it is written: those the fold of `view` with the record applied next derives for it, a delegation acceptance ending the old obligor's or a terminal outcome ending the obligor's (E-8, E-12). A record the rules refuse, or one that continues no commitment, gives none.
+#[must_use]
+pub fn active_ends_of(
+    view: &CommitmentView,
+    proposed: &Proposed<'_>,
+    records: &dyn Records,
+    facts: &Facts<'_>,
+) -> Vec<ActiveEnd> {
+    let Some(op) = operation_of(proposed.record) else {
+        return Vec::new();
+    };
+    if op == Operation::Request {
+        return Vec::new();
+    }
+    let input = Input {
+        id: proposed.id,
+        record: proposed.record,
+        position: proposed.position,
+        recorded_at: proposed.recorded_at,
+        actor: Some(proposed.author_actor),
+        step_up: proposed.step_up,
+    };
+    let mut after = view.clone();
+    step(&mut after, &input, op, records, facts);
+    after
+        .active_ends
+        .into_iter()
+        .filter(|e| e.record == proposed.id)
+        .collect()
+}
+
 /// How the implicit acceptance of the statement in force stands at ledger time `now` (CM-41, CM-42): the window starts at the statement's ledger time; past it, the Work service writes an `accept` marked implicit only when no evidence, four-eyes or step-up rule blocks it.
 #[must_use]
 pub fn implicit_acceptance(

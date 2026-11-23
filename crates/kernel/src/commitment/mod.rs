@@ -14,8 +14,8 @@ pub use aggregate::{
     AggregateError, AggregateOutcome, AggregateStatus, AggregationPolicy, Answer, aggregate, needed,
 };
 pub use fold::{
-    AccessAnswer, Facts, ImplicitAcceptance, Policy, Proposed, Records, check, derive_commitments,
-    implicit_acceptance, offer_gaps,
+    AccessAnswer, Facts, ImplicitAcceptance, Policy, Proposed, Records, active_ends_of, check,
+    derive_commitments, implicit_acceptance, offer_gaps,
 };
 pub use operation::{Actor, Content, Operation, OperationRule, Permit, RULES, Transition};
 pub use state::{CommitmentState, Summary};
