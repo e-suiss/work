@@ -6,6 +6,7 @@ use std::time::Duration;
 use suiss_sandbox::{LandlockAbi, Lockdown, Profile, RunAs};
 use work_parse::secret::{BuildError, SecretScanner};
 use work_parse::worker::{Pool, ServeError, WorkerError as PoolError, serve};
+use work_proto::parser::{Scan, ScanFailure, Verdict};
 
 /// The first argument that starts the binary as a parser worker.
 pub(crate) const MODE: &str = "parser-worker";
@@ -59,6 +60,16 @@ pub(crate) fn pool(
 ) -> Result<Pool, PoolError> {
     let exe = std::env::current_exe().map_err(PoolError::Spawn)?;
     Pool::spawn(workers, || command(&exe, run_as), timeout)
+}
+
+/// The scan of a server whose parser workers did not start: no verdict, so every body write is
+/// refused fail-closed and no body is written unscanned (T-94 item 4, SEC-35 item 2).
+pub(crate) struct NoWorkers;
+
+impl Scan for NoWorkers {
+    fn scan(&self, _parts: &[(&str, &[u8])]) -> Result<Verdict, ScanFailure> {
+        Err(ScanFailure::Unavailable)
+    }
 }
 
 /// The lockdown of a parser worker: the parser worker profile, nothing declared.
@@ -137,6 +148,15 @@ mod tests {
 
     fn args(list: &[&str]) -> Vec<String> {
         list.iter().map(|a| (*a).to_owned()).collect()
+    }
+
+    // T-94 SEC-35
+    #[test]
+    fn t_94_without_parser_workers_no_body_is_scanned_and_none_is_written() {
+        assert_eq!(
+            NoWorkers.scan(&[("note", b"plain text")]),
+            Err(ScanFailure::Unavailable)
+        );
     }
 
     // T-72 T-94

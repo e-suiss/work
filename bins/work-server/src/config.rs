@@ -82,8 +82,8 @@ pub(crate) struct Config {
 }
 
 /// `[api]`: what the routes that act for a caller need besides the Access client (P-56, T-97
-/// item 1, WD-115 item 2): the origin every `DPoP` proof names, and the read position MAC keys
-/// in the `[access]` token (T-56).
+/// item 1, WD-115 item 2): the origin every `DPoP` proof names, the read position MAC keys and
+/// the version of the ledger KEKs in the `[access]` token (T-56, OP-45 item 1).
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Api {
@@ -94,6 +94,9 @@ pub(crate) struct Api {
     pub(crate) position_key: u8,
     /// The id of the previous read position key, which still opens.
     pub(crate) previous_position_key: Option<u8>,
+    /// The version `n` of the ledger KEKs `work.<ledger hex>.kek.v<n>` new class DEKs are
+    /// wrapped under, created in the token on first use (OP-45 items 1 and 2).
+    pub(crate) kek_version: u32,
 }
 
 /// `[inbound]`: the TLS listener of `POST /v1/inbound/events`, whose key signs inside the
@@ -535,6 +538,7 @@ impl Default for Config {
                 origin: String::new(),
                 position_key: 1,
                 previous_position_key: None,
+                kek_version: 1,
             },
         }
     }
@@ -605,6 +609,8 @@ pub(crate) enum ConfigError {
     Suiss(&'static str),
     #[error("api.origin must be empty or an http(s) origin without a path or a trailing slash")]
     ApiOrigin,
+    #[error("api.kek_version must be positive")]
+    KekVersion,
 }
 
 impl Config {
@@ -666,6 +672,9 @@ impl Config {
         self.access()?;
         if !api_origin_ok(&self.api.origin) {
             return Err(ConfigError::ApiOrigin);
+        }
+        if self.api.kek_version == 0 {
+            return Err(ConfigError::KekVersion);
         }
         Ok(())
     }
@@ -1349,6 +1358,17 @@ mod tests {
                 "{origin}"
             );
         }
+    }
+
+    // OP-45 T-56
+    #[test]
+    fn op_45_new_class_deks_are_wrapped_under_the_configured_kek_version() {
+        assert_eq!(with("").unwrap().api.kek_version, 1);
+        assert_eq!(with("[api]\nkek_version = 2").unwrap().api.kek_version, 2);
+        assert!(matches!(
+            with("[api]\nkek_version = 0"),
+            Err(ConfigError::KekVersion)
+        ));
     }
 
     // OP-46 OP-33 OP-32 T-93

@@ -22,6 +22,7 @@ use startup::{AccessLink, Infrastructure, RelayLink, TimeDriver};
 use tokio::sync::watch;
 use work_http::common::TraceIds;
 use work_http::inbound::{self as entry, Receiver};
+use work_proto::parser::Scan;
 use work_reconciler::adapters::PgInbound;
 
 use crate::inbound::{AccessReceiver, TlsListener};
@@ -86,25 +87,25 @@ fn main() -> ExitCode {
         }
     };
 
-    let _parsers = match parsers {
+    let scan: Arc<dyn Scan> = match parsers {
         Ok(pool) => {
             tracing::info!(
                 event = "parser.workers_started",
                 workers = pool.live(),
                 "parser workers started"
             );
-            Some(pool)
+            Arc::new(pool)
         }
         Err(error) => {
             tracing::error!(event = "parser.workers_unavailable", %error, "parser workers did not start; nothing can be scanned");
-            None
+            Arc::new(parser::NoWorkers)
         }
     };
 
-    runtime.block_on(run(&config))
+    runtime.block_on(run(&config, scan))
 }
 
-async fn run(config: &Config) -> ExitCode {
+async fn run(config: &Config, scan: Arc<dyn Scan>) -> ExitCode {
     let infrastructure = match Infrastructure::connect(config).await {
         Ok(infrastructure) => infrastructure,
         Err(error) => {
@@ -183,6 +184,8 @@ async fn run(config: &Config) -> ExitCode {
             access: &access.client,
             pep: access.pep.as_deref(),
             sequence: services.sequence(),
+            sequencer: &infrastructure.sequencer,
+            scan,
         },
         Arc::new(SystemTraceIds),
     );
