@@ -2562,21 +2562,29 @@ family = "RC"
 status = "policy-default"
 pd = "set"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/control.rs::rc_28_high_impact_or_weakly_evidenced_work_is_a_suggestion",
+  "crates/kernel/tests/control.rs::rc_28_irreversible_binding_actions_require_a_gate_by_default",
+]
 
 [[rule]]
 id = "RC-29"
 family = "RC"
 status = "frozen-product"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/control.rs::rc_29_a_deviation_is_a_reasoned_event_and_repeats_only_suggest",
+  "crates/kernel/tests/control.rs::rc_29_only_the_principal_expands_autonomy_and_an_expansion_notifies",
+]
 
 [[rule]]
 id = "RC-31"
 family = "RC"
 status = "frozen-product"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/control.rs::rc_31_attention_consultation_and_takeover_are_distinct_records",
+]
 
 [[rule]]
 id = "RC-32"
@@ -2584,7 +2592,9 @@ family = "RC"
 status = "frozen-protocol"
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/control.rs::rc_32_the_control_mode_limits_the_valid_requests",
+]
 
 [[rule]]
 id = "RC-33"
@@ -2592,21 +2602,28 @@ family = "RC"
 status = "frozen-product"
 stage = 6
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/control.rs::rc_33_one_driver_and_a_time_bound_lease_for_a_second",
+]
 
 [[rule]]
 id = "RC-34"
 family = "RC"
 status = "frozen-product"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/control.rs::rc_34_an_unsupported_intervention_is_never_offered",
+  "crates/kernel/tests/control.rs::rc_34_taking_control_runs_through_a_release_with_a_handover_note",
+]
 
 [[rule]]
 id = "RC-35"
 family = "RC"
 status = "frozen-product"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/control.rs::rc_35_oversight_is_only_visible_and_a_provider_failure_offers_options",
+]
 
 [[rule]]
 id = "RC-36"
@@ -2614,6 +2631,7 @@ family = "RC"
 status = "frozen-product"
 title = ""
 tests = [
+  "crates/kernel/tests/control.rs::rc_36_a_stop_request_reads_pending_until_the_doer_answers",
   "crates/kernel/tests/records.rs::p_80_core_subtypes_require_their_reason_and_type_keys",
 ]
 
@@ -2623,7 +2641,9 @@ family = "RC"
 status = "frozen-product"
 stage = 6
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/control.rs::rc_38_only_the_executor_claim_shows_stopped_and_a_refusal_reaches_attention",
+]
 
 [[rule]]
 id = "RC-40"
@@ -2631,14 +2651,18 @@ family = "RC"
 status = "frozen-product"
 stage = 6
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/control.rs::rc_40_resuming_takes_its_own_declaration_and_never_happens_by_itself",
+]
 
 [[rule]]
 id = "RC-41"
 family = "RC"
 status = "central-decision"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/control.rs::rc_41_only_reports_of_an_assigned_executor_count",
+]
 
 [[rule]]
 id = "RC-42"
@@ -2646,14 +2670,21 @@ family = "RC"
 status = "frozen-protocol"
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/control.rs::rc_42_contract_bodies_match_their_vectors",
+  "crates/kernel/tests/control.rs::rc_42_missing_liveness_reads_stale_or_unknown_never_running",
+  "crates/kernel/tests/control.rs::rc_42_reports_travel_as_their_record_kinds_and_never_carry_raw_thought",
+]
 
 [[rule]]
 id = "RC-43"
 family = "RC"
 status = "frozen-product"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/control.rs::rc_43_attempts_are_grouped_by_session_and_keep_their_reasons",
+  "crates/kernel/tests/control.rs::rc_43_the_integration_depth_bounds_what_work_delivers",
+]
 
 [[rule]]
 id = "RC-44"
@@ -2675,6 +2706,16 @@ family = "RC"
 status = "out-of-scope"
 title = ""
 tests = []
+
+[[rule]]
+id = "RC-49"
+family = "RC"
+status = "policy-default"
+pd = "set"
+title = ""
+tests = [
+  "crates/kernel/tests/control.rs::rc_49_bulk_over_ten_objects_and_eighty_percent_of_a_limit_are_near_the_boundary",
+]
 
 [[rule]]
 id = "ST-3"
@@ -6745,6 +6786,7 @@ stage = 2
 acceptance = "to-fill"
 title = ""
 tests = [
+  "crates/kernel/tests/control.rs::op_4_a_record_is_acted_upon_once_the_executor_reports_an_act_on_it",
   "crates/ledger/src/checkpoint.rs::p_20_the_acknowledgement_is_the_log_signed_checkpoint_asked_for",
   "crates/ledger/src/replica.rs::op_4_a_mirrored_entry_and_its_received_bytes_are_written_once",
   "crates/ledger/src/witness.rs::op_33_only_a_configured_witness_cosigning_the_stored_tree_is_taken",

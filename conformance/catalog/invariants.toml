@@ -1149,7 +1149,10 @@ family = "RC"
 status = "canonical-invariant"
 stage = 6
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/control.rs::rc_26_an_agent_action_stands_on_aim_commitment_chain_authority_and_policy",
+  "crates/kernel/tests/control.rs::rc_26_content_tool_output_or_chat_alone_is_no_basis",
+]
 
 [[rule]]
 id = "RC-27"
@@ -1157,7 +1160,10 @@ family = "RC"
 status = "canonical-invariant"
 stage = 6
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/control.rs::rc_27_access_deny_is_final_and_autonomy_stays_inside_authority",
+  "crates/query/src/domain/restriction.rs::rc_27_an_autonomy_rule_set_verdict_narrows_the_kernel_evaluation",
+]
 
 [[rule]]
 id = "RC-30"
@@ -1165,7 +1171,9 @@ family = "RC"
 status = "canonical-invariant"
 stage = 6
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/control.rs::rc_30_revoked_authority_is_not_a_stopped_execution",
+]
 
 [[rule]]
 id = "RC-37"
@@ -1173,7 +1181,9 @@ family = "RC"
 status = "canonical-invariant"
 stage = 6
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/control.rs::rc_37_a_forced_stop_is_recorded_and_never_confirms_the_stop",
+]
 
 [[rule]]
 id = "RC-39"
@@ -1181,7 +1191,9 @@ family = "RC"
 status = "canonical-invariant"
 stage = 6
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/control.rs::rc_39_a_non_cancellable_step_finishes_before_the_stop_applies",
+]
 
 [[rule]]
 id = "RC-45"
@@ -1711,7 +1723,9 @@ family = "SEC"
 status = "canonical-invariant"
 stage = 6
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/control.rs::sec_15_an_authority_context_binds_exactly_one_idempotency_key",
+]
 
 [[rule]]
 id = "SEC-16"
