@@ -1,4 +1,4 @@
-//! What the API layer asks of the query service (T-32): the caller of a request from its Access token, the scoped reads and the consequential writes, and what the write path asks of the ledgers' writers; all object-safe, so the router holds them without knowing the transport, the clock or the pool behind them.
+//! What the API layer asks of the query service (T-32): the caller of a request from its Access token, the scoped reads and the consequential writes, and what the write path asks of the ledgers' writers and of their body store; all object-safe, so the router holds them without knowing the transport, the clock or the pool behind them.
 
 use std::future::Future;
 use std::pin::Pin;
@@ -111,4 +111,28 @@ pub trait Sequence: Send + Sync {
         reason: &'a str,
         at_ms: u64,
     ) -> Pending<'a, Result<(), work_ledger::LedgerError>>;
+}
+
+/// The body store of the ledgers (OP-45, OP-13, P-68): seals the openings of a record before
+/// its writer commits it, and opens the parts of a written record.
+pub trait Bodies: Send + Sync {
+    /// Seals `openings` into the encrypted parts of the admitted `record` of `ledger` at ledger
+    /// time `now_ms`, after the secret scan (SEC-35 item 2); the parts commit with the record.
+    fn seal<'a>(
+        &'a self,
+        ledger: &'a work_store::LedgerId,
+        record: &'a mut work_ledger::PendingRecord,
+        openings: &'a [work_ledger::BodyOpening],
+        now_ms: u64,
+    ) -> Pending<'a, Result<(), work_ledger::BodyError>>;
+
+    /// The parts of the record at `pos` of `ledger` in part order at ledger time `now_ms`,
+    /// each readable with its checked content or unreadable once its keys are gone (OP-45
+    /// item 5, OP-12 item 3).
+    fn parts<'a>(
+        &'a self,
+        ledger: &'a work_store::LedgerId,
+        pos: u64,
+        now_ms: u64,
+    ) -> Pending<'a, Result<Vec<(String, work_ledger::PartRead)>, work_ledger::BodyError>>;
 }

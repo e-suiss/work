@@ -12,8 +12,9 @@ use work_kernel::codec::{Decoded, decode_record};
 use work_kernel::cose::{Algorithm, AuthorKeys, PublicKey};
 use work_kernel::id::Digest;
 use work_kernel::reason::{Reason, Signature};
-use work_kernel::record::AuthorityRef;
+use work_kernel::record::{AuthorityRef, BodyCommitment, PartName};
 use work_kernel::verify::{SignatureCheck, SignatureVerifier as _};
+use work_proto::parser::ScanFailure;
 
 use super::*;
 
@@ -313,4 +314,122 @@ fn e_45_work_s_pep_commits_the_intent_of_every_commitment_write_action_and_no_ot
         check_write_intent(&close, &ledger, 201),
         Err("intent_expired")
     );
+}
+
+fn opening(part: &str, content: &[u8]) -> BodyOpening {
+    BodyOpening {
+        part: part.to_owned(),
+        media_type: "text/plain".to_owned(),
+        content: content.to_vec(),
+        salt: [7; 32],
+    }
+}
+
+/// The core of `record` committing to `openings` in their order (P-68).
+fn committing(record: &Record, openings: &[&BodyOpening]) -> RecordCore {
+    let mut core = record.core().clone();
+    core.body = Some(
+        openings
+            .iter()
+            .map(|o| BodyCommitment {
+                part: PartName::parse(&o.part).unwrap(),
+                commit: Digest::sha256(o.commitment().unwrap()),
+            })
+            .collect(),
+    );
+    core
+}
+
+// P-68 OP-45
+#[test]
+fn p_68_the_openings_open_exactly_the_parts_the_record_commits_to() {
+    let cancel = record("record/declaration-cancel-reason-sub-code");
+    let note = opening("note", b"the supplier closed the line");
+    let detail = opening("detail", b"until the end of the month");
+    let core = committing(&cancel, &[&note, &detail]);
+    assert_eq!(
+        check_openings(&core, &[detail.clone(), note.clone()]),
+        Ok(())
+    );
+    let refused = |openings: &[BodyOpening]| check_openings(&core, openings).unwrap_err();
+    assert_eq!(
+        refused(std::slice::from_ref(&note)),
+        WriteRefusal::Invalid("body_unopened")
+    );
+    assert_eq!(refused(&[]), WriteRefusal::Invalid("body_unopened"));
+    assert_eq!(
+        refused(&[note.clone(), note.clone(), detail.clone()]),
+        WriteRefusal::Invalid("body_part")
+    );
+    assert_eq!(
+        refused(&[note.clone(), detail.clone(), opening("other", b"x")]),
+        WriteRefusal::Invalid("body_part")
+    );
+    let mut altered = note.clone();
+    altered.content = b"the supplier reopened the line".to_vec();
+    assert_eq!(
+        refused(&[altered, detail.clone()]),
+        WriteRefusal::Invalid("body_commitment")
+    );
+    let mut salted = note.clone();
+    salted.salt = [8; 32];
+    assert_eq!(
+        refused(&[salted, detail.clone()]),
+        WriteRefusal::Invalid("body_commitment")
+    );
+    let mut retyped = note.clone();
+    retyped.media_type = "text/markdown".to_owned();
+    assert_eq!(
+        refused(&[retyped, detail.clone()]),
+        WriteRefusal::Invalid("body_commitment")
+    );
+    let large = opening("note", &vec![b'a'; MAX_PART.saturating_add(1)]);
+    assert_eq!(refused(&[large, detail.clone()]), WriteRefusal::TooLarge);
+    let mut typed = note.clone();
+    typed.media_type = "t".repeat(MAX_MEDIA_TYPE.saturating_add(1));
+    assert_eq!(refused(&[typed, detail]), WriteRefusal::TooLarge);
+    let mut bare = cancel.core().clone();
+    bare.body = None;
+    assert_eq!(check_openings(&bare, &[]), Ok(()));
+    assert_eq!(
+        check_openings(&bare, &[note]),
+        Err(WriteRefusal::Invalid("body_part"))
+    );
+}
+
+// SEC-35 P-95 OP-45
+#[test]
+fn sec_35_a_secret_names_only_its_part_and_rule_and_an_unscanned_body_is_not_recorded() {
+    let detected = body_refusal(&BodyError::SecretDetected {
+        part: "note".to_owned(),
+        rule: "github-pat".to_owned(),
+    });
+    assert_eq!(
+        detected,
+        WriteRefusal::SecretDetected {
+            part: "note".to_owned(),
+            rule: "github-pat".to_owned(),
+        }
+    );
+    assert_eq!(
+        body_refusal(&BodyError::Scan(ScanFailure::Unavailable)),
+        WriteRefusal::NotRecorded
+    );
+    assert_eq!(
+        body_refusal(&BodyError::Scan(ScanFailure::Refused("frame"))),
+        WriteRefusal::NotRecorded
+    );
+    assert_eq!(
+        body_refusal(&BodyError::Commitment("note".to_owned())),
+        WriteRefusal::Invalid("body_commitment")
+    );
+    assert_eq!(
+        body_refusal(&BodyError::UnknownPart("other".to_owned())),
+        WriteRefusal::Invalid("body_part")
+    );
+    assert_eq!(
+        body_refusal(&BodyError::TooLarge("note".to_owned())),
+        WriteRefusal::TooLarge
+    );
+    assert_eq!(body_refusal(&BodyError::Timeout), WriteRefusal::NotRecorded);
 }

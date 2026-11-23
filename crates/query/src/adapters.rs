@@ -1,7 +1,13 @@
 //! Port implementations (T-32).
 
+use std::sync::Arc;
+
 use suiss_crypto::pkcs11::{HsmError, HsmMac, KeyStore};
+use work_ledger::{
+    BodyError, BodyKeys, BodyOpening, BodyReader, BodyWriter, PartRead, PendingRecord,
+};
 use work_proto::id::{Cursor, PositionToken, TenantId};
+use work_proto::parser::Scan;
 use work_proto::position::{self, PositionError, Positions};
 
 use crate::domain::PositionRefusal;
@@ -9,6 +15,7 @@ use crate::domain::reads::{
     CURSOR_TAG, CursorAt, Opened, ReadRefusal, cursor_body, cursor_layout, cursor_mac_input,
     tag_matches,
 };
+use crate::ports::{Bodies, Pending};
 
 /// The PKCS#11 label of the read position MAC key with id `key_id` (T-97 item 1, T-56).
 #[must_use]
@@ -164,6 +171,53 @@ impl PositionKeys {
         } else {
             Err(ReadRefusal::CursorInvalid)
         }
+    }
+}
+
+/// The body store of the write API over the ledger KEKs in the PKCS#11 token (OP-45, T-56):
+/// openings are scanned through the parser workers and sealed as the sequencer, parts are read
+/// as `work_app`, and every ciphertext stays in PostgreSQL (T-20).
+#[derive(Debug)]
+pub struct BodyStore {
+    writer: BodyWriter,
+    reader: BodyReader,
+}
+
+impl BodyStore {
+    /// Over `keys`, sealing on `sequencer` after scanning through `scan` (SEC-35 item 2) and
+    /// reading on `canonical`, a `work_app` login (T-79).
+    #[must_use]
+    pub fn in_database(
+        keys: Arc<BodyKeys>,
+        sequencer: work_store::SequencerPool,
+        canonical: work_store::Pool,
+        scan: Arc<dyn Scan>,
+    ) -> Self {
+        Self {
+            writer: BodyWriter::in_database(Arc::clone(&keys), sequencer, scan),
+            reader: BodyReader::in_database(keys, canonical),
+        }
+    }
+}
+
+impl Bodies for BodyStore {
+    fn seal<'a>(
+        &'a self,
+        ledger: &'a work_store::LedgerId,
+        record: &'a mut PendingRecord,
+        openings: &'a [BodyOpening],
+        now_ms: u64,
+    ) -> Pending<'a, Result<(), BodyError>> {
+        Box::pin(record.seal_body(ledger, &self.writer, openings, now_ms))
+    }
+
+    fn parts<'a>(
+        &'a self,
+        ledger: &'a work_store::LedgerId,
+        pos: u64,
+        now_ms: u64,
+    ) -> Pending<'a, Result<Vec<(String, PartRead)>, BodyError>> {
+        Box::pin(self.reader.read(ledger, pos, now_ms))
     }
 }
 

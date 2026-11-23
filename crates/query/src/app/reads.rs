@@ -8,7 +8,7 @@ use work_kernel::commitment_time::DEFINITION_PART;
 use work_kernel::id::{Digest, LedgerId, RecordId, WorkId};
 use work_kernel::proof::verify_inclusion;
 use work_kernel::validate::ActorType;
-use work_ledger::{BodyReader, PartRead};
+use work_ledger::{BodyError, PartRead};
 use work_proto::id::{Cursor, PositionToken};
 use work_proto::position::Positions;
 use work_store::{LedgerTx, Pool, StoreError};
@@ -23,14 +23,15 @@ use crate::domain::reads::{
 };
 use crate::domain::writes::header_kid;
 use crate::domain::{PositionRefusal, check_heads};
-use crate::ports::{Pending, WorkReads};
+use crate::ports::{Bodies, Pending, WorkReads};
 
-/// The reads over the canonical database, as `work_app`, with the read position keys.
+/// The reads over the canonical database, as `work_app`, with the read position keys and the
+/// body store.
 pub struct Reads {
     pool: Pool,
     keys: Arc<PositionKeys>,
+    bodies: Arc<dyn Bodies>,
     clock: Option<Arc<dyn Clock>>,
-    bodies: Option<Arc<BodyReader>>,
 }
 
 impl std::fmt::Debug for Reads {
@@ -50,30 +51,32 @@ fn store_ledger(ledger: &LedgerId) -> work_store::LedgerId {
 }
 
 impl Reads {
-    /// Reads over `pool`, logged in as `work_app`, sealing positions and cursors with `keys`.
+    /// Reads over `pool`, logged in as `work_app`, sealing positions and cursors with `keys`
+    /// and opening body parts through `bodies` (OP-45).
     #[must_use]
-    pub const fn new(pool: Pool, keys: Arc<PositionKeys>) -> Self {
+    pub const fn new(pool: Pool, keys: Arc<PositionKeys>, bodies: Arc<dyn Bodies>) -> Self {
         Self {
             pool,
             keys,
+            bodies,
             clock: None,
-            bodies: None,
         }
     }
 
-    /// The same reads opening the `definition` part of a commitment's clock, periodic and budget
-    /// Conditions through `bodies`; without it every such Condition reads as undefined (CM-48,
-    /// CM-50, CM-53).
+    /// The same reads evaluating the clocks, periodic updates and budgets of a commitment at
+    /// `clock`'s now on ledger time; without one they are evaluated at the head's ledger time
+    /// (CM-51).
     #[must_use]
-    pub fn with_bodies(self, bodies: Arc<BodyReader>) -> Self {
+    pub fn with_clock(self, clock: Arc<dyn Clock>) -> Self {
         Self {
-            bodies: Some(bodies),
+            clock: Some(clock),
             ..self
         }
     }
 
     /// The opened `definition` part of every time Condition the read of `root` needs; a part
-    /// that is unreadable or redacted is left out, and its Condition reads as undefined.
+    /// that is unreadable or redacted is left out, and its Condition reads as undefined (CM-48,
+    /// CM-50, CM-53).
     async fn definitions(
         &self,
         ledger: &LedgerId,
@@ -81,16 +84,13 @@ impl Reads {
         root: &RecordId,
     ) -> Result<BTreeMap<RecordId, Vec<u8>>, ReadRefusal> {
         let mut out = BTreeMap::new();
-        let Some(bodies) = &self.bodies else {
-            return Ok(out);
-        };
         let positions = folded
             .definition_positions(root)
             .map_err(|_| ReadRefusal::Unavailable)?;
         let now_ms = self.clock.as_ref().map_or(0, |c| c.now_ms());
         for (record, pos) in positions {
-            let parts = bodies
-                .read(&store_ledger(ledger), pos, now_ms)
+            let parts = self
+                .parts(ledger, pos, now_ms)
                 .await
                 .map_err(|_| ReadRefusal::Unavailable)?;
             let opened = parts.into_iter().find_map(|(name, read)| match read {
@@ -104,15 +104,20 @@ impl Reads {
         Ok(out)
     }
 
-    /// The same reads evaluating the clocks, periodic updates and budgets of a commitment at
-    /// `clock`'s now on ledger time; without one they are evaluated at the head's ledger time
-    /// (CM-51).
-    #[must_use]
-    pub fn with_clock(self, clock: Arc<dyn Clock>) -> Self {
-        Self {
-            clock: Some(clock),
-            ..self
-        }
+    /// The body parts of the record at `pos` of `ledger` in part order at ledger time `now_ms`,
+    /// each readable with its checked content or unreadable once its keys are gone (OP-45
+    /// item 5, OP-13, OP-12 item 3); no caller scope applies, so the read and fold paths open
+    /// only parts of records the caller may already read.
+    ///
+    /// # Errors
+    /// [`BodyError`] for a part that does not open to its commitment or a store that failed.
+    pub async fn parts(
+        &self,
+        ledger: &LedgerId,
+        pos: u64,
+        now_ms: u64,
+    ) -> Result<Vec<(String, PartRead)>, BodyError> {
+        self.bodies.parts(&store_ledger(ledger), pos, now_ms).await
     }
 
     async fn snapshot(&self, ledger: &LedgerId) -> Result<(LedgerTx<'static>, u64), ReadRefusal> {

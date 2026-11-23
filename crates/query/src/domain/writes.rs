@@ -1,4 +1,4 @@
-//! The rules of a consequential write that are not the kernel's (P-13, P-21, P-105, P-12, E-13, E-45, SEC-36 item 3, T-101 item 7): a commitment Declaration is admitted only under an Access Exercise allowed for the `work:commit` intent that names its ledger and is valid now, whose verified receipt is exactly the proof its `authority` digest names, whose capacity is the record's own and whose agency chain covers every `on_behalf_of` principal; a signed record is checked only against the key Access binds at admission, which must still be held by its Instance, and its author's actor type is that key's Party's `actor_kind`; an unsigned record is a human author's own, so its author must be the caller Access named. Nothing here takes an authority, a capacity or an actor type from the caller.
+//! The rules of a consequential write that are not the kernel's (P-13, P-21, P-105, P-12, E-13, E-45, SEC-36 item 3, T-101 item 7): a commitment Declaration is admitted only under an Access Exercise allowed for the `work:commit` intent that names its ledger and is valid now, whose verified receipt is exactly the proof its `authority` digest names, whose capacity is the record's own and whose agency chain covers every `on_behalf_of` principal; a signed record is checked only against the key Access binds at admission, which must still be held by its Instance, and its author's actor type is that key's Party's `actor_kind`; an unsigned record is a human author's own, so its author must be the caller Access named. The openings a write carries open exactly the body parts its record commits to, each once, within its bounds and to its commitment (P-68, OP-45). Nothing here takes an authority, a capacity or an actor type from the caller.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -14,6 +14,8 @@ use work_kernel::cose::{Algorithm, KeySet, parse_container};
 use work_kernel::id::{LedgerId, PartyRef, RecordId};
 use work_kernel::record::{AuthorityProofKind, Capacity, Record, RecordCore};
 use work_kernel::validate::ActorType;
+pub use work_ledger::BodyOpening;
+use work_ledger::{BodyError, MAX_MEDIA_TYPE, MAX_PART};
 use work_proto::id::ExternalId as _;
 
 /// The Access action namespace of Work (E-45 item 1).
@@ -103,6 +105,8 @@ pub struct DeclarationRequest {
     /// The operation and commitment a typed commitment endpoint names; `None` for the
     /// Declaration endpoint, which takes any commitment operation (C-6).
     pub expected: Option<Expected>,
+    /// The openings of the body parts the record commits to, in request order (P-68).
+    pub body: Vec<BodyOpening>,
 }
 
 /// What a typed commitment endpoint names: the record must be this operation, and a
@@ -163,6 +167,18 @@ pub enum WriteRefusal {
     /// The commit's outcome is unknown: `503 not_recorded`, asked again with the same key.
     #[error("not recorded")]
     NotRecorded,
+    /// A body part carries a secret (SEC-35 item 2, P-95): `422 secret_detected`, naming only
+    /// the part and the scanner's rule, never the matched bytes.
+    #[error("secret detected (rule {rule}, part {part})")]
+    SecretDetected {
+        /// The part that matched.
+        part: String,
+        /// The rule that matched.
+        rule: String,
+    },
+    /// A body part is above its bound (P-33, OP-45): `413 request_too_large`.
+    #[error("request too large")]
+    TooLarge,
 }
 
 /// The bytes of canonical unpadded base64url text, as a write request spells every byte string.
@@ -362,6 +378,62 @@ pub fn check_authority(core: &RecordCore, exercise: &VerifiedExercise) -> Result
         return Err("agency_agent");
     }
     Ok(())
+}
+
+/// Whether `openings` open exactly the body parts `core` commits to (P-68, OP-45): every
+/// opening names a part the record commits to, once, within the bounds of its content and media
+/// type, and gives the part's commitment; and every committed part is opened, since a part the
+/// write path does not seal could never be read.
+///
+/// # Errors
+/// [`WriteRefusal::Invalid`] with `body_part` for an opening of a part the record does not
+/// commit to or one opened twice, `body_commitment` for an opening that does not give its
+/// commitment, `body_unopened` for a committed part without an opening;
+/// [`WriteRefusal::TooLarge`] for a part above its bound.
+pub fn check_openings(core: &RecordCore, openings: &[BodyOpening]) -> Result<(), WriteRefusal> {
+    let committed = core.body.as_deref().unwrap_or_default();
+    for (i, o) in openings.iter().enumerate() {
+        if openings.iter().take(i).any(|p| p.part == o.part) {
+            return Err(WriteRefusal::Invalid("body_part"));
+        }
+        let commit = committed
+            .iter()
+            .find(|c| c.part.as_str() == o.part)
+            .ok_or(WriteRefusal::Invalid("body_part"))?;
+        if o.content.len() > MAX_PART || o.media_type.len() > MAX_MEDIA_TYPE {
+            return Err(WriteRefusal::TooLarge);
+        }
+        if o.commitment().map_err(|e| body_refusal(&e))? != *commit.commit.as_bytes() {
+            return Err(WriteRefusal::Invalid("body_commitment"));
+        }
+    }
+    if committed
+        .iter()
+        .any(|c| !openings.iter().any(|o| o.part == c.part.as_str()))
+    {
+        return Err(WriteRefusal::Invalid("body_unopened"));
+    }
+    Ok(())
+}
+
+/// The refusal of a body the store did not seal (SEC-35 item 2, P-95, OP-45): a secret names
+/// only its part and rule; a part outside its commitment or bound is the caller's to correct;
+/// a scan without a verdict, a key or a store that failed is `not_recorded`, fail-closed, and
+/// the same request may be sent again.
+#[must_use]
+pub fn body_refusal(error: &BodyError) -> WriteRefusal {
+    match error {
+        BodyError::SecretDetected { part, rule } => WriteRefusal::SecretDetected {
+            part: part.clone(),
+            rule: rule.clone(),
+        },
+        BodyError::UnknownPart(_) | BodyError::DuplicatePart(_) | BodyError::NoSkeleton => {
+            WriteRefusal::Invalid("body_part")
+        }
+        BodyError::Commitment(_) => WriteRefusal::Invalid("body_commitment"),
+        BodyError::TooLarge(_) => WriteRefusal::TooLarge,
+        _ => WriteRefusal::NotRecorded,
+    }
 }
 
 #[cfg(test)]

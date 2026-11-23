@@ -1,4 +1,4 @@
-//! The commitment Declaration write path (P-13, P-21, P-105, P-116, P-12, E-13, E-14, E-45, MD-4 item 5, OP-8, T-28, T-101 item 7): the caller is named by Access first; the `Idempotency-Key` and `If-Match` are decided against the ledger's canonical rows; then every Access answer the record depends on is asked online under a bound, never from a cache that outlives Access's own rules: the realm's governing domain from Work's pairing, the signing key's binding through the signed key lookup or the realm keys of an `auth_context` artifact, and the Exercise with its decision receipt. Only then does the kernel admit the record, with the receipt kept as received beside it, and the ledger's writer commit it. When Access cannot answer, nothing is written (fail-closed).
+//! The commitment Declaration write path (P-13, P-21, P-105, P-116, P-12, E-13, E-14, E-45, MD-4 item 5, OP-8, T-28, T-101 item 7): the caller is named by Access first; the `Idempotency-Key` and `If-Match` are decided against the ledger's canonical rows; then every Access answer the record depends on is asked online under a bound, never from a cache that outlives Access's own rules: the realm's governing domain from Work's pairing, the signing key's binding through the signed key lookup or the realm keys of an `auth_context` artifact, and the Exercise with its decision receipt. Only then does the kernel admit the record, with the receipt kept as received beside it; its body openings, checked against the record's commitments before Access is asked, are scanned for secrets and sealed, and the ledger's writer commits the record with its parts in one transaction. When Access cannot answer, nothing is written (fail-closed).
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::future::Future;
@@ -22,8 +22,9 @@ use work_kernel::ontology::{Commitment, Obligor};
 use work_kernel::record::{AuthorityProofKind, Record};
 use work_kernel::validate::{ActorType, Origin};
 use work_ledger::{
-    ActorBindings, AdmitError, Arrival, AuthContext, Committed, Declared, DeclaredActors, KeyClaim,
-    LedgerError, Ledgers, PendingRecord, Submission, SubmitError, admit,
+    ActorBindings, AdmitError, Arrival, AuthContext, BodyError, Committed, Declared,
+    DeclaredActors, KeyClaim, LedgerError, Ledgers, PartRead, PendingRecord, Submission,
+    SubmitError, admit,
 };
 use work_store::{
     AccessPool, CallerRef, IdempotencyDecision, ItemRef, LedgerTx, Pool, RealmState, StoreError,
@@ -35,9 +36,9 @@ use crate::domain::caller::Caller;
 use crate::domain::commitments::{Asked, Folded, LOG_PAGE, action_of, facts, fold, operation_of};
 use crate::domain::writes::{
     AuthContextGiven, AuthorityGiven, DeclarationRequest, WriteRefusal, Written, actor_type,
-    check_action, check_authority, header_kid, party_ref, signer,
+    body_refusal, check_action, check_authority, check_openings, header_kid, party_ref, signer,
 };
-use crate::ports::{Pending, RecordWrites, Sequence};
+use crate::ports::{Bodies, Pending, RecordWrites, Sequence};
 
 /// The event type of a record whose wire name gives no catalogued type (P-38).
 const FALLBACK_EVENT: &str = "work.updated";
@@ -63,7 +64,7 @@ impl<C: work_ledger::Clock + Clone + Send + Sync + 'static> Sequence for Ledgers
 }
 
 /// The write path over the Access client, the canonical rows read as `work_app`, Work's
-/// pairing rows and the ledgers' writers.
+/// pairing rows, the ledgers' writers and their body store.
 pub struct Writes<T, C, P> {
     access: Arc<Client<T, C>>,
     audience: Option<String>,
@@ -71,6 +72,7 @@ pub struct Writes<T, C, P> {
     realms: AccessPool,
     sequence: Arc<dyn Sequence>,
     parties: P,
+    bodies: Arc<dyn Bodies>,
 }
 
 impl<T, C, P> std::fmt::Debug for Writes<T, C, P> {
@@ -410,7 +412,7 @@ where
 {
     /// Writes over `access`, whose receipts name `audience`, the `x5t#S256` of Work's PEP
     /// certificate, the PEP that commits Work's Exercises (Access OP-149 m.11); with none, every
-    /// write is `authority_unverifiable`.
+    /// write is `authority_unverifiable`. Body openings are sealed through `bodies` (OP-45).
     #[must_use]
     pub fn new(
         access: Arc<Client<T, C>>,
@@ -419,6 +421,7 @@ where
         realms: AccessPool,
         sequence: Arc<dyn Sequence>,
         parties: P,
+        bodies: Arc<dyn Bodies>,
     ) -> Self {
         Self {
             access,
@@ -427,6 +430,61 @@ where
             realms,
             sequence,
             parties,
+            bodies,
+        }
+    }
+
+    /// The body parts of the record at `pos` of `ledger` in part order at ledger time `now_ms`,
+    /// each readable with its checked content or unreadable once its keys are gone (OP-45
+    /// item 5, OP-13); no caller scope applies, so the write path reads only records it already
+    /// folds.
+    ///
+    /// # Errors
+    /// [`BodyError`] for a part that does not open to its commitment or a store that failed.
+    pub async fn parts(
+        &self,
+        ledger: &LedgerId,
+        pos: u64,
+        now_ms: u64,
+    ) -> Result<Vec<(String, PartRead)>, BodyError> {
+        self.bodies.parts(&store_ledger(ledger), pos, now_ms).await
+    }
+
+    /// Seals the request's openings into `pending` (SEC-35 item 2, OP-45): a detected secret
+    /// names only its part and rule.
+    async fn seal(
+        &self,
+        ledger: &LedgerId,
+        pending: &mut PendingRecord,
+        request: &DeclarationRequest,
+        now_ms: u64,
+    ) -> Result<(), WriteRefusal> {
+        let sealed = self
+            .bodies
+            .seal(&store_ledger(ledger), pending, &request.body, now_ms)
+            .await;
+        match sealed {
+            Ok(()) => Ok(()),
+            Err(BodyError::SecretDetected { part, rule }) => {
+                tracing::warn!(
+                    event = "body.secret_detected",
+                    part = part.as_str(),
+                    rule = rule.as_str(),
+                    "a write is refused: a body part carries a secret"
+                );
+                Err(WriteRefusal::SecretDetected { part, rule })
+            }
+            Err(error) => {
+                let refusal = body_refusal(&error);
+                if refusal == WriteRefusal::NotRecorded {
+                    tracing::warn!(
+                        event = "body.unsealed",
+                        error = %error,
+                        "a write is refused: its body is not sealed"
+                    );
+                }
+                Err(refusal)
+            }
         }
     }
 
@@ -698,6 +756,7 @@ where
         let carried = carried(request)?;
         let record = &carried.record;
         expected_operation(record, request)?;
+        check_openings(record.core(), &request.body)?;
         let caller_ref = CallerRef::new(
             caller
                 .party()
@@ -747,6 +806,7 @@ where
             .keep_authority_proof(AuthorityProofKind::DecisionReceipt, &exercise.receipt)
             .map_err(|_| WriteRefusal::Denied("authority_digest"))?;
         pending.for_tenant(caller.tenant.as_str());
+        self.seal(ledger, &mut pending, request, now_ms).await?;
         let committed = self
             .sequence
             .submit(&store_ledger(ledger), pending)
