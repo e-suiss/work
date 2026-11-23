@@ -542,11 +542,14 @@ pub(crate) async fn run(shared: &Arc<Shared>, doorbell: &Notify) {
             && let Some(tenant) = shared.identity.tenant()
         {
             match shared.identity.pair(tenant).await {
-                Ok(()) => tracing::info!(
-                    event = "executor.paired",
-                    party = shared.identity.party().unwrap_or_default().as_str(),
-                    "the executor's product is paired"
-                ),
+                Ok(()) => {
+                    let party = shared.identity.party().unwrap_or_default();
+                    tracing::info!(
+                        event = "executor.paired",
+                        party = party.as_str(),
+                        "the executor's product is paired"
+                    );
+                }
                 Err(refusal) => refusal.log("pairing", "pairing", ""),
             }
         }
@@ -647,8 +650,8 @@ fn dispatch(
             };
             tokio::spawn(job.run());
         }
-        Delivered::Request(request) => match jobs.get(&delivery.commitment) {
-            Some(sender) => {
+        Delivered::Request(request) => {
+            if let Some(sender) = jobs.get(&delivery.commitment) {
                 if let Err(error) = sender.try_send(request) {
                     tracing::warn!(
                         event = "executor.request_dropped",
@@ -657,8 +660,7 @@ fn dispatch(
                         "the job takes no more requests"
                     );
                 }
-            }
-            None => {
+            } else {
                 let shared = Arc::clone(shared);
                 let commitment = delivery.commitment;
                 tokio::spawn(async move {
@@ -668,6 +670,6 @@ fn dispatch(
                     shared.respond(&commitment, &request, &decision).await;
                 });
             }
-        },
+        }
     }
 }

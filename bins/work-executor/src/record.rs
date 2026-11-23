@@ -256,7 +256,7 @@ mod tests {
         let Ok(Decoded::Record(r)) = decode_record(bytes) else {
             panic!("not a record");
         };
-        r
+        *r
     }
 
     // RC-42 P-68 T-105

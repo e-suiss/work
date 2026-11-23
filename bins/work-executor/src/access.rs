@@ -157,7 +157,7 @@ fn access(error: &AccessError) -> Refusal {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct Exercise {
     /// The `ExerciseID` text.
-    pub(crate) exercise: String,
+    pub(crate) id: String,
     /// The receipt as Access signed it.
     pub(crate) receipt: Vec<u8>,
     /// The intent envelope it was allowed for.
@@ -183,8 +183,8 @@ pub(crate) fn decision(answer: &Answer, intent: Vec<u8>) -> Result<Exercise, Ref
     let d: Decision =
         serde_json::from_slice(&answer.body).map_err(|_| Refusal::Local("decision"))?;
     match (d.outcome.as_str(), d.exercise, d.receipt) {
-        ("allow", Some(exercise), Some(receipt)) => Ok(Exercise {
-            exercise,
+        ("allow", Some(id), Some(receipt)) => Ok(Exercise {
+            id,
             receipt: from_b64url(&receipt).map_err(|_| Refusal::Local("receipt"))?,
             intent,
         }),
@@ -479,6 +479,9 @@ pub(crate) struct Work {
     actor_type: String,
 }
 
+/// What builds a record and its openings, given the receipt digest.
+pub(crate) type Build<'b> = dyn Fn(&[u8; 32]) -> Result<(Vec<u8>, Vec<Value>), String> + Sync + 'b;
+
 /// One consequential write: the record, its openings, the Access action and the route.
 pub(crate) struct Write<'a> {
     /// The path under the API base.
@@ -488,7 +491,7 @@ pub(crate) struct Write<'a> {
     /// The digest the intent names as its `declaration` parameter.
     pub(crate) declaration: [u8; 32],
     /// The record builder, given the receipt digest.
-    pub(crate) record: &'a (dyn Fn(&[u8; 32]) -> Result<(Vec<u8>, Vec<Value>), String> + Sync),
+    pub(crate) record: &'a Build<'a>,
     /// The `If-Match` read from this path, if any.
     pub(crate) version_of: Option<String>,
 }
@@ -652,7 +655,7 @@ impl Work {
             (write.record)(&sha256(&exercise.receipt)).map_err(|_| Refusal::Local("record"))?;
         let body = json!({
             "record": b64url(&record),
-            "authority": {"exercise": exercise.exercise, "intent": b64url(&exercise.intent)},
+            "authority": {"exercise": exercise.id, "intent": b64url(&exercise.intent)},
             "actor_types": {"author": self.actor_type},
             "body": openings,
         });
