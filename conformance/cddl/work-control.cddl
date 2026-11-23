@@ -20,14 +20,14 @@ control-lease = lease-grant / lease-release
 lease-grant = {
   driver: party,
   environment: tstr .size (1..256),
-  from: time,
-  until: time,
+  from: epoch-ms,
+  until: epoch-ms,
   reason: tstr .size (1..1024),
 }
 
 lease-release = {
   lease: digest,
-  released: time,
+  released: epoch-ms,
 }
 
 ; RC-32 RC-34 RC-39 RC-42 RC-43
@@ -193,7 +193,7 @@ failed-session = {
 stop-type = "immediate" / "finish_then_stop" / "pause"
 digest = [-16, bstr .size 32]
 party = tstr .size (1..255)
-time = uint
+epoch-ms = uint
 type-uri = tstr .regexp "https://[a-z0-9.-]+(:[0-9]+)?/[!-~]*"
 external-ref = tstr .regexp "[a-z][a-z0-9+.-]*:[!-~]+"
 session-ref = external-ref
