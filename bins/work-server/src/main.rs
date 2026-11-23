@@ -140,7 +140,7 @@ async fn run(config: &Config, scan: Arc<dyn Scan>) -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    let services = match Services::start(config, &infrastructure, time.clock()) {
+    let mut services = match Services::start(config, &infrastructure, time.clock()) {
         Ok(services) => services,
         Err(error) => {
             tracing::error!(event = "server.start_refused", %error, "services do not start");
@@ -151,6 +151,7 @@ async fn run(config: &Config, scan: Arc<dyn Scan>) -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
+    services.deliver_claims(&infrastructure, &access.client);
     let health = services.health(
         &infrastructure,
         Arc::clone(&access.up),

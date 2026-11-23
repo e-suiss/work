@@ -5,15 +5,18 @@
 //! configured replica, a directory or an S3 bucket with Object Lock, before any witness (P-20,
 //! OP-4 item 3, OP-33 item 3), and, with witnesses configured, the witnessing task that sends
 //! each mirrored checkpoint to them, puts the counted witnesses' cosignature times into ledger
-//! time and runs the gossip comparison (OP-32, OP-33, SEC-32), and Work's Access pairing and
-//! event stream upkeep, at start and every hour (T-103).
+//! time and runs the gossip comparison (OP-32, OP-33, SEC-32), Work's Access pairing and
+//! event stream upkeep, at start and every hour (T-103), and the delivery of the
+//! `commitment_active` Claims the sequencer writes with their records to Access (E-8, E-12).
 
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 
 use suiss_crypto::secret::Secret;
 use tokio::task::JoinHandle;
-use work_dispatch::{JetStreamBus, PgOutbox, Publisher};
+use work_dispatch::{
+    AccessClaims, ClaimConfig, ClaimDeliverer, JetStreamBus, PgClaims, PgOutbox, Publisher,
+};
 use work_ledger::time::{LedgerTime, ProcessMonotonic};
 use work_ledger::{
     AnyReplica, CheckpointSetup, CheckpointStats, DirectoryReplica, Ledgers, S3Config,
@@ -26,7 +29,7 @@ use work_reconciler::adapters::PgPairing;
 use crate::config::{Config, ReplicaTarget};
 use crate::health::Health;
 use crate::pairing::{self, Pairer, PairingStats};
-use crate::startup::{Infrastructure, StartupError};
+use crate::startup::{AccessClient, Infrastructure, StartupError};
 
 /// The access key of the replica's bucket, from the environment like the database passwords.
 const S3_KEY_ID: &str = "AWS_ACCESS_KEY_ID";
@@ -175,6 +178,35 @@ impl Services {
             pairing,
             pairer,
         })
+    }
+
+    /// Starts the delivery of the `commitment_active` Claims the sequencer writes with their
+    /// records, as `work_publisher`, to Access over the process's Access client (E-8, E-12,
+    /// WD-146 item 5).
+    pub(crate) fn deliver_claims(
+        &mut self,
+        infrastructure: &Infrastructure,
+        access: &Arc<AccessClient>,
+    ) {
+        let config = ClaimConfig::default();
+        let sink = AccessClaims::new(Arc::clone(access), config.call_timeout);
+        let queue = PgClaims::new(infrastructure.publisher.clone());
+        match ClaimDeliverer::new(queue, sink, config) {
+            Ok(worker) => {
+                self.handles.push(tokio::spawn(async move {
+                    worker.run(std::future::pending()).await;
+                }));
+                tracing::info!(
+                    event = "server.claim_delivery_started",
+                    "commitment_active Claim delivery started"
+                );
+            }
+            Err(error) => tracing::error!(
+                event = "server.claim_delivery_unstarted",
+                %error,
+                "commitment_active Claim delivery does not start"
+            ),
+        }
     }
 
     /// The ledgers this process leads, as the write path hands them admitted records (P-13).
