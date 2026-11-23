@@ -2838,6 +2838,256 @@ mod commit {
         assert_eq!(position, kept, "{first:?} {again:?}");
     }
 
+    /// The golden record `bytes` with the named `params` set (`Some`) or dropped (`None`) and
+    /// the top-level `fields` put in place of their golden values.
+    fn reshaped(
+        bytes: &[u8],
+        params: &[(&str, Option<Cbor>)],
+        fields: Vec<(&str, Cbor)>,
+    ) -> Vec<u8> {
+        let Cbor::Map(entries) = dcbor::decode(bytes, Limits::CEILING).unwrap() else {
+            panic!("a record");
+        };
+        let kept: Vec<(String, Cbor)> = entries
+            .into_iter()
+            .filter_map(|(k, v)| match k {
+                Cbor::Text(k) if fields.iter().all(|(f, _)| *f != k) => {
+                    let v = if k == "params" { patched(v, params) } else { v };
+                    Some((k, v))
+                }
+                _ => None,
+            })
+            .collect();
+        let mut all: Vec<(&str, Cbor)> =
+            kept.iter().map(|(k, v)| (k.as_str(), v.clone())).collect();
+        all.extend(fields);
+        dcbor::encode(&map(all), Limits::CEILING).unwrap()
+    }
+
+    fn patched(params: Cbor, changes: &[(&str, Option<Cbor>)]) -> Cbor {
+        let Cbor::Map(entries) = params else {
+            panic!("params");
+        };
+        let kept: Vec<(String, Cbor)> = entries
+            .into_iter()
+            .filter_map(|(k, v)| match k {
+                Cbor::Text(k) if changes.iter().all(|(c, _)| *c != k) => Some((k, v)),
+                _ => None,
+            })
+            .collect();
+        let mut all: Vec<(&str, Cbor)> =
+            kept.iter().map(|(k, v)| (k.as_str(), v.clone())).collect();
+        all.extend(
+            changes
+                .iter()
+                .filter_map(|(k, v)| v.clone().map(|v| (*k, v))),
+        );
+        map(all)
+    }
+
+    fn record_digest(record: &[u8]) -> Cbor {
+        Cbor::Array(vec![
+            Cbor::int(-16),
+            Cbor::Bytes(record_id(record).0.as_bytes().to_vec()),
+        ])
+    }
+
+    /// The test user's `work:close` intent over the ledger: the allowed action renamed, as
+    /// Work's client builds it for an `accept` (E-45 item 2).
+    fn close_intent(local: &Local, led: &str, now_ms: u64, declaration: &[u8]) -> Commit {
+        let action = &allowed(local)["action"];
+        let named = Action {
+            namespace: text(action, "namespace").to_owned(),
+            name: "close".to_owned(),
+            major: action["major"].as_u64().unwrap(),
+            schema: fixed_b64url(text(action, "schema")).unwrap(),
+        };
+        let bytes = adp::commit_intent(&named, led, declaration, now_ms - 60_000, now_ms + 600_000)
+            .unwrap();
+        Commit {
+            json: adp::intent_json(&bytes).unwrap(),
+            digest: Intent::from_bytes(&bytes).unwrap().digest,
+            bytes,
+        }
+    }
+
+    /// `POST {path}` of `record` under the `work:commit` Exercise with `if_match`, answered 201
+    /// with the commitment `cmt`.
+    async fn written(
+        local: &Local,
+        w: &Writer,
+        path: &str,
+        record: &[u8],
+        if_match: &str,
+        cmt: Option<&str>,
+    ) -> String {
+        let body = w.body(local, record, &w.commit.bytes).await;
+        let key = local.uuid7(local.access_now_s().await * 1000);
+        let answer = w.post(local, path, body, &key, if_match).await;
+        assert_eq!(answer.status, 201, "{answer:?}");
+        let written = answer.json();
+        let named = text(&written, "commitment").to_owned();
+        if let Some(cmt) = cmt {
+            assert_eq!(named, cmt, "{written}");
+        }
+        named
+    }
+
+    // CM-2 CM-25 E-45 E-17 P-13 T-101
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore = "needs the local environment with the Declaration the test user wrote"]
+    async fn cm_25_the_test_user_s_own_commitment_is_stated_and_its_acceptance_needs_work_close() {
+        let local = Local::open();
+        let w = Writer::open(&local).await;
+        let me = Cbor::text(&local.user("party"));
+        let work = unhex(
+            &local
+                .uuid7(local.access_now_s().await * 1000)
+                .replace('-', ""),
+        );
+        let request = reshaped(
+            &golden_commitment(
+                &local,
+                "commitment/request-offer",
+                (&w.led, &w.receipt),
+                None,
+                None,
+            ),
+            &[("obligor", Some(me.clone())), ("acceptor", Some(me))],
+            vec![("concerns", Cbor::Array(vec![Cbor::Bytes(work)]))],
+        );
+        let opened = record_id(&request);
+        let path = format!("/v1/ledgers/{}/commitments", w.led);
+        let cmt = written(&local, &w, &path, &request, "\"0\"", None).await;
+        assert_eq!(cmt, work_proto::id::CommitmentId(opened).to_external());
+        let base = format!("/v1/ledgers/{}/commitments/{cmt}", w.led);
+        let promise = golden_commitment(
+            &local,
+            "commitment/promise-items",
+            (&w.led, &w.receipt),
+            None,
+            Some(*opened.0.as_bytes()),
+        );
+        written(
+            &local,
+            &w,
+            &format!("{base}/promise"),
+            &promise,
+            "\"1\"",
+            Some(&cmt),
+        )
+        .await;
+        let fulfilling =
+            work_kernel::id::RecordId::parse_external(text(&read(&local, WRITTEN_FILE), "record"))
+                .unwrap();
+        let state = reshaped(
+            &golden_commitment(
+                &local,
+                "commitment/state-fulfilment",
+                (&w.led, &w.receipt),
+                None,
+                None,
+            ),
+            &[(
+                "items",
+                Some(Cbor::Array(vec![Cbor::Unsigned(0), Cbor::Unsigned(1)])),
+            )],
+            vec![(
+                "relations",
+                Cbor::Array(vec![
+                    map(vec![
+                        ("rel", Cbor::text("supersedes")),
+                        (
+                            "target",
+                            Cbor::Array(vec![Cbor::text("record"), record_digest(&promise)]),
+                        ),
+                    ]),
+                    map(vec![
+                        ("rel", Cbor::text("derived_from")),
+                        (
+                            "source",
+                            Cbor::Array(vec![
+                                Cbor::text("record"),
+                                Cbor::Array(vec![
+                                    Cbor::int(-16),
+                                    Cbor::Bytes(fulfilling.0.as_bytes().to_vec()),
+                                ]),
+                            ]),
+                        ),
+                        (
+                            "target",
+                            Cbor::Array(vec![Cbor::text("record"), record_digest(&request)]),
+                        ),
+                        (
+                            "qualifier",
+                            Cbor::text("https://suiss.app/ns/work/derived_from/fulfills"),
+                        ),
+                    ]),
+                ]),
+            )],
+        );
+        written(
+            &local,
+            &w,
+            &format!("{base}/state"),
+            &state,
+            "\"2\"",
+            Some(&cmt),
+        )
+        .await;
+        let stated = local.read(&w.key, &base, &w.token).await;
+        assert_eq!(stated.status, 200, "{stated:?}");
+        assert_eq!(stated.header("etag"), Some("\"3\""), "{stated:?}");
+        let view = stated.json();
+        assert_eq!(view["summary"], "stated", "{view}");
+        assert_eq!(view["obligee"], local.user("party").as_str(), "{view}");
+        assert_eq!(view["obligor"], local.user("party").as_str(), "{view}");
+        let allowed_ops = view["allowed"].as_array().unwrap();
+        for operation in ["accept", "reject"] {
+            let op = allowed_ops
+                .iter()
+                .find(|a| a["operation"] == operation)
+                .unwrap_or_else(|| panic!("{operation}: {view}"));
+            assert_eq!(op["action"], "work:close", "{view}");
+            assert_eq!(op["access"], "require", "{view}");
+        }
+        let accept = reshaped(
+            &golden_commitment(
+                &local,
+                "commitment/accept-statement",
+                (&w.led, &w.receipt),
+                None,
+                Some(*record_id(&state).0.as_bytes()),
+            ),
+            &[
+                ("statement", Some(record_digest(&state))),
+                ("criterion_undefined", None),
+            ],
+            vec![],
+        );
+        let body = w.body(&local, &accept, &w.commit.bytes).await;
+        let key = local.uuid7(local.access_now_s().await * 1000);
+        let refused = w
+            .post(&local, &format!("{base}/accept"), body, &key, "\"3\"")
+            .await;
+        assert_eq!(
+            denied(&refused)["code_detail"],
+            "intent_action",
+            "{refused:?}"
+        );
+        let now = local.access_now_s().await * 1000;
+        let declaration = from_b64url(&local.random()).unwrap();
+        let nonce = from_b64url(&local.random()).unwrap()[..16].to_vec();
+        let close = close_intent(&local, &w.led, now, &declaration);
+        assert_eq!(close.json["action"]["name"], "close", "{}", close.json);
+        let asked = authority_answer(&local, &close, &nonce, &[], None).await;
+        assert_eq!(
+            denied(&asked)["code_detail"],
+            "evaluation_refused",
+            "{asked:?}"
+        );
+    }
+
     // SEC-36 C-4 T-102
     #[tokio::test(flavor = "multi_thread")]
     #[ignore = "needs the local environment with the test user's Party compromised"]

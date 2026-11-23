@@ -679,6 +679,7 @@ jobs:
           just test-compose-only "$dir" commit::p_13_work_server_writes_nothing_for_a_capacity_the_exercise_does_not_carry
           just test-compose-only "$dir" commit::e_17_work_server_writes_the_declaration_access_approved_and_keeps_its_receipt
           just test-compose-only "$dir" commit::e_12_access_takes_the_commitment_active_false_claim_work_hands_it
+          just test-compose-only "$dir" commit::cm_25_the_test_user_s_own_commitment_is_stated_and_its_acceptance_needs_work_close
       - name: The routes that act for a caller, the declaration write among them, are mounted and ask for a DPoP token first (T-97, P-56, C-9, SEC-18, P-13)
         run: |
           c() { docker compose -f deploy/compose/compose.yaml "$@"; }
