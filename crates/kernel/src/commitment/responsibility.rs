@@ -134,8 +134,10 @@ pub(super) fn record_commitment(
     {
         hold.renewed = input.recorded_at;
     }
+    if op == Operation::Promise && input.record.param("amendment").is_some() {
+        return;
+    }
     let to = match op {
-        Operation::Promise if input.record.param("amendment").is_some() => return,
         Operation::Promise
         | Operation::PromiseConditional
         | Operation::AcceptCounter
@@ -288,29 +290,28 @@ fn plan_offer(
     let to = params::party(record, "party").ok_or(Refusal::MissingContent)?;
     require(may_take(view, &to), Refusal::NotACandidate)?;
     let owner = view.assignment.owned_by(who);
-    match params::digest(record, "policy") {
-        None => require(owner != Some(false), Refusal::WrongRole)?,
-        Some(policy) => {
-            require(input.service() || owner == Some(true), Refusal::WrongRole)?;
-            let definition = view
-                .assignment
-                .definition
-                .as_ref()
-                .ok_or(Refusal::WrongTarget)?;
-            require(definition.version == policy, Refusal::WrongTarget)?;
-            let inputs = params::digests(record, "inputs").unwrap_or_default();
-            let needs_inputs = matches!(
-                definition.definition.distribution,
-                DistributionMethod::Bid | DistributionMethod::Skill
-            );
-            require(!needs_inputs || !inputs.is_empty(), Refusal::MissingContent)?;
-            let claims = inputs.iter().all(|i| {
-                records
-                    .record(i)
-                    .is_none_or(|r| matches!(r, Record::Claim(_)))
-            });
-            require(claims, Refusal::WrongTarget)?;
-        }
+    if let Some(policy) = params::digest(record, "policy") {
+        require(input.service() || owner == Some(true), Refusal::WrongRole)?;
+        let definition = view
+            .assignment
+            .definition
+            .as_ref()
+            .ok_or(Refusal::WrongTarget)?;
+        require(definition.version == policy, Refusal::WrongTarget)?;
+        let inputs = params::digests(record, "inputs").unwrap_or_default();
+        let needs_inputs = matches!(
+            definition.definition.distribution,
+            DistributionMethod::Bid | DistributionMethod::Skill
+        );
+        require(!needs_inputs || !inputs.is_empty(), Refusal::MissingContent)?;
+        let claims = inputs.iter().all(|i| {
+            records
+                .record(i)
+                .is_none_or(|r| matches!(r, Record::Claim(_)))
+        });
+        require(claims, Refusal::WrongTarget)?;
+    } else {
+        require(owner != Some(false), Refusal::WrongRole)?;
     }
     whole(view, &[S::Requested]).map(|_| Vec::new())
 }
@@ -349,6 +350,42 @@ fn offer_of(view: &CommitmentView, input: &Input<'_>, to: PartyRef) -> Offer {
     }
 }
 
+fn apply_claim(view: &mut CommitmentView, input: &Input<'_>, targets: &[u16]) {
+    let who = params::acting(input.record).clone();
+    set_state(view, targets, S::Promised, None);
+    view.obligor = Obligor::Party(who.clone());
+    let lease = view
+        .assignment
+        .definition
+        .as_ref()
+        .and_then(|d| d.definition.lease);
+    view.assignment.offer = None;
+    view.assignment.hold = Some(Hold {
+        record: input.id,
+        party: who,
+        since: input.recorded_at,
+        via: HoldVia::Claim,
+        binding: false,
+        renewed: input.recorded_at,
+        chain: params::chain(input.record),
+        lease,
+    });
+}
+
+fn apply_unclaim(view: &mut CommitmentView, input: &Input<'_>, targets: &[u16]) {
+    set_state(view, targets, S::Requested, None);
+    if let (Obligor::Party(old), Some(queue)) = (&view.obligor, view.assignment.queue) {
+        view.active_ends.push(ActiveEnd {
+            obligor: old.clone(),
+            record: input.id,
+            cause: ActiveEndCause::Unclaimed,
+        });
+        view.obligor = Obligor::Queue(queue);
+    }
+    view.assignment.hold = None;
+    view.assignment.pooled_since = Some(input.recorded_at);
+}
+
 fn apply(
     view: &mut CommitmentView,
     input: &Input<'_>,
@@ -360,39 +397,8 @@ fn apply(
     let who = params::acting(record).clone();
     let at = input.recorded_at;
     match op {
-        ResponsibilityOperation::Claim => {
-            set_state(view, targets, S::Promised, None);
-            view.obligor = Obligor::Party(who.clone());
-            let lease = view
-                .assignment
-                .definition
-                .as_ref()
-                .and_then(|d| d.definition.lease);
-            view.assignment.offer = None;
-            view.assignment.hold = Some(Hold {
-                record: input.id,
-                party: who,
-                since: at,
-                via: HoldVia::Claim,
-                binding: false,
-                renewed: at,
-                chain: params::chain(record),
-                lease,
-            });
-        }
-        ResponsibilityOperation::Unclaim => {
-            set_state(view, targets, S::Requested, None);
-            if let (Obligor::Party(old), Some(queue)) = (&view.obligor, view.assignment.queue) {
-                view.active_ends.push(ActiveEnd {
-                    obligor: old.clone(),
-                    record: input.id,
-                    cause: ActiveEndCause::Unclaimed,
-                });
-                view.obligor = Obligor::Queue(queue);
-            }
-            view.assignment.hold = None;
-            view.assignment.pooled_since = Some(at);
-        }
+        ResponsibilityOperation::Claim => apply_claim(view, input, targets),
+        ResponsibilityOperation::Unclaim => apply_unclaim(view, input, targets),
         ResponsibilityOperation::Forward => {
             let Some(target) = forward_target(record) else {
                 return;
@@ -477,25 +483,21 @@ fn plan_acknowledge(view: &CommitmentView, input: &Input<'_>) -> Result<bool, Re
         !(input.actor == Some(ActorType::Agent) && who == &record.core().author),
         Refusal::NotAccountable,
     )?;
-    match params::digest(record, "proposal") {
-        Some(proposal) => {
-            let transfer = view
-                .accountability
-                .transfer
-                .as_ref()
-                .ok_or(Refusal::NothingPending)?;
-            require(transfer.record == proposal, Refusal::WrongTarget)?;
-            require(&transfer.to == who, Refusal::WrongRole)?;
-            Ok(true)
-        }
-        None => {
-            require(
-                view.accountability.explicit.is_none(),
-                Refusal::StateNotPermitted,
-            )?;
-            Ok(false)
-        }
-    }
+    let Some(proposal) = params::digest(record, "proposal") else {
+        require(
+            view.accountability.explicit.is_none(),
+            Refusal::StateNotPermitted,
+        )?;
+        return Ok(false);
+    };
+    let transfer = view
+        .accountability
+        .transfer
+        .as_ref()
+        .ok_or(Refusal::NothingPending)?;
+    require(transfer.record == proposal, Refusal::WrongTarget)?;
+    require(&transfer.to == who, Refusal::WrongRole)?;
+    Ok(true)
 }
 
 /// Applies an `acknowledgement` in a commitment chain: an explicit taking-over of accountability while none is explicit, or the acceptance of the open transfer by the Party proposed; an agent never takes accountability (RC-5, RC-6, RC-7).
