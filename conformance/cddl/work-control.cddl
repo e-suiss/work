@@ -1,0 +1,199 @@
+; RC-27 RC-28 RC-29 RC-49
+
+autonomy-policy = {
+  version: uint .ge 1,
+  ? rule_set: digest,
+  ? bulk_threshold: uint .ge 1,
+  ? near_boundary: 1..1000,
+  ? notify: true,
+  ? suggest: true,
+  ? expanded_actions: [1*64 action],
+  ? expansion: true,
+}
+
+action = tstr .size (1..256)
+
+; RC-33 RC-34
+
+control-lease = lease-grant / lease-release
+
+lease-grant = {
+  driver: party,
+  environment: tstr .size (1..256),
+  from: time,
+  until: time,
+  reason: tstr .size (1..1024),
+}
+
+lease-release = {
+  lease: digest,
+  released: time,
+}
+
+; RC-32 RC-34 RC-39 RC-42 RC-43
+
+capability = {
+  ? operations: [1*3 operation],
+  ? stop_types: [1*3 stop-type],
+  ? change_policies: [1*2 correction],
+  ? non_cancellable: [1*64 step],
+  ? safe_state: tstr .size (1..256),
+  checkpoints: bool,
+  ? heartbeat: uint .ge 1,
+  depth: depth,
+}
+
+operation = "pause_resume" / "cancel" / "takeover"
+depth = "full" / "traffic_light" / "read_only"
+correction = "interrupt" / "rollback"
+step = tstr .size (1..256)
+
+; RC-42 SEC-15
+
+commitment-delivery = {
+  commitment: digest,
+  version: digest,
+  ? aim: digest,
+  ? criterion: type-uri,
+  ? budget: digest,
+  change_policy: "queue" / "reject" / correction,
+  ? context: [1*256 digest],
+  authority_context: digest,
+  idempotency_key: idempotency-key,
+}
+
+idempotency-key = tstr .size (1..255)
+
+; RC-36 RC-40 RC-42
+
+request = stop-delivery / control-delivery / change-delivery
+
+stop-delivery = {
+  record: digest,
+  kind: "stop",
+  stop_type: stop-type,
+}
+
+control-delivery = {
+  record: digest,
+  kind: "start" / "resume" / "takeover" / "return_control" / "budget_exhausted",
+}
+
+change-delivery = {
+  record: digest,
+  kind: "change",
+  change_policy: correction,
+  change_version: uint .ge 1,
+}
+
+request-response = accepted-response / refused-response
+
+accepted-response = {
+  request: digest,
+  answer: "accept" / "finish_then_stop",
+  ? applied_version: uint .ge 1,
+}
+
+refused-response = {
+  request: digest,
+  answer: "refuse",
+  reason: tstr .size (1..1024),
+}
+
+; RC-42 RC-43 SEC-15 OP-4
+
+report = action-report / claim-report
+
+action-report = {
+  event: "action",
+  session: session-ref,
+  summary: summary,
+  ? trace: external-ref,
+  ? relies_on: [1*256 digest],
+  authority_context: digest,
+  idempotency_key: idempotency-key,
+  external_idempotent: bool,
+}
+
+claim-report = {
+  event: "question" / "answer" / "error" / "plan_update" / "rationale_summary",
+  session: session-ref,
+  summary: summary,
+  ? trace: external-ref,
+  ? relies_on: [1*256 digest],
+}
+
+summary = tstr .size (1..4096)
+
+; RC-38 RC-42
+
+status-report = {
+  status: "running" / "paused" / "stopped" / "failed" / "completed",
+  done: tstr .size (0..4096),
+  need: tstr .size (0..4096),
+  ? step: step,
+}
+
+; RC-32 RC-33 RC-42
+
+control-mode = {
+  mode: "automatic" / "intervened" / "manual",
+  ? lease: digest,
+}
+
+; RC-34 RC-42 CM-45
+
+handover = {
+  handover_reason: handover-reason,
+  stateful: bool,
+  ? context: [1*256 digest],
+  summary: summary,
+  done: summary,
+  changed: summary,
+  open_questions: summary,
+  next_steps: summary,
+}
+
+handover-reason = "capacity" / "competence" / "escalation" / "departure" / "control_transfer" / "other"
+                / tstr .regexp "(capacity|competence|escalation|departure|control_transfer|other):https://[a-z0-9.-]+(:[0-9]+)?/[!-~]*"
+
+; RC-42 RC-43 ST-4
+
+heartbeat = {
+  session: session-ref,
+  seq: uint,
+  ? departing: true,
+}
+
+; RC-43
+
+session = open-session / closed-session / failed-session
+
+open-session = {
+  session: session-ref,
+  commitment: digest,
+  attempt: uint .ge 1,
+}
+
+closed-session = {
+  session: session-ref,
+  commitment: digest,
+  attempt: uint .ge 1,
+  outcome: "succeeded",
+}
+
+failed-session = {
+  session: session-ref,
+  commitment: digest,
+  attempt: uint .ge 1,
+  outcome: "failed" / "abandoned",
+  reason: tstr .size (1..1024),
+}
+
+stop-type = "immediate" / "finish_then_stop" / "pause"
+digest = [-16, bstr .size 32]
+party = tstr .size (1..255)
+time = uint
+type-uri = tstr .regexp "https://[a-z0-9.-]+(:[0-9]+)?/[!-~]*"
+external-ref = tstr .regexp "[a-z][a-z0-9+.-]*:[!-~]+"
+session-ref = external-ref
