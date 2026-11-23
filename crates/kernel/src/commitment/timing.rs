@@ -24,7 +24,7 @@ use crate::tz::Zone;
 /// The extension key of a periodic report `observation` Claim (CM-53, WD-146).
 pub const REPORT_EXT_KEY: &str = "https://suiss.app/ns/work/periodic.report/1";
 
-/// The body parts of a periodic report under the default schema: status, what is done and what is needed (CM-53).
+/// The body parts of a periodic report under the default schema: the status, the progress the obligor reports and what it needs (CM-53).
 pub const REPORT_PARTS: [&str; 3] = ["status", "done", "need"];
 
 /// Most expected reports one periodic projection holds.
