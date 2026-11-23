@@ -324,7 +324,7 @@ fn op_4_a_record_is_acted_upon_by_the_first_action_of_the_executor_relying_on_it
         reported(23, &executor, ProgressEvent::Action),
     ];
     assert_eq!(
-        acted_upon(&id(9), &reports, &[executor.clone()]),
+        acted_upon(&id(9), &reports, std::slice::from_ref(&executor)),
         Some(id(22))
     );
     assert_eq!(acted_upon(&id(8), &reports, &[executor]), None);
