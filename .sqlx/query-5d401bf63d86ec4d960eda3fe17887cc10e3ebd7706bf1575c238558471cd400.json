@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT DISTINCT ledger_id::bytea AS \"ledger!\"\n               FROM work.record_signer\n               WHERE tenant = $1\n               ORDER BY 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "ledger!",
+        "type_info": "Bytea",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "5d401bf63d86ec4d960eda3fe17887cc10e3ebd7706bf1575c238558471cd400"
+}
