@@ -967,6 +967,50 @@ fn answer(at_ms: u64) -> ClaimAnswer {
     }
 }
 
+async fn kept_as_answered(app: &sqlx::PgPool, ledger: &LedgerId, record: &[u8; 32], at: u64) {
+    let mut read = LedgerTx::begin(app, ledger).await.unwrap();
+    let kept = read.claim_deliveries(record).await.unwrap();
+    read.rollback().await.unwrap();
+    assert_eq!(kept.len(), 2);
+    assert_eq!(kept[0].attempts, 2);
+    assert_eq!(
+        kept[0].delivery,
+        Delivery::Delivered {
+            claim: [0x44; 16],
+            position: 9,
+            replayed: true,
+            at_ms: plus(at, 1000),
+        }
+    );
+    assert_eq!(
+        kept[1].delivery,
+        Delivery::Quarantined {
+            claim: [0x44; 16],
+            position: 9,
+            reason: "source-not-accepted".to_owned(),
+            at_ms: at,
+        }
+    );
+}
+
+async fn discovered(publisher: &PublisherPool, ledger: &LedgerId, at: u64) {
+    assert_eq!(
+        publisher.claim_ledgers(None, at, 10).await.unwrap(),
+        [*ledger]
+    );
+    assert_eq!(
+        publisher
+            .claim_ledgers(None, at.checked_sub(1).unwrap(), 10)
+            .await
+            .unwrap(),
+        []
+    );
+    assert_eq!(
+        publisher.claim_ledgers(Some(ledger), at, 10).await.unwrap(),
+        []
+    );
+}
+
 // E-12 E-8
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "needs Docker"]
@@ -993,24 +1037,7 @@ async fn e_12_a_claim_is_written_with_its_record_and_settled_by_its_delivery_onl
     let publisher = PublisherPool::new(env.canonical("work_publisher"))
         .await
         .unwrap();
-    assert_eq!(
-        publisher.claim_ledgers(None, at, 10).await.unwrap(),
-        [ledger]
-    );
-    assert!(
-        publisher
-            .claim_ledgers(None, plus(AT, 0), 10)
-            .await
-            .unwrap()
-            .is_empty()
-    );
-    assert!(
-        publisher
-            .claim_ledgers(Some(&ledger), at, 10)
-            .await
-            .unwrap()
-            .is_empty()
-    );
+    discovered(&publisher, &ledger, at).await;
     let mut tx = publisher.begin(&ledger).await.unwrap();
     let due = tx.claims_due(at, 10).await.unwrap();
     assert_eq!(due.len(), 2);
@@ -1040,7 +1067,7 @@ async fn e_12_a_claim_is_written_with_its_record_and_settled_by_its_delivery_onl
             .await
             .unwrap()
     );
-    assert!(tx.claims_due(at, 10).await.unwrap().is_empty());
+    assert_eq!(tx.claims_due(at, 10).await.unwrap(), []);
     let later = tx.claims_due(plus(at, 1000), 10).await.unwrap();
     assert_eq!(later.len(), 1);
     assert_eq!(later[0].attempts, 1);
@@ -1067,36 +1094,14 @@ async fn e_12_a_claim_is_written_with_its_record_and_settled_by_its_delivery_onl
             .unwrap()
     );
     tx.commit().await.unwrap();
-    assert!(
+    assert_eq!(
         publisher
             .claim_ledgers(None, plus(at, 86_400_000), 10)
             .await
-            .unwrap()
-            .is_empty()
+            .unwrap(),
+        []
     );
-    let mut read = LedgerTx::begin(&app, &ledger).await.unwrap();
-    let kept = read.claim_deliveries(&record).await.unwrap();
-    read.rollback().await.unwrap();
-    assert_eq!(kept.len(), 2);
-    assert_eq!(kept[0].attempts, 2);
-    assert_eq!(
-        kept[0].delivery,
-        Delivery::Delivered {
-            claim: [0x44; 16],
-            position: 9,
-            replayed: true,
-            at_ms: plus(at, 1000),
-        }
-    );
-    assert_eq!(
-        kept[1].delivery,
-        Delivery::Quarantined {
-            claim: [0x44; 16],
-            position: 9,
-            reason: "source-not-accepted".to_owned(),
-            at_ms: at,
-        }
-    );
+    kept_as_answered(&app, &ledger, &record, at).await;
 }
 
 // E-12 E-8

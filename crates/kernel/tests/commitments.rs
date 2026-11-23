@@ -1168,13 +1168,19 @@ fn e_12_the_ends_a_proposed_record_gives_are_those_the_fold_derives_once_it_is_w
         author_actor: ActorType::Human,
         ..proposed
     };
-    assert!(active_ends_of(&view, &refused, &records, &ledger.facts()).is_empty());
+    assert_eq!(
+        active_ends_of(&view, &refused, &records, &ledger.facts()),
+        []
+    );
     let again = decl(SUPPLIER, "promise", Some(promise), &[]);
     let no_end = Proposed {
         record: &again,
         ..proposed
     };
-    assert!(active_ends_of(&view, &no_end, &records, &ledger.facts()).is_empty());
+    assert_eq!(
+        active_ends_of(&view, &no_end, &records, &ledger.facts()),
+        []
+    );
     let mut delegated = Ledger::new();
     let root_d = request(&mut delegated, &[]);
     let promise_d = delegated.push(decl(SUPPLIER, "promise", Some(root_d), &[]));
