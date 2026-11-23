@@ -6886,6 +6886,29 @@ tests = [
 ]
 
 [[rule]]
+id = "T-105"
+family = "T"
+status = "frozen-technical"
+stage = 6
+acceptance = "to-fill"
+title = ""
+tests = [
+  "bins/work-executor/src/access.rs::t_105_a_refusal_keeps_the_exact_problem_work_answered",
+  "bins/work-executor/src/access.rs::t_105_the_client_ids_and_the_pep_come_from_what_the_environment_holds",
+  "bins/work-executor/src/clock.rs::t_105_an_idempotency_key_is_a_version_7_uuid_of_its_time",
+  "bins/work-executor/src/config.rs::t_105_a_configuration_outside_its_rules_is_refused",
+  "bins/work-executor/src/config.rs::t_105_the_configuration_names_work_access_the_token_the_capability_and_the_script",
+  "bins/work-executor/src/doorbell.rs::e_39_the_doorbell_is_content_free_and_only_wakes_the_pull",
+  "bins/work-executor/src/main.rs::t_105_the_configuration_file_is_named_by_flag_or_environment",
+  "bins/work-executor/src/protocol.rs::rc_36_a_stop_is_accepted_finished_then_stopped_or_refused_with_its_reason",
+  "bins/work-executor/src/protocol.rs::rc_42_a_delivery_is_read_with_the_kernel_decoders",
+  "bins/work-executor/src/record.rs::rc_42_a_contract_element_is_a_record_of_its_kind_with_the_body_in_definition",
+  "bins/work-executor/src/script.rs::t_105_a_run_steps_through_the_script_and_names_the_step_under_way",
+  "bins/work-executor/src/script.rs::t_105_a_script_is_wait_write_fail_and_silent_steps_with_optional_names",
+  "bins/work-executor/src/web.rs::t_105_work_is_called_over_http_or_https_only",
+]
+
+[[rule]]
 id = "OP-2"
 family = "OP"
 status = "frozen-technical"
