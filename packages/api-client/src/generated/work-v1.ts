@@ -818,6 +818,20 @@ export interface components {
             /** @description The caller's holding. */
             holding: components["schemas"]["HoldingInput"];
         };
+        /**
+         * @description The opening of one body part the record commits to (P-68): the record's `body` entry for
+         *     the part is the commitment of exactly these values.
+         */
+        BodyPartInput: {
+            /** @description The content, unpadded base64url of at most 262 144 bytes. */
+            content: string;
+            /** @description The media type of the content, at most 255 bytes. */
+            media_type: string;
+            /** @description The part name in the subtype schema, such as `note`. */
+            part: string;
+            /** @description The part's salt, unpadded base64url of 32 bytes. */
+            salt: string;
+        };
         /** @description A budget of the commitment (CM-48, CM-49). */
         BudgetAnswer: {
             /** @description Consumption rolled up from its sub-commitments. */
@@ -1174,6 +1188,12 @@ export interface components {
             /** @description The Exercise the record's `authority` refers to. */
             authority: components["schemas"]["AuthorityInput"];
             /**
+             * @description The openings of every body part the record commits to; Work seals them under the
+             *     ledger's keys after the secret scan and writes them with the record (P-68, OP-45,
+             *     SEC-35).
+             */
+            body?: components["schemas"]["BodyPartInput"][];
+            /**
              * @description The tagged `COSE_Sign1` of a signed record, or the `SignedRecord` bytes of an unsigned
              *     human one sent with `auth_context`, unpadded base64url.
              */
@@ -1246,6 +1266,8 @@ export interface components {
             errors?: components["schemas"]["FieldError"][] | null;
             /** @description `urn:work:request:<Request-Id>`. */
             instance?: string | null;
+            /** @description The body part a `secret_detected` refusal names (P-95 item 1). */
+            part?: string | null;
             /** @description The protocol reason pair `[code, detail]` of a kernel refusal (P-93). */
             reason?: string[] | null;
             /**
@@ -1255,6 +1277,11 @@ export interface components {
             retry_after?: number | null;
             /** @description Whether the same request may be sent again. */
             retryable: boolean;
+            /**
+             * @description The scanner rule a `secret_detected` refusal names (P-95 item 1); the matched bytes are
+             *     never shown.
+             */
+            rule?: string | null;
             /**
              * Format: int32
              * @description The HTTP status.
@@ -1907,7 +1934,22 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description The kernel refused the record, with its reason; a refused commitment operation is kept under its key. */
+            /** @description A body part is above its bound. */
+            413: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The kernel refused the record, with its reason; a refused commitment operation is kept under its key; or a body part carries a secret. */
             422: {
                 headers: {
                     /** @description What is left of the quota. */
@@ -2205,7 +2247,22 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key. */
+            /** @description A body part is above its bound. */
+            413: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key; or a body part carries a secret. */
             422: {
                 headers: {
                     /** @description What is left of the quota. */
@@ -2386,7 +2443,22 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key. */
+            /** @description A body part is above its bound. */
+            413: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key; or a body part carries a secret. */
             422: {
                 headers: {
                     /** @description What is left of the quota. */
@@ -2567,7 +2639,22 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key. */
+            /** @description A body part is above its bound. */
+            413: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key; or a body part carries a secret. */
             422: {
                 headers: {
                     /** @description What is left of the quota. */
@@ -2748,7 +2835,22 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key. */
+            /** @description A body part is above its bound. */
+            413: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key; or a body part carries a secret. */
             422: {
                 headers: {
                     /** @description What is left of the quota. */
@@ -2929,7 +3031,22 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key. */
+            /** @description A body part is above its bound. */
+            413: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key; or a body part carries a secret. */
             422: {
                 headers: {
                     /** @description What is left of the quota. */
@@ -3110,7 +3227,22 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key. */
+            /** @description A body part is above its bound. */
+            413: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key; or a body part carries a secret. */
             422: {
                 headers: {
                     /** @description What is left of the quota. */
@@ -3291,7 +3423,22 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key. */
+            /** @description A body part is above its bound. */
+            413: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key; or a body part carries a secret. */
             422: {
                 headers: {
                     /** @description What is left of the quota. */
@@ -3472,7 +3619,22 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key. */
+            /** @description A body part is above its bound. */
+            413: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key; or a body part carries a secret. */
             422: {
                 headers: {
                     /** @description What is left of the quota. */
@@ -3653,7 +3815,22 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key. */
+            /** @description A body part is above its bound. */
+            413: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key; or a body part carries a secret. */
             422: {
                 headers: {
                     /** @description What is left of the quota. */
@@ -3834,7 +4011,22 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key. */
+            /** @description A body part is above its bound. */
+            413: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key; or a body part carries a secret. */
             422: {
                 headers: {
                     /** @description What is left of the quota. */
@@ -4015,7 +4207,22 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key. */
+            /** @description A body part is above its bound. */
+            413: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key; or a body part carries a secret. */
             422: {
                 headers: {
                     /** @description What is left of the quota. */
@@ -4196,7 +4403,22 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key. */
+            /** @description A body part is above its bound. */
+            413: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key; or a body part carries a secret. */
             422: {
                 headers: {
                     /** @description What is left of the quota. */
@@ -4377,7 +4599,22 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key. */
+            /** @description A body part is above its bound. */
+            413: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key; or a body part carries a secret. */
             422: {
                 headers: {
                     /** @description What is left of the quota. */
@@ -4558,7 +4795,22 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key. */
+            /** @description A body part is above its bound. */
+            413: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key; or a body part carries a secret. */
             422: {
                 headers: {
                     /** @description What is left of the quota. */
@@ -4739,7 +4991,22 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key. */
+            /** @description A body part is above its bound. */
+            413: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key; or a body part carries a secret. */
             422: {
                 headers: {
                     /** @description What is left of the quota. */
@@ -4920,7 +5187,22 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key. */
+            /** @description A body part is above its bound. */
+            413: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key; or a body part carries a secret. */
             422: {
                 headers: {
                     /** @description What is left of the quota. */
@@ -5101,7 +5383,22 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key. */
+            /** @description A body part is above its bound. */
+            413: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key; or a body part carries a secret. */
             422: {
                 headers: {
                     /** @description What is left of the quota. */
@@ -5282,7 +5579,22 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key. */
+            /** @description A body part is above its bound. */
+            413: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key; or a body part carries a secret. */
             422: {
                 headers: {
                     /** @description What is left of the quota. */
@@ -5463,7 +5775,22 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key. */
+            /** @description A body part is above its bound. */
+            413: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key; or a body part carries a secret. */
             422: {
                 headers: {
                     /** @description What is left of the quota. */
@@ -5644,7 +5971,22 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key. */
+            /** @description A body part is above its bound. */
+            413: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key; or a body part carries a secret. */
             422: {
                 headers: {
                     /** @description What is left of the quota. */
@@ -5825,7 +6167,22 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key. */
+            /** @description A body part is above its bound. */
+            413: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key; or a body part carries a secret. */
             422: {
                 headers: {
                     /** @description What is left of the quota. */
@@ -6006,7 +6363,22 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key. */
+            /** @description A body part is above its bound. */
+            413: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key; or a body part carries a secret. */
             422: {
                 headers: {
                     /** @description What is left of the quota. */
@@ -6187,7 +6559,22 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key. */
+            /** @description A body part is above its bound. */
+            413: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key; or a body part carries a secret. */
             422: {
                 headers: {
                     /** @description What is left of the quota. */
@@ -6368,7 +6755,22 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key. */
+            /** @description A body part is above its bound. */
+            413: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key; or a body part carries a secret. */
             422: {
                 headers: {
                     /** @description What is left of the quota. */
@@ -6549,7 +6951,22 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key. */
+            /** @description A body part is above its bound. */
+            413: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key; or a body part carries a secret. */
             422: {
                 headers: {
                     /** @description What is left of the quota. */
@@ -6730,7 +7147,22 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key. */
+            /** @description A body part is above its bound. */
+            413: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The kernel refused the operation for this commitment, with its reason (`commitment`, the refusal); the refusal is kept under its key; or a body part carries a secret. */
             422: {
                 headers: {
                     /** @description What is left of the quota. */
@@ -6909,7 +7341,22 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description The kernel rejected the record, its auth_context does not verify, or the key was reused with another body. */
+            /** @description A body part is above its bound. */
+            413: {
+                headers: {
+                    /** @description What is left of the quota. */
+                    RateLimit?: string;
+                    /** @description The quota policy. */
+                    "RateLimit-Policy"?: string;
+                    /** @description The request, `<trace id>-<span id>`. */
+                    "Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The kernel rejected the record, its auth_context does not verify, a body part carries a secret, or the key was reused with another body. */
             422: {
                 headers: {
                     /** @description What is left of the quota. */
