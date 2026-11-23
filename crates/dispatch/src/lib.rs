@@ -4,20 +4,25 @@
 //! the pointer after the JetStream ack (§18 OP-34); NATS is a signal, never canonical (T-21). The
 //! consumer pulls per-partition durable consumers and, while NATS is unreachable, falls back to
 //! the pending pointers read from its cursor of each ledger (T-18, T-21, T-76, §18 OP-39). Both
-//! page through the ledgers with pending pointers by the last id seen (T-83).
+//! page through the ledgers with pending pointers by the last id seen (T-83). The Claim
+//! delivery worker hands Access the `commitment_active` Claims the sequencer wrote with their
+//! records and retries them with a bounded backoff until Access answers (E-8, E-12).
 
 pub mod adapters;
 pub mod app;
 pub mod domain;
 pub mod ports;
 
+pub use adapters::claims::{AccessClaims, PgClaims};
 pub use adapters::relay::RelayCredential;
 pub use adapters::{JetStreamBus, JetStreamPull, PgCommitted, PgOutbox, PullToken};
+pub use app::claims::{ClaimDeliverer, ClaimError, Delivered};
 pub use app::{ConsumeError, Consumed, Consumer, DispatchError, Published, Publisher};
+pub use domain::claims::ClaimConfig;
 pub use domain::{
     ConfigError, ConsumerConfig, Event, EventError, Health, PublisherConfig, Seen, StreamSettings,
 };
 pub use ports::{
-    Acked, Bus, BusError, Committed, Handler, HandlerError, Inbound, Outbound, Outbox, Pull,
-    PullSpec, Settle,
+    Acked, Bus, BusError, ClaimQueue, ClaimSink, Committed, Handler, HandlerError, Inbound,
+    Outbound, Outbox, Pull, PullSpec, Settle,
 };

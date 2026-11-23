@@ -13,6 +13,10 @@ use work_store::{CommittedRecord, LedgerId, PendingEvent, PointerKey, StoreError
 
 use crate::domain::{Event, StreamSettings};
 
+mod claims;
+
+pub use claims::{ClaimQueue, ClaimSink};
+
 /// The outbox of the canonical store.
 pub trait Outbox: Send + Sync {
     /// Up to `limit` ledgers with pending pointers above `after`, in ascending byte order

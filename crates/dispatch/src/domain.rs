@@ -10,6 +10,8 @@ use std::collections::{BTreeSet, VecDeque};
 
 use work_proto::events::{DATA_CONTENT_TYPE, Data, RecordFacts, find};
 
+pub mod claims;
+
 /// T-76 stream and subject schema; every value is a POLICY DEFAULT and configurable.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StreamSettings {
