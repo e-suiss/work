@@ -98,6 +98,41 @@ local-date = tstr .regexp "[0-9]{4}-[0-9]{2}-[0-9]{2}"
 local-datetime = tstr .regexp "[0-9]{8}T[0-9]{6}"
 "#;
 
+/// The body part of a clock, periodic or budget Condition record that holds its definition body (WD-146).
+pub const DEFINITION_PART: &str = "definition";
+
+/// The Condition types a commitment's clock, periodic update and budget are declared with (CM-48, CM-50, CM-53).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum TimeCondition {
+    /// A commitment clock, `https://suiss.app/ns/work/condition/clock`.
+    Clock,
+    /// A periodic update, `https://suiss.app/ns/work/condition/periodic`.
+    Periodic,
+    /// A budget, `https://suiss.app/ns/work/condition/budget`.
+    Budget,
+}
+
+impl TimeCondition {
+    /// The three types.
+    pub const ALL: [Self; 3] = [Self::Clock, Self::Periodic, Self::Budget];
+
+    /// The `condition_type` URI.
+    #[must_use]
+    pub const fn uri(self) -> &'static str {
+        match self {
+            Self::Clock => "https://suiss.app/ns/work/condition/clock",
+            Self::Periodic => "https://suiss.app/ns/work/condition/periodic",
+            Self::Budget => "https://suiss.app/ns/work/condition/budget",
+        }
+    }
+
+    /// The type a `condition_type` URI names.
+    #[must_use]
+    pub fn from_uri(uri: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|t| t.uri() == uri)
+    }
+}
+
 /// Most warning tiers one budget or clock declares.
 pub const MAX_WARNINGS: usize = 8;
 

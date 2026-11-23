@@ -11,8 +11,8 @@ use crate::id::PartyRef;
 /// The extension key a `budget.consumption` observation Claim carries its [`Amount`] body under (CM-63).
 pub const CONSUMPTION_EXT_KEY: &str = "https://suiss.app/ns/work/budget.consumption/1";
 
-/// The Condition type a budget is declared with.
-pub const CONDITION_TYPE: &str = "https://suiss.app/ns/work/condition/resource";
+/// The Condition type a budget is declared with (WD-146).
+pub const CONDITION_TYPE: &str = crate::commitment_time::TimeCondition::Budget.uri();
 
 /// What a budget measures.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

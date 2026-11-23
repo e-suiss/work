@@ -534,6 +534,7 @@ def repeated(xs):
 KNOWN_PROTOCOLS = ([1, 0],)
 SEMANTIC_LIMITS = (("basis", 64), ("on_behalf_of", 8), ("relations", 256), ("concerns", 64))
 GATE_FORMS = {"approval", "pre_action_review", "delivery_acceptance"}
+TIME_CONDITIONS = {CORE + "condition/" + n for n in ("clock", "periodic", "budget")}
 GATE_RULES = {
     CORE + "condition/acceptance": {"delivery_acceptance"},
     CORE + "condition/decision": {"approval", "pre_action_review"},
@@ -580,13 +581,13 @@ def catalog_code(k, v, codes):
 
 def condition_params_ok(params, rec):
     condition = params.get("condition_type")
-    if not (condition in CONDITIONS or pinned(condition, rec)):
+    if not (condition in CONDITIONS or condition in TIME_CONDITIONS or pinned(condition, rec)):
         return False
     gate = params.get("gate_form")
     if condition in GATE_RULES:
         if gate not in GATE_RULES[condition]:
             return False
-    elif condition in CONDITIONS:
+    elif condition in CONDITIONS or condition in TIME_CONDITIONS:
         if gate is not None:
             return False
     elif gate is not None and gate not in GATE_FORMS:
@@ -849,7 +850,9 @@ def commitment_shape(rec):
     params = rec.get("params", {})
     handover = name == "handoff_note" or (name == "delegate" and params.get("step") == "proposal")
     other = any(params.get(k) == "other" for k in ("reason", "handover_reason"))
-    missing = (handover and not all(has_part(rec, x) for x in HANDOVER_PARTS)) or \
+    timed = name == "open_condition" and params.get("condition_type") in TIME_CONDITIONS
+    missing = (timed and not has_part(rec, "definition")) or \
+        (handover and not all(has_part(rec, x) for x in HANDOVER_PARTS)) or \
         ((other or name == "administrative_close") and not has_part(rec, "note"))
     if missing or (name == "expire" and not rec.get("basis")):
         return "schema:required_field"
@@ -2265,8 +2268,25 @@ c_accept_cases = [
                                   relations=supersedes(C_HEAD)), {}, ["CM-41"]),
     ("implicit-terms-withdrawn", commitment("implicit_acceptance_terms", params={"withdrawn": True},
                                             relations=supersedes(C_HEAD), n=1), {}, ["CM-41"]),
+    ("clock-condition", commitment("open_condition", params={
+        "condition_type": CORE + "condition/clock", "wait_reason": "internal", "address": SUPPLIER,
+        "deadline": "none", "criterion": CORE + "criterion/met"}, body=["definition"]), {}, ["CM-50"]),
+    ("periodic-condition-superseding", commitment("open_condition", params={
+        "condition_type": CORE + "condition/periodic", "wait_reason": "internal", "address": SUPPLIER,
+        "deadline": "none", "criterion": CORE + "criterion/met"}, body=["definition"],
+        relations=supersedes(label("record:condition.periodic")), n=1), {}, ["CM-51", "CM-53"]),
+    ("budget-condition", commitment("open_condition", params={
+        "condition_type": CORE + "condition/budget", "wait_reason": "internal", "address": SUPPLIER,
+        "deadline": "none", "criterion": CORE + "criterion/met"}, body=["definition"], n=2), {}, ["CM-48"]),
 ]
 c_reject_cases = [
+    ("clock-condition-without-definition", commitment("open_condition", params={
+        "condition_type": CORE + "condition/clock", "wait_reason": "internal", "address": SUPPLIER,
+        "deadline": "none", "criterion": CORE + "criterion/met"}), "schema:required_field", ["CM-50"]),
+    ("budget-condition-with-gate-form", commitment("open_condition", params={
+        "condition_type": CORE + "condition/budget", "wait_reason": "internal", "address": SUPPLIER,
+        "deadline": "none", "criterion": CORE + "criterion/met", "gate_form": "approval"},
+        body=["definition"], n=1), "schema:params", ["CM-48"]),
     ("promise-conditional-without-validity", commitment("promise_conditional", SUPPLIER, {
         "precondition": label("record:condition.budget")}), "schema:params", ["CM-22"]),
     ("decline-bare-other-without-note", commitment("decline", SUPPLIER, {"reason": "other"}),

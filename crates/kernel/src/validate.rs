@@ -10,6 +10,7 @@ use crate::catalog::{
     NoticeType, ProposalStep, RedactReason, RefuseReason, RejectReason, RevokeReason, StopAnswer,
     StopType, WaitReason, consequence,
 };
+use crate::commitment_time::{DEFINITION_PART, TimeCondition};
 use crate::id::{PartyRef, Time, canonical_text_cmp};
 use crate::limits::SemanticLimits;
 use crate::reason::{
@@ -215,11 +216,14 @@ fn reason_code<T>(value: &ParamValue, parse: impl Fn(&str) -> Option<T>) -> bool
 
 fn condition_type_ok(value: &ParamValue, practices: &[PracticePin]) -> bool {
     catalog_text(value, |t| {
-        ConditionType::from_uri(t).map(|_| ()).or_else(|| {
-            TypeUri::parse(t)
-                .filter(|u| !u.is_core() && pinned(u, practices))
-                .map(|_| ())
-        })
+        ConditionType::from_uri(t)
+            .map(|_| ())
+            .or_else(|| TimeCondition::from_uri(t).map(|_| ()))
+            .or_else(|| {
+                TypeUri::parse(t)
+                    .filter(|u| !u.is_core() && pinned(u, practices))
+                    .map(|_| ())
+            })
     })
 }
 
@@ -638,7 +642,12 @@ fn gate_form_ok(record: &Record) -> bool {
             | ConditionType::Time
             | ConditionType::ThirdParty,
         ) => !present,
-        None => true,
+        None => {
+            !present
+                || text_param(record, "condition_type")
+                    .and_then(TimeCondition::from_uri)
+                    .is_none()
+        }
     }
 }
 
@@ -819,7 +828,7 @@ fn commitment_params_ok(record: &Record, subtype: DeclarationSubtype) -> bool {
     }
 }
 
-/// The body parts and relations a commitment subtype requires (CM-17, CM-25, CM-33, CM-45, CM-61): the handover note's free-text parts, a `note` beside a bare `other` reason, the justification of an administrative close, the fulfilment of a `state`, and the validity basis of an `expire`.
+/// The body parts and relations a commitment subtype requires (CM-17, CM-25, CM-33, CM-45, CM-61, CM-48, CM-50, CM-53): the `definition` part of a clock, periodic or budget Condition, the handover note's free-text parts, a `note` beside a bare `other` reason, the justification of an administrative close, the fulfilment of a `state`, and the validity basis of an `expire`.
 fn commitment_shape(record: &Record, subtype: DeclarationSubtype) -> Result<(), Reason> {
     reject_if(
         !commitment_params_ok(record, subtype),
@@ -831,7 +840,12 @@ fn commitment_shape(record: &Record, subtype: DeclarationSubtype) -> Result<(), 
     let other = ["reason", "handover_reason"]
         .iter()
         .any(|k| text_param(record, k) == Some("other"));
-    let parts_missing = (handover && !HANDOVER_PARTS.iter().all(|p| has_part(record, p)))
+    let timed = subtype == DeclarationSubtype::OpenCondition
+        && text_param(record, "condition_type")
+            .and_then(TimeCondition::from_uri)
+            .is_some();
+    let parts_missing = (timed && !has_part(record, DEFINITION_PART))
+        || (handover && !HANDOVER_PARTS.iter().all(|p| has_part(record, p)))
         || ((other || subtype == DeclarationSubtype::AdministrativeClose)
             && !has_part(record, "note"));
     reject_if(

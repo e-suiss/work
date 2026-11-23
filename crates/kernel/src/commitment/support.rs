@@ -9,7 +9,7 @@ use crate::ontology::Obligor;
 use crate::reason::wire_enum;
 
 wire_enum! {
-    /// Why a sub-commitment raises a signal on the commitments it supports (CM-47); breach, warning tiers and a forecast past the parent's due time come from the commitment clock.
+    /// Why a sub-commitment raises a signal on the commitments it supports (CM-47); a clock warning or breach and a missed periodic report come from its time Conditions.
     SupportCause {
         /// The sub-commitment was cancelled.
         Cancelled => "cancelled",
@@ -21,6 +21,12 @@ wire_enum! {
         AtRisk => "at_risk",
         /// Its obligor gave a `cannot_complete` notice.
         CannotComplete => "cannot_complete",
+        /// Its clock reached a warning tier (CM-50).
+        ClockWarning => "clock_warning",
+        /// Its clock breached (CM-50).
+        ClockBreach => "clock_breach",
+        /// A periodic report of it was missed (CM-53).
+        ReportMissed => "report_missed",
     }
 }
 
