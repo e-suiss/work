@@ -10,6 +10,7 @@ use work_proto::position::Positions;
 pub mod authority;
 pub mod caller;
 pub mod commitments;
+pub mod control;
 pub mod kinds;
 pub mod notices;
 pub mod reads;

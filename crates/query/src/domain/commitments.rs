@@ -30,6 +30,7 @@ use work_ledger::Areas;
 use work_proto::id::PositionToken;
 use work_store::StoredLogEntry;
 
+use crate::domain::control::{self, ControlInputs, ControlRead, Logged, Opened};
 use crate::domain::reads::ReadRefusal;
 use crate::domain::tzdb;
 
@@ -195,6 +196,8 @@ pub struct Asked<'r> {
     pub step_up: bool,
     /// Whether a side of the commitment is an agent (CM-7).
     pub agent_side: bool,
+    /// Whether the executor declares the interrupting or rolling back change policy the record carries (CM-57).
+    pub control_supported: bool,
     /// The ledger time the write takes.
     pub now_ms: u64,
 }
@@ -248,6 +251,43 @@ impl Folded {
     #[must_use]
     pub fn version_of(&self, root: RecordId) -> u64 {
         self.areas.version(&ItemKey::Commitment(root))
+    }
+
+    /// Every record the fold reads, in ledger order, as the control projection reads it.
+    #[must_use]
+    pub fn logged(&self) -> Vec<Logged<'_>> {
+        self.entries()
+            .iter()
+            .map(|e| Logged {
+                id: e.id(),
+                pos: e.position(),
+                at: e.recorded_at(),
+                actor: e.author_actor(),
+                record: e.record(),
+            })
+            .collect()
+    }
+
+    /// The records whose `definition` part the control read of the commitment `root` by `party` opens, with their positions (RC-27, RC-33, RC-42).
+    ///
+    /// # Errors
+    /// [`FoldError::Derive`] when the kernel refuses the sequence.
+    pub fn control_positions(
+        &self,
+        root: &RecordId,
+        party: &PartyRef,
+    ) -> Result<Vec<(RecordId, u64)>, FoldError> {
+        let views = self.views(&facts())?;
+        let Some(view) = views.iter().find(|v| v.root == *root) else {
+            return Ok(Vec::new());
+        };
+        let logged = self.logged();
+        Ok(control::wanted(
+            &logged,
+            view,
+            &views,
+            &control::policy_principals(view, party),
+        ))
     }
 
     fn entries(&self) -> Vec<Entry<'_>> {
@@ -350,7 +390,7 @@ impl Folded {
             step_up: asked.step_up,
             access: AccessAnswer::Allow,
             agent_side: asked.agent_side,
-            control_supported: false,
+            control_supported: asked.control_supported,
         }
     }
 
@@ -495,6 +535,8 @@ pub struct CommitmentRead {
     pub at_ms: u64,
     /// The position the read reflects.
     pub position: PositionToken,
+    /// Its control at the evaluation time (RC-3, RC-8, RC-27 … RC-40, ST-4).
+    pub control: ControlRead,
 }
 
 /// What a commitment read evaluates besides the records: the opened `definition` parts of its time Conditions and the evaluation time.
@@ -502,6 +544,8 @@ pub struct CommitmentRead {
 pub struct Evaluation<'a> {
     /// The `definition` part of each Condition record [`Folded::definition_positions`] named, as opened.
     pub definitions: &'a BTreeMap<RecordId, Vec<u8>>,
+    /// The `definition` part of each control record [`Folded::control_positions`] named, as opened.
+    pub control: &'a Opened,
     /// The evaluation time, Unix milliseconds; the head's ledger time when it is earlier.
     pub now_ms: u64,
 }
@@ -567,9 +611,21 @@ pub fn read(
         actor,
         step_up: false,
     };
+    let next = next_for(view, &asking, &decided);
+    let logged = folded.logged();
+    let control = control::project(&ControlInputs {
+        logged: &logged,
+        view,
+        views: &views,
+        opened: evaluation.control,
+        caller: party,
+        allowed: &next.allowed,
+        now,
+    });
     Ok(CommitmentRead {
         ledger: *folded.ledger(),
-        next: next_for(view, &asking, &decided),
+        next,
+        control,
         implicit: commitment::implicit_acceptance(view, Time(at_ms), &base),
         signals,
         time,

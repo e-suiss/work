@@ -58,9 +58,9 @@ fn e_45_every_core_declaration_a_caller_writes_names_one_catalog_action() {
     );
 }
 
-// RC-42 RC-43
+// RC-42 RC-43 RC-37
 #[test]
-fn rc_42_the_executor_claims_are_six_distinct_extension_keys() {
+fn rc_42_the_executor_claims_are_distinct_extension_keys() {
     for (i, key) in EXECUTOR_EXT_KEYS.iter().enumerate() {
         assert!(
             key.starts_with("https://suiss.app/ns/work/executor."),

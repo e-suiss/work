@@ -83,10 +83,20 @@ impl Reads {
         folded: &Folded,
         root: &RecordId,
     ) -> Result<BTreeMap<RecordId, Vec<u8>>, ReadRefusal> {
-        let mut out = BTreeMap::new();
         let positions = folded
             .definition_positions(root)
             .map_err(|_| ReadRefusal::Unavailable)?;
+        self.open(ledger, positions).await
+    }
+
+    /// The opened `definition` part of each of `positions`; a part that is unreadable or
+    /// redacted is left out.
+    async fn open(
+        &self,
+        ledger: &LedgerId,
+        positions: Vec<(RecordId, u64)>,
+    ) -> Result<BTreeMap<RecordId, Vec<u8>>, ReadRefusal> {
+        let mut out = BTreeMap::new();
         let now_ms = self.clock.as_ref().map_or(0, |c| c.now_ms());
         for (record, pos) in positions {
             let parts = self
@@ -221,6 +231,10 @@ impl Reads {
             CallerKind::Service => ActorType::Agent,
         };
         let definitions = self.definitions(ledger, &folded, root).await?;
+        let wanted = folded
+            .control_positions(root, &party.reference)
+            .map_err(|_| ReadRefusal::Unavailable)?;
+        let control = self.open(ledger, wanted).await?;
         commitments::read(
             &folded,
             root,
@@ -229,6 +243,7 @@ impl Reads {
             self.position(caller, ledger, head)?,
             Evaluation {
                 definitions: &definitions,
+                control: &control,
                 now_ms: self.clock.as_ref().map_or(0, |c| c.now_ms()),
             },
         )

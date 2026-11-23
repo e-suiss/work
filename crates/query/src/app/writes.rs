@@ -16,7 +16,7 @@ use work_kernel::codec::{Decoded, decode_record, record_id};
 use work_kernel::commitment::{Definition, Operation, Refusal, condition_of};
 use work_kernel::commitment_time::DEFINITION_PART;
 use work_kernel::cose::{AuthorKeys, KeySet, parse_container};
-use work_kernel::id::{Digest, LedgerId, PartyRef, RecordId};
+use work_kernel::id::{Digest, LedgerId, PartyRef, RecordId, Time};
 use work_kernel::items::{ItemKey, touched};
 use work_kernel::limits::SemanticLimits;
 use work_kernel::ontology::{Commitment, Obligor};
@@ -35,6 +35,7 @@ use work_store::{
 use crate::app::caller::ACCESS_BOUND;
 use crate::domain::caller::Caller;
 use crate::domain::commitments::{Asked, Folded, LOG_PAGE, facts, fold, operation_of};
+use crate::domain::control::{self, ControlAsked, ControlLog, Opened};
 use crate::domain::kinds::{Kind, kind_of, record_action};
 use crate::domain::writes::{
     AuthContextGiven, AuthorityGiven, DeclarationRequest, WriteRefusal, Written, actor_type,
@@ -326,10 +327,17 @@ fn authority_of<'a>(
     Ok((given, intent))
 }
 
-/// The record a typed endpoint carries must be the kind it names (C-6).
+/// The record a typed endpoint carries must be the kind and shape it names (C-6).
 fn expected_operation(record: &Record, request: &DeclarationRequest) -> Result<(), WriteRefusal> {
     match &request.expected {
         Some(expected) if kind_of(record) != Some(expected.kind) => {
+            Err(WriteRefusal::Invalid("operation"))
+        }
+        Some(expected)
+            if expected
+                .form
+                .is_some_and(|form| !control::has_form(record, form)) =>
+        {
             Err(WriteRefusal::Invalid("operation"))
         }
         _ => Ok(()),
@@ -338,7 +346,8 @@ fn expected_operation(record: &Record, request: &DeclarationRequest) -> Result<(
 
 /// The version `If-Match` names: the commitment or Condition a continuation touches, otherwise
 /// the first Work the record concerns; a typed endpoint's continuation must continue the
-/// commitment it names (P-54 item 5, T-89, C-6).
+/// commitment it names, and a control record must cite its `request` in `basis` (P-54 item 5,
+/// T-89, C-6).
 fn expected_version(
     record: &Record,
     request: &DeclarationRequest,
@@ -346,10 +355,12 @@ fn expected_version(
     work_version: u64,
 ) -> Result<(), WriteRefusal> {
     let area = folded.and_then(|f| f.area_for(record));
-    if let Some(commitment) = request.expected.and_then(|e| e.commitment)
-        && area.as_ref().map(|a| a.item) != Some(ItemKey::Commitment(commitment))
-    {
-        return Err(WriteRefusal::Invalid("commitment"));
+    if let Some(commitment) = request.expected.and_then(|e| e.commitment) {
+        let continues = area.as_ref().map(|a| a.item) == Some(ItemKey::Commitment(commitment));
+        let cites = control::is_control(record) && record.basis().contains(&commitment);
+        if !(continues || cites) {
+            return Err(WriteRefusal::Invalid("commitment"));
+        }
     }
     if area.map_or(work_version, |a| a.version) != request.if_match {
         return Err(WriteRefusal::PreconditionFailed);
@@ -701,11 +712,39 @@ where
         Ok(kinds.values().any(|k| actor_type(*k) == ActorType::Agent))
     }
 
-    /// The kernel's validity check of a commitment or responsibility operation, or of an
-    /// `acknowledgement` in a commitment chain, before it is written (CM-19, RC-17, RC-5): a
-    /// refused operation writes nothing into the log, its refusal is kept under the request's
-    /// idempotency key and answered with the kernel's reason; a refusal that cannot be kept is
-    /// `not_recorded`, and the same request asks again.
+    /// The opened `definition` part of each of `positions` at ledger time `now_ms`; a part
+    /// that is unreadable is left out.
+    async fn opened(
+        &self,
+        ledger: &LedgerId,
+        positions: Vec<(RecordId, u64)>,
+        now_ms: u64,
+    ) -> Result<Opened, WriteRefusal> {
+        let mut out = Opened::new();
+        for (record, pos) in positions {
+            let parts = self
+                .parts(ledger, pos, now_ms)
+                .await
+                .map_err(|_| WriteRefusal::NotRecorded)?;
+            let found = parts.into_iter().find_map(|(name, read)| match read {
+                PartRead::Readable(o) if name == DEFINITION_PART => Some(o.content),
+                PartRead::Readable(_) | PartRead::Unreadable => None,
+            });
+            if let Some(content) = found {
+                out.insert(record, content);
+            }
+        }
+        Ok(out)
+    }
+
+    /// The kernel's validity check of a commitment or responsibility operation, of an
+    /// `acknowledgement` in a commitment chain, and of a control record or an operator
+    /// correction, before it is written (CM-19, CM-57, RC-17, RC-5, RC-3, RC-26 … RC-40,
+    /// SEC-7): the executor's capability declaration, control mode Claims and the commitment's
+    /// control leases are read from their opened `definition` parts; a refused record writes
+    /// nothing into the log, its refusal is kept under the request's idempotency key and
+    /// answered with the kernel's reason; a refusal that cannot be kept is `not_recorded`, and
+    /// the same request asks again.
     async fn gate(
         &self,
         at: &Admission<'_>,
@@ -719,37 +758,93 @@ where
             kind,
             Some(Kind::Responsibility(_) | Kind::Declaration(DeclarationSubtype::Acknowledgement))
         );
-        if !(commitment || responsibility) {
+        let controlled = control::checked(record);
+        if !(commitment || responsibility || controlled) {
             return Ok(());
         }
         let folded = at.folded.ok_or(WriteRefusal::NotRecorded)?;
-        let asked = Asked {
-            record,
-            id: record_id(&at.carried.bytes),
-            author_actor: admitted.author_actor,
-            step_up: admitted.pending.step_up(),
-            agent_side: if commitment {
-                self.agent_side(at.domain, record, admitted.author_actor)
-                    .await?
-            } else {
-                false
-            },
-            now_ms: at.now_ms,
+        let views = folded
+            .views(&facts())
+            .map_err(|_| WriteRefusal::NotRecorded)?;
+        let logged = folded.logged();
+        let none = Opened::new();
+        let bare = ControlLog {
+            logged: &logged,
+            views: &views,
+            opened: &none,
         };
-        let reason = if commitment {
-            match folded.check(&asked, &facts()) {
-                Ok(Ok(_)) => return Ok(()),
-                Ok(Err(refusal)) => format!("commitment:{}", refusal.wire_name()),
-                Err(_) => return Err(WriteRefusal::NotRecorded),
-            }
-        } else {
-            match folded.check_responsibility(&asked, &facts()) {
-                Ok(Some(Ok(_))) => return Ok(()),
-                Ok(None) if matches!(kind, Some(Kind::Declaration(_))) => return Ok(()),
-                Ok(None) => format!("responsibility:{}", Refusal::NothingPending.wire_name()),
-                Ok(Some(Err(refusal))) => format!("responsibility:{}", refusal.wire_name()),
-                Err(_) => return Err(WriteRefusal::NotRecorded),
-            }
+        let mut wanted = control::capability_wanted(record, &logged, &views);
+        if controlled
+            && let Some(view) = control::concerned(record, &bare)
+                .and_then(|root| views.iter().find(|v| v.root == root))
+        {
+            wanted.extend(control::wanted(&logged, view, &views, &[]));
+        }
+        let opened = self.opened(at.ledger, wanted, at.now_ms).await?;
+        let log = ControlLog {
+            logged: &logged,
+            views: &views,
+            opened: &opened,
+        };
+        let id = record_id(&at.carried.bytes);
+        let now = Time(at.now_ms.max(folded.head().1));
+        let mut reason: Option<String> = None;
+        if commitment || responsibility {
+            let asked = Asked {
+                record,
+                id,
+                author_actor: admitted.author_actor,
+                step_up: admitted.pending.step_up(),
+                agent_side: if commitment {
+                    self.agent_side(at.domain, record, admitted.author_actor)
+                        .await?
+                } else {
+                    false
+                },
+                control_supported: commitment && control::control_supported(record, &log, now),
+                now_ms: at.now_ms,
+            };
+            reason = if commitment {
+                match folded.check(&asked, &facts()) {
+                    Ok(Ok(_)) => None,
+                    Ok(Err(refusal)) => Some(format!("commitment:{}", refusal.wire_name())),
+                    Err(_) => return Err(WriteRefusal::NotRecorded),
+                }
+            } else {
+                match folded.check_responsibility(&asked, &facts()) {
+                    Ok(Some(Ok(_))) => None,
+                    Ok(None) if matches!(kind, Some(Kind::Declaration(_))) => None,
+                    Ok(None) => Some(format!(
+                        "responsibility:{}",
+                        Refusal::NothingPending.wire_name()
+                    )),
+                    Ok(Some(Err(refusal))) => {
+                        Some(format!("responsibility:{}", refusal.wire_name()))
+                    }
+                    Err(_) => return Err(WriteRefusal::NotRecorded),
+                }
+            };
+        }
+        if reason.is_none() && controlled {
+            let definition = at
+                .request
+                .body
+                .iter()
+                .find(|o| o.part == DEFINITION_PART)
+                .map(|o| o.content.as_slice());
+            let asked = ControlAsked {
+                record,
+                id,
+                author_actor: admitted.author_actor,
+                now,
+                definition,
+            };
+            reason = control::check_control(&asked, &log)
+                .err()
+                .map(|r| r.reason());
+        }
+        let Some(reason) = reason else {
+            return Ok(());
         };
         if let Some(claim) = claim {
             self.sequence
@@ -908,6 +1003,7 @@ where
             author_actor: admitted.author_actor,
             step_up: admitted.pending.step_up(),
             agent_side: false,
+            control_supported: false,
             now_ms: at.now_ms,
         };
         let Some((root, ends)) = folded

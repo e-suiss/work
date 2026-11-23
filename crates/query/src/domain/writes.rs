@@ -17,6 +17,7 @@ pub use work_ledger::BodyOpening;
 use work_ledger::{BodyError, MAX_MEDIA_TYPE, MAX_PART};
 use work_proto::id::ExternalId as _;
 
+pub use crate::domain::control::Form;
 pub use crate::domain::kinds::Kind;
 
 /// The Access action namespace of Work (E-45 item 1).
@@ -117,8 +118,11 @@ pub struct Expected {
     /// The record kind.
     pub kind: Kind,
     /// The commitment, by its `request`; `None` for a `request` and a record that continues
-    /// no commitment.
+    /// no commitment. A control record names it by citing its `request` in `basis`.
     pub commitment: Option<RecordId>,
+    /// The shape a control endpoint names beyond the kind: a consultation or an operator
+    /// correction (RC-31, RC-40).
+    pub form: Option<Form>,
 }
 
 /// A written record.

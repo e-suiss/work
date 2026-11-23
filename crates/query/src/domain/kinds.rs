@@ -11,14 +11,18 @@ use work_kernel::responsibility::ResponsibilityOperation;
 
 use crate::domain::commitments::action_of;
 
-/// The extension keys of the executor coordination Claims (RC-42, RC-43).
-pub const EXECUTOR_EXT_KEYS: [&str; 6] = [
+/// The extension key of a recorded forced stop, an `observation` Claim whose value is the deterministic CBOR text of its source, `access_revocation` or `enforcement` (RC-37, RC-38).
+pub const FORCED_STOP_EXT_KEY: &str = "https://suiss.app/ns/work/executor.forced_stop/1";
+
+/// The extension keys of the executor coordination Claims and of a recorded forced stop (RC-37, RC-42, RC-43).
+pub const EXECUTOR_EXT_KEYS: [&str; 7] = [
     CAPABILITY_EXT_KEY,
     STATUS_EXT_KEY,
     CONTROL_MODE_EXT_KEY,
     HEARTBEAT_EXT_KEY,
     REPORT_EXT_KEY,
     SESSION_EXT_KEY,
+    FORCED_STOP_EXT_KEY,
 ];
 
 /// What a record is to a typed write (C-6).
