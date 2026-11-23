@@ -291,7 +291,7 @@ fn rc_42_contract_bodies_match_their_vectors() {
             "report" => check_case(case, ProgressReport::decode, ProgressReport::encode),
             "status-report" => check_case(case, StatusReport::decode, StatusReport::encode),
             "control-mode" => {
-                check_case(case, ControlModeReport::decode, ControlModeReport::encode)
+                check_case(case, ControlModeReport::decode, ControlModeReport::encode);
             }
             "handover" => check_case(case, Handover::decode, Handover::encode),
             "heartbeat" => check_case(case, Heartbeat::decode, Heartbeat::encode),
@@ -601,7 +601,7 @@ fn rc_27_access_deny_is_final_and_autonomy_stays_inside_authority() {
         Restriction::NoObjection,
     );
     assert_eq!(out.outcome, AutonomyOutcome::Proceed);
-    assert!(out.causes.is_empty());
+    assert_eq!(out.causes, Vec::new());
 }
 
 // RC-28
@@ -771,8 +771,8 @@ fn rc_29_a_deviation_is_a_reasoned_event_and_repeats_only_suggest() {
     assert_eq!(suggested.len(), 1);
     assert_eq!(suggested[0].action, "erp.order.release");
     assert_eq!(suggested[0].approvals, 3);
-    assert!(suggest_expansions(&decisions, 4).is_empty());
-    assert!(suggest_expansions(&decisions, 0).is_empty());
+    assert_eq!(suggest_expansions(&decisions, 4), Vec::new());
+    assert_eq!(suggest_expansions(&decisions, 0), Vec::new());
 }
 
 // RC-49
@@ -1211,7 +1211,7 @@ fn rc_34_an_unsupported_intervention_is_never_offered() {
         ),
         Err(RequestRefusal::Unsupported)
     );
-    assert!(offered_requests(None, auto, false).is_empty());
+    assert_eq!(offered_requests(None, auto, false), Vec::new());
     assert_eq!(
         check_request(request(RequestKind::Start), None, auto, false),
         Err(RequestRefusal::Undeclared)
@@ -1415,7 +1415,7 @@ fn rc_38_only_the_executor_claim_shows_stopped_and_a_refusal_reaches_attention()
     let paused = &at_6000[1];
     assert_eq!(paused.state, StopState::Confirmed);
     assert_eq!(paused.confirmation, Some(id(75)));
-    assert!(paused.attention.is_empty());
+    assert_eq!(paused.attention, Vec::new());
     assert!(!paused.revocation_path);
 }
 
@@ -1633,7 +1633,7 @@ fn rc_43_the_integration_depth_bounds_what_work_delivers() {
         heartbeat: None,
         depth: Depth::ReadOnly,
     };
-    assert!(offered_requests(Some(&read_only), auto, false).is_empty());
+    assert_eq!(offered_requests(Some(&read_only), auto, false), Vec::new());
     assert_eq!(
         check_request(stop(StopType::Immediate), Some(&read_only), auto, false),
         Err(RequestRefusal::ReadOnly)
