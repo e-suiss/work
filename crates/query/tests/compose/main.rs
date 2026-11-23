@@ -1665,7 +1665,7 @@ mod commit {
     use work_ledger::{BodyKeys, BodyReader, GenesisInput, PartRead, SystemRng, genesis};
     use work_proto::id::ExternalId as _;
     use work_store::{
-        AccessPool, CellId, Durability, ExportLog, ReceivedRole, SequencerPool, WindowHit,
+        AccessPool, CellId, Durability, ExportLog, LedgerTx, ReceivedRole, SequencerPool, WindowHit,
     };
 
     use super::{
@@ -2894,7 +2894,9 @@ mod commit {
     /// kernel refuses the operation before anything is written, the refusal is answered with
     /// its reason and kept under the request's key, so the same request answers it again; the
     /// commitment then reads as its records derive it, with the transitions the user may make
-    /// and the obligor holding the next move (CM-19, P-55, CM-58, CM-2, C-6).
+    /// and the obligor holding the next move (CM-19, P-55, CM-58, CM-2, C-6). The release ends
+    /// the obligor's `commitment.active`, and since that obligor has no Access PartyID no
+    /// `commitment_active` Claim is queued for Access with the record (E-8, E-12, WD-146 item 1).
     async fn refused_and_read(local: &Local, w: &Writer, opened: work_kernel::id::RecordId) {
         let cmt = work_proto::id::CommitmentId(opened).to_external();
         let promise = golden_commitment(
@@ -2988,6 +2990,16 @@ mod commit {
             "{view}"
         );
         assert_eq!(view["allowed"].as_array().map(Vec::len), Some(0), "{view}");
+        let pool = work_store::connect(APP, "work-compose-test", Duration::from_secs(30))
+            .await
+            .unwrap();
+        let mut tx = LedgerTx::begin(&pool, &store_ledger(&w.led)).await.unwrap();
+        let queued = tx
+            .claim_deliveries(record_id(&release).0.as_bytes())
+            .await
+            .unwrap();
+        tx.rollback().await.unwrap();
+        assert_eq!(queued, vec![], "{view}");
     }
 
     // E-12 E-8

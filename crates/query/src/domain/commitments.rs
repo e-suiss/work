@@ -5,9 +5,9 @@ use std::collections::BTreeMap;
 use work_kernel::catalog::DeclarationSubtype;
 use work_kernel::codec::{Decoded, decode_record, leaf_hash, record_id};
 use work_kernel::commitment::{
-    self, AccessAnswer, Allowed, Caller as Asking, CommitmentView, Facts, ImplicitAcceptance,
-    Mover, Operation, Proposed, Refusal, StepOutcome, SupportSignal, TimeInputs, TimeProjection,
-    clock_signals, definition_records, project_time, zones_named,
+    self, AccessAnswer, ActiveEnd, Allowed, Caller as Asking, CommitmentView, Facts,
+    ImplicitAcceptance, Mover, Operation, Proposed, Refusal, StepOutcome, SupportSignal,
+    TimeInputs, TimeProjection, clock_signals, definition_records, project_time, zones_named,
 };
 use work_kernel::cose::parse_container;
 use work_kernel::derive::{
@@ -310,6 +310,49 @@ impl Folded {
         ))
     }
 
+    /// The ends of `commitment.active` `asked` gives once it is written, with the commitment
+    /// they end, its `request` (E-8, E-12): those the commitment fold derives for it when it
+    /// is applied after the head; none for a record that continues no commitment.
+    ///
+    /// # Errors
+    /// [`FoldError::Derive`] when the kernel refuses the sequence.
+    pub fn ends(
+        &self,
+        asked: &Asked<'_>,
+        facts: &Facts<'_>,
+    ) -> Result<Option<(RecordId, Vec<ActiveEnd>)>, FoldError> {
+        let entries = self.entries();
+        let derivation =
+            derive(&entries, &self.inputs()).map_err(|e| FoldError::Derive(e.code()))?;
+        let views = commitment::derive_commitments(&entries, &derivation, facts);
+        let records: BTreeMap<RecordId, &Record> =
+            entries.iter().map(|e| (e.id(), e.record())).collect();
+        let Some(view) = asked
+            .record
+            .supersedes()
+            .next()
+            .and_then(|t| commitment_of(&views, t))
+        else {
+            return Ok(None);
+        };
+        let ends = commitment::active_ends_of(view, &self.proposed(asked), &records, facts);
+        Ok(Some((view.root, ends)))
+    }
+
+    fn proposed<'r>(&self, asked: &Asked<'r>) -> Proposed<'r> {
+        Proposed {
+            id: asked.id,
+            record: asked.record,
+            position: self.head.saturating_add(1),
+            recorded_at: Time(asked.now_ms.max(self.head_at)),
+            author_actor: asked.author_actor,
+            step_up: asked.step_up,
+            access: AccessAnswer::Allow,
+            agent_side: asked.agent_side,
+            control_supported: false,
+        }
+    }
+
     /// The kernel's validity check of `asked` against the commitment its chain derives (CM-19):
     /// the operation, or the refusal that keeps it out of the ledger. The write has already
     /// been allowed by Access for the operation's action, so Access's answer is an allow, and
@@ -333,18 +376,12 @@ impl Folded {
             .supersedes()
             .next()
             .and_then(|t| commitment_of(&views, t));
-        let proposed = Proposed {
-            id: asked.id,
-            record: asked.record,
-            position: self.head.saturating_add(1),
-            recorded_at: Time(asked.now_ms.max(self.head_at)),
-            author_actor: asked.author_actor,
-            step_up: asked.step_up,
-            access: AccessAnswer::Allow,
-            agent_side: asked.agent_side,
-            control_supported: false,
-        };
-        Ok(commitment::check(view, &proposed, &records, facts))
+        Ok(commitment::check(
+            view,
+            &self.proposed(asked),
+            &records,
+            facts,
+        ))
     }
 }
 

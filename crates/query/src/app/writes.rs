@@ -6,7 +6,6 @@ use std::sync::Arc;
 
 use tokio::time::timeout;
 use work_access_client::app::{Client, Looked};
-use work_access_client::domain::commitments::{Ended, Verdict};
 use work_access_client::domain::discovery::Issuer;
 use work_access_client::domain::exercise::{Intent, VerifiedExercise};
 use work_access_client::domain::keys::{AsOf, DomainId, KernelId, Kid};
@@ -28,8 +27,8 @@ use work_ledger::{
     SubmitError, admit,
 };
 use work_store::{
-    AccessPool, CallerRef, IdempotencyDecision, ItemRef, LedgerTx, Pool, RealmState, StoreError,
-    StoredLogEntry, StoredOutcome,
+    AccessPool, CallerRef, ClaimRow, IdempotencyDecision, ItemRef, LedgerTx, Pool, RealmState,
+    StoreError, StoredLogEntry, StoredOutcome,
 };
 
 use crate::app::caller::ACCESS_BOUND;
@@ -848,7 +847,9 @@ where
             None => self.signed(&at, claim).await?,
         };
         self.gate(&at, &admitted, kept.as_ref()).await?;
+        let claims = self.claims(&at, &admitted).await?;
         let mut pending = admitted.pending;
+        pending.end_claims(claims);
         pending
             .keep_authority_proof(AuthorityProofKind::DecisionReceipt, &exercise.receipt)
             .map_err(|_| WriteRefusal::Denied("authority_digest"))?;
@@ -859,113 +860,77 @@ where
             .submit(&store_ledger(ledger), pending)
             .await
             .map_err(|e| submit_refusal(&e))?;
-        let written = Written {
+        Ok(Written {
             record: record_id(&carried.bytes),
             pos: committed.pos,
             replayed: false,
-        };
-        if operation_of(record).is_some_and(|op| op != Operation::Request) {
-            self.publish_ends(caller, ledger, domain, &written, committed.recorded_at_ms)
-                .await;
-        }
-        Ok(written)
+        })
     }
 
-    /// The ends of `commitment.active` the record `written` gave, read back from the ledger
-    /// with it, as Claims of Work's service Party in `domain` issued at `at_ms` (E-8, E-12).
-    async fn ends(
+    /// The `commitment_active` Claim of each end of `commitment.active` the record gives once
+    /// written, as Work's service Party in the realm's governing domain over Work's PEP (E-8,
+    /// E-12, WD-146 items 1 and 5): computed before the write from the fold of the log with the
+    /// record applied after the head, and written in the same transaction as the record, so
+    /// every end a committed record gives reaches Access from its delivery row and none is
+    /// sent for a record that was not written. An obligor without an Access PartyID gets none;
+    /// Work only ends commitment-scoped authority and never starts it.
+    async fn claims(
         &self,
-        caller: &Caller,
-        ledger: &LedgerId,
-        domain: DomainId,
-        written: &Written,
-        at_ms: u64,
-    ) -> Result<Vec<Ended>, &'static str> {
+        at: &Admission<'_>,
+        admitted: &Admitted,
+    ) -> Result<Vec<ClaimRow>, WriteRefusal> {
+        let record = &at.carried.record;
+        if operation_of(record).is_none_or(|op| op == Operation::Request) {
+            return Ok(Vec::new());
+        }
+        let folded = at.folded.ok_or(WriteRefusal::NotRecorded)?;
+        let asked = Asked {
+            record,
+            id: record_id(&at.carried.bytes),
+            author_actor: admitted.author_actor,
+            step_up: admitted.pending.step_up(),
+            agent_side: false,
+            now_ms: at.now_ms,
+        };
+        let Some((root, ends)) = folded
+            .ends(&asked, &facts())
+            .map_err(|_| WriteRefusal::NotRecorded)?
+        else {
+            return Ok(Vec::new());
+        };
+        let subjects: BTreeSet<[u8; 16]> = ends
+            .iter()
+            .filter_map(|e| kernel_id(&e.obligor))
+            .map(|k| k.0)
+            .collect();
+        if subjects.is_empty() {
+            return Ok(Vec::new());
+        }
         let pep = self
             .audience
             .as_deref()
             .and_then(|a| from_b64url(a).ok())
             .and_then(|a| <[u8; 32]>::try_from(a).ok())
-            .ok_or("audience")?;
+            .ok_or(WriteRefusal::Unverifiable("audience_unset"))?;
         let issuer = self
             .realms
-            .realms(caller.tenant.as_str())
+            .realms(at.caller.tenant.as_str())
             .await
-            .map_err(|_| "realm_unreadable")?
+            .map_err(|_| WriteRefusal::Unverifiable("realm_unreadable"))?
             .into_iter()
-            .find(|r| r.realm == caller.realm && r.state == RealmState::Paired)
+            .find(|r| r.realm == at.caller.realm && r.state == RealmState::Paired)
             .and_then(|r| r.party)
-            .ok_or("service_party")?;
-        let mut tx = LedgerTx::begin_snapshot(&self.canonical, &store_ledger(ledger))
-            .await
-            .map_err(|_| "ledger_unreadable")?;
-        let log = log_of(&mut tx).await;
-        let _closed = tx.rollback().await;
-        let folded =
-            fold(ledger, &log.map_err(|_| "ledger_unreadable")?).map_err(|_| "ledger_unfolded")?;
-        let views = folded.views(&facts()).map_err(|_| "ledger_unfolded")?;
-        Ok(views
-            .iter()
-            .flat_map(|v| {
-                v.active_ends
-                    .iter()
-                    .filter(|e| e.record == written.record)
-                    .filter_map(move |e| {
-                        Some(Ended {
-                            domain,
-                            issuer: KernelId(issuer),
-                            subject: kernel_id(&e.obligor)?,
-                            commitment: *v.root.0.as_bytes(),
-                            issued_at_ms: at_ms,
-                            pep,
-                        })
-                    })
+            .ok_or(WriteRefusal::Unverifiable("realm_unpaired"))?;
+        Ok(subjects
+            .into_iter()
+            .map(|subject| ClaimRow {
+                subject,
+                commitment: *root.0.as_bytes(),
+                issuer,
+                domain: at.domain.0,
+                pep,
             })
             .collect())
-    }
-
-    /// Hands Access the `commitment.active = false` Claim of every end the record `written`
-    /// gave (E-8, E-12): Work only ends commitment-scoped authority and never starts it. The
-    /// record is written whatever Access answers; every end stays derivable from the records,
-    /// and the same end gives the same Claim, so handing it over again is a replay.
-    async fn publish_ends(
-        &self,
-        caller: &Caller,
-        ledger: &LedgerId,
-        domain: DomainId,
-        written: &Written,
-        at_ms: u64,
-    ) {
-        let ends = match self.ends(caller, ledger, domain, written, at_ms).await {
-            Ok(ends) => ends,
-            Err(reason) => {
-                tracing::warn!(
-                    event = "commitment.active_end_unread",
-                    reason,
-                    "the ends of commitment.active a record gave are not read"
-                );
-                return;
-            }
-        };
-        for ended in &ends {
-            match bounded(self.access.commitment_ended(ended)).await {
-                Ok(Verdict::Admitted { replayed, .. }) => tracing::info!(
-                    event = "commitment.active_ended",
-                    replayed,
-                    "Access admitted the commitment.active = false Claim"
-                ),
-                Ok(Verdict::Quarantined { reason, .. }) => tracing::warn!(
-                    event = "commitment.active_end_held",
-                    reason = reason.as_str(),
-                    "Access holds the commitment.active = false Claim"
-                ),
-                Err(error) => tracing::warn!(
-                    event = "commitment.active_end_unsent",
-                    error = %error,
-                    "the commitment.active = false Claim did not reach Access"
-                ),
-            }
-        }
     }
 }
 
