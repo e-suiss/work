@@ -2818,6 +2818,7 @@ tests = [
   "crates/query/src/domain/executor/tests.rs::rc_42_a_stop_request_and_a_resume_deliver_their_request_and_other_records_none",
   "crates/query/src/domain/executor/tests.rs::rc_42_each_contract_element_travels_as_a_record_of_its_fixed_kind",
   "crates/query/src/domain/kinds/tests.rs::rc_42_the_executor_claims_are_distinct_extension_keys",
+  "crates/query/src/domain/responsibility/tests.rs::rc_18_the_lease_runs_from_the_claim_and_its_expiry_returns_the_work_to_the_pool",
 ]
 
 [[rule]]

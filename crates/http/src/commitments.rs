@@ -25,7 +25,6 @@ use work_query::domain::writes::{Expected, Form, Kind, Written};
 
 use crate::common::RequestContext;
 use crate::conditional::etag;
-use crate::control::ControlAnswer;
 use crate::json::rfc3339_millis;
 use crate::position::{WORK_POSITION, min_position, position_header};
 use crate::problem::{Problem, ProblemCode};
@@ -278,16 +277,14 @@ pub struct CommitmentAnswer {
     pub signals: Vec<SignalAnswer>,
     /// Its clocks, periodic updates and budgets at the evaluation time (CM-48, CM-50, CM-53).
     pub time: TimeAnswer,
-    /// Its accountability, assignment, lease, ping-pong and assignment history (RC-1…RC-25).
+    /// Its accountability, assignment, lease, ping-pong and assignment history, and its control:
+    /// the requests offered, the autonomy of the caller's moves, the control axes, the stop
+    /// requests and the interventions (RC-1…RC-40, ST-4).
     pub responsibility: ResponsibilityAnswer,
     /// The ledger time the answer reflects, RFC 3339 UTC.
     pub at: String,
     /// The positions the answer reflects, `pos_…` (T-97 item 2).
     pub position: String,
-    /// Its control: the requests offered, the autonomy of the caller's moves, the control
-    /// axes, the stop requests, the interventions and the ownership lease (RC-3, RC-8, RC-27 …
-    /// RC-40, ST-4).
-    pub control: ControlAnswer,
 }
 
 fn time(t: Time) -> String {
@@ -856,7 +853,6 @@ impl CommitmentAnswer {
             responsibility: ResponsibilityAnswer::of(read),
             at: time(Time(read.at_ms)),
             position: read.position.to_external(),
-            control: ControlAnswer::of(&read.control),
         }
     }
 }

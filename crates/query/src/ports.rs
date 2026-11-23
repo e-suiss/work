@@ -81,9 +81,7 @@ pub trait WorkReads: Send + Sync {
 
     /// The open workload of `party` in `ledger` as `caller` may read it (RC-24); `min` is a
     /// `Work-Min-Position` token.
-    fn workload<'a>(
-        party: &'a PartyRef,
-    ) -> Pending<'a, Result<WorkloadRead, ReadRefusal>>;
+    fn workload<'a>(party: &'a PartyRef) -> Pending<'a, Result<WorkloadRead, ReadRefusal>>;
 }
 
 /// The consequential writes of a named caller (P-13, P-21, E-45).

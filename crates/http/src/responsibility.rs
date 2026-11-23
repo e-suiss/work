@@ -25,6 +25,10 @@ use work_query::domain::writes::Kind;
 
 use crate::commitments::{AllowedAnswer, Typed, write};
 use crate::common::RequestContext;
+use crate::control::{
+    ControlAnswer, ControlAutonomyAnswer, ControlAxesAnswer, ControlInterventionAnswer,
+    ControlRequestAnswer, ControlStopAnswer,
+};
 use crate::json::rfc3339_millis;
 use crate::position::{WORK_POSITION, min_position, position_header};
 use crate::problem::{Problem, ProblemCode};
@@ -256,6 +260,25 @@ pub struct ResponsibilityAnswer {
     pub ping_pong: PingPongAnswer,
     /// The assignment history.
     pub history: Vec<HistoryAnswer>,
+    /// The executor: the obligor in force; only its Claims count (RC-41).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub executor: Option<String>,
+    /// The executor's capability declaration in force, `rec_…`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub capability: Option<String>,
+    /// The control requests Work offers now: only those the capability declaration, the
+    /// integration depth and the control mode allow (RC-3, RC-34).
+    pub offered_requests: Vec<ControlRequestAnswer>,
+    /// The autonomy of the caller's moves (RC-27, RC-28, RC-49).
+    pub autonomy: ControlAutonomyAnswer,
+    /// Authority, control mode, execution, liveness and the driver, as separate axes; absent
+    /// without an executor (RC-30, RC-32, RC-33, ST-4).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub control: Option<ControlAxesAnswer>,
+    /// Every stop request and how it stands (RC-36, RC-38).
+    pub stops: Vec<ControlStopAnswer>,
+    /// The actions around takeovers (RC-8).
+    pub interventions: Vec<ControlInterventionAnswer>,
 }
 
 fn hold(h: &Hold) -> HoldAnswer {
@@ -361,6 +384,7 @@ impl ResponsibilityAnswer {
             .map_or((None, None), |h| (h.lease, Some(rec(&h.record))));
         let (status, expires) = lease_status(r.lease);
         let (accountable, source) = accountable(a);
+        let control = ControlAnswer::of(&read.control);
         Self {
             accountable,
             source,
@@ -420,6 +444,13 @@ impl ResponsibilityAnswer {
                 .iter()
                 .map(|e| history_entry(e, r.reasons.get(&e.record)))
                 .collect(),
+            executor: control.executor,
+            capability: control.capability,
+            offered_requests: control.offered_requests,
+            autonomy: control.autonomy,
+            control: control.control,
+            stops: control.stops,
+            interventions: control.interventions,
         }
     }
 }

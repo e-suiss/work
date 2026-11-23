@@ -300,10 +300,16 @@ impl Ledger {
         self.organization.is_some() || source != AccountabilitySource::OrgRule || rule.is_some()
     }
 
-    /// The responsibility of `view` at ledger time `now` (RC-1…RC-25): Access's candidate
-    /// membership and the activity that renews a lease are not known here.
+    /// The responsibility of `view` at ledger time `now` (RC-1…RC-25), the lease renewed by the
+    /// executor's `activity` times (WD-150 item 19); Access's candidate membership is not known
+    /// here.
     #[must_use]
-    pub fn commitment(&self, view: &CommitmentView, now: Time) -> Responsibility {
+    pub fn commitment(
+        &self,
+        view: &CommitmentView,
+        now: Time,
+        activity: &[Time],
+    ) -> Responsibility {
         let organization = self
             .organization
             .clone()
@@ -323,7 +329,7 @@ impl Ledger {
             accountability: self.known(derived.source, derived.rule).then_some(derived),
             chain,
             state: allocation_state(view, now, None),
-            lease: lease_status(view, now, &[]),
+            lease: lease_status(view, now, activity),
             ping_pong: ping_pong(view),
             signals: allocation_signals(view, now, &[], None),
             reasons,

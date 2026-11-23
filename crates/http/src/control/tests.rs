@@ -52,8 +52,10 @@ fn e_45_every_control_record_has_one_typed_write_naming_its_action() {
         assert!(post["responses"]["422"].is_object(), "{path}");
     }
     assert!(paths.contains_key("/v1/ledgers/{ledger}/commitments/{commitment}/resume"));
-    let schema = &doc["components"]["schemas"]["CommitmentAnswer"]["properties"]["control"];
-    assert!(schema.is_object());
+    let nested = &doc["components"]["schemas"]["ResponsibilityAnswer"]["properties"];
+    for field in ["offered_requests", "autonomy", "control", "stops"] {
+        assert!(nested[field].is_object(), "{field}");
+    }
 }
 
 fn party(s: &str) -> PartyRef {

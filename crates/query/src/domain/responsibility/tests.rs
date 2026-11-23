@@ -359,7 +359,7 @@ fn rc_5_pooled_work_names_the_queue_owner_as_its_derived_accountable_and_its_cha
     let q = version(id(1), id(1), 1, &record);
     let ledger = ledger(vec![q.clone()], Vec::new());
     assert_eq!(ledger.organization(), Some(&party(ORG)));
-    let pool = ledger.commitment(&pooled(id(2), &q), Time(2000));
+    let pool = ledger.commitment(&pooled(id(2), &q), Time(2000), &[]);
     let a = pool.accountability.unwrap();
     assert_eq!(
         (a.party.as_str(), a.source, a.derived),
@@ -374,7 +374,7 @@ fn rc_5_pooled_work_names_the_queue_owner_as_its_derived_accountable_and_its_cha
     );
     assert_eq!(pool.state, AllocationState::Pooled);
     assert_eq!(pool.lease, LeaseStatus::NoLease);
-    let taken = ledger.commitment(&held(id(2), &q, BOB, id(3), 3000), Time(4000));
+    let taken = ledger.commitment(&held(id(2), &q, BOB, id(3), 3000), Time(4000), &[]);
     assert_eq!(taken.state, AllocationState::Held);
     let a = taken.accountability.unwrap();
     assert_eq!(
@@ -399,14 +399,14 @@ fn rc_1_without_a_named_organisation_the_fallback_to_it_is_no_party() {
         BTreeMap::new(),
     );
     assert_eq!(unnamed.organization(), None);
-    let read = unnamed.commitment(&direct, Time(0));
+    let read = unnamed.commitment(&direct, Time(0), &[]);
     assert_eq!(read.accountability, None);
     assert!(
         read.chain
             .iter()
             .all(|l| l.source != AccountabilitySource::OrgRule)
     );
-    let named = ledger(Vec::new(), Vec::new()).commitment(&direct, Time(0));
+    let named = ledger(Vec::new(), Vec::new()).commitment(&direct, Time(0), &[]);
     assert_eq!(named.accountability.unwrap().party, party(ALICE));
 }
 
@@ -441,7 +441,7 @@ fn rc_14_forwardings_keep_their_reason_and_raise_ping_pong_past_the_threshold() 
         LedgerDirectory::from_actors(actors()),
         reasons,
     );
-    let read = with_reasons.commitment(&pool, Time(5000));
+    let read = with_reasons.commitment(&pool, Time(5000), &[]);
     assert_eq!(read.ping_pong.count, 2);
     assert!(read.ping_pong.over);
     assert_eq!(
@@ -458,7 +458,7 @@ fn rc_14_forwardings_keep_their_reason_and_raise_ping_pong_past_the_threshold() 
     );
 }
 
-// RC-18
+// RC-18 RC-42
 #[test]
 fn rc_18_the_lease_runs_from_the_claim_and_its_expiry_returns_the_work_to_the_pool() {
     let record = queue_record(
@@ -476,16 +476,22 @@ fn rc_18_the_lease_runs_from_the_claim_and_its_expiry_returns_the_work_to_the_po
     let ledger = ledger(vec![q.clone()], Vec::new());
     let taken = held(id(2), &q, BOB, id(3), 10_000);
     assert_eq!(
-        ledger.commitment(&taken, Time(11_000)).lease,
+        ledger.commitment(&taken, Time(11_000), &[]).lease,
         LeaseStatus::Running(Time(15_000))
     );
-    let expired = ledger.commitment(&taken, Time(16_000));
+    let expired = ledger.commitment(&taken, Time(16_000), &[]);
     assert!(matches!(expired.lease, LeaseStatus::Expired { .. }));
     assert!(
         expired
             .signals
             .iter()
             .any(|s| s.kind == AllocationSignalKind::LeaseExpired && s.unclaim_due)
+    );
+    assert_eq!(
+        ledger
+            .commitment(&taken, Time(16_000), &[Time(14_000)])
+            .lease,
+        LeaseStatus::Running(Time(19_000))
     );
 }
 

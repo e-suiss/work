@@ -8,8 +8,7 @@ use work_kernel::commitment::{
     self, AccessAnswer, ActiveEnd, Allowed, AllowedResponsibility, Caller as Asking,
     CommitmentView, Facts, ImplicitAcceptance, Mover, Operation, Proposed, Refusal, StepOutcome,
     SupportSignal, TimeInputs, TimeProjection, clock_signals, condition_of, definition_records,
-    project_time,
-    zones_named,
+    project_time, zones_named,
 };
 use work_kernel::commitment_time::TimeCondition;
 use work_kernel::cose::parse_container;
@@ -732,7 +731,7 @@ pub fn read(
     });
     let ledger = responsibility::Ledger::of(folded, &entries, &derivation);
     Ok(CommitmentRead {
-        responsibility: ledger.commitment(view, now),
+        responsibility: ledger.commitment(view, now, &control.activity),
         ledger: *folded.ledger(),
         next,
         control,
