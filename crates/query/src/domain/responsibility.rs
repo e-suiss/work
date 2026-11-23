@@ -233,7 +233,29 @@ impl Ledger {
         derivation: &Derivation,
         directory: LedgerDirectory,
     ) -> Self {
-        let rules = org_rules(entries, derivation);
+        let reasons = entries
+            .iter()
+            .filter(|e| subtype(e.record()) == Some(ResponsibilityOperation::Forward.subtype()))
+            .filter_map(|e| text(e.record(), "reason").map(|r| (e.id(), r.to_owned())))
+            .collect();
+        Self::from_parts(
+            queue_versions(entries, derivation),
+            org_rules(entries, derivation),
+            directory,
+            reasons,
+        )
+    }
+
+    /// The inputs of the given queue definition versions, organisation rules, directory and
+    /// forwarding reasons; the organisation is the one the first rule names, else the
+    /// directory's only organisation Party.
+    #[must_use]
+    pub fn from_parts(
+        queues: Vec<QueueVersion>,
+        rules: Vec<OrgRuleVersion>,
+        directory: LedgerDirectory,
+        reasons: BTreeMap<RecordId, String>,
+    ) -> Self {
         let organization = rules
             .first()
             .map(|r| r.rule.organization.clone())
@@ -247,13 +269,8 @@ impl Ledger {
                     _ => None,
                 }
             });
-        let reasons = entries
-            .iter()
-            .filter(|e| subtype(e.record()) == Some(ResponsibilityOperation::Forward.subtype()))
-            .filter_map(|e| text(e.record(), "reason").map(|r| (e.id(), r.to_owned())))
-            .collect();
         Self {
-            queues: queue_versions(entries, derivation),
+            queues,
             rules,
             directory,
             organization,
