@@ -1192,7 +1192,7 @@ fn binding(authority: u8, key: &str) -> SingleUseRow {
     }
 }
 
-// RC-42 T-105 E-39
+// RC-42 E-39
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "needs Docker"]
 async fn rc_42_a_delivery_is_written_with_its_record_in_order_and_its_doorbell_settled_once() {
@@ -1278,7 +1278,7 @@ async fn rc_42_a_delivery_is_written_with_its_record_in_order_and_its_doorbell_s
     assert_eq!(kept[1].doorbell, Doorbell::Rung { at_ms: at });
 }
 
-// RC-42 T-105 Access OP-73
+// RC-42 Access OP-73
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "needs Docker"]
 async fn rc_42_only_the_sequencer_writes_a_delivery_and_only_its_doorbell_changes() {

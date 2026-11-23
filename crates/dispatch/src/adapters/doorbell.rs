@@ -202,17 +202,21 @@ impl<C: Fn() -> u64 + Send + Sync> HttpRing<C> {
             .header(header::CONTENT_TYPE, "application/json")
             .body(Full::new(Bytes::from(body.to_owned())))
             .map_err(|_| RingError::Url)?;
-        let tcp = TcpStream::connect((hook.host.as_str(), hook.port))
-            .await
-            .map_err(|_| RingError::Unreachable)?;
+        let tcp = timeout(
+            self.limit,
+            TcpStream::connect((hook.host.as_str(), hook.port)),
+        )
+        .await
+        .map_err(|_| RingError::Timeout)?
+        .map_err(|_| RingError::Unreachable)?;
         if !hook.tls {
             return post(tcp, request).await;
         }
         let tls = self.tls.clone().ok_or(RingError::Url)?;
         let name = ServerName::try_from(hook.host.clone()).map_err(|_| RingError::Url)?;
-        let stream = TlsConnector::from(tls)
-            .connect(name, tcp)
+        let stream = timeout(self.limit, TlsConnector::from(tls).connect(name, tcp))
             .await
+            .map_err(|_| RingError::Timeout)?
             .map_err(|_| RingError::Unreachable)?;
         post(stream, request).await
     }

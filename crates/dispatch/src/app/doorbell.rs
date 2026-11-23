@@ -342,7 +342,7 @@ mod tests {
         Doorbells::new(queue, hooks, config).unwrap()
     }
 
-    // E-39 T-105
+    // E-39
     #[tokio::test]
     async fn e_39_a_doorbell_rings_the_addressee_s_webhook_and_an_unrouted_one_is_settled() {
         let w = worker(Ok(()));
@@ -364,9 +364,9 @@ mod tests {
         assert_eq!(rows[&2].doorbell, Doorbell::Unrouted { at_ms: NOW });
     }
 
-    // T-105 T-21
+    // T-21
     #[tokio::test]
-    async fn t_105_a_failed_doorbell_keeps_its_attempts_and_waits_its_backoff() {
+    async fn t_21_a_failed_doorbell_keeps_its_attempts_and_waits_its_backoff() {
         let w = worker(Err(RingError::Status(503)));
         let counts = w.ring_ledger(&ledger()).await.unwrap();
         assert_eq!(counts.retried, 1);

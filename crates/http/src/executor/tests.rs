@@ -5,7 +5,7 @@ use work_query::domain::reads::Delivery;
 
 use super::*;
 
-// RC-42 T-105 E-45
+// RC-42 E-45
 #[test]
 fn rc_42_every_executor_element_has_one_typed_write_naming_its_action() {
     let doc = crate::openapi::value().unwrap();
@@ -41,9 +41,9 @@ fn rc_42_every_executor_element_has_one_typed_write_naming_its_action() {
     );
 }
 
-// T-105 P-54
+// P-54
 #[test]
-fn t_105_the_delivery_read_takes_a_cursor_and_a_wait_of_at_most_thirty_seconds() {
+fn p_54_the_delivery_read_takes_a_cursor_and_a_wait_of_at_most_thirty_seconds() {
     let uri = |q: &str| Uri::try_from(format!("/v1/ledgers/l/executor/deliveries{q}")).unwrap();
     assert_eq!(DeliveriesQuery::of(&uri("")).unwrap(), (0, 0));
     assert_eq!(
