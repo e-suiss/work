@@ -4,6 +4,7 @@ use alloc::vec::Vec;
 use super::aggregate::AggregationPolicy;
 use super::operation::Operation;
 use super::params;
+use super::responsibility::{self as duty, Act};
 use super::state::CommitmentState as S;
 use super::view::{
     ActiveEnd, ActiveEndCause, Address, Closing, CommitmentView, Deadline, Deferral, EvidenceRule,
@@ -19,6 +20,7 @@ use crate::id::{PartyRef, RecordId, Time};
 use crate::ontology::{Aim, Commitment, Evaluation, Obligor};
 use crate::reason::wire_enum;
 use crate::record::Record;
+use crate::responsibility::{Accountable, Assignment, queue_versions};
 use crate::uri::TypeUri;
 use crate::validate::ActorType;
 
@@ -106,16 +108,27 @@ pub enum ImplicitAcceptance {
     Blocked(Refusal),
 }
 
-struct Input<'r> {
-    id: RecordId,
-    record: &'r Record,
-    position: u64,
-    recorded_at: Time,
-    actor: Option<ActorType>,
-    step_up: bool,
+pub(super) struct Input<'r> {
+    pub(super) id: RecordId,
+    pub(super) record: &'r Record,
+    pub(super) position: u64,
+    pub(super) recorded_at: Time,
+    pub(super) actor: Option<ActorType>,
+    pub(super) step_up: bool,
 }
 
 impl<'r> Input<'r> {
+    pub(super) const fn proposed(proposed: &Proposed<'r>) -> Self {
+        Self {
+            id: proposed.id,
+            record: proposed.record,
+            position: proposed.position,
+            recorded_at: proposed.recorded_at,
+            actor: Some(proposed.author_actor),
+            step_up: proposed.step_up,
+        }
+    }
+
     fn of(entry: &Entry<'r>) -> Self {
         Self {
             id: entry.id(),
@@ -127,7 +140,7 @@ impl<'r> Input<'r> {
         }
     }
 
-    fn service(&self) -> bool {
+    pub(super) fn service(&self) -> bool {
         self.actor == Some(ActorType::System)
     }
 }
@@ -144,6 +157,8 @@ enum Mode {
     TermsNow,
     TermsPending,
     Withdraw,
+    OfferDeclined,
+    Transfer,
 }
 
 struct Plan {
@@ -276,7 +291,7 @@ fn open(input: &Input<'_>, records: &dyn Records) -> Option<CommitmentView> {
         root: input.id,
         opening: StepOutcome::Applied,
         obligee: core.obligee,
-        obligor: core.obligor,
+        obligor: core.obligor.clone(),
         acceptor: core.acceptor,
         principal: core.principal,
         requester: params::chain(record),
@@ -301,6 +316,8 @@ fn open(input: &Input<'_>, records: &dyn Records) -> Option<CommitmentView> {
         handovers: Vec::new(),
         active_ends: Vec::new(),
         steps: Vec::new(),
+        assignment: Assignment::opened(&core.obligor, input.recorded_at),
+        accountability: Accountable::of(record, input.id),
     };
     if let Some(refusal) = opening_refusal(input, &view) {
         view.opening = StepOutcome::Refused(refusal);
@@ -325,6 +342,7 @@ pub fn derive_commitments(
 ) -> Vec<CommitmentView> {
     let records: BTreeMap<RecordId, &Record> =
         entries.iter().map(|e| (e.id(), e.record())).collect();
+    let queues = queue_versions(entries, derivation);
     let mut roots: BTreeMap<RecordId, RecordId> = BTreeMap::new();
     let mut slots: BTreeMap<RecordId, usize> = BTreeMap::new();
     let mut views: Vec<CommitmentView> = Vec::new();
@@ -342,7 +360,7 @@ pub fn derive_commitments(
             },
         };
         roots.insert(entry.id(), root);
-        let Some(op) = operation_of(entry.record()) else {
+        let Some(act) = duty::act_of(entry.record()) else {
             continue;
         };
         if derived.effect != Effect::Normative {
@@ -350,18 +368,28 @@ pub fn derive_commitments(
         }
         let input = Input::of(entry);
         if root == entry.id() {
-            if op == Operation::Request
-                && let Some(view) = open(&input, &records)
+            if act == Act::Commitment(Operation::Request)
+                && let Some(mut view) = open(&input, &records)
             {
+                duty::refresh(&mut view, &queues, input.position);
                 slots.insert(root, views.len());
                 views.push(view);
             }
         } else if let Some(view) = slots.get(&root).and_then(|&i| views.get_mut(i)) {
-            step(view, &input, op, &records, facts);
+            duty::refresh(view, &queues, input.position);
+            match act {
+                Act::Commitment(op) => step(view, &input, op, &records, facts),
+                Act::Responsibility(op) => {
+                    settle(view, facts, input.position);
+                    duty::step(view, &input, op, &records, &queues);
+                }
+                Act::Acknowledgement => duty::acknowledge(view, &input),
+            }
         }
     }
     for view in &mut views {
         settle(view, facts, u64::MAX);
+        duty::refresh(view, &queues, u64::MAX);
     }
     views
 }
@@ -505,6 +533,7 @@ fn step(
         operation: op,
         outcome,
     });
+    duty::record_commitment(view, input, op, outcome);
     let closed = view
         .active_ends
         .iter()
@@ -527,7 +556,7 @@ fn step(
 }
 
 // CM-22 CM-3
-fn settle(view: &mut CommitmentView, facts: &Facts<'_>, before: u64) {
+pub(super) fn settle(view: &mut CommitmentView, facts: &Facts<'_>, before: u64) {
     let Some(precondition) = &view.precondition else {
         return;
     };
@@ -546,15 +575,15 @@ fn settle(view: &mut CommitmentView, facts: &Facts<'_>, before: u64) {
     view.precondition = None;
 }
 
-fn require(condition: bool, refusal: Refusal) -> Result<(), Refusal> {
+pub(super) fn require(condition: bool, refusal: Refusal) -> Result<(), Refusal> {
     if condition { Ok(()) } else { Err(refusal) }
 }
 
-fn is_obligee(view: &CommitmentView, party: &PartyRef) -> bool {
+pub(super) fn is_obligee(view: &CommitmentView, party: &PartyRef) -> bool {
     &view.obligee == party
 }
 
-fn is_obligor(view: &CommitmentView, party: &PartyRef) -> bool {
+pub(super) fn is_obligor(view: &CommitmentView, party: &PartyRef) -> bool {
     matches!(&view.obligor, Obligor::Party(o) if o == party)
 }
 
@@ -565,7 +594,7 @@ fn is_candidate(view: &CommitmentView, party: &PartyRef) -> bool {
     }
 }
 
-fn is_principal(view: &CommitmentView, party: &PartyRef) -> bool {
+pub(super) fn is_principal(view: &CommitmentView, party: &PartyRef) -> bool {
     view.principal.contains(party)
 }
 
@@ -578,7 +607,7 @@ fn any_in(view: &CommitmentView, state: S) -> bool {
     view.items.iter().any(|i| i.state == state)
 }
 
-fn whole(view: &CommitmentView, allowed: &[S]) -> Result<Vec<u16>, Refusal> {
+pub(super) fn whole(view: &CommitmentView, allowed: &[S]) -> Result<Vec<u16>, Refusal> {
     require(all_open_in(view, allowed), Refusal::StateNotPermitted)?;
     Ok(view.open_items().map(|i| i.index).collect())
 }
@@ -718,8 +747,15 @@ fn plan_answer(
     op: Operation,
     who: &PartyRef,
 ) -> Result<Plan, Refusal> {
+    let offered = matches!(view.obligor, Obligor::Queue(_))
+        && view.assignment.offer.as_ref().is_some_and(|o| &o.to == who);
+    if op == Operation::Decline && offered {
+        whole(view, &[S::Requested])?;
+        return Ok(Plan::new(Vec::new(), Mode::OfferDeclined));
+    }
     require(is_candidate(view, who), Refusal::WrongRole)?;
     if op == Operation::PromiseConditional {
+        require(duty::may_take(view, who), Refusal::NotACandidate)?;
         require(
             params::digest(record, "precondition").is_some()
                 && params::time(record, "valid_until").is_some(),
@@ -819,6 +855,7 @@ fn plan_promise(view: &CommitmentView, record: &Record, who: &PartyRef) -> Resul
         return Ok(Plan::new(targets, Mode::Amendment));
     }
     require(is_candidate(view, who), Refusal::WrongRole)?;
+    require(duty::may_take(view, who), Refusal::NotACandidate)?;
     let targets = per_item(view, record, &[S::Requested])?;
     Ok(Plan::new(targets, Mode::Normal))
 }
@@ -1093,6 +1130,19 @@ fn plan_amend(
 ) -> Result<Plan, Refusal> {
     let record = input.record;
     let obligee_side = is_obligee(view, who) || is_principal(view, who);
+    if let Some(to) = params::party(record, "accountable") {
+        let current = view.accountability.explicit.as_ref().map(|e| &e.party);
+        require(
+            obligee_side || is_obligor(view, who) || current == Some(who),
+            Refusal::WrongRole,
+        )?;
+        require(
+            view.accountability.transfer.is_none(),
+            Refusal::AlreadyPending,
+        )?;
+        require(current != Some(&to), Refusal::WrongTarget)?;
+        return Ok(Plan::new(Vec::new(), Mode::Transfer));
+    }
     let terms = params::text(record, "change").and_then(AmendmentChange::from_wire_name)
         == Some(AmendmentChange::Terms);
     if !terms {
@@ -1182,7 +1232,12 @@ fn plan_implicit_terms(
     Ok(Plan::new(Vec::new(), Mode::Normal))
 }
 
-fn set_state(view: &mut CommitmentView, targets: &[u16], state: S, closing: Option<Closing>) {
+pub(super) fn set_state(
+    view: &mut CommitmentView,
+    targets: &[u16],
+    state: S,
+    closing: Option<Closing>,
+) {
     for item in &mut view.items {
         if targets.contains(&item.index) {
             item.state = state;
@@ -1276,7 +1331,7 @@ fn apply(
             apply_answer(view, input, op, plan, records);
         }
         Operation::Counter => apply_counter(view, input, plan),
-        Operation::AcceptCounter => apply_accept_counter(view, plan),
+        Operation::AcceptCounter => apply_accept_counter(view, input, plan),
         Operation::State => apply_state(view, input, &plan.targets),
         Operation::Accept | Operation::Reject => apply_result(view, input, op, plan),
         Operation::Cancel
@@ -1284,7 +1339,7 @@ fn apply(
         | Operation::DeclareObsolete
         | Operation::Expire
         | Operation::AdministrativeClose => apply_close(view, input, op, plan),
-        Operation::Delegate => apply_delegate(view, input.record, input.id, plan),
+        Operation::Delegate => apply_delegate(view, input, plan),
         Operation::Assign => apply_assign(view, input.record, input.id, plan),
         Operation::Allow => apply_allow(view, input.id),
         Operation::Refuse if plan.mode == Mode::Amendment => {
@@ -1318,15 +1373,19 @@ fn apply_answer(
     let record = input.record;
     let who = params::acting(record).clone();
     let targets = plan.targets.as_slice();
+    let pooled = matches!(view.obligor, Obligor::Queue(_));
     match op {
         Operation::Promise if plan.mode == Mode::Amendment => accept_amendment(view, None),
+        Operation::Decline if plan.mode == Mode::OfferDeclined => view.assignment.offer = None,
         Operation::Promise => {
             set_state(view, targets, S::Promised, None);
             bind_queue(view, &who);
+            duty::bound(view, input, &who, pooled);
         }
         Operation::PromiseConditional => {
             set_state(view, targets, S::ConditionallyPromised, None);
             bind_queue(view, &who);
+            duty::bound(view, input, &who, pooled);
             if let (Some(condition), Some(valid_until)) = (
                 params::digest(record, "precondition"),
                 params::time(record, "valid_until"),
@@ -1348,15 +1407,17 @@ fn apply_answer(
     }
 }
 
-fn apply_accept_counter(view: &mut CommitmentView, plan: &Plan) {
+fn apply_accept_counter(view: &mut CommitmentView, input: &Input<'_>, plan: &Plan) {
     let counter = view.pending.counter.take();
     if plan.mode == Mode::Amendment {
         accept_amendment(view, counter);
     } else if let Some(change) = counter {
         let by = change.by.clone();
+        let pooled = matches!(view.obligor, Obligor::Queue(_));
         apply_terms(view, change, S::Promised);
         set_state(view, &plan.targets, S::Promised, None);
         bind_queue(view, &by);
+        duty::bound(view, input, &by, pooled);
         view.terms.respond_by = None;
     }
 }
@@ -1507,7 +1568,8 @@ fn apply_state(view: &mut CommitmentView, input: &Input<'_>, targets: &[u16]) {
     });
 }
 
-fn apply_delegate(view: &mut CommitmentView, record: &Record, id: RecordId, plan: &Plan) {
+fn apply_delegate(view: &mut CommitmentView, input: &Input<'_>, plan: &Plan) {
+    let (record, id) = (input.record, input.id);
     if plan.mode == Mode::Proposal {
         view.pending.delegation =
             params::party(record, "obligor").map(|to| Proposal { record: id, to });
@@ -1521,8 +1583,9 @@ fn apply_delegate(view: &mut CommitmentView, record: &Record, id: RecordId, plan
                 cause: ActiveEndCause::Delegated,
             });
         }
-        view.obligor = Obligor::Party(proposal.to);
+        view.obligor = Obligor::Party(proposal.to.clone());
         view.handovers.push(proposal.record);
+        duty::delegated(view, input, &proposal.to);
     }
 }
 
@@ -1583,6 +1646,13 @@ fn apply_amend(view: &mut CommitmentView, input: &Input<'_>, plan: &Plan) {
                 view.terms.change_policy = policy;
             }
             view.instruction_version = view.instruction_version.saturating_add(1);
+        }
+        Mode::Transfer => {
+            view.accountability.transfer =
+                params::party(record, "accountable").map(|to| Proposal {
+                    record: input.id,
+                    to,
+                });
         }
         Mode::TermsNow => {
             apply_terms(view, term_change(record, input.id), S::Requested);

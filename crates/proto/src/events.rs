@@ -380,7 +380,7 @@ pub const DEPRECATED: &[&str] = &[];
 
 /// Kernel wire names the stage 3 catalog gives no event type yet; each waits for the catalog
 /// approval (T-98 item 7).
-pub const UNCATALOGUED: &[&str] = &["allow", "amend", "declare_obsolete"];
+pub const UNCATALOGUED: &[&str] = &["allow", "amend", "declare_obsolete", "org_rule"];
 
 /// The event type named `name`.
 #[must_use]

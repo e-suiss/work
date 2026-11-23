@@ -7,6 +7,7 @@ use crate::catalog::{ChangePolicy, CommitmentKind, NoticeType};
 use crate::id::{PartyRef, RecordId, Time};
 use crate::ontology::Obligor;
 use crate::reason::wire_enum;
+use crate::responsibility::{Accountable, Assignment};
 use crate::uri::TypeUri;
 
 wire_enum! {
@@ -52,6 +53,20 @@ wire_enum! {
         CriterionUndefined => "criterion_undefined",
         /// The commitment type's own rule is not met (CM-9, CM-10, CM-11, CM-46).
         KindRequirement => "kind_requirement",
+        /// The record is no responsibility operation or acknowledgement (RC-17).
+        NotAResponsibilityOperation => "not_a_responsibility_operation",
+        /// The Party is outside the queue's candidates or excluded from it (RC-11).
+        NotACandidate => "not_a_candidate",
+        /// The queue's distribution policy does not assign work this way (RC-21, RC-22).
+        PolicyMethod => "policy_method",
+        /// A bid award binds; withdrawal goes through §9 revocation or cancellation (RC-25).
+        BindingAward => "binding_award",
+        /// The hold carries no declared lease (RC-18).
+        NoLease => "no_lease",
+        /// The lease ran out and returns the work to the pool (RC-18).
+        LeaseExpired => "lease_expired",
+        /// An agent is never the accountable end (RC-6).
+        NotAccountable => "not_accountable",
     }
 }
 
@@ -112,6 +127,8 @@ wire_enum! {
         Delegated => "delegated",
         /// The commitment reached a terminal outcome.
         Closed => "closed",
+        /// The claiming obligor returned the work to the pool (RC-17).
+        Unclaimed => "unclaimed",
     }
 }
 
@@ -398,6 +415,10 @@ pub struct CommitmentView {
     pub active_ends: Vec<ActiveEnd>,
     /// Every commitment record after the request and its result, in ledger order.
     pub steps: Vec<Step>,
+    /// The assignment axis records: queue, offers, hold, forwardings and history (RC-10…RC-25).
+    pub assignment: Assignment,
+    /// The accountability the records declare (RC-5, RC-7).
+    pub accountability: Accountable,
 }
 
 impl CommitmentView {
@@ -410,6 +431,14 @@ impl CommitmentView {
             Some(_) => Summary::Mixed,
             None => Summary::Uniform(CommitmentState::Requested),
         }
+    }
+
+    /// Whether `record` is this commitment's `request` or one of its later records: a commitment step or an assignment history entry (RC-19).
+    #[must_use]
+    pub fn continues(&self, record: &RecordId) -> bool {
+        self.root == *record
+            || self.steps.iter().any(|s| s.record == *record)
+            || self.assignment.history.iter().any(|e| e.record == *record)
     }
 
     /// Whether every item reached a terminal outcome (CM-34).

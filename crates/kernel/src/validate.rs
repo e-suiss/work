@@ -25,6 +25,8 @@ use crate::relation::{DerivedRole, DerivedTarget, ReferenceTarget, Relation, Rel
 use crate::rules::RuleSet;
 use crate::uri::{ExtKey, TypeUri};
 
+mod responsibility;
+
 wire_enum! {
     /// Whether a Party wrote the record on its own initiative or automation did (INV-20, T-66).
     Origin {
@@ -265,6 +267,7 @@ enum ParamKind {
     AggregationRule,
     ProposalStep,
     AmendmentChange,
+    Duty(responsibility::Kind),
 }
 
 struct ParamKey {
@@ -302,9 +305,15 @@ const REDACT: &[ParamKey] = &[
     key("target", ParamKind::RecordRef, true),
 ];
 
-// C-11 CM-4 CM-6 CM-7 CM-8 CM-9 CM-24 CM-27 CM-39 CM-54 CM-57 CM-60 C-44
+// C-11 CM-4 CM-6 CM-7 CM-8 CM-9 CM-24 CM-27 CM-39 CM-54 CM-57 CM-60 C-44 RC-1 RC-5
 const REQUEST: &[ParamKey] = &[
     key("acceptor", ParamKind::Party, true),
+    key("accountable", ParamKind::Party, false),
+    key(
+        "accountable_group",
+        ParamKind::Duty(responsibility::Kind::Group),
+        false,
+    ),
     key("aggregation", ParamKind::AggregationRule, false),
     key("aggregation_k", ParamKind::Count, false),
     key("aggregation_percent", ParamKind::Percent, false),
@@ -401,9 +410,10 @@ const REFUSE: &[ParamKey] = &[
     key("revocation", ParamKind::RecordRef, false),
 ];
 
-// CM-39 CM-56 CM-57 CM-60
+// CM-39 CM-56 CM-57 CM-60 RC-7
 const AMEND: &[ParamKey] = &[
     key("acceptor", ParamKind::Party, false),
+    key("accountable", ParamKind::Party, false),
     key("change", ParamKind::AmendmentChange, false),
     key("change_policy", ParamKind::ChangePolicy, false),
     key("conditions", ParamKind::RecordSet, false),
@@ -432,12 +442,13 @@ const AIM: &[ParamKey] = &[
 /// The `params` keys of a core Declaration that name a Party in an attributed slot (C-44).
 const fn attributed_keys(subtype: DeclarationSubtype) -> &'static [&'static str] {
     match subtype {
-        DeclarationSubtype::Request => &["acceptor", "obligor", "participants"],
+        DeclarationSubtype::Request => &["acceptor", "accountable", "obligor", "participants"],
         DeclarationSubtype::Aim => &["judge"],
         DeclarationSubtype::Delegate => &["obligor"],
         DeclarationSubtype::Assign => &["obligee"],
-        DeclarationSubtype::Counter | DeclarationSubtype::Amend => &["acceptor"],
-        _ => &[],
+        DeclarationSubtype::Counter => &["acceptor"],
+        DeclarationSubtype::Amend => &["acceptor", "accountable"],
+        _ => responsibility::attributed_keys(subtype),
     }
 }
 
@@ -474,7 +485,7 @@ const fn param_keys(subtype: DeclarationSubtype) -> &'static [ParamKey] {
         DeclarationSubtype::StopResponse => STOP_RESPONSE,
         DeclarationSubtype::OpenCondition => OPEN_CONDITION,
         DeclarationSubtype::Redact => REDACT,
-        _ => &[],
+        _ => responsibility::keys(subtype),
     }
 }
 
@@ -546,6 +557,7 @@ fn kind_ok(kind: ParamKind, value: &ParamValue, practices: &[PracticePin]) -> bo
         ParamKind::AggregationRule => catalog_text(value, AggregationRule::from_wire_name),
         ParamKind::ProposalStep => catalog_text(value, ProposalStep::from_wire_name),
         ParamKind::AmendmentChange => catalog_text(value, AmendmentChange::from_wire_name),
+        ParamKind::Duty(kind) => responsibility::kind_ok(kind, value),
     }
 }
 
@@ -670,7 +682,9 @@ fn params(record: &Record) -> Result<(), Reason> {
         let value = &param.value;
         let shape_ok = !scalars(value).is_empty() && scalars(value).iter().all(scalar_ok);
         let ok = shape_ok
-            && if name == EFFECTIVE_AT {
+            && if responsibility::is_participation(name) {
+                responsibility::participation_ok(record, value)
+            } else if name == EFFECTIVE_AT {
                 matches!(record, Record::Declaration(_))
                     && takes_effective_at(declaration)
                     && matches!(value, ParamValue::Scalar(ParamScalar::Uint(_)))
@@ -772,7 +786,9 @@ fn step_param(record: &Record) -> Option<ProposalStep> {
 /// The cross-key rules of the commitment subtypes' `params` (P-80, P-92, CM-17).
 fn commitment_params_ok(record: &Record, subtype: DeclarationSubtype) -> bool {
     match subtype {
-        DeclarationSubtype::Request => aggregation_ok(record),
+        DeclarationSubtype::Request => {
+            aggregation_ok(record) && present(record, &["accountable", "accountable_group"]) <= 1
+        }
         DeclarationSubtype::Counter => {
             present(record, TERM_KEYS) > 0 || record.core().body.is_some()
         }
@@ -801,6 +817,12 @@ fn commitment_params_ok(record: &Record, subtype: DeclarationSubtype) -> bool {
         },
         DeclarationSubtype::Defer => present(record, &["resume_at", "resume_on"]) <= 1,
         DeclarationSubtype::Refuse => present(record, &["revocation", "amendment"]) == 1,
+        DeclarationSubtype::Amend if record.param("accountable").is_some() => record
+            .core()
+            .params
+            .iter()
+            .flatten()
+            .all(|p| matches!(p.name.as_str(), "accountable" | EFFECTIVE_AT)),
         DeclarationSubtype::Amend => {
             if record.param("change").is_some() {
                 present(record, &["change_policy", "four_eyes_waived"]) == 0
@@ -824,7 +846,7 @@ fn commitment_params_ok(record: &Record, subtype: DeclarationSubtype) -> bool {
             present(record, &["window", "withdrawn"]) == 1
                 && (record.param("items").is_none() || record.param("window").is_some())
         }
-        _ => true,
+        _ => responsibility::shape_ok(record, subtype),
     }
 }
 

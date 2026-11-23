@@ -146,6 +146,8 @@ wire_enum! {
         Disclosure => "disclosure",
         /// `queue_definition` (RC-10).
         QueueDefinition => "queue_definition",
+        /// `org_rule`: the organisation rule (RC-48).
+        OrgRule => "org_rule",
         /// `control_lease` (RC-33).
         ControlLease => "control_lease",
         /// `handoff_note` (RC-34).
@@ -601,7 +603,7 @@ mod tests {
     // P-71 P-83 P-111
     #[test]
     fn p_71_core_declaration_catalog_is_closed() {
-        assert_eq!(DeclarationSubtype::ALL.len(), 54);
+        assert_eq!(DeclarationSubtype::ALL.len(), 55);
         assert_eq!(
             DeclarationSubtype::from_uri("https://suiss.app/ns/work/declaration/redact"),
             Some(DeclarationSubtype::Redact)

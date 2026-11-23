@@ -258,7 +258,7 @@ fn obligor_mover(view: &CommitmentView) -> Mover {
     }
 }
 
-/// Who holds the next move, derived from the state (CM-58): an open revocation request is the counterparty's, a pending terms amendment the obligor's and a pending proposal the proposed Party's; then by item state `requested` the obligor candidate or queue, `countered` the obligee, `conditionally_promised` the precondition's addressee, `promised` the obligor and `stated` the acceptor; an exhausted budget is the accountable Party's.
+/// Who holds the next move, derived from the state (CM-58): an open revocation request is the counterparty's, a pending terms amendment the obligor's and a pending proposal the proposed Party's; then by item state `requested` the obligor candidate, the Party pooled work is offered to, or the queue (RC-17), `countered` the obligee, `conditionally_promised` the precondition's addressee, `promised` the obligor and `stated` the acceptor; an exhausted budget is the accountable Party's.
 #[must_use]
 pub fn next_moves(view: &CommitmentView, facts: &Facts<'_>) -> Vec<Mover> {
     let mut out = Vec::new();
@@ -278,7 +278,11 @@ pub fn next_moves(view: &CommitmentView, facts: &Facts<'_>) -> Vec<Mover> {
     }
     for item in view.open_items() {
         let mover = match item.state {
-            CommitmentState::Requested | CommitmentState::Promised => obligor_mover(view),
+            CommitmentState::Requested => match (&view.obligor, &view.assignment.offer) {
+                (Obligor::Queue(_), Some(offer)) => Mover::Party(offer.to.clone()),
+                _ => obligor_mover(view),
+            },
+            CommitmentState::Promised => obligor_mover(view),
             CommitmentState::Countered => Mover::Party(view.obligee.clone()),
             CommitmentState::Stated => Mover::Party(view.acceptor.clone()),
             _ => match &view.precondition {
