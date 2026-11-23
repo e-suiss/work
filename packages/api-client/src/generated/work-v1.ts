@@ -818,6 +818,50 @@ export interface components {
             /** @description The caller's holding. */
             holding: components["schemas"]["HoldingInput"];
         };
+        /** @description A budget of the commitment (CM-48, CM-49). */
+        BudgetAnswer: {
+            /** @description Consumption rolled up from its sub-commitments. */
+            children: string;
+            /** @description The budget Condition the request lists, `rec_…`. */
+            condition: string;
+            /** @description Both together. */
+            consumed: string;
+            /** @description The ISO 4217 currency of a money budget. */
+            currency?: string | null;
+            /** @description The choices asked of the accountable Party once exhausted: `continue`, `reshape`, `drop`. */
+            decision: string[];
+            /** @description The Condition record whose definition is in effect, `rec_…`. */
+            definition: string;
+            /** @description Why it cannot be evaluated: `overflow`. */
+            error?: string | null;
+            /** @description Whether consumption reached the limit; the accountable Party then holds the next move. */
+            exhausted: boolean;
+            /** @description Later Condition records that did not continue its definition, `rec_…`. */
+            ignored: string[];
+            /**
+             * Format: int32
+             * @description Consumption Claims not counted.
+             */
+            ignored_claims: number;
+            /** @description The limit in the measure's unit. */
+            limit: string;
+            /** @description `effort`, `money`, `operations` or `tokens`. */
+            measure: string;
+            /** @description Consumption reported by the commitment's obligor. */
+            own: string;
+            /** @description What is left of the limit. */
+            remaining: string;
+            /**
+             * Format: int32
+             * @description Sub-commitment totals in another measure.
+             */
+            unmatched: number;
+            /**
+             * Format: int32
+             * @description The highest warning tier reached, in permille.
+             */
+            warning?: number | null;
+        };
         /** @description One Work that changed. */
         ChangeEntry: {
             /** @description The position that last changed it. */
@@ -853,6 +897,45 @@ export interface components {
             signed_note: string;
             /** @description Its tree size. */
             size: string;
+        };
+        /** @description A clock of the commitment, projected at the evaluation time (CM-50, CM-51, CM-52). */
+        ClockAnswer: {
+            /** @description When it breached, RFC 3339 UTC. */
+            breached_at?: string | null;
+            /** @description The clock Condition the request lists, `rec_…`. */
+            condition: string;
+            /** @description The Condition record whose definition is in effect, `rec_…`. */
+            definition: string;
+            /** @description Counted milliseconds so far. */
+            elapsed_ms: string;
+            /** @description Why it cannot be projected: `order`, `version`, `calendar`, `rule` or `overflow`. */
+            error?: string | null;
+            /** @description Later Condition records that did not continue its definition, `rec_…`. */
+            ignored: string[];
+            /** @description When its target was met, RFC 3339 UTC. */
+            met_at?: string | null;
+            /** @description When the next tier is reached if nothing else happens, RFC 3339 UTC. */
+            next_change?: string | null;
+            /** @description Since when a valid wait pauses it, RFC 3339 UTC. */
+            paused_since?: string | null;
+            /** @description Every tier reached, in order. */
+            reached: components["schemas"]["ReachedAnswer"][];
+            /** @description Counted milliseconds left of the duration. */
+            remaining_ms: string;
+            /** @description `not_started`, `running`, `paused` or `met`; absent when it cannot be projected. */
+            state?: string | null;
+            /** @description `response`, `start` or `finish`. */
+            target: string;
+            /**
+             * Format: int32
+             * @description The definition version in effect.
+             */
+            version?: number | null;
+            /**
+             * Format: int32
+             * @description The highest warning tier reached, in permille.
+             */
+            warning?: number | null;
         };
         /** @description A commitment as its records derive it at the ledger's head; no field is stored (CM-2). */
         CommitmentAnswer: {
@@ -913,7 +996,10 @@ export interface components {
              * @description Consecutive rejections since the last acceptance (CM-26).
              */
             rejections: number;
-            /** @description The signals of the commitments that support it (CM-47). */
+            /**
+             * @description The signals of the commitments that support it, their clocks and periodic updates
+             *     included (CM-47).
+             */
             signals: components["schemas"]["SignalAnswer"][];
             statement?: components["schemas"]["StatementAnswer"] | null;
             /** @description Every commitment record after the request and its result (CM-19). */
@@ -922,6 +1008,8 @@ export interface components {
             summary: string;
             /** @description The terms in force. */
             terms: components["schemas"]["TermsAnswer"];
+            /** @description Its clocks, periodic updates and budgets at the evaluation time (CM-48, CM-50, CM-53). */
+            time: components["schemas"]["TimeAnswer"];
             /** @description The version of the commitment, also the `ETag` its next record names in `If-Match`. */
             version: string;
         };
@@ -949,6 +1037,17 @@ export interface components {
             window_from: string;
             /** @description The window's end, the declaration's commit time, RFC 3339 UTC. */
             window_to: string;
+        };
+        /** @description One expected report of a periodic update (CM-53). */
+        DueAnswer: {
+            /** @description The last time a report still counts, RFC 3339 UTC. */
+            deadline: string;
+            /** @description The expected time, RFC 3339 UTC. */
+            expected: string;
+            /** @description Whether it was missed: a breach signal. */
+            missed: boolean;
+            /** @description The ledger time of the report that met it, RFC 3339 UTC. */
+            report?: string | null;
         };
         /**
          * @description A record's evidence, each kind apart (P-20): an author signature, the ledger's acceptance,
@@ -1105,6 +1204,36 @@ export interface components {
             /** @description What waits: `counter`, `amendment`, `revocation`, `delegation` or `transfer`. */
             what: string;
         };
+        /** @description A periodic update of the commitment, projected at the evaluation time (CM-53, CM-64). */
+        PeriodicAnswer: {
+            /** @description The periodic Condition the request lists, `rec_…`. */
+            condition: string;
+            /** @description The Condition record whose definition is in effect, `rec_…`. */
+            definition: string;
+            /** @description The expected reports up to the evaluation time. */
+            due: components["schemas"]["DueAnswer"][];
+            /** @description Why it cannot be projected: `order`, `version`, `calendar`, `rule` or `overflow`. */
+            error?: string | null;
+            /** @description Later Condition records that did not continue its definition, `rec_…`. */
+            ignored: string[];
+            /**
+             * Format: int32
+             * @description Report Claims not counted.
+             */
+            ignored_reports: number;
+            /**
+             * Format: int32
+             * @description How many were missed.
+             */
+            missed: number;
+            /** @description The deadline of the next report not yet in, RFC 3339 UTC. */
+            next_deadline?: string | null;
+            /**
+             * Format: int32
+             * @description The report Claims counted.
+             */
+            reports: number;
+        };
         /** @description An RFC 9457 problem response (T-98 item 6). */
         Problem: {
             /** @description The stable code. */
@@ -1170,6 +1299,23 @@ export interface components {
              */
             contribution?: string | null;
         };
+        /** @description A tier a clock reached (CM-51). */
+        ReachedAnswer: {
+            /** @description When it was reached, RFC 3339 UTC. */
+            at: string;
+            /**
+             * Format: int32
+             * @description The warning tier in permille of the duration.
+             */
+            permille?: number | null;
+            /** @description `warning` or `breach`. */
+            tier: string;
+            /**
+             * Format: int32
+             * @description The definition version in effect then.
+             */
+            version: number;
+        };
         /** @description A signal a supporting commitment raises (CM-47). */
         SignalAnswer: {
             /** @description The cause. */
@@ -1227,6 +1373,21 @@ export interface components {
             /** @description The response deadline, RFC 3339 UTC (CM-24). */
             respond_by?: string | null;
             /** @description The offer fields left undefined (CM-7). */
+            undefined: string[];
+        };
+        /** @description The clocks, periodic updates and budgets of the commitment; nothing of it is stored (CM-51). */
+        TimeAnswer: {
+            /** @description The budgets. */
+            budgets: components["schemas"]["BudgetAnswer"][];
+            /** @description The clocks. */
+            clocks: components["schemas"]["ClockAnswer"][];
+            /** @description The evaluation time, RFC 3339 UTC. */
+            evaluated_at: string;
+            /** @description The periodic updates. */
+            periodic: components["schemas"]["PeriodicAnswer"][];
+            /** @description The tzdb release the clocks and periodic updates count in (CM-64). */
+            tzdb: string;
+            /** @description Listed time Conditions whose definition did not open, `rec_…`. */
             undefined: string[];
         };
         /** @description A witness cosignature or time stamp of the covering checkpoint. */
