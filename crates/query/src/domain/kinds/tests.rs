@@ -100,7 +100,11 @@ fn e_23_a_plain_or_malformed_acknowledgement_still_takes_work_condition() {
             ("why", "x"),
         ]),
         decision(&[("decision", "stop"), ("event", ""), ("agent", AGENT)]),
-        decision(&[("decision", "stop"), ("event", &long), ("agent", AGENT)]),
+        decision(&[
+            ("decision", "stop"),
+            ("event", long.as_str()),
+            ("agent", AGENT),
+        ]),
         Value::text("stop"),
     ] {
         let record = acknowledgement(Some((CEILING_EXT_KEY, body)));
