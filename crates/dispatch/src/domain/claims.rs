@@ -84,8 +84,10 @@ fn spread(key: &ClaimKey, attempts: u64) -> u64 {
         .0
         .iter()
         .chain(key.subject.as_chunks::<8>().0.iter())
-        .fold(attempts.rotate_left(29), |acc, c| {
-            acc ^ u64::from_le_bytes(*c)
+        .fold(attempts, |acc, c| {
+            (acc ^ u64::from_le_bytes(*c))
+                .rotate_left(23)
+                .wrapping_mul(0x9e37_79b9_7f4a_7c15)
         })
 }
 
