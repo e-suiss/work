@@ -308,6 +308,112 @@
         ],
         "type": "object"
       },
+      "BudgetAnswer": {
+        "description": "A budget of the commitment (CM-48, CM-49).",
+        "properties": {
+          "children": {
+            "description": "Consumption rolled up from its sub-commitments.",
+            "type": "string"
+          },
+          "condition": {
+            "description": "The budget Condition the request lists, `rec_…`.",
+            "type": "string"
+          },
+          "consumed": {
+            "description": "Both together.",
+            "type": "string"
+          },
+          "currency": {
+            "description": "The ISO 4217 currency of a money budget.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "decision": {
+            "description": "The choices asked of the accountable Party once exhausted: `continue`, `reshape`, `drop`.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "definition": {
+            "description": "The Condition record whose definition is in effect, `rec_…`.",
+            "type": "string"
+          },
+          "error": {
+            "description": "Why it cannot be evaluated: `overflow`.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "exhausted": {
+            "description": "Whether consumption reached the limit; the accountable Party then holds the next move.",
+            "type": "boolean"
+          },
+          "ignored": {
+            "description": "Later Condition records that did not continue its definition, `rec_…`.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "ignored_claims": {
+            "description": "Consumption Claims not counted.",
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "limit": {
+            "description": "The limit in the measure's unit.",
+            "type": "string"
+          },
+          "measure": {
+            "description": "`effort`, `money`, `operations` or `tokens`.",
+            "type": "string"
+          },
+          "own": {
+            "description": "Consumption reported by the commitment's obligor.",
+            "type": "string"
+          },
+          "remaining": {
+            "description": "What is left of the limit.",
+            "type": "string"
+          },
+          "unmatched": {
+            "description": "Sub-commitment totals in another measure.",
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "warning": {
+            "description": "The highest warning tier reached, in permille.",
+            "format": "int32",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "condition",
+          "definition",
+          "measure",
+          "limit",
+          "own",
+          "children",
+          "consumed",
+          "remaining",
+          "exhausted",
+          "decision",
+          "ignored_claims",
+          "unmatched",
+          "ignored"
+        ],
+        "type": "object"
+      },
       "ChangeEntry": {
         "description": "One Work that changed.",
         "properties": {
@@ -392,6 +498,115 @@
           "root",
           "signed_note",
           "issued_at"
+        ],
+        "type": "object"
+      },
+      "ClockAnswer": {
+        "description": "A clock of the commitment, projected at the evaluation time (CM-50, CM-51, CM-52).",
+        "properties": {
+          "breached_at": {
+            "description": "When it breached, RFC 3339 UTC.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "condition": {
+            "description": "The clock Condition the request lists, `rec_…`.",
+            "type": "string"
+          },
+          "definition": {
+            "description": "The Condition record whose definition is in effect, `rec_…`.",
+            "type": "string"
+          },
+          "elapsed_ms": {
+            "description": "Counted milliseconds so far.",
+            "type": "string"
+          },
+          "error": {
+            "description": "Why it cannot be projected: `order`, `version`, `calendar`, `rule` or `overflow`.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ignored": {
+            "description": "Later Condition records that did not continue its definition, `rec_…`.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "met_at": {
+            "description": "When its target was met, RFC 3339 UTC.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "next_change": {
+            "description": "When the next tier is reached if nothing else happens, RFC 3339 UTC.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "paused_since": {
+            "description": "Since when a valid wait pauses it, RFC 3339 UTC.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reached": {
+            "description": "Every tier reached, in order.",
+            "items": {
+              "$ref": "#/components/schemas/ReachedAnswer"
+            },
+            "type": "array"
+          },
+          "remaining_ms": {
+            "description": "Counted milliseconds left of the duration.",
+            "type": "string"
+          },
+          "state": {
+            "description": "`not_started`, `running`, `paused` or `met`; absent when it cannot be projected.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "target": {
+            "description": "`response`, `start` or `finish`.",
+            "type": "string"
+          },
+          "version": {
+            "description": "The definition version in effect.",
+            "format": "int32",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "warning": {
+            "description": "The highest warning tier reached, in permille.",
+            "format": "int32",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "condition",
+          "definition",
+          "target",
+          "elapsed_ms",
+          "remaining_ms",
+          "reached",
+          "ignored"
         ],
         "type": "object"
       },
@@ -543,7 +758,7 @@
             "type": "integer"
           },
           "signals": {
-            "description": "The signals of the commitments that support it (CM-47).",
+            "description": "The signals of the commitments that support it, their clocks and periodic updates\nincluded (CM-47).",
             "items": {
               "$ref": "#/components/schemas/SignalAnswer"
             },
@@ -575,6 +790,10 @@
             "$ref": "#/components/schemas/TermsAnswer",
             "description": "The terms in force."
           },
+          "time": {
+            "$ref": "#/components/schemas/TimeAnswer",
+            "description": "Its clocks, periodic updates and budgets at the evaluation time (CM-48, CM-50, CM-53)."
+          },
           "version": {
             "description": "The version of the commitment, also the `ETag` its next record names in `If-Match`.",
             "type": "string"
@@ -605,6 +824,7 @@
           "allowed",
           "next_move",
           "signals",
+          "time",
           "at",
           "position"
         ],
@@ -663,6 +883,36 @@
           "notice",
           "window_from",
           "window_to"
+        ],
+        "type": "object"
+      },
+      "DueAnswer": {
+        "description": "One expected report of a periodic update (CM-53).",
+        "properties": {
+          "deadline": {
+            "description": "The last time a report still counts, RFC 3339 UTC.",
+            "type": "string"
+          },
+          "expected": {
+            "description": "The expected time, RFC 3339 UTC.",
+            "type": "string"
+          },
+          "missed": {
+            "description": "Whether it was missed: a breach signal.",
+            "type": "boolean"
+          },
+          "report": {
+            "description": "The ledger time of the report that met it, RFC 3339 UTC.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "expected",
+          "deadline",
+          "missed"
         ],
         "type": "object"
       },
@@ -1083,6 +1333,75 @@
         ],
         "type": "object"
       },
+      "PeriodicAnswer": {
+        "description": "A periodic update of the commitment, projected at the evaluation time (CM-53, CM-64).",
+        "properties": {
+          "condition": {
+            "description": "The periodic Condition the request lists, `rec_…`.",
+            "type": "string"
+          },
+          "definition": {
+            "description": "The Condition record whose definition is in effect, `rec_…`.",
+            "type": "string"
+          },
+          "due": {
+            "description": "The expected reports up to the evaluation time.",
+            "items": {
+              "$ref": "#/components/schemas/DueAnswer"
+            },
+            "type": "array"
+          },
+          "error": {
+            "description": "Why it cannot be projected: `order`, `version`, `calendar`, `rule` or `overflow`.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ignored": {
+            "description": "Later Condition records that did not continue its definition, `rec_…`.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "ignored_reports": {
+            "description": "Report Claims not counted.",
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "missed": {
+            "description": "How many were missed.",
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "next_deadline": {
+            "description": "The deadline of the next report not yet in, RFC 3339 UTC.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reports": {
+            "description": "The report Claims counted.",
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "condition",
+          "definition",
+          "due",
+          "missed",
+          "reports",
+          "ignored_reports",
+          "ignored"
+        ],
+        "type": "object"
+      },
       "Problem": {
         "description": "An RFC 9457 problem response (T-98 item 6).",
         "properties": {
@@ -1253,6 +1572,40 @@
         },
         "type": "object"
       },
+      "ReachedAnswer": {
+        "description": "A tier a clock reached (CM-51).",
+        "properties": {
+          "at": {
+            "description": "When it was reached, RFC 3339 UTC.",
+            "type": "string"
+          },
+          "permille": {
+            "description": "The warning tier in permille of the duration.",
+            "format": "int32",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "tier": {
+            "description": "`warning` or `breach`.",
+            "type": "string"
+          },
+          "version": {
+            "description": "The definition version in effect then.",
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "tier",
+          "at",
+          "version"
+        ],
+        "type": "object"
+      },
       "SignalAnswer": {
         "description": "A signal a supporting commitment raises (CM-47).",
         "properties": {
@@ -1409,6 +1762,56 @@
           "high_impact",
           "four_eyes_waived",
           "change_policy",
+          "undefined"
+        ],
+        "type": "object"
+      },
+      "TimeAnswer": {
+        "description": "The clocks, periodic updates and budgets of the commitment; nothing of it is stored (CM-51).",
+        "properties": {
+          "budgets": {
+            "description": "The budgets.",
+            "items": {
+              "$ref": "#/components/schemas/BudgetAnswer"
+            },
+            "type": "array"
+          },
+          "clocks": {
+            "description": "The clocks.",
+            "items": {
+              "$ref": "#/components/schemas/ClockAnswer"
+            },
+            "type": "array"
+          },
+          "evaluated_at": {
+            "description": "The evaluation time, RFC 3339 UTC.",
+            "type": "string"
+          },
+          "periodic": {
+            "description": "The periodic updates.",
+            "items": {
+              "$ref": "#/components/schemas/PeriodicAnswer"
+            },
+            "type": "array"
+          },
+          "tzdb": {
+            "description": "The tzdb release the clocks and periodic updates count in (CM-64).",
+            "type": "string"
+          },
+          "undefined": {
+            "description": "Listed time Conditions whose definition did not open, `rec_…`.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "evaluated_at",
+          "tzdb",
+          "clocks",
+          "periodic",
+          "budgets",
           "undefined"
         ],
         "type": "object"
