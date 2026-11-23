@@ -7,7 +7,7 @@ use crate::catalog::{ChangePolicy, CommitmentKind, NoticeType};
 use crate::id::{PartyRef, RecordId, Time};
 use crate::ontology::Obligor;
 use crate::reason::wire_enum;
-use crate::responsibility::{Accountable, Assignment};
+use crate::responsibility::{Accountable, Allocation};
 use crate::uri::TypeUri;
 
 wire_enum! {
@@ -416,7 +416,7 @@ pub struct CommitmentView {
     /// Every commitment record after the request and its result, in ledger order.
     pub steps: Vec<Step>,
     /// The assignment axis records: queue, offers, hold, forwardings and history (RC-10…RC-25).
-    pub assignment: Assignment,
+    pub allocation: Allocation,
     /// The accountability the records declare (RC-5, RC-7).
     pub accountability: Accountable,
 }
@@ -438,7 +438,7 @@ impl CommitmentView {
     pub fn continues(&self, record: &RecordId) -> bool {
         self.root == *record
             || self.steps.iter().any(|s| s.record == *record)
-            || self.assignment.history.iter().any(|e| e.record == *record)
+            || self.allocation.history.iter().any(|e| e.record == *record)
     }
 
     /// Whether every item reached a terminal outcome (CM-34).

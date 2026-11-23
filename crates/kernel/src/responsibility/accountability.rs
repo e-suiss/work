@@ -218,9 +218,9 @@ pub fn accountability(
     let rule = rule_for(rules, organization);
     let mut links: Vec<Link> = Vec::new();
     links.extend(explicit_links(view, organization, rule, directory));
-    match (&view.obligor, &view.assignment.hold) {
+    match (&view.obligor, &view.allocation.hold) {
         (Obligor::Queue(_), _) => {
-            if let Some(q) = &view.assignment.definition {
+            if let Some(q) = &view.allocation.definition {
                 links.push(link(&q.definition.owner, AccountabilitySource::QueueOwner));
                 for p in q.author_chain.iter().filter(|p| **p != q.definition.owner) {
                     links.push(link(p, AccountabilitySource::OnBehalfOf));
@@ -235,7 +235,7 @@ pub fn accountability(
         }
         (Obligor::Party(_), None) => {}
     }
-    if view.assignment.hold.is_none() {
+    if view.allocation.hold.is_none() {
         links.push(link(&view.obligee, AccountabilitySource::Requester));
         for p in view
             .requester

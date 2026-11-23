@@ -278,7 +278,7 @@ pub fn next_moves(view: &CommitmentView, facts: &Facts<'_>) -> Vec<Mover> {
     }
     for item in view.open_items() {
         let mover = match item.state {
-            CommitmentState::Requested => match (&view.obligor, &view.assignment.offer) {
+            CommitmentState::Requested => match (&view.obligor, &view.allocation.offer) {
                 (Obligor::Queue(_), Some(offer)) => Mover::Party(offer.to.clone()),
                 _ => obligor_mover(view),
             },

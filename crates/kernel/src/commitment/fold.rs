@@ -20,7 +20,7 @@ use crate::id::{PartyRef, RecordId, Time};
 use crate::ontology::{Aim, Commitment, Evaluation, Obligor};
 use crate::reason::wire_enum;
 use crate::record::Record;
-use crate::responsibility::{Accountable, Assignment, queue_versions};
+use crate::responsibility::{Accountable, Allocation, queue_versions};
 use crate::uri::TypeUri;
 use crate::validate::ActorType;
 
@@ -316,7 +316,7 @@ fn open(input: &Input<'_>, records: &dyn Records) -> Option<CommitmentView> {
         handovers: Vec::new(),
         active_ends: Vec::new(),
         steps: Vec::new(),
-        assignment: Assignment::opened(&core.obligor, input.recorded_at),
+        allocation: Allocation::opened(&core.obligor, input.recorded_at),
         accountability: Accountable::of(record, input.id),
     };
     if let Some(refusal) = opening_refusal(input, &view) {
@@ -748,7 +748,7 @@ fn plan_answer(
     who: &PartyRef,
 ) -> Result<Plan, Refusal> {
     let offered = matches!(view.obligor, Obligor::Queue(_))
-        && view.assignment.offer.as_ref().is_some_and(|o| &o.to == who);
+        && view.allocation.offer.as_ref().is_some_and(|o| &o.to == who);
     if op == Operation::Decline && offered {
         whole(view, &[S::Requested])?;
         return Ok(Plan::new(Vec::new(), Mode::OfferDeclined));
@@ -1376,7 +1376,7 @@ fn apply_answer(
     let pooled = matches!(view.obligor, Obligor::Queue(_));
     match op {
         Operation::Promise if plan.mode == Mode::Amendment => accept_amendment(view, None),
-        Operation::Decline if plan.mode == Mode::OfferDeclined => view.assignment.offer = None,
+        Operation::Decline if plan.mode == Mode::OfferDeclined => view.allocation.offer = None,
         Operation::Promise => {
             set_state(view, targets, S::Promised, None);
             bind_queue(view, &who);

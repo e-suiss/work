@@ -1,6 +1,6 @@
 use alloc::vec::Vec;
 
-use super::assignment::HoldVia;
+use super::allocation::HoldVia;
 use super::queue::DistributionMethod;
 use crate::commitment::CommitmentView;
 use crate::id::{PartyRef, RecordId};
@@ -26,7 +26,7 @@ pub struct DistributionDecision {
 /// The distribution decisions of a commitment, in ledger order (RC-22).
 #[must_use]
 pub fn decisions(view: &CommitmentView) -> Vec<DistributionDecision> {
-    view.assignment
+    view.allocation
         .offers
         .iter()
         .map(|o| DistributionDecision {
@@ -68,7 +68,7 @@ pub fn workload(views: &[CommitmentView], party: &PartyRef, running: u32) -> Wor
     let mut claimed: u32 = 0;
     for view in views.iter().filter(|v| !v.is_terminal()) {
         let bound = matches!(&view.obligor, Obligor::Party(p) if p == party);
-        let Some(hold) = view.assignment.hold.as_ref().filter(|_| bound) else {
+        let Some(hold) = view.allocation.hold.as_ref().filter(|_| bound) else {
             continue;
         };
         open = open.saturating_add(1);

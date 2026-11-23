@@ -86,7 +86,7 @@ impl ResponsibilityOperation {
 
 wire_enum! {
     /// The assignment axis: who the obligor is and how it is decided, apart from the execution axis (RC-15, RC-16).
-    AssignmentState {
+    AllocationState {
         /// In the pool: candidates exist, nobody took it.
         Pooled => "pooled",
         /// Offered to a named Party, or asked of it directly; its answer is awaited.
@@ -185,7 +185,7 @@ pub struct Forwarding {
 
 /// What an assignment history entry records (RC-19).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum AssignmentAct {
+pub enum AllocationAct {
     /// A responsibility operation.
     Responsibility(ResponsibilityOperation),
     /// A commitment operation that binds, declines an offer or hands the debt over.
@@ -196,11 +196,11 @@ pub enum AssignmentAct {
 
 /// One assignment history entry: who, to whom, when, under which policy version, and its result; reassignment never erases one (RC-19).
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct AssignmentEvent {
+pub struct AllocationEvent {
     /// The record.
     pub record: RecordId,
     /// What it is.
-    pub act: AssignmentAct,
+    pub act: AllocationAct,
     /// The Party it speaks for.
     pub by: PartyRef,
     /// The Party it names, if any.
@@ -215,7 +215,7 @@ pub struct AssignmentEvent {
 
 /// The assignment of a commitment as its records derive it: the queue and the definition version in force, a forwarded candidate set, since when it is pooled, the open offer, nominations, the hold, forwardings, every offer made and the history (RC-10…RC-25).
 #[derive(Clone, Debug, PartialEq, Eq, Default)]
-pub struct Assignment {
+pub struct Allocation {
     /// The queue the work is in, or came from.
     pub queue: Option<RecordId>,
     /// The definition version of that queue in force.
@@ -235,10 +235,10 @@ pub struct Assignment {
     /// Every forwarding.
     pub forwards: Vec<Forwarding>,
     /// Every assignment record and its result (RC-19).
-    pub history: Vec<AssignmentEvent>,
+    pub history: Vec<AllocationEvent>,
 }
 
-impl Assignment {
+impl Allocation {
     /// The assignment of a commitment its `request` opens: pooled from its ledger time when it names a queue (RC-10).
     #[must_use]
     pub fn opened(obligor: &Obligor, at: Time) -> Self {
@@ -297,7 +297,7 @@ pub enum LeaseStatus {
 /// The lease at ledger time `now`: it runs from the hold's last renewal or the latest `activity` time after the binding (progress reports and liveness signals the caller derives) for the declared length (RC-18).
 #[must_use]
 pub fn lease_status(view: &CommitmentView, now: Time, activity: &[Time]) -> LeaseStatus {
-    let Some(hold) = &view.assignment.hold else {
+    let Some(hold) = &view.allocation.hold else {
         return LeaseStatus::NoLease;
     };
     let Some(lease) = hold.lease else {
@@ -322,11 +322,11 @@ pub fn lease_status(view: &CommitmentView, now: Time, activity: &[Time]) -> Leas
 
 fn start_missed(view: &CommitmentView, now: Time) -> bool {
     let within = view
-        .assignment
+        .allocation
         .definition
         .as_ref()
         .and_then(|d| d.definition.start_within);
-    match (view.assignment.pooled_since, within) {
+    match (view.allocation.pooled_since, within) {
         (Some(since), Some(within)) => since.0.checked_add(within).is_some_and(|d| now.0 >= d),
         _ => false,
     }
@@ -334,28 +334,28 @@ fn start_missed(view: &CommitmentView, now: Time) -> bool {
 
 /// The assignment axis at ledger time `now`, independent of the execution axis: `held` once a Party is bound; for a direct request `offered`; for pooled work `offered` while an offer or a counter-offer is open and `pooled` otherwise, both becoming `failed_to_assign` once the start deadline passed or the policy found no candidate (`candidates_found`, from Access membership) (RC-13, RC-15, RC-16).
 #[must_use]
-pub fn assignment_state(
+pub fn allocation_state(
     view: &CommitmentView,
     now: Time,
     candidates_found: Option<bool>,
-) -> AssignmentState {
-    if view.assignment.hold.is_some() && matches!(view.obligor, Obligor::Party(_)) {
-        return AssignmentState::Held;
+) -> AllocationState {
+    if view.allocation.hold.is_some() && matches!(view.obligor, Obligor::Party(_)) {
+        return AllocationState::Held;
     }
     match view.obligor {
-        Obligor::Party(_) => AssignmentState::Offered,
+        Obligor::Party(_) => AllocationState::Offered,
         Obligor::Queue(_) => {
             if !view.is_terminal() && (start_missed(view, now) || candidates_found == Some(false)) {
-                return AssignmentState::FailedToAssign;
+                return AllocationState::FailedToAssign;
             }
             let countered = view
                 .items
                 .iter()
                 .any(|i| i.state == CommitmentState::Countered);
-            if view.assignment.offer.is_some() || countered {
-                AssignmentState::Offered
+            if view.allocation.offer.is_some() || countered {
+                AllocationState::Offered
             } else {
-                AssignmentState::Pooled
+                AllocationState::Pooled
             }
         }
     }
@@ -375,16 +375,16 @@ pub struct PingPong {
 /// The ping-pong count of a commitment (RC-14).
 #[must_use]
 pub fn ping_pong(view: &CommitmentView) -> PingPong {
-    let count = view.assignment.forwards.len();
+    let count = view.allocation.forwards.len();
     let threshold = view
-        .assignment
+        .allocation
         .definition
         .as_ref()
         .and_then(|d| d.definition.ping_pong_threshold);
     PingPong {
         count,
         chain: view
-            .assignment
+            .allocation
             .forwards
             .iter()
             .map(|f| f.target.clone())
@@ -395,7 +395,7 @@ pub fn ping_pong(view: &CommitmentView) -> PingPong {
 
 wire_enum! {
     /// Attention signals of the assignment axis, addressed to the queue owner (RC-13, RC-14, RC-18).
-    AssignmentSignalKind {
+    AllocationSignalKind {
         /// Nobody took the work.
         FailedToAssign => "failed_to_assign",
         /// The forwarding count passed the threshold.
@@ -407,9 +407,9 @@ wire_enum! {
 
 /// An assignment attention signal for the queue owner; for an expired lease that returns to the pool, the Work service Party also writes the `unclaim` (RC-13, RC-14, RC-18).
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct AssignmentSignal {
+pub struct AllocationSignal {
     /// Its kind.
-    pub kind: AssignmentSignalKind,
+    pub kind: AllocationSignalKind,
     /// The queue owner it goes to, when the definition is known.
     pub to: Option<PartyRef>,
     /// Whether the Work service Party now writes an `unclaim` naming the hold in `basis`.
@@ -418,18 +418,18 @@ pub struct AssignmentSignal {
 
 /// The assignment signals at ledger time `now` (RC-13, RC-14, RC-18).
 #[must_use]
-pub fn assignment_signals(
+pub fn allocation_signals(
     view: &CommitmentView,
     now: Time,
     activity: &[Time],
     candidates_found: Option<bool>,
-) -> Vec<AssignmentSignal> {
+) -> Vec<AllocationSignal> {
     let owner = view
-        .assignment
+        .allocation
         .definition
         .as_ref()
         .map(|d| d.definition.owner.clone());
-    let signal = |kind, unclaim_due| AssignmentSignal {
+    let signal = |kind, unclaim_due| AllocationSignal {
         kind,
         to: owner.clone(),
         unclaim_due,
@@ -438,15 +438,15 @@ pub fn assignment_signals(
     if view.is_terminal() {
         return out;
     }
-    if assignment_state(view, now, candidates_found) == AssignmentState::FailedToAssign {
-        out.push(signal(AssignmentSignalKind::FailedToAssign, false));
+    if allocation_state(view, now, candidates_found) == AllocationState::FailedToAssign {
+        out.push(signal(AllocationSignalKind::FailedToAssign, false));
     }
     if ping_pong(view).over {
-        out.push(signal(AssignmentSignalKind::PingPong, false));
+        out.push(signal(AllocationSignalKind::PingPong, false));
     }
     if let LeaseStatus::Expired { expiry, .. } = lease_status(view, now, activity) {
         out.push(signal(
-            AssignmentSignalKind::LeaseExpired,
+            AllocationSignalKind::LeaseExpired,
             expiry == LeaseExpiry::ReturnToPool,
         ));
     }
@@ -465,7 +465,7 @@ pub struct AccessWait {
 /// The "access awaited" wait of a held commitment, from Access's answer for its obligor; nothing in the assignment widens access (RC-20).
 #[must_use]
 pub fn access_wait(view: &CommitmentView, obligor_access: AccessAnswer) -> Option<AccessWait> {
-    let hold = view.assignment.hold.as_ref()?;
+    let hold = view.allocation.hold.as_ref()?;
     (!view.is_terminal() && obligor_access != AccessAnswer::Allow).then(|| AccessWait {
         party: hold.party.clone(),
         answer: obligor_access,

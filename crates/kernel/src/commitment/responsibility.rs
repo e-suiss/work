@@ -14,7 +14,7 @@ use crate::id::PartyRef;
 use crate::ontology::Obligor;
 use crate::record::Record;
 use crate::responsibility::{
-    AccountabilitySource, AssignmentAct, AssignmentEvent, DistributionMethod, Explicit,
+    AccountabilitySource, AllocationAct, AllocationEvent, DistributionMethod, Explicit,
     ForwardTarget, Forwarding, Hold, HoldVia, LeaseExpiry, Nomination, Offer, QueueVersion,
     ResponsibilityOperation, in_force,
 };
@@ -43,21 +43,21 @@ pub(super) fn act_of(record: &Record) -> Option<Act> {
 
 /// Sets the queue definition version in force before ledger position `before` (RC-19).
 pub(super) fn refresh(view: &mut CommitmentView, queues: &[QueueVersion], before: u64) {
-    if let Some(queue) = view.assignment.queue {
-        view.assignment.definition = in_force(queues, queue, before).cloned();
+    if let Some(queue) = view.allocation.queue {
+        view.allocation.definition = in_force(queues, queue, before).cloned();
     }
 }
 
 /// Whether `party` may take pooled work as far as the records tell (RC-11).
 pub(super) fn may_take(view: &CommitmentView, party: &PartyRef) -> bool {
-    !matches!(view.obligor, Obligor::Queue(_)) || view.assignment.admits(party) != Some(false)
+    !matches!(view.obligor, Obligor::Queue(_)) || view.allocation.admits(party) != Some(false)
 }
 
 /// Records the hold a binding §9 operation gives: by answering the open offer or by promising; a lease only for work taken from the pool, and a bid award binds (RC-18, RC-25).
 pub(super) fn bound(view: &mut CommitmentView, input: &Input<'_>, party: &PartyRef, pooled: bool) {
-    let assignment = &mut view.assignment;
-    let offer = assignment.offer.take();
-    if assignment.hold.is_some() {
+    let allocation = &mut view.allocation;
+    let offer = allocation.offer.take();
+    if allocation.hold.is_some() {
         return;
     }
     let answered = offer.as_ref().filter(|o| &o.to == party);
@@ -68,14 +68,14 @@ pub(super) fn bound(view: &mut CommitmentView, input: &Input<'_>, party: &PartyR
     };
     let binding = answered.is_some_and(|o| o.method == Some(DistributionMethod::Bid));
     let lease = if pooled {
-        assignment
+        allocation
             .definition
             .as_ref()
             .and_then(|d| d.definition.lease)
     } else {
         None
     };
-    assignment.hold = Some(Hold {
+    allocation.hold = Some(Hold {
         record: input.id,
         party: party.clone(),
         since: input.recorded_at,
@@ -89,7 +89,7 @@ pub(super) fn bound(view: &mut CommitmentView, input: &Input<'_>, party: &PartyR
 
 /// Records the hold an accepted §9 delegation gives the new obligor (CM-44, RC-17).
 pub(super) fn delegated(view: &mut CommitmentView, input: &Input<'_>, to: &PartyRef) {
-    view.assignment.hold = Some(Hold {
+    view.allocation.hold = Some(Hold {
         record: input.id,
         party: to.clone(),
         since: input.recorded_at,
@@ -104,12 +104,12 @@ pub(super) fn delegated(view: &mut CommitmentView, input: &Input<'_>, to: &Party
 fn event(
     view: &mut CommitmentView,
     input: &Input<'_>,
-    act: AssignmentAct,
+    act: AllocationAct,
     to: Option<PartyRef>,
     outcome: StepOutcome,
 ) {
-    let policy = view.assignment.definition.as_ref().map(|d| d.version);
-    view.assignment.history.push(AssignmentEvent {
+    let policy = view.allocation.definition.as_ref().map(|d| d.version);
+    view.allocation.history.push(AllocationEvent {
         record: input.id,
         act,
         by: params::acting(input.record).clone(),
@@ -130,7 +130,7 @@ pub(super) fn record_commitment(
     let applied = outcome == StepOutcome::Applied;
     if applied
         && matches!(op, Operation::State | Operation::Notice)
-        && let Some(hold) = view.assignment.hold.as_mut()
+        && let Some(hold) = view.allocation.hold.as_mut()
     {
         hold.renewed = input.recorded_at;
     }
@@ -145,7 +145,7 @@ pub(super) fn record_commitment(
         Operation::Delegate => params::party(input.record, "obligor"),
         _ => return,
     };
-    event(view, input, AssignmentAct::Commitment(op), to, outcome);
+    event(view, input, AllocationAct::Commitment(op), to, outcome);
 }
 
 fn forward_target(record: &Record) -> Option<ForwardTarget> {
@@ -171,7 +171,7 @@ fn explicit_is(view: &CommitmentView, party: &PartyRef) -> bool {
 }
 
 fn claim_allowed(view: &CommitmentView) -> bool {
-    view.assignment
+    view.allocation
         .definition
         .as_ref()
         .is_none_or(|d| d.definition.distribution == DistributionMethod::Pull)
@@ -198,18 +198,18 @@ fn plan(
         ResponsibilityOperation::Forward => {
             require(pooled(view), Refusal::StateNotPermitted)?;
             require(
-                view.assignment.owned_by(who) != Some(false),
+                view.allocation.owned_by(who) != Some(false),
                 Refusal::WrongRole,
             )?;
             let target = forward_target(record).ok_or(Refusal::MissingContent)?;
             if let ForwardTarget::Queue(q) = &target {
-                require(view.assignment.queue != Some(*q), Refusal::WrongTarget)?;
+                require(view.allocation.queue != Some(*q), Refusal::WrongTarget)?;
             }
             whole(view, &[S::Requested]).map(|_| Vec::new())
         }
         ResponsibilityOperation::Nominate => {
             let party = params::party(record, "party").ok_or(Refusal::MissingContent)?;
-            let role = view.assignment.owned_by(who) == Some(true)
+            let role = view.allocation.owned_by(who) == Some(true)
                 || is_obligee(view, who)
                 || explicit_is(view, who);
             require(role, Refusal::WrongRole)?;
@@ -220,7 +220,7 @@ fn plan(
         ResponsibilityOperation::Reassign => plan_reassign(view, record, who),
         ResponsibilityOperation::RenewLease => {
             let hold = view
-                .assignment
+                .allocation
                 .hold
                 .as_ref()
                 .ok_or(Refusal::StateNotPermitted)?;
@@ -246,11 +246,11 @@ fn plan_unclaim(
     who: &PartyRef,
 ) -> Result<Vec<u16>, Refusal> {
     let hold = view
-        .assignment
+        .allocation
         .hold
         .as_ref()
         .ok_or(Refusal::StateNotPermitted)?;
-    require(view.assignment.queue.is_some(), Refusal::StateNotPermitted)?;
+    require(view.allocation.queue.is_some(), Refusal::StateNotPermitted)?;
     if input.service() && !is_obligor(view, who) {
         let lease = hold.lease.ok_or(Refusal::NoLease)?;
         require(
@@ -286,14 +286,14 @@ fn plan_offer(
 ) -> Result<Vec<u16>, Refusal> {
     let record = input.record;
     require(pooled(view), Refusal::StateNotPermitted)?;
-    require(view.assignment.offer.is_none(), Refusal::AlreadyPending)?;
+    require(view.allocation.offer.is_none(), Refusal::AlreadyPending)?;
     let to = params::party(record, "party").ok_or(Refusal::MissingContent)?;
     require(may_take(view, &to), Refusal::NotACandidate)?;
-    let owner = view.assignment.owned_by(who);
+    let owner = view.allocation.owned_by(who);
     if let Some(policy) = params::digest(record, "policy") {
         require(input.service() || owner == Some(true), Refusal::WrongRole)?;
         let definition = view
-            .assignment
+            .allocation
             .definition
             .as_ref()
             .ok_or(Refusal::WrongTarget)?;
@@ -322,7 +322,7 @@ fn plan_reassign(
     who: &PartyRef,
 ) -> Result<Vec<u16>, Refusal> {
     let to = params::party(record, "party").ok_or(Refusal::MissingContent)?;
-    let role = view.assignment.owned_by(who) == Some(true)
+    let role = view.allocation.owned_by(who) == Some(true)
         || explicit_is(view, who)
         || is_obligee(view, who)
         || is_principal(view, who);
@@ -344,7 +344,7 @@ fn offer_of(view: &CommitmentView, input: &Input<'_>, to: PartyRef) -> Offer {
         by: params::acting(input.record).clone(),
         policy,
         method: policy
-            .and(view.assignment.definition.as_ref())
+            .and(view.allocation.definition.as_ref())
             .map(|d| d.definition.distribution),
         inputs: params::digests(input.record, "inputs").unwrap_or_default(),
     }
@@ -355,12 +355,12 @@ fn apply_claim(view: &mut CommitmentView, input: &Input<'_>, targets: &[u16]) {
     set_state(view, targets, S::Promised, None);
     view.obligor = Obligor::Party(who.clone());
     let lease = view
-        .assignment
+        .allocation
         .definition
         .as_ref()
         .and_then(|d| d.definition.lease);
-    view.assignment.offer = None;
-    view.assignment.hold = Some(Hold {
+    view.allocation.offer = None;
+    view.allocation.hold = Some(Hold {
         record: input.id,
         party: who,
         since: input.recorded_at,
@@ -374,7 +374,7 @@ fn apply_claim(view: &mut CommitmentView, input: &Input<'_>, targets: &[u16]) {
 
 fn apply_unclaim(view: &mut CommitmentView, input: &Input<'_>, targets: &[u16]) {
     set_state(view, targets, S::Requested, None);
-    if let (Obligor::Party(old), Some(queue)) = (&view.obligor, view.assignment.queue) {
+    if let (Obligor::Party(old), Some(queue)) = (&view.obligor, view.allocation.queue) {
         view.active_ends.push(ActiveEnd {
             obligor: old.clone(),
             record: input.id,
@@ -382,8 +382,8 @@ fn apply_unclaim(view: &mut CommitmentView, input: &Input<'_>, targets: &[u16]) 
         });
         view.obligor = Obligor::Queue(queue);
     }
-    view.assignment.hold = None;
-    view.assignment.pooled_since = Some(input.recorded_at);
+    view.allocation.hold = None;
+    view.allocation.pooled_since = Some(input.recorded_at);
 }
 
 fn apply(
@@ -406,17 +406,17 @@ fn apply(
             match &target {
                 ForwardTarget::Queue(q) => {
                     view.obligor = Obligor::Queue(*q);
-                    view.assignment.queue = Some(*q);
-                    view.assignment.candidates = None;
+                    view.allocation.queue = Some(*q);
+                    view.allocation.candidates = None;
                     refresh(view, queues, input.position);
                 }
                 ForwardTarget::Candidates(list) => {
-                    view.assignment.candidates = Some(list.clone());
+                    view.allocation.candidates = Some(list.clone());
                 }
             }
-            view.assignment.offer = None;
-            view.assignment.pooled_since = Some(at);
-            view.assignment.forwards.push(Forwarding {
+            view.allocation.offer = None;
+            view.allocation.pooled_since = Some(at);
+            view.allocation.forwards.push(Forwarding {
                 record: input.id,
                 by: who,
                 target,
@@ -425,7 +425,7 @@ fn apply(
         }
         ResponsibilityOperation::Nominate => {
             if let Some(party) = params::party(record, "party") {
-                view.assignment.nominations.push(Nomination {
+                view.allocation.nominations.push(Nomination {
                     record: input.id,
                     party,
                     by: who,
@@ -438,8 +438,8 @@ fn apply(
             };
             if pooled(view) {
                 let offer = offer_of(view, input, to);
-                view.assignment.offers.push(offer.clone());
-                view.assignment.offer = Some(offer);
+                view.allocation.offers.push(offer.clone());
+                view.allocation.offer = Some(offer);
             } else {
                 view.pending.delegation = Some(Proposal {
                     record: input.id,
@@ -448,7 +448,7 @@ fn apply(
             }
         }
         ResponsibilityOperation::RenewLease => {
-            if let Some(hold) = view.assignment.hold.as_mut() {
+            if let Some(hold) = view.allocation.hold.as_mut() {
                 hold.renewed = at;
             }
         }
@@ -471,7 +471,7 @@ pub(super) fn step(
         }
         Err(refusal) => StepOutcome::Refused(refusal),
     };
-    event(view, input, AssignmentAct::Responsibility(op), to, outcome);
+    event(view, input, AllocationAct::Responsibility(op), to, outcome);
 }
 
 fn plan_acknowledge(view: &CommitmentView, input: &Input<'_>) -> Result<bool, Refusal> {
@@ -518,7 +518,7 @@ pub(super) fn acknowledge(view: &mut CommitmentView, input: &Input<'_>) {
         }
         Err(refusal) => StepOutcome::Refused(refusal),
     };
-    event(view, input, AssignmentAct::Acknowledgement, None, outcome);
+    event(view, input, AllocationAct::Acknowledgement, None, outcome);
 }
 
 /// The validity check of a proposed responsibility record or `acknowledgement` against the commitment its chain derives: the author's role, the commitment's state and assignment, the queue's candidates and distribution policy, the lease, and Access, whose answer is needed for a `claim` like for every other operation since assignment grants no access (RC-17, RC-18, RC-20, RC-21, RC-25, RC-5, RC-7).
@@ -530,16 +530,16 @@ pub fn check_responsibility(
     view: &CommitmentView,
     proposed: &Proposed<'_>,
     records: &dyn Records,
-) -> Result<AssignmentAct, Refusal> {
+) -> Result<AllocationAct, Refusal> {
     let input = Input::proposed(proposed);
     let act = match act_of(proposed.record) {
         Some(Act::Responsibility(op)) => {
             plan(view, &input, op, records)?;
-            AssignmentAct::Responsibility(op)
+            AllocationAct::Responsibility(op)
         }
         Some(Act::Acknowledgement) => {
             plan_acknowledge(view, &input)?;
-            AssignmentAct::Acknowledgement
+            AllocationAct::Acknowledgement
         }
         Some(Act::Commitment(_)) | None => return Err(Refusal::NotAResponsibilityOperation),
     };
@@ -565,14 +565,14 @@ pub struct AllowedResponsibility {
 
 fn permitted(view: &CommitmentView, party: &PartyRef, op: ResponsibilityOperation) -> bool {
     let requested = whole(view, &[S::Requested]).is_ok();
-    let owner = view.assignment.owned_by(party) == Some(true);
-    let hold = view.assignment.hold.as_ref();
+    let owner = view.allocation.owned_by(party) == Some(true);
+    let hold = view.allocation.hold.as_ref();
     match op {
         ResponsibilityOperation::Claim => {
             pooled(view) && requested && claim_allowed(view) && may_take(view, party)
         }
         ResponsibilityOperation::Unclaim => {
-            view.assignment.queue.is_some()
+            view.allocation.queue.is_some()
                 && is_obligor(view, party)
                 && hold.is_some_and(|h| !h.binding)
                 && whole(view, &[S::Promised]).is_ok()
@@ -582,7 +582,7 @@ fn permitted(view: &CommitmentView, party: &PartyRef, op: ResponsibilityOperatio
             owner || is_obligee(view, party) || explicit_is(view, party)
         }
         ResponsibilityOperation::Offer => {
-            pooled(view) && owner && requested && view.assignment.offer.is_none()
+            pooled(view) && owner && requested && view.allocation.offer.is_none()
         }
         ResponsibilityOperation::Reassign => {
             let role = owner

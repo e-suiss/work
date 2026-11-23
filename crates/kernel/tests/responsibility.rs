@@ -32,11 +32,11 @@ use work_kernel::record::{
 };
 use work_kernel::relation::Relation;
 use work_kernel::responsibility::{
-    AccountabilitySource, ActBy, AssignmentAct, AssignmentSignalKind, AssignmentState,
+    AccountabilitySource, ActBy, AllocationAct, AllocationSignalKind, AllocationState,
     CommitmentEffect, ControlSpan, Directory, DistributionMethod, ForwardTarget, HoldVia,
     InterventionMark, LeaseExpiry, LeaseStatus, ParticipationPolicy, PrincipalGuarantee,
     QueueDefinition, Regime, ResponsibilityOperation, SUGGESTED_PARTICIPATION, access_wait,
-    accountability, assignment_signals, assignment_state, decisions, guarantees, in_force,
+    accountability, allocation_signals, allocation_state, decisions, guarantees, in_force,
     interventions, lease_status, org_rules, participation, ping_pong, queue_accountability,
     queue_versions, resolve_group, rule_for, waivers, workload,
 };
@@ -314,7 +314,7 @@ impl Ledger {
 
     fn outcome(&self, root: RecordId, record: RecordId) -> StepOutcome {
         self.view(root)
-            .assignment
+            .allocation
             .history
             .iter()
             .find(|e| e.record == record)
@@ -542,18 +542,18 @@ fn rc_17_claim_promises_and_unclaim_returns_to_requested_without_a_release() {
     let pool = ledger.view(root);
     assert_eq!(summary(&pool), Summary::Uniform(CommitmentState::Requested));
     assert_eq!(
-        assignment_state(&pool, Time(0), None),
-        AssignmentState::Pooled
+        allocation_state(&pool, Time(0), None),
+        AllocationState::Pooled
     );
     let claim = ledger.push(decl(BOB, "claim", Some(root), &[]));
     let held = ledger.view(root);
     assert_eq!(summary(&held), Summary::Uniform(CommitmentState::Promised));
     assert_eq!(held.obligor, Obligor::Party(party(BOB)));
     assert_eq!(
-        assignment_state(&held, Time(0), None),
-        AssignmentState::Held
+        allocation_state(&held, Time(0), None),
+        AllocationState::Held
     );
-    let taken = held.assignment.hold.as_ref().unwrap();
+    let taken = held.allocation.hold.as_ref().unwrap();
     assert_eq!((taken.via, taken.record), (HoldVia::Claim, claim));
     assert_eq!(held.steps.len(), 0);
     let unclaim = ledger.push(decl(BOB, "unclaim", Some(claim), &[]));
@@ -561,8 +561,8 @@ fn rc_17_claim_promises_and_unclaim_returns_to_requested_without_a_release() {
     assert_eq!(summary(&back), Summary::Uniform(CommitmentState::Requested));
     assert_eq!(back.obligor, Obligor::Queue(q));
     assert_eq!(
-        assignment_state(&back, Time(0), None),
-        AssignmentState::Pooled
+        allocation_state(&back, Time(0), None),
+        AllocationState::Pooled
     );
     assert_eq!(back.active_ends.len(), 1);
     assert_eq!(back.active_ends[0].cause, ActiveEndCause::Unclaimed);
@@ -619,12 +619,12 @@ fn rc_17_an_offer_is_answered_by_section_9_and_a_nomination_binds_no_one() {
     let nominate = ledger.push(decl(OWNER, "nominate", Some(root), &[("party", t(CAROL))]));
     let view = ledger.view(root);
     assert_eq!(view.obligor, Obligor::Queue(q));
-    assert_eq!(view.assignment.nominations[0].party, party(CAROL));
+    assert_eq!(view.allocation.nominations[0].party, party(CAROL));
     let offer = ledger.push(decl(OWNER, "offer", Some(nominate), &[("party", t(BOB))]));
     let offered = ledger.view(root);
     assert_eq!(
-        assignment_state(&offered, Time(0), None),
-        AssignmentState::Offered
+        allocation_state(&offered, Time(0), None),
+        AllocationState::Offered
     );
     let facts = Facts {
         conditions_met: &[],
@@ -649,16 +649,16 @@ fn rc_17_an_offer_is_answered_by_section_9_and_a_nomination_binds_no_one() {
         Summary::Uniform(CommitmentState::Requested)
     );
     assert_eq!(
-        assignment_state(&after, Time(0), None),
-        AssignmentState::Pooled
+        allocation_state(&after, Time(0), None),
+        AllocationState::Pooled
     );
     let to_carol = ledger.push(decl(OWNER, "offer", Some(declined), &[("party", t(CAROL))]));
     ledger.push(decl(CAROL, "promise", Some(to_carol), &[]));
     let held = ledger.view(root);
     assert_eq!(held.obligor, Obligor::Party(party(CAROL)));
-    assert_eq!(held.assignment.hold.as_ref().unwrap().via, HoldVia::Offer);
-    assert!(held.assignment.offer.is_none());
-    assert_eq!(held.assignment.offers.len(), 2);
+    assert_eq!(held.allocation.hold.as_ref().unwrap().via, HoldVia::Offer);
+    assert!(held.allocation.offer.is_none());
+    assert_eq!(held.allocation.offers.len(), 2);
 }
 
 // RC-17
@@ -694,7 +694,7 @@ fn rc_17_reassign_keeps_the_obligor_until_the_delegation_is_accepted() {
     let moved = ledger.view(root);
     assert_eq!(moved.obligor, Obligor::Party(party(CAROL)));
     assert_eq!(
-        moved.assignment.hold.as_ref().unwrap().via,
+        moved.allocation.hold.as_ref().unwrap().via,
         HoldVia::Delegation
     );
     assert_eq!(moved.active_ends[0].cause, ActiveEndCause::Delegated);
@@ -759,11 +759,11 @@ fn rc_14_every_forwarding_counts_and_past_the_threshold_signals_the_owner() {
             ForwardTarget::Candidates(vec![party(BOB)])
         ]
     );
-    let signals = assignment_signals(&view, Time(0), &[], None);
+    let signals = allocation_signals(&view, Time(0), &[], None);
     assert!(
         signals
             .iter()
-            .any(|s| s.kind == AssignmentSignalKind::PingPong && s.to == Some(party(OWNER)))
+            .any(|s| s.kind == AllocationSignalKind::PingPong && s.to == Some(party(OWNER)))
     );
     assert_eq!(summary(&view), Summary::Uniform(CommitmentState::Requested));
     let claim = ledger.push(decl(DAVE, "claim", Some(second), &[]));
@@ -808,11 +808,11 @@ fn rc_18_a_lease_runs_out_and_the_work_service_returns_the_work() {
             expiry: LeaseExpiry::ReturnToPool
         }
     );
-    let signals = assignment_signals(&view, Time(renewed + 5000), &[], None);
+    let signals = allocation_signals(&view, Time(renewed + 5000), &[], None);
     assert!(
         signals
             .iter()
-            .any(|s| s.kind == AssignmentSignalKind::LeaseExpired && s.unclaim_due)
+            .any(|s| s.kind == AllocationSignalKind::LeaseExpired && s.unclaim_due)
     );
     let due = ledger.at(
         with_basis(decl(SYS, "unclaim", Some(renew), &[]), &[claim]),
@@ -864,11 +864,11 @@ fn rc_18_a_kept_lease_only_signals_the_owner() {
         StepOutcome::Refused(Refusal::PolicyMethod)
     );
     let view = ledger.view(root);
-    let signals = assignment_signals(&view, Time(late), &[], None);
+    let signals = allocation_signals(&view, Time(late), &[], None);
     assert!(
         signals
             .iter()
-            .any(|s| s.kind == AssignmentSignalKind::LeaseExpired && !s.unclaim_due)
+            .any(|s| s.kind == AllocationSignalKind::LeaseExpired && !s.unclaim_due)
     );
     let renew = ledger.push(decl(BOB, "renew_lease", Some(unclaim), &[]));
     assert_eq!(ledger.outcome(root, renew), StepOutcome::Applied);
@@ -883,27 +883,27 @@ fn rc_13_nobody_took_it_after_the_start_deadline_or_without_candidates() {
     let opened = ledger.time(root);
     let view = ledger.view(root);
     assert_eq!(
-        assignment_state(&view, Time(opened + 1999), None),
-        AssignmentState::Pooled
+        allocation_state(&view, Time(opened + 1999), None),
+        AllocationState::Pooled
     );
     assert_eq!(
-        assignment_state(&view, Time(opened + 2000), None),
-        AssignmentState::FailedToAssign
+        allocation_state(&view, Time(opened + 2000), None),
+        AllocationState::FailedToAssign
     );
     assert_eq!(
-        assignment_state(&view, Time(opened), Some(false)),
-        AssignmentState::FailedToAssign
+        allocation_state(&view, Time(opened), Some(false)),
+        AllocationState::FailedToAssign
     );
     assert!(
-        assignment_signals(&view, Time(opened + 2000), &[], None)
+        allocation_signals(&view, Time(opened + 2000), &[], None)
             .iter()
-            .any(|s| s.kind == AssignmentSignalKind::FailedToAssign && s.to == Some(party(OWNER)))
+            .any(|s| s.kind == AllocationSignalKind::FailedToAssign && s.to == Some(party(OWNER)))
     );
     ledger.push(decl(BOB, "claim", Some(root), &[]));
     let held = ledger.view(root);
     assert_eq!(
-        assignment_state(&held, Time(opened + 9000), Some(false)),
-        AssignmentState::Held
+        allocation_state(&held, Time(opened + 9000), Some(false)),
+        AllocationState::Held
     );
     assert_eq!(summary(&held), Summary::Uniform(CommitmentState::Promised));
 }
@@ -927,8 +927,8 @@ fn rc_19_the_history_keeps_every_assignment_record_with_its_policy_version() {
     let refused = ledger.push(decl(ALICE, "claim", Some(offer), &[]));
     let claim = ledger.push(decl(DAVE, "claim", Some(refused), &[]));
     let view = ledger.view(root);
-    let history: Vec<(RecordId, AssignmentAct, Option<RecordId>, StepOutcome)> = view
-        .assignment
+    let history: Vec<(RecordId, AllocationAct, Option<RecordId>, StepOutcome)> = view
+        .allocation
         .history
         .iter()
         .map(|e| (e.record, e.act, e.policy, e.outcome))
@@ -938,26 +938,26 @@ fn rc_19_the_history_keeps_every_assignment_record_with_its_policy_version() {
         vec![
             (
                 offer,
-                AssignmentAct::Responsibility(ResponsibilityOperation::Offer),
+                AllocationAct::Responsibility(ResponsibilityOperation::Offer),
                 Some(q),
                 StepOutcome::Applied
             ),
             (
                 refused,
-                AssignmentAct::Responsibility(ResponsibilityOperation::Claim),
+                AllocationAct::Responsibility(ResponsibilityOperation::Claim),
                 Some(v2),
                 StepOutcome::Refused(Refusal::NotACandidate)
             ),
             (
                 claim,
-                AssignmentAct::Responsibility(ResponsibilityOperation::Claim),
+                AllocationAct::Responsibility(ResponsibilityOperation::Claim),
                 Some(v2),
                 StepOutcome::Applied
             ),
         ]
     );
-    assert_eq!(view.assignment.history[0].to, Some(party(BOB)));
-    assert_eq!(view.assignment.history[2].by, party(DAVE));
+    assert_eq!(view.allocation.history[0].to, Some(party(BOB)));
+    assert_eq!(view.allocation.history[2].by, party(DAVE));
 }
 
 // RC-20
@@ -979,7 +979,7 @@ fn rc_20_assignment_grants_no_access_and_held_work_waits_for_it() {
     );
     assert_eq!(
         check_responsibility(&view, &proposed(&claim, AccessAnswer::Allow), &records),
-        Ok(AssignmentAct::Responsibility(
+        Ok(AllocationAct::Responsibility(
             ResponsibilityOperation::Claim
         ))
     );
@@ -1118,7 +1118,7 @@ fn rc_25_a_bid_award_binds_and_is_withdrawn_only_by_revocation_or_cancellation()
     ));
     let promise = ledger.push(decl(CAROL, "promise", Some(award), &[]));
     let view = ledger.view(root);
-    assert!(view.assignment.hold.as_ref().unwrap().binding);
+    assert!(view.allocation.hold.as_ref().unwrap().binding);
     let unclaim = ledger.push(decl(CAROL, "unclaim", Some(promise), &[]));
     assert_eq!(
         ledger.outcome(root, unclaim),
