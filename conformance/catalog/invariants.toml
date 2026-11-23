@@ -713,8 +713,11 @@ stage = 3
 title = ""
 tests = [
   "crates/access-client/src/domain/commitments.rs::e_12_the_end_of_a_commitment_reads_back_as_an_unsigned_false_claim_over_work_s_pep",
+  "crates/dispatch/src/app/claims.rs::e_12_a_claim_that_does_not_reach_access_stays_pending_and_is_sent_again_the_same",
+  "crates/dispatch/src/app/claims.rs::e_12_an_admitted_or_replayed_claim_is_delivered_and_a_held_one_keeps_its_reason",
   "crates/kernel/tests/commitments.rs::cm_29_cm_30_cancel_and_release_differ_and_end_commitment_active",
   "crates/kernel/tests/commitments.rs::cm_43_cm_44_delegation_is_two_records_and_the_old_obligor_stays_until_acceptance",
+  "crates/kernel/tests/commitments.rs::e_12_the_ends_a_proposed_record_gives_are_those_the_fold_derives_once_it_is_written",
 ]
 
 [[rule]]
@@ -725,8 +728,13 @@ stage = 5
 title = ""
 tests = [
   "crates/access-client/src/domain/commitments.rs::e_12_the_end_of_a_commitment_reads_back_as_an_unsigned_false_claim_over_work_s_pep",
+  "crates/dispatch/src/app/claims.rs::e_12_a_claim_that_does_not_reach_access_stays_pending_and_is_sent_again_the_same",
+  "crates/dispatch/src/app/claims.rs::e_12_an_admitted_or_replayed_claim_is_delivered_and_a_held_one_keeps_its_reason",
+  "crates/dispatch/src/domain/claims.rs::e_12_a_failed_claim_waits_longer_each_time_up_to_the_bound",
+  "crates/dispatch/src/domain/claims.rs::e_12_the_settings_are_checked",
   "crates/kernel/tests/commitments.rs::cm_29_cm_30_cancel_and_release_differ_and_end_commitment_active",
   "crates/kernel/tests/commitments.rs::cm_43_cm_44_delegation_is_two_records_and_the_old_obligor_stays_until_acceptance",
+  "crates/kernel/tests/commitments.rs::e_12_the_ends_a_proposed_record_gives_are_those_the_fold_derives_once_it_is_written",
 ]
 
 [[rule]]
