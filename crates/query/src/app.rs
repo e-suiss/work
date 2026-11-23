@@ -2,6 +2,7 @@
 
 pub mod authority;
 pub mod caller;
+pub mod ceiling;
 pub mod notices;
 pub mod reads;
 pub mod writes;

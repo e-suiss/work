@@ -9,6 +9,7 @@ use work_proto::position::Positions;
 
 pub mod authority;
 pub mod caller;
+pub mod ceiling;
 pub mod commitments;
 pub mod kinds;
 pub mod notices;

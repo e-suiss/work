@@ -165,6 +165,7 @@ async fn run(config: &Config, scan: Arc<dyn Scan>) -> ExitCode {
         pairer.store.clone(),
         PgInbound::new(infrastructure.sequencer.clone()),
         pairer.clock.clone(),
+        relay_inbound::ceilings(config, &infrastructure, services.sequence()),
     );
     let receiver: Arc<dyn Receiver> = Arc::new(EntryReceiver {
         time: pairer.clock.clone(),

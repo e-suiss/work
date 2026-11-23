@@ -3,7 +3,7 @@
 use std::sync::{Arc, RwLock};
 
 use axum::body::Bytes;
-use work_access_client::adapters::HttpsTransport;
+use work_access_client::adapters::{AccessKeys, HttpsTransport, TokenSigner};
 use work_access_client::domain::AccessError;
 use work_access_client::domain::pairing::PairState;
 use work_access_client::domain::subjects::Subject;
@@ -12,19 +12,23 @@ use work_access_client::ports::{
     Request as AccessRequest, Transport as _,
 };
 use work_http::inbound::{Answer, Answering, Receiver, WebhookHeaders};
+use work_kernel::id::{Digest, LedgerId};
 use work_ledger::time::{LedgerTime, ProcessMonotonic};
-use work_proto::id::TenantId;
+use work_proto::id::{ExternalId as _, TenantId};
+use work_query::app::ceiling::{CeilingEvent, Ceilings, Raised};
+use work_query::ports::Sequence;
 use work_reconciler::adapters::{PgInbound, PgPairing};
 use work_relay_client::app::inbound::{Intake, Outcome, Parts};
 use work_relay_client::domain::answer::RelayError;
-use work_relay_client::domain::inbound::{Attribution, CONTENT_TYPE, Event, Webhook};
+use work_relay_client::domain::inbound::{Attribution, CEILING_TYPE, CONTENT_TYPE, Event, Webhook};
 use work_relay_client::ports::{
     Arrival, Attributed, Clock, Discovered, Discovery, Method, Request, Responders, Response, Seen,
     Tenants, Transport, Unavailable,
 };
 
+use crate::config::Config;
 use crate::inbound::AccessReceiver;
-use crate::startup::{AccessClient, AccessClock};
+use crate::startup::{AccessClient, AccessClock, Infrastructure, read_pin};
 
 /// Relay's discovery document as the process last read and checked it.
 #[derive(Clone, Debug, Default)]
@@ -153,12 +157,105 @@ impl Clock for AccessClock {
 }
 
 /// What an attributed Relay event does in this process: a log event that names the event and
-/// whose record it may become, never the responder.
-#[derive(Clone, Copy, Debug)]
-pub(crate) struct Logged;
+/// whose record it may become, never the responder; an `agent.ceiling_exceeded` event of the
+/// tenant's Work service Party also raises its attention (E-23, P-114 item 2).
+#[derive(Clone)]
+pub(crate) struct Logged {
+    pub(crate) ceilings: Option<Arc<Ceilings<TokenSigner>>>,
+    pub(crate) clock: AccessClock,
+}
+
+/// The Relay event of `event`, when it asks Work to decide on an agent's ceiling and is the
+/// tenant's Work service Party's to record.
+pub(crate) fn ceiling_event(event: &Event, attribution: &Attribution) -> Option<CeilingEvent> {
+    (event.name == CEILING_TYPE && *attribution == Attribution::ServiceParty).then(|| {
+        CeilingEvent {
+            tenant: event.tenant.as_str().to_owned(),
+            id: event.id.clone(),
+            source: event.source.clone(),
+            correlation: event.correlation_id.clone(),
+            agent: event.agent.clone(),
+        }
+    })
+}
+
+impl Logged {
+    fn raise(&self, ceiling: CeilingEvent) {
+        let Some(ceilings) = self.ceilings.clone() else {
+            tracing::error!(
+                event = "relay.ceiling_attention_failed",
+                tenant = ceiling.tenant.as_str(),
+                id = ceiling.id.as_str(),
+                error = "no service key",
+                "the agent ceiling attention is not written"
+            );
+            return;
+        };
+        let now_ms = Clock::now_ms(&self.clock);
+        tokio::spawn(async move {
+            match ceilings.raise(&ceiling, now_ms).await {
+                Ok(Raised::Written(ledger, pos)) => tracing::warn!(
+                    event = "relay.ceiling_attention_written",
+                    tenant = ceiling.tenant.as_str(),
+                    id = ceiling.id.as_str(),
+                    ledger = LedgerId(Digest::sha256(ledger)).to_external(),
+                    pos,
+                    agent = ceiling.agent.as_deref().unwrap_or_default(),
+                    "the agent ceiling attention is written"
+                ),
+                Ok(Raised::Present(ledger)) => tracing::info!(
+                    event = "relay.ceiling_attention_present",
+                    tenant = ceiling.tenant.as_str(),
+                    id = ceiling.id.as_str(),
+                    ledger = LedgerId(Digest::sha256(ledger)).to_external(),
+                    "the agent ceiling attention is already written"
+                ),
+                Err(error) => tracing::error!(
+                    event = "relay.ceiling_attention_failed",
+                    tenant = ceiling.tenant.as_str(),
+                    id = ceiling.id.as_str(),
+                    %error,
+                    "the agent ceiling attention is not written"
+                ),
+            }
+        });
+    }
+}
+
+/// The agent ceiling attention writer over the `work-access-service` key of the `[access]`
+/// token; without the key no attention is written and every ceiling event is logged as such.
+pub(crate) fn ceilings(
+    config: &Config,
+    infrastructure: &Infrastructure,
+    sequence: Arc<dyn Sequence>,
+) -> Option<Arc<Ceilings<TokenSigner>>> {
+    let keys = read_pin(&config.access.pin_file).and_then(|pin| {
+        AccessKeys::load(&config.access.module, &config.access.token, &pin)
+            .map_err(|e| e.to_string())
+    });
+    match keys {
+        Ok(keys) => Some(Arc::new(Ceilings::new(
+            infrastructure.canonical.clone(),
+            infrastructure.access.clone(),
+            sequence,
+            Arc::new(keys.service),
+        ))),
+        Err(error) => {
+            tracing::error!(
+                event = "relay.ceiling_attentions_unserved",
+                %error,
+                "the service key does not open; no agent ceiling attention is written"
+            );
+            None
+        }
+    }
+}
 
 impl Attributed for Logged {
     fn attributed(&self, event: &Event, attribution: &Attribution) {
+        if let Some(ceiling) = ceiling_event(event, attribution) {
+            self.raise(ceiling);
+        }
         if let Attribution::Unattributed(why) = attribution {
             tracing::warn!(
                 event = "relay.response_unattributed",
@@ -194,6 +291,7 @@ pub(crate) fn intake(
     realms: PgPairing,
     log: PgInbound,
     time: LedgerTime<ProcessMonotonic>,
+    ceilings: Option<Arc<Ceilings<TokenSigner>>>,
 ) -> RelayIntake {
     Intake::new(Parts {
         discovery: document,
@@ -201,8 +299,11 @@ pub(crate) fn intake(
         tenants: Paired(realms.clone()),
         seen: Rows(log),
         responders: PartyOf { client, realms },
-        clock: AccessClock(time),
-        effects: Logged,
+        clock: AccessClock(time.clone()),
+        effects: Logged {
+            ceilings,
+            clock: AccessClock(time),
+        },
     })
 }
 
@@ -334,6 +435,37 @@ mod tests {
         ] {
             assert_eq!(webhook(missing), None);
         }
+    }
+
+    // E-23 P-114
+    #[test]
+    fn e_23_only_a_service_party_ceiling_event_raises_attention() {
+        let event = Event {
+            id: "evt_1".to_owned(),
+            source: "https://relay.example".to_owned(),
+            name: CEILING_TYPE.to_owned(),
+            tenant: TenantId::new("tnt_acme").unwrap(),
+            organization: None,
+            correlation_id: Some("09".repeat(32)),
+            kind: work_relay_client::domain::inbound::Kind::Automation,
+            agent: Some("agt_01jc8z3k5m7p9r1t3v5x7z9b2d".to_owned()),
+        };
+        assert_eq!(
+            ceiling_event(&event, &Attribution::ServiceParty),
+            Some(CeilingEvent {
+                tenant: "tnt_acme".to_owned(),
+                id: "evt_1".to_owned(),
+                source: "https://relay.example".to_owned(),
+                correlation: Some("09".repeat(32)),
+                agent: Some("agt_01jc8z3k5m7p9r1t3v5x7z9b2d".to_owned()),
+            })
+        );
+        assert_eq!(ceiling_event(&event, &Attribution::Nothing), None);
+        let delivered = Event {
+            name: "notification.delivered".to_owned(),
+            ..event
+        };
+        assert_eq!(ceiling_event(&delivered, &Attribution::ServiceParty), None);
     }
 
     // T-100

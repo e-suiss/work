@@ -11,6 +11,7 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 
 use crate::authority;
+use crate::ceiling;
 use crate::commitments;
 use crate::common::{self, Common, TraceIds};
 use crate::gateway::Limits;
@@ -108,6 +109,10 @@ pub fn router_with(
         .route(
             "/v1/ledgers/{ledger}/declarations",
             post(writes::create_declaration),
+        )
+        .route(
+            "/v1/ledgers/{ledger}/agent-ceiling-decisions",
+            post(ceiling::create_agent_ceiling_decision),
         )
         .merge(commitments::routes())
         .route("/v1/works", post(works::create_work))
