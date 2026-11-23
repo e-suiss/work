@@ -1,0 +1,97 @@
+; RC-10 RC-11 RC-12 RC-13 RC-14 RC-18 RC-21 RC-24
+
+queue-definition-params = {
+  owner: party-ref,
+  candidate-set,
+  ? distribution: "push" / "pull" / "bid" / "skill",
+  ? start_within: uint .ge 1,
+  ? lease-terms,
+  ? excluded: party-list,
+  ? ping_pong_threshold: uint .ge 1,
+  ? wip_limit: uint .ge 1,
+  ? skills: [1*256 type-uri],
+  ? effective_at: time,
+}
+
+candidate-set = (candidates: party-list // candidate_group: group-ref)
+
+lease-terms = (
+  lease: uint .ge 1,
+  lease_expiry: "return_to_pool" / "keep_and_signal",
+)
+
+; RC-1 RC-6 RC-48
+
+org-rule-params = {
+  organization: party-ref,
+  fallback: party-ref,
+  ? regime: "default" / "organization",
+  ? party-resolutions,
+  ? role-resolutions,
+  ? effective_at: time,
+}
+
+party-resolutions = (party_groups: group-list, parties: [1*256 party-ref])
+
+role-resolutions = (role_groups: group-list, roles: [1*256 group-ref])
+
+; RC-17 RC-18
+
+paramless-params = { effective_at: time }
+
+; RC-14 RC-17
+
+forward-params = {
+  (queue: digest // candidates: party-list),
+  reason: forward-reason-code,
+  ? effective_at: time,
+}
+
+forward-reason = "wrong_recipient" / "expertise" / "capacity" / "other"
+forward-reason-code = forward-reason / tstr .regexp "(wrong_recipient|expertise|capacity|other):https://[a-z0-9.-]+(:[0-9]+)?/[!-~]*"
+
+; RC-17
+
+party-params = { party: party-ref, ? effective_at: time }
+
+; RC-17 RC-21 RC-22 RC-23
+
+offer-params = {
+  party: party-ref,
+  ? policy-decision,
+  ? effective_at: time,
+}
+
+policy-decision = (policy: digest, ? inputs: [1*256 digest])
+
+; RC-9
+
+waiver-params = {
+  guarantee: "advance_notice" / "intervention" / "immediate_notice",
+  (commitment: digest // work: work-id),
+  ? until: time,
+  ? effective_at: time,
+}
+
+; RC-5 RC-7
+
+acknowledgement-params = { proposal: digest, ? effective_at: time } / { effective_at: time }
+
+transfer-params = { accountable: party-ref, ? effective_at: time }
+
+request-accountability = { (accountable: party-ref // accountable_group: group-ref) }
+
+; RC-44
+
+participation-params = { participation: "on_call" / "proactive" / "assigned_only" }
+
+; P-67 P-72 OQ-34
+
+digest = [-16, bstr .size 32]
+party-ref = tstr .size (1..255)
+party-list = [1*256 party-ref]
+group-ref = tstr .size (1..255)
+group-list = [1*256 group-ref]
+time = uint
+work-id = bstr .size 16
+type-uri = tstr .regexp "https://[a-z0-9.-]+(:[0-9]+)?/[!-~]*"

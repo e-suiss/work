@@ -23,6 +23,10 @@ const COMMITMENTS: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/../../conformance/vectors/records/commitments.json"
 ));
+const RESPONSIBILITY: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../conformance/vectors/records/responsibility.json"
+));
 const QUARANTINE: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/../../conformance/vectors/records/records-quarantine.json"
@@ -84,5 +88,12 @@ fn p_72_rejected_record_vectors() {
 #[test]
 fn cm_17_commitment_record_vectors() {
     let file: Value = serde_json::from_str(COMMITMENTS).unwrap();
+    check_all(file["cases"].as_array().unwrap());
+}
+
+// RC-17 RC-10 RC-12 RC-48 RC-9 RC-44 RC-45
+#[test]
+fn rc_17_responsibility_record_vectors() {
+    let file: Value = serde_json::from_str(RESPONSIBILITY).unwrap();
     check_all(file["cases"].as_array().unwrap());
 }

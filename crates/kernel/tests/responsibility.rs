@@ -501,7 +501,7 @@ fn rc_12_pooled_work_and_the_queue_are_the_owner_s_and_never_ownerless() {
     assert_eq!(fallen.source, AccountabilitySource::OrgRule);
 }
 
-// RC-17 P-71
+// RC-17
 #[test]
 fn rc_17_the_responsibility_set_is_closed_and_maps_to_the_commitment_axis() {
     assert_eq!(ResponsibilityOperation::CLOSED_SET.len(), 7);
@@ -533,7 +533,7 @@ fn rc_17_the_responsibility_set_is_closed_and_maps_to_the_commitment_axis() {
     );
 }
 
-// RC-17 RC-15 RC-16 CM-13
+// RC-17 RC-15 RC-16
 #[test]
 fn rc_17_claim_promises_and_unclaim_returns_to_requested_without_a_release() {
     let mut ledger = Ledger::new();
@@ -610,7 +610,7 @@ fn rc_11_claims_follow_the_candidates_the_exclusions_and_the_pull_method() {
     );
 }
 
-// RC-17 CM-58
+// RC-17
 #[test]
 fn rc_17_an_offer_is_answered_by_section_9_and_a_nomination_binds_no_one() {
     let mut ledger = Ledger::new();
@@ -661,7 +661,7 @@ fn rc_17_an_offer_is_answered_by_section_9_and_a_nomination_binds_no_one() {
     assert_eq!(held.assignment.offers.len(), 2);
 }
 
-// RC-17 CM-44
+// RC-17
 #[test]
 fn rc_17_reassign_keeps_the_obligor_until_the_delegation_is_accepted() {
     let mut ledger = Ledger::new();
@@ -1734,7 +1734,7 @@ fn rc_44_participation_is_an_engaged_in_parameter_and_only_a_principal_changes_i
     assert_eq!(SUGGESTED_PARTICIPATION, ParticipationPolicy::OnCall);
 }
 
-// RC-45 C-44
+// RC-45
 #[test]
 fn rc_45_a_role_label_carries_no_authority_and_no_responsibility() {
     let labelled = decl(
@@ -1769,7 +1769,7 @@ fn rc_45_a_role_label_carries_no_authority_and_no_responsibility() {
     assert_ne!(view.acceptor, party(CAROL));
 }
 
-// RC-17 P-55
+// RC-17
 #[test]
 fn rc_17_allowed_responsibility_follows_roles_state_and_access() {
     let mut ledger = Ledger::new();

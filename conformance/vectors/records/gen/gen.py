@@ -396,7 +396,7 @@ DECLARATIONS = (
     "delegate assign allow refuse amend declare_obsolete expire administrative_close dispute defer resume "
     "notice revoke_request revoke_promise revoke_statement revoke_acceptance claim unclaim forward nominate "
     "offer reassign renew_lease gate_decision stop_request stop_response open_condition withdraw_condition "
-    "resume_after_stop practice_adoption disclosure queue_definition control_lease handoff_note "
+    "resume_after_stop practice_adoption disclosure queue_definition org_rule control_lease handoff_note "
     "conflict_resolution admission autonomy_policy implicit_acceptance_terms waiver attention_request "
     "acknowledgement redact aim"
 ).split()
@@ -432,9 +432,12 @@ REDACT_KEYS = {"target", "parts", "reason"}
 REQUEST_KEYS = {"obligor", "queue", "acceptor", "aim", "conditions", "effective_at"}
 AIM_KEYS = {"duration", "judge", "criterion", "effective_at"}
 AIM_DURATIONS = {"one_shot", "maintain"}
-ATTRIBUTED_KEYS = {"request": ("acceptor", "obligor", "participants"), "aim": ("judge",),
+ATTRIBUTED_KEYS = {"request": ("acceptor", "accountable", "obligor", "participants"), "aim": ("judge",),
                    "delegate": ("obligor",), "assign": ("obligee",), "counter": ("acceptor",),
-                   "amend": ("acceptor",)}
+                   "amend": ("acceptor", "accountable"),
+                   "queue_definition": ("candidates", "excluded", "owner"),
+                   "org_rule": ("fallback", "organization", "parties"), "forward": ("candidates",),
+                   "nominate": ("party",), "offer": ("party",), "reassign": ("party",)}
 CORE_ROLES = {ROLE + n for n in ("source", "fulfills", "supports")}
 CORE_EVIDENCE = {EVIDENCE + n for n in ("artifact", "external_event", "measurement", "human_verification")}
 CONSENT = CLINIC + "ext/patient_consent"
@@ -637,7 +640,8 @@ def party_text(v):
 def request_params_ok(params):
     if not commitment_keys_ok("request", params):
         return False
-    return (("obligor" in params) != ("queue" in params)) and aggregation_ok(params)
+    return (("obligor" in params) != ("queue" in params)) and aggregation_ok(params) and \
+        not ("accountable" in params and "accountable_group" in params)
 
 
 def aim_params_ok(params):
@@ -695,8 +699,15 @@ COMMITMENT_KINDS = {"standard", "sub_commitment", "periodic_update", "follow_up"
 CHANGE_POLICIES = {"queue", "reject", "interrupt", "rollback"}
 AGGREGATION_RULES = {"all", "any", "k_of_n", "sequential", "percentage"}
 ITEMS = ("items", "items", False)
+FORWARD_REASONS = {"wrong_recipient", "expertise", "capacity", "other"}
+DISTRIBUTION_METHODS = {"push", "pull", "bid", "skill"}
+LEASE_EXPIRIES = {"return_to_pool", "keep_and_signal"}
+REGIMES = {"default", "organization"}
+WAIVABLE = {"advance_notice", "intervention", "immediate_notice"}
+PARTICIPATION = {"on_call", "proactive", "assigned_only"}
 COMMITMENT_KEYS = {
-    "request": [("acceptor", "party", True), ("aggregation", AGGREGATION_RULES, False),
+    "request": [("acceptor", "party", True), ("accountable", "party", False), ("accountable_group", "party", False),
+                ("aggregation", AGGREGATION_RULES, False),
                 ("aggregation_k", "count", False), ("aggregation_percent", "percent", False),
                 ("aggregation_veto", "flag", False), ("aim", "digest", False),
                 ("change_policy", CHANGE_POLICIES, False), ("commitment_kind", COMMITMENT_KINDS, False),
@@ -732,12 +743,32 @@ COMMITMENT_KEYS = {
     "allow": [("revocation", "digest", True)],
     "refuse": [("amendment", "digest", False), ("reason", ("reason", REFUSE_REASONS), True),
                ("revocation", "digest", False)],
-    "amend": [("acceptor", "party", False), ("change", {"terms"}, False), ("change_policy", CHANGE_POLICIES, False),
+    "amend": [("acceptor", "party", False), ("accountable", "party", False), ("change", {"terms"}, False),
+              ("change_policy", CHANGE_POLICIES, False),
               ("conditions", "digest_set", False), ("due", "time", False), ("evidence_required", "bool", False),
               ("four_eyes_waived", "bool", False), ("high_impact", "bool", False),
               ("item_count", "item_count", False)],
     "declare_obsolete": [("parent", "digest", True)],
     "implicit_acceptance_terms": [ITEMS, ("window", "count", False), ("withdrawn", "flag", False)],
+    "queue_definition": [("candidate_group", "party", False), ("candidates", "party_list", False),
+                         ("distribution", DISTRIBUTION_METHODS, False), ("excluded", "party_list", False),
+                         ("lease", "count", False), ("lease_expiry", LEASE_EXPIRIES, False), ("owner", "party", True),
+                         ("ping_pong_threshold", "count", False), ("skills", "uri_list", False),
+                         ("start_within", "count", False), ("wip_limit", "count", False)],
+    "org_rule": [("fallback", "party", True), ("organization", "party", True), ("parties", "text_list", False),
+                 ("party_groups", "group_list", False), ("regime", REGIMES, False),
+                 ("role_groups", "group_list", False), ("roles", "text_list", False)],
+    "claim": [],
+    "unclaim": [],
+    "renew_lease": [],
+    "forward": [("candidates", "party_list", False), ("queue", "digest", False),
+                ("reason", ("reason", FORWARD_REASONS), True)],
+    "nominate": [("party", "party", True)],
+    "reassign": [("party", "party", True)],
+    "offer": [("inputs", "digest_set", False), ("party", "party", True), ("policy", "digest", False)],
+    "waiver": [("commitment", "digest", False), ("guarantee", WAIVABLE, True), ("until", "time", False),
+               ("work", "work", False)],
+    "acknowledgement": [("proposal", "digest", False)],
 }
 TERM_KEYS = ("acceptor", "conditions", "due", "evidence_required", "high_impact", "item_count", "respond_by")
 HANDOVER_PARTS = ("summary", "done", "changed", "open_questions", "next_steps")
@@ -778,6 +809,14 @@ def kind_ok(kind, v):
         return is_list(v) and len(v) >= 1 and all(is_digest(x) for x in v) and ordered(v)
     if kind == "party_list":
         return is_list(v) and len(v) >= 1 and all(party_text(x) for x in v) and not repeated(v)
+    if kind == "text_list":
+        return is_list(v) and len(v) >= 1 and all(party_text(x) for x in v)
+    if kind == "group_list":
+        return kind_ok("text_list", v) and not repeated(v)
+    if kind == "uri_list":
+        return is_list(v) and len(v) >= 1 and all(is_type_uri(x) for x in v)
+    if kind == "work":
+        return isinstance(v, bytes) and len(v) == 16
     raise ValueError(kind)
 
 
@@ -828,6 +867,8 @@ def commitment_params_ok(name, params, rec):
         return count(("resume_at", "resume_on")) <= 1
     if name == "refuse":
         return count(("revocation", "amendment")) == 1
+    if name == "amend" and "accountable" in params:
+        return set(params) <= {"accountable", "effective_at"}
     if name == "amend":
         if "change" in params:
             return count(("change_policy", "four_eyes_waived")) == 0 and count(TERM_KEYS) > 0
@@ -835,6 +876,19 @@ def commitment_params_ok(name, params, rec):
             params.get("high_impact", True) is not False
     if name == "implicit_acceptance_terms":
         return count(("window", "withdrawn")) == 1 and ("items" not in params or "window" in params)
+    if name == "queue_definition":
+        return count(("candidates", "candidate_group")) == 1 and count(("lease", "lease_expiry")) != 1
+    if name == "org_rule":
+        groups = params.get("party_groups", []) + params.get("role_groups", [])
+        return (len(params.get("party_groups", [])) == len(params.get("parties", []))
+                and len(params.get("role_groups", [])) == len(params.get("roles", []))
+                and not repeated(groups))
+    if name == "forward":
+        return count(("queue", "candidates")) == 1
+    if name == "offer":
+        return "inputs" not in params or "policy" in params
+    if name == "waiver":
+        return count(("commitment", "work")) == 1
     return True
 
 
@@ -871,6 +925,11 @@ def params_ok(rec):
             return False
     if "effective_at" in params and (rec["kind"] != "declaration" or not isinstance(params["effective_at"], int)):
         return False
+    if "participation" in params:
+        engaged = sum(1 for r in rec.get("relations", []) if r["rel"] == "engaged_in")
+        if engaged != 1 or params["participation"] not in PARTICIPATION:
+            return False
+        params = {k: v for k, v in params.items() if k != "participation"}
     core_subtype = rec["type"].startswith(CORE)
     if not rec["type"].startswith(DECLARATION):
         return not core_subtype or set(params) <= {"effective_at"}
@@ -2392,6 +2451,204 @@ write_json("commitments.json", {
               "a free-text note, the handover note's text, the offer's purpose, delivery, scope and acceptance criterion are body parts (P-80): params carry no free text",
               "cddl is pass for every case: the open alternative of DeclarationTyped also matches core subtypes, so the kernel decides each rejection"],
     "cases": out_cm})
+
+# RC-10 RC-11 RC-12 RC-17 RC-48 RC-9 RC-44 RC-45
+R_QUEUE = label("record:queue.definition")
+R_RULE = label("record:org.rule")
+R_CLAIM = label("record:responsibility.claim")
+R_INPUT = label("record:capability.statement")
+R_REQ = commitment("request", params={"queue": R_QUEUE, "acceptor": ALICE, "accountable": BUYER}, n=10)
+R_REQ_ID = [-16, sha(enc(R_REQ))]
+ENGAGED = [{"rel": "engaged_in", "source": ["party", AGENT], "target": ["work", W1]}]
+
+
+def participation_claim(params, relations=ENGAGED, n=0):
+    rec = {
+        "kind": "claim",
+        "type": CLAIM + "observation",
+        "occurred_at": 1792109070000 + n,
+        "author": ALICE,
+        "visibility": vis(),
+        "ledger": LEDGER,
+        "concerns": [W1],
+        "params": params,
+        "versions": {"protocol": [1, 0], "schema": label("schema:claim.observation")},
+    }
+    if relations:
+        rec["relations"] = relations
+    return rec
+
+
+r_accept_cases = [
+    ("queue-definition-pull", commitment("queue_definition", params={
+        "owner": ALICE, "candidates": [BUYER, SUPPLIER]}), {}, ["RC-10", "RC-11", "RC-12"]),
+    ("queue-definition-group-lease", commitment("queue_definition", params={
+        "owner": ALICE, "candidate_group": "group:acme:legal", "distribution": "skill", "start_within": 3600000,
+        "lease": 1800000, "lease_expiry": "return_to_pool", "excluded": [AGENT], "ping_pong_threshold": 3,
+        "wip_limit": 5, "skills": [PROC + "skill/contract_review"]}, relations=supersedes(R_QUEUE), n=1), {},
+     ["RC-10", "RC-11", "RC-13", "RC-14", "RC-18", "RC-21", "RC-24"]),
+    ("org-rule", commitment("org_rule", params={
+        "organization": BUYER, "fallback": ALICE, "regime": "organization", "party_groups": ["group:acme:legal"],
+        "parties": [ALICE], "role_groups": ["group:acme:night"], "roles": ["role:acme:night-lead"]}), {},
+     ["RC-48", "RC-1", "RC-6"]),
+    ("request-to-queue-accountable", R_REQ, {}, ["RC-5", "RC-10"]),
+    ("request-accountable-group", commitment("request", params={
+        "obligor": SUPPLIER, "acceptor": ALICE, "accountable_group": "group:acme:legal"}, n=11), {},
+     ["RC-1", "RC-48"]),
+    ("claim", commitment("claim", SUPPLIER, relations=supersedes(R_REQ_ID)), {}, ["RC-17"]),
+    ("unclaim", commitment("unclaim", SUPPLIER, relations=supersedes(R_CLAIM)), {}, ["RC-17"]),
+    ("unclaim-lease-expired", commitment("unclaim", SYS, basis=[R_CLAIM], relations=supersedes(R_CLAIM), n=1),
+     {"origin": "automation"}, ["RC-18"]),
+    ("forward-queue", commitment("forward", ALICE, {"queue": R_QUEUE, "reason": "wrong_recipient"},
+                                 relations=supersedes(R_REQ_ID)), {}, ["RC-14", "RC-17"]),
+    ("forward-candidates-other", commitment("forward", ALICE, {"candidates": [BUYER], "reason": "other"},
+                                            body=["note"], relations=supersedes(R_REQ_ID), n=1), {},
+     ["RC-14", "RC-17"]),
+    ("nominate", commitment("nominate", ALICE, {"party": BUYER}, relations=supersedes(R_REQ_ID)), {}, ["RC-17"]),
+    ("offer-push", commitment("offer", ALICE, {"party": SUPPLIER}, relations=supersedes(R_REQ_ID)), {},
+     ["RC-17", "RC-21"]),
+    ("offer-policy", commitment("offer", SYS, {"party": SUPPLIER, "policy": R_QUEUE, "inputs": [R_INPUT]},
+                                basis=[R_QUEUE], relations=supersedes(R_REQ_ID), n=1), {"origin": "automation"},
+     ["RC-21", "RC-22", "RC-23"]),
+    ("reassign", commitment("reassign", ALICE, {"party": BUYER}, relations=supersedes(R_CLAIM)), {}, ["RC-17"]),
+    ("renew-lease", commitment("renew_lease", SUPPLIER, relations=supersedes(R_CLAIM)), {}, ["RC-18"]),
+    ("amend-accountable-transfer", commitment("amend", ALICE, {"accountable": SUPPLIER},
+                                              relations=supersedes(R_CLAIM), n=10), {}, ["RC-7"]),
+    ("acknowledgement-transfer", commitment("acknowledgement", ALICE, {"proposal": R_CLAIM},
+                                            relations=supersedes(R_CLAIM)), {}, ["RC-7"]),
+    ("acknowledgement-take-over", commitment("acknowledgement", SUPPLIER, relations=supersedes(R_REQ_ID), n=1), {},
+     ["RC-5"]),
+    ("waiver-commitment", commitment("waiver", ALICE, {"guarantee": "advance_notice", "commitment": R_REQ_ID,
+                                                       "until": 1793000000000}), {}, ["RC-9"]),
+    ("participation-proactive", participation_claim({"participation": "proactive"}), {}, ["RC-44"]),
+]
+r_reject_cases = [
+    ("queue-definition-without-owner", commitment("queue_definition", params={"candidates": [BUYER]}, n=2),
+     "schema:params", ["RC-12"]),
+    ("queue-definition-two-candidate-sets", commitment("queue_definition", params={
+        "owner": ALICE, "candidates": [BUYER], "candidate_group": "group:acme:legal"}, n=3), "schema:params",
+     ["RC-11"]),
+    ("queue-definition-lease-without-expiry", commitment("queue_definition", params={
+        "owner": ALICE, "candidates": [BUYER], "lease": 60000}, n=4), "schema:params", ["RC-18"]),
+    ("queue-definition-unknown-method", commitment("queue_definition", params={
+        "owner": ALICE, "candidates": [BUYER], "distribution": "best_agent"}, n=5), "schema:params",
+     ["RC-21", "RC-22"]),
+    ("queue-definition-owner-is-a-reference", commitment("queue_definition", params={
+        "owner": "https://tools.example/bot", "candidates": [BUYER]}, n=6), "envelope_mismatch:actor_type",
+     ["RC-12", "RC-45"]),
+    ("org-rule-without-fallback", commitment("org_rule", params={"organization": BUYER}, n=1), "schema:params",
+     ["RC-48"]),
+    ("org-rule-unpaired-groups", commitment("org_rule", params={
+        "organization": BUYER, "fallback": ALICE, "party_groups": ["group:acme:legal", "group:acme:tax"],
+        "parties": [ALICE]}, n=2), "schema:params", ["RC-48"]),
+    ("org-rule-group-twice", commitment("org_rule", params={
+        "organization": BUYER, "fallback": ALICE, "party_groups": ["group:acme:legal"], "parties": [ALICE],
+        "role_groups": ["group:acme:legal"], "roles": ["role:acme:lead"]}, n=3), "schema:params", ["RC-48", "RC-1"]),
+    ("org-rule-unknown-regime", commitment("org_rule", params={
+        "organization": BUYER, "fallback": ALICE, "regime": "agents"}, n=4), "schema:params", ["RC-48", "RC-6"]),
+    ("forward-without-reason", commitment("forward", ALICE, {"queue": R_QUEUE}, n=2), "schema:params", ["RC-17"]),
+    ("forward-two-targets", commitment("forward", ALICE, {"queue": R_QUEUE, "candidates": [BUYER],
+                                                          "reason": "capacity"}, n=3), "schema:params", ["RC-17"]),
+    ("forward-other-without-note", commitment("forward", ALICE, {"queue": R_QUEUE, "reason": "other"}, n=4),
+     "schema:required_field", ["RC-17"]),
+    ("offer-inputs-without-policy", commitment("offer", ALICE, {"party": SUPPLIER, "inputs": [R_INPUT]}, n=2),
+     "schema:params", ["RC-22"]),
+    ("nominate-party-is-a-reference", commitment("nominate", ALICE, {"party": "https://tools.example/bot"}, n=1),
+     "envelope_mismatch:actor_type", ["RC-17", "RC-45"]),
+    ("claim-with-params", commitment("claim", SUPPLIER, {"party": SUPPLIER}, n=1), "schema:params", ["RC-17"]),
+    ("waiver-oversight", commitment("waiver", ALICE, {"guarantee": "oversight", "commitment": R_REQ_ID}, n=2),
+     "schema:params", ["RC-9"]),
+    ("waiver-unscoped", commitment("waiver", ALICE, {"guarantee": "advance_notice"}, n=3), "schema:params",
+     ["RC-9"]),
+    ("amend-accountable-with-instruction", commitment("amend", ALICE, {"accountable": SUPPLIER, "high_impact": True},
+                                                      n=11), "schema:params", ["RC-7"]),
+    ("request-accountable-and-group", commitment("request", params={
+        "obligor": SUPPLIER, "acceptor": ALICE, "accountable": BUYER, "accountable_group": "group:acme:legal"},
+        n=12), "schema:params", ["RC-1"]),
+    ("request-accountable-is-a-reference", commitment("request", params={
+        "obligor": SUPPLIER, "acceptor": ALICE, "accountable": "https://clinic.example/ns/role/attending"}, n=13),
+     "envelope_mismatch:actor_type", ["RC-45", "RC-6"]),
+    ("participation-without-engaged-in", participation_claim({"participation": "on_call"}, relations=None, n=1),
+     "schema:params", ["RC-44"]),
+    ("participation-unknown", participation_claim({"participation": "always"}, n=2), "schema:params", ["RC-44"]),
+]
+out_rc = []
+for name, rec, kw, rules in r_accept_cases:
+    b = enc(rec)
+    c = ctx(rec, **kw)
+    assert semantic(rec, c) == ("accept", None), (name, semantic(rec, c))
+    write_cbor("SignedRecord", "responsibility-" + name, b, "pass")
+    out_rc.append({"id": "responsibility/" + name, "rules": rules, "hex": b.hex(), "decoded": decoded(b, rec),
+                   "context": c, "cddl": "pass", "expect": {"outcome": "accept"}})
+for name, rec, reason, rules in r_reject_cases:
+    b = enc(rec)
+    c = ctx(rec)
+    assert semantic(rec, c) == ("reject", reason), (name, semantic(rec, c))
+    write_cbor("SignedRecord", "responsibility-reject-" + name, b, "pass")
+    out_rc.append({"id": "responsibility-reject/" + name, "rules": rules, "hex": b.hex(),
+                   "decoded": decoded(b, rec), "context": c, "cddl": "pass",
+                   "expect": {"outcome": "reject", "reason": reason}})
+write_json("responsibility.json", {
+    "file": "responsibility.json",
+    "notes": ["one accepted record per responsibility Declaration (RC-17), the queue definition, the organisation rule, the accountability fields and transfer, the waiver and the participation policy, then single-rule rejections; the folding rules that need the ledger are kernel rule tests",
+              "cddl is pass for every case: work-record.cddl leaves these params to its open alternative and the kernel decides; the params maps alone are in responsibility-params.json against work-responsibility.cddl"],
+    "cases": out_rc})
+
+PARAM_CASES = [
+    ("queue-definition-full", "queue-definition-params", {
+        "owner": ALICE, "candidates": [BUYER, SUPPLIER], "distribution": "skill", "start_within": 3600000,
+        "lease": 1800000, "lease_expiry": "keep_and_signal", "excluded": [AGENT], "ping_pong_threshold": 3,
+        "wip_limit": 5, "skills": [PROC + "skill/contract_review"]}, True),
+    ("queue-definition-group", "queue-definition-params", {"owner": ALICE, "candidate_group": "group:acme:legal"},
+     True),
+    ("queue-definition-without-owner", "queue-definition-params", {"candidates": [BUYER]}, False),
+    ("queue-definition-two-candidate-sets", "queue-definition-params", {
+        "owner": ALICE, "candidates": [BUYER], "candidate_group": "group:acme:legal"}, False),
+    ("queue-definition-lease-without-expiry", "queue-definition-params", {
+        "owner": ALICE, "candidates": [BUYER], "lease": 60000}, False),
+    ("queue-definition-unknown-method", "queue-definition-params", {
+        "owner": ALICE, "candidates": [BUYER], "distribution": "best_agent"}, False),
+    ("org-rule-full", "org-rule-params", {
+        "organization": BUYER, "fallback": ALICE, "regime": "default", "party_groups": ["group:acme:legal"],
+        "parties": [ALICE], "role_groups": ["group:acme:night"], "roles": ["role:acme:night-lead"]}, True),
+    ("org-rule-without-fallback", "org-rule-params", {"organization": BUYER}, False),
+    ("org-rule-unknown-regime", "org-rule-params", {"organization": BUYER, "fallback": ALICE, "regime": "agents"},
+     False),
+    ("org-rule-unpaired-groups-left-to-the-kernel", "org-rule-params", {
+        "organization": BUYER, "fallback": ALICE, "party_groups": ["group:acme:legal", "group:acme:tax"],
+        "parties": [ALICE]}, True),
+    ("claim-effective-at", "paramless-params", {"effective_at": 1792109080000}, True),
+    ("forward-queue", "forward-params", {"queue": R_QUEUE, "reason": "wrong_recipient"}, True),
+    ("forward-sub-code", "forward-params", {
+        "candidates": [BUYER], "reason": "expertise:https://procurement.example/ns/reason/legal"}, True),
+    ("forward-two-targets", "forward-params", {"queue": R_QUEUE, "candidates": [BUYER], "reason": "capacity"},
+     False),
+    ("forward-without-reason", "forward-params", {"queue": R_QUEUE}, False),
+    ("nominate", "party-params", {"party": BUYER}, True),
+    ("nominate-without-party", "party-params", {"effective_at": 1}, False),
+    ("offer-policy", "offer-params", {"party": SUPPLIER, "policy": R_QUEUE, "inputs": [R_INPUT]}, True),
+    ("offer-inputs-without-policy", "offer-params", {"party": SUPPLIER, "inputs": [R_INPUT]}, False),
+    ("waiver-commitment", "waiver-params", {"guarantee": "advance_notice", "commitment": R_REQ_ID,
+                                            "until": 1793000000000}, True),
+    ("waiver-work", "waiver-params", {"guarantee": "immediate_notice", "work": W1}, True),
+    ("waiver-oversight", "waiver-params", {"guarantee": "oversight", "commitment": R_REQ_ID}, False),
+    ("waiver-two-scopes", "waiver-params", {"guarantee": "intervention", "commitment": R_REQ_ID, "work": W1},
+     False),
+    ("acknowledgement-transfer", "acknowledgement-params", {"proposal": R_CLAIM}, True),
+    ("acknowledgement-empty", "acknowledgement-params", {}, False),
+    ("transfer", "transfer-params", {"accountable": ALICE}, True),
+    ("request-accountable", "request-accountability", {"accountable": BUYER}, True),
+    ("request-accountable-and-group", "request-accountability", {
+        "accountable": BUYER, "accountable_group": "group:acme:legal"}, False),
+    ("participation-on-call", "participation-params", {"participation": "on_call"}, True),
+    ("participation-unknown", "participation-params", {"participation": "always"}, False),
+]
+write_json("responsibility-params.json", {
+    "contract": "work/responsibility-params/1",
+    "cddl": "conformance/cddl/work-responsibility.cddl",
+    "cases": [{"id": name, "root": root, "schema_valid": valid, "cbor": enc(value).hex()}
+              for name, root, value, valid in PARAM_CASES]})
+
 
 V2 = dict(rec_comment["versions"], protocol=[2, 0])
 v2_new_field = variant(rec_comment, versions=V2)

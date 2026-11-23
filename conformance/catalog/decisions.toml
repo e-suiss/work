@@ -2438,21 +2438,28 @@ id = "RC-4"
 family = "RC"
 status = "frozen-product"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/responsibility.rs::rc_5_accountability_is_one_party_explicit_or_derived_and_marked_derived",
+]
 
 [[rule]]
 id = "RC-5"
 family = "RC"
 status = "frozen-product"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/responsibility.rs::rc_5_accountability_is_one_party_explicit_or_derived_and_marked_derived",
+  "crates/kernel/tests/responsibility.rs::rc_7_an_accountability_transfer_needs_the_new_party_s_acceptance",
+]
 
 [[rule]]
 id = "RC-8"
 family = "RC"
 status = "frozen-product"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/responsibility.rs::rc_8_the_intervener_answers_from_the_takeover_on_and_a_leaseless_coordinator_is_marked",
+]
 
 [[rule]]
 id = "RC-10"
@@ -2462,6 +2469,8 @@ acceptance = "to-fill"
 title = ""
 tests = [
   "crates/kernel/tests/commitments.rs::cm_13_a_pool_request_binds_whoever_promises",
+  "crates/kernel/tests/record_vectors.rs::rc_17_responsibility_record_vectors",
+  "crates/kernel/tests/responsibility.rs::rc_10_rc_11_a_queue_definition_is_a_versioned_declaration_with_pull_by_default",
 ]
 
 [[rule]]
@@ -2471,7 +2480,10 @@ status = "frozen-protocol"
 acceptance = "to-fill"
 pd = "set"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/responsibility.rs::rc_10_rc_11_a_queue_definition_is_a_versioned_declaration_with_pull_by_default",
+  "crates/kernel/tests/responsibility.rs::rc_11_claims_follow_the_candidates_the_exclusions_and_the_pull_method",
+]
 
 [[rule]]
 id = "RC-13"
@@ -2479,14 +2491,18 @@ family = "RC"
 status = "frozen-product"
 stage = 7
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/responsibility.rs::rc_13_nobody_took_it_after_the_start_deadline_or_without_candidates",
+]
 
 [[rule]]
 id = "RC-14"
 family = "RC"
 status = "frozen-product"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/responsibility.rs::rc_14_every_forwarding_counts_and_past_the_threshold_signals_the_owner",
+]
 
 [[rule]]
 id = "RC-16"
@@ -2494,7 +2510,9 @@ family = "RC"
 status = "frozen-protocol"
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/responsibility.rs::rc_17_claim_promises_and_unclaim_returns_to_requested_without_a_release",
+]
 
 [[rule]]
 id = "RC-17"
@@ -2502,7 +2520,15 @@ family = "RC"
 status = "frozen-protocol"
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/record_vectors.rs::rc_17_responsibility_record_vectors",
+  "crates/kernel/tests/responsibility.rs::rc_11_claims_follow_the_candidates_the_exclusions_and_the_pull_method",
+  "crates/kernel/tests/responsibility.rs::rc_17_allowed_responsibility_follows_roles_state_and_access",
+  "crates/kernel/tests/responsibility.rs::rc_17_an_offer_is_answered_by_section_9_and_a_nomination_binds_no_one",
+  "crates/kernel/tests/responsibility.rs::rc_17_claim_promises_and_unclaim_returns_to_requested_without_a_release",
+  "crates/kernel/tests/responsibility.rs::rc_17_reassign_keeps_the_obligor_until_the_delegation_is_accepted",
+  "crates/kernel/tests/responsibility.rs::rc_17_the_responsibility_set_is_closed_and_maps_to_the_commitment_axis",
+]
 
 [[rule]]
 id = "RC-18"
@@ -2510,21 +2536,31 @@ family = "RC"
 status = "frozen-product"
 stage = 7
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/responsibility.rs::rc_18_a_kept_lease_only_signals_the_owner",
+  "crates/kernel/tests/responsibility.rs::rc_18_a_lease_runs_out_and_the_work_service_returns_the_work",
+]
 
 [[rule]]
 id = "RC-19"
 family = "RC"
 status = "frozen-product"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/responsibility.rs::rc_19_the_history_keeps_every_assignment_record_with_its_policy_version",
+]
 
 [[rule]]
 id = "RC-21"
 family = "RC"
 status = "frozen-product"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/responsibility.rs::rc_10_rc_11_a_queue_definition_is_a_versioned_declaration_with_pull_by_default",
+  "crates/kernel/tests/responsibility.rs::rc_11_claims_follow_the_candidates_the_exclusions_and_the_pull_method",
+  "crates/kernel/tests/responsibility.rs::rc_22_a_policy_offer_records_its_version_and_its_claim_inputs",
+  "crates/kernel/tests/responsibility.rs::rc_25_a_bid_award_binds_and_is_withdrawn_only_by_revocation_or_cancellation",
+]
 
 [[rule]]
 id = "RC-22"
@@ -2532,7 +2568,9 @@ family = "RC"
 status = "frozen-product"
 stage = 6
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/responsibility.rs::rc_22_a_policy_offer_records_its_version_and_its_claim_inputs",
+]
 
 [[rule]]
 id = "RC-23"
@@ -2540,21 +2578,27 @@ family = "RC"
 status = "frozen-protocol"
 acceptance = "to-fill"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/responsibility.rs::rc_22_a_policy_offer_records_its_version_and_its_claim_inputs",
+]
 
 [[rule]]
 id = "RC-24"
 family = "RC"
 status = "frozen-product"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/responsibility.rs::rc_24_open_workload_is_derived_and_a_wip_limit_signals_overload",
+]
 
 [[rule]]
 id = "RC-25"
 family = "RC"
 status = "frozen-product"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/responsibility.rs::rc_25_a_bid_award_binds_and_is_withdrawn_only_by_revocation_or_cancellation",
+]
 
 [[rule]]
 id = "RC-28"
@@ -2660,7 +2704,10 @@ id = "RC-44"
 family = "RC"
 status = "frozen-product"
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/record_vectors.rs::rc_17_responsibility_record_vectors",
+  "crates/kernel/tests/responsibility.rs::rc_44_participation_is_an_engaged_in_parameter_and_only_a_principal_changes_it",
+]
 
 [[rule]]
 id = "RC-46"
@@ -2675,6 +2722,21 @@ family = "RC"
 status = "out-of-scope"
 title = ""
 tests = []
+
+[[rule]]
+id = "RC-48"
+family = "RC"
+status = "frozen-protocol"
+acceptance = "to-fill"
+title = ""
+tests = [
+  "crates/kernel/tests/record_vectors.rs::rc_17_responsibility_record_vectors",
+  "crates/kernel/tests/responsibility.rs::rc_12_pooled_work_and_the_queue_are_the_owner_s_and_never_ownerless",
+  "crates/kernel/tests/responsibility.rs::rc_1_a_group_is_accountable_only_once_the_org_rule_resolves_it",
+  "crates/kernel/tests/responsibility.rs::rc_48_the_org_rule_is_a_versioned_declaration_with_a_mandatory_fallback",
+  "crates/kernel/tests/responsibility.rs::rc_6_the_regime_decides_the_end_and_an_agent_never_ends_the_chain",
+  "crates/kernel/tests/responsibility.rs::rc_7_a_disabled_party_falls_to_the_upper_accountable_or_the_fallback",
+]
 
 [[rule]]
 id = "ST-3"

@@ -1,0 +1,2797 @@
+{
+  "file": "responsibility.json",
+  "notes": [
+    "one accepted record per responsibility Declaration (RC-17), the queue definition, the organisation rule, the accountability fields and transfer, the waiver and the participation policy, then single-rule rejections; the folding rules that need the ledger are kernel rule tests",
+    "cddl is pass for every case: work-record.cddl leaves these params to its open alternative and the kernel decides; the params maps alone are in responsibility-params.json against work-responsibility.cddl"
+  ],
+  "cases": [
+    {
+      "id": "responsibility/queue-definition-pull",
+      "rules": [
+        "RC-10",
+        "RC-11",
+        "RC-12"
+      ],
+      "hex": "ab646b696e646b6465636c61726174696f6e6474797065783668747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f71756575655f646566696e6974696f6e6562617369738066617574686f727070617274793a61636d653a616c696365666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee766706172616d73a2656f776e65727070617274793a61636d653a616c6963656a63616e64696461746573827470617274793a61636d653a62757965722d6f72677570617274793a676c6f6265783a737570706c696572686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f58209d9f542c686759a0186aae62ac121458eb235c83a4a367475fc4d5375113a2da6870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f5820fc13510b7d065b9df90d458ba31e19466d9c86d89c77df8fa38f82edfe1714806a7669736962696c697479a16373656564776f726b",
+      "decoded": {
+        "kind": "declaration",
+        "type": "https://suiss.app/ns/work/declaration/queue_definition",
+        "basis": [],
+        "author": "party:acme:alice",
+        "ledger": [
+          -16,
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
+        ],
+        "params": {
+          "owner": "party:acme:alice",
+          "candidates": [
+            "party:acme:buyer-org",
+            "party:globex:supplier"
+          ]
+        },
+        "capacity": "own",
+        "concerns": [
+          "019a2f4c8e1b7c3da5e6f70812345678"
+        ],
+        "versions": {
+          "schema": [
+            -16,
+            "9d9f542c686759a0186aae62ac121458eb235c83a4a367475fc4d5375113a2da"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "authority": {
+          "proof": "decision_receipt",
+          "digest": [
+            -16,
+            "fc13510b7d065b9df90d458ba31e19466d9c86d89c77df8fa38f82edfe171480"
+          ]
+        },
+        "visibility": {
+          "see": "work"
+        }
+      },
+      "context": {
+        "origin": "direct",
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": []
+      },
+      "cddl": "pass",
+      "expect": {
+        "outcome": "accept"
+      }
+    },
+    {
+      "id": "responsibility/queue-definition-group-lease",
+      "rules": [
+        "RC-10",
+        "RC-11",
+        "RC-13",
+        "RC-14",
+        "RC-18",
+        "RC-21",
+        "RC-24"
+      ],
+      "hex": "ac646b696e646b6465636c61726174696f6e6474797065783668747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f71756575655f646566696e6974696f6e6562617369738066617574686f727070617274793a61636d653a616c696365666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee766706172616d73aa656c656173651a001b7740656f776e65727070617274793a61636d653a616c69636566736b696c6c7381783468747470733a2f2f70726f637572656d656e742e6578616d706c652f6e732f736b696c6c2f636f6e74726163745f726576696577686578636c7564656481781a70617274793a61636d653a6167656e742d70726f637572652d37697769705f6c696d6974056c646973747269627574696f6e65736b696c6c6c6c656173655f6578706972796e72657475726e5f746f5f706f6f6c6c73746172745f77697468696e1a0036ee806f63616e6469646174655f67726f75707067726f75703a61636d653a6c6567616c7370696e675f706f6e675f7468726573686f6c6403686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f58209d9f542c686759a0186aae62ac121458eb235c83a4a367475fc4d5375113a2da6870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f5820e1f1ef0fb8fd2274296d446495bb3818546543fcb05897e97a5fae0a07fcee296972656c6174696f6e7381a26372656c6a737570657273656465736674617267657482667265636f7264822f5820478f6ad91726fc4a528fe4dd0cd643404eb21b78af4c27e3698227befc0f863a6a7669736962696c697479a16373656564776f726b",
+      "decoded": {
+        "kind": "declaration",
+        "type": "https://suiss.app/ns/work/declaration/queue_definition",
+        "basis": [],
+        "author": "party:acme:alice",
+        "ledger": [
+          -16,
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
+        ],
+        "params": {
+          "lease": 1800000,
+          "owner": "party:acme:alice",
+          "skills": [
+            "https://procurement.example/ns/skill/contract_review"
+          ],
+          "excluded": [
+            "party:acme:agent-procure-7"
+          ],
+          "wip_limit": 5,
+          "distribution": "skill",
+          "lease_expiry": "return_to_pool",
+          "start_within": 3600000,
+          "candidate_group": "group:acme:legal",
+          "ping_pong_threshold": 3
+        },
+        "capacity": "own",
+        "concerns": [
+          "019a2f4c8e1b7c3da5e6f70812345678"
+        ],
+        "versions": {
+          "schema": [
+            -16,
+            "9d9f542c686759a0186aae62ac121458eb235c83a4a367475fc4d5375113a2da"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "authority": {
+          "proof": "decision_receipt",
+          "digest": [
+            -16,
+            "e1f1ef0fb8fd2274296d446495bb3818546543fcb05897e97a5fae0a07fcee29"
+          ]
+        },
+        "relations": [
+          {
+            "rel": "supersedes",
+            "target": [
+              "record",
+              [
+                -16,
+                "478f6ad91726fc4a528fe4dd0cd643404eb21b78af4c27e3698227befc0f863a"
+              ]
+            ]
+          }
+        ],
+        "visibility": {
+          "see": "work"
+        }
+      },
+      "context": {
+        "origin": "direct",
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": []
+      },
+      "cddl": "pass",
+      "expect": {
+        "outcome": "accept"
+      }
+    },
+    {
+      "id": "responsibility/org-rule",
+      "rules": [
+        "RC-48",
+        "RC-1",
+        "RC-6"
+      ],
+      "hex": "ab646b696e646b6465636c61726174696f6e6474797065782e68747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f6f72675f72756c656562617369738066617574686f727070617274793a61636d653a616c696365666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee766706172616d73a765726f6c65738174726f6c653a61636d653a6e696768742d6c65616466726567696d656c6f7267616e697a6174696f6e6770617274696573817070617274793a61636d653a616c6963656866616c6c6261636b7070617274793a61636d653a616c6963656b726f6c655f67726f757073817067726f75703a61636d653a6e696768746c6f7267616e697a6174696f6e7470617274793a61636d653a62757965722d6f72676c70617274795f67726f757073817067726f75703a61636d653a6c6567616c686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f5820e4ec4882d1684ddc2d77a435d8b7f7fba3d50701d9f576a9ddbf3538a2452ea76870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f58208c83c847efc658f348287797f14a9a8865ee284b351d86ef74cc11c7eef87c486a7669736962696c697479a16373656564776f726b",
+      "decoded": {
+        "kind": "declaration",
+        "type": "https://suiss.app/ns/work/declaration/org_rule",
+        "basis": [],
+        "author": "party:acme:alice",
+        "ledger": [
+          -16,
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
+        ],
+        "params": {
+          "roles": [
+            "role:acme:night-lead"
+          ],
+          "regime": "organization",
+          "parties": [
+            "party:acme:alice"
+          ],
+          "fallback": "party:acme:alice",
+          "role_groups": [
+            "group:acme:night"
+          ],
+          "organization": "party:acme:buyer-org",
+          "party_groups": [
+            "group:acme:legal"
+          ]
+        },
+        "capacity": "own",
+        "concerns": [
+          "019a2f4c8e1b7c3da5e6f70812345678"
+        ],
+        "versions": {
+          "schema": [
+            -16,
+            "e4ec4882d1684ddc2d77a435d8b7f7fba3d50701d9f576a9ddbf3538a2452ea7"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "authority": {
+          "proof": "decision_receipt",
+          "digest": [
+            -16,
+            "8c83c847efc658f348287797f14a9a8865ee284b351d86ef74cc11c7eef87c48"
+          ]
+        },
+        "visibility": {
+          "see": "work"
+        }
+      },
+      "context": {
+        "origin": "direct",
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": []
+      },
+      "cddl": "pass",
+      "expect": {
+        "outcome": "accept"
+      }
+    },
+    {
+      "id": "responsibility/request-to-queue-accountable",
+      "rules": [
+        "RC-5",
+        "RC-10"
+      ],
+      "hex": "ab646b696e646b6465636c61726174696f6e6474797065782d68747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f726571756573746562617369738066617574686f727070617274793a61636d653a616c696365666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee766706172616d73a3657175657565822f5820478f6ad91726fc4a528fe4dd0cd643404eb21b78af4c27e3698227befc0f863a686163636570746f727070617274793a61636d653a616c6963656b6163636f756e7461626c657470617274793a61636d653a62757965722d6f7267686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f58203b1a89334cd6721a83549f1e9fc68f4d6d751d18b0ab9655264055fd3ac164eb6870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f5820cc5bafb6ec35cc628e84aa6e6cbe37ac5a1de09e61d2c43b555c6c7f3560d3df6a7669736962696c697479a16373656564776f726b",
+      "decoded": {
+        "kind": "declaration",
+        "type": "https://suiss.app/ns/work/declaration/request",
+        "basis": [],
+        "author": "party:acme:alice",
+        "ledger": [
+          -16,
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
+        ],
+        "params": {
+          "queue": [
+            -16,
+            "478f6ad91726fc4a528fe4dd0cd643404eb21b78af4c27e3698227befc0f863a"
+          ],
+          "acceptor": "party:acme:alice",
+          "accountable": "party:acme:buyer-org"
+        },
+        "capacity": "own",
+        "concerns": [
+          "019a2f4c8e1b7c3da5e6f70812345678"
+        ],
+        "versions": {
+          "schema": [
+            -16,
+            "3b1a89334cd6721a83549f1e9fc68f4d6d751d18b0ab9655264055fd3ac164eb"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "authority": {
+          "proof": "decision_receipt",
+          "digest": [
+            -16,
+            "cc5bafb6ec35cc628e84aa6e6cbe37ac5a1de09e61d2c43b555c6c7f3560d3df"
+          ]
+        },
+        "visibility": {
+          "see": "work"
+        }
+      },
+      "context": {
+        "origin": "direct",
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": []
+      },
+      "cddl": "pass",
+      "expect": {
+        "outcome": "accept"
+      }
+    },
+    {
+      "id": "responsibility/request-accountable-group",
+      "rules": [
+        "RC-1",
+        "RC-48"
+      ],
+      "hex": "ab646b696e646b6465636c61726174696f6e6474797065782d68747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f726571756573746562617369738066617574686f727070617274793a61636d653a616c696365666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee766706172616d73a3676f626c69676f727570617274793a676c6f6265783a737570706c696572686163636570746f727070617274793a61636d653a616c696365716163636f756e7461626c655f67726f75707067726f75703a61636d653a6c6567616c686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f58203b1a89334cd6721a83549f1e9fc68f4d6d751d18b0ab9655264055fd3ac164eb6870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f5820b5b273b22301afefff3d609eee5e63ecc6995afa8535fcf966d6a74491c083ce6a7669736962696c697479a16373656564776f726b",
+      "decoded": {
+        "kind": "declaration",
+        "type": "https://suiss.app/ns/work/declaration/request",
+        "basis": [],
+        "author": "party:acme:alice",
+        "ledger": [
+          -16,
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
+        ],
+        "params": {
+          "obligor": "party:globex:supplier",
+          "acceptor": "party:acme:alice",
+          "accountable_group": "group:acme:legal"
+        },
+        "capacity": "own",
+        "concerns": [
+          "019a2f4c8e1b7c3da5e6f70812345678"
+        ],
+        "versions": {
+          "schema": [
+            -16,
+            "3b1a89334cd6721a83549f1e9fc68f4d6d751d18b0ab9655264055fd3ac164eb"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "authority": {
+          "proof": "decision_receipt",
+          "digest": [
+            -16,
+            "b5b273b22301afefff3d609eee5e63ecc6995afa8535fcf966d6a74491c083ce"
+          ]
+        },
+        "visibility": {
+          "see": "work"
+        }
+      },
+      "context": {
+        "origin": "direct",
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": []
+      },
+      "cddl": "pass",
+      "expect": {
+        "outcome": "accept"
+      }
+    },
+    {
+      "id": "responsibility/claim",
+      "rules": [
+        "RC-17"
+      ],
+      "hex": "ab646b696e646b6465636c61726174696f6e6474797065782b68747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f636c61696d6562617369738066617574686f727570617274793a676c6f6265783a737570706c696572666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f5820d0e3e9745a35aa64b660ce0fa0431125cd41e1deb217e264439f07da535bb38f6870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f5820b18876eae26f6d06e5523a3c52e10058adb14aa017a66049ed6f9cd300395b566972656c6174696f6e7381a26372656c6a737570657273656465736674617267657482667265636f7264822f58203287bc190e3e7480cd50b017bf544edd270fa1383e36b15ecdf36c496a00d3956a7669736962696c697479a16373656564776f726b",
+      "decoded": {
+        "kind": "declaration",
+        "type": "https://suiss.app/ns/work/declaration/claim",
+        "basis": [],
+        "author": "party:globex:supplier",
+        "ledger": [
+          -16,
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
+        ],
+        "capacity": "own",
+        "concerns": [
+          "019a2f4c8e1b7c3da5e6f70812345678"
+        ],
+        "versions": {
+          "schema": [
+            -16,
+            "d0e3e9745a35aa64b660ce0fa0431125cd41e1deb217e264439f07da535bb38f"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "authority": {
+          "proof": "decision_receipt",
+          "digest": [
+            -16,
+            "b18876eae26f6d06e5523a3c52e10058adb14aa017a66049ed6f9cd300395b56"
+          ]
+        },
+        "relations": [
+          {
+            "rel": "supersedes",
+            "target": [
+              "record",
+              [
+                -16,
+                "3287bc190e3e7480cd50b017bf544edd270fa1383e36b15ecdf36c496a00d395"
+              ]
+            ]
+          }
+        ],
+        "visibility": {
+          "see": "work"
+        }
+      },
+      "context": {
+        "origin": "direct",
+        "actor_type": {
+          "author": [
+            "organization",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": []
+      },
+      "cddl": "pass",
+      "expect": {
+        "outcome": "accept"
+      }
+    },
+    {
+      "id": "responsibility/unclaim",
+      "rules": [
+        "RC-17"
+      ],
+      "hex": "ab646b696e646b6465636c61726174696f6e6474797065782d68747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f756e636c61696d6562617369738066617574686f727570617274793a676c6f6265783a737570706c696572666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f5820c44d39188ed8ec65ad3f88d1277ab14d942197207940fdf26b6c49f0d6c00cbb6870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f58202f21d86e8dd62d088cea911dde5b0d5bbc2d9680a03b59659cafbf80301372826972656c6174696f6e7381a26372656c6a737570657273656465736674617267657482667265636f7264822f58205e7118e2da39b10430567679e7a10d83530bb73be5704c1a86b5f008608bae006a7669736962696c697479a16373656564776f726b",
+      "decoded": {
+        "kind": "declaration",
+        "type": "https://suiss.app/ns/work/declaration/unclaim",
+        "basis": [],
+        "author": "party:globex:supplier",
+        "ledger": [
+          -16,
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
+        ],
+        "capacity": "own",
+        "concerns": [
+          "019a2f4c8e1b7c3da5e6f70812345678"
+        ],
+        "versions": {
+          "schema": [
+            -16,
+            "c44d39188ed8ec65ad3f88d1277ab14d942197207940fdf26b6c49f0d6c00cbb"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "authority": {
+          "proof": "decision_receipt",
+          "digest": [
+            -16,
+            "2f21d86e8dd62d088cea911dde5b0d5bbc2d9680a03b59659cafbf8030137282"
+          ]
+        },
+        "relations": [
+          {
+            "rel": "supersedes",
+            "target": [
+              "record",
+              [
+                -16,
+                "5e7118e2da39b10430567679e7a10d83530bb73be5704c1a86b5f008608bae00"
+              ]
+            ]
+          }
+        ],
+        "visibility": {
+          "see": "work"
+        }
+      },
+      "context": {
+        "origin": "direct",
+        "actor_type": {
+          "author": [
+            "organization",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": []
+      },
+      "cddl": "pass",
+      "expect": {
+        "outcome": "accept"
+      }
+    },
+    {
+      "id": "responsibility/unclaim-lease-expired",
+      "rules": [
+        "RC-18"
+      ],
+      "hex": "ab646b696e646b6465636c61726174696f6e6474797065782d68747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f756e636c61696d65626173697381822f58205e7118e2da39b10430567679e7a10d83530bb73be5704c1a86b5f008608bae0066617574686f72781970617274793a61636d653a776f726b2d7363686564756c6572666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f5820c44d39188ed8ec65ad3f88d1277ab14d942197207940fdf26b6c49f0d6c00cbb6870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f582088ae375f0c3dae067ca66e118c2ecd2f514bd11c6d150dade8c350b2e78df3c76972656c6174696f6e7381a26372656c6a737570657273656465736674617267657482667265636f7264822f58205e7118e2da39b10430567679e7a10d83530bb73be5704c1a86b5f008608bae006a7669736962696c697479a16373656564776f726b",
+      "decoded": {
+        "kind": "declaration",
+        "type": "https://suiss.app/ns/work/declaration/unclaim",
+        "basis": [
+          [
+            -16,
+            "5e7118e2da39b10430567679e7a10d83530bb73be5704c1a86b5f008608bae00"
+          ]
+        ],
+        "author": "party:acme:work-scheduler",
+        "ledger": [
+          -16,
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
+        ],
+        "capacity": "own",
+        "concerns": [
+          "019a2f4c8e1b7c3da5e6f70812345678"
+        ],
+        "versions": {
+          "schema": [
+            -16,
+            "c44d39188ed8ec65ad3f88d1277ab14d942197207940fdf26b6c49f0d6c00cbb"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "authority": {
+          "proof": "decision_receipt",
+          "digest": [
+            -16,
+            "88ae375f0c3dae067ca66e118c2ecd2f514bd11c6d150dade8c350b2e78df3c7"
+          ]
+        },
+        "relations": [
+          {
+            "rel": "supersedes",
+            "target": [
+              "record",
+              [
+                -16,
+                "5e7118e2da39b10430567679e7a10d83530bb73be5704c1a86b5f008608bae00"
+              ]
+            ]
+          }
+        ],
+        "visibility": {
+          "see": "work"
+        }
+      },
+      "context": {
+        "origin": "automation",
+        "actor_type": {
+          "author": [
+            "system",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": []
+      },
+      "cddl": "pass",
+      "expect": {
+        "outcome": "accept"
+      }
+    },
+    {
+      "id": "responsibility/forward-queue",
+      "rules": [
+        "RC-14",
+        "RC-17"
+      ],
+      "hex": "ac646b696e646b6465636c61726174696f6e6474797065782d68747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f666f72776172646562617369738066617574686f727070617274793a61636d653a616c696365666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee766706172616d73a2657175657565822f5820478f6ad91726fc4a528fe4dd0cd643404eb21b78af4c27e3698227befc0f863a66726561736f6e6f77726f6e675f726563697069656e74686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f58206611f36feecbf5b6d2643cb605708f9ea0f78d2bd829ace04dbea24cc41b304c6870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f5820eab286e0c148db28e0f24b7f2e12e455cdd01498c978ec97a18ca73660263bc06972656c6174696f6e7381a26372656c6a737570657273656465736674617267657482667265636f7264822f58203287bc190e3e7480cd50b017bf544edd270fa1383e36b15ecdf36c496a00d3956a7669736962696c697479a16373656564776f726b",
+      "decoded": {
+        "kind": "declaration",
+        "type": "https://suiss.app/ns/work/declaration/forward",
+        "basis": [],
+        "author": "party:acme:alice",
+        "ledger": [
+          -16,
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
+        ],
+        "params": {
+          "queue": [
+            -16,
+            "478f6ad91726fc4a528fe4dd0cd643404eb21b78af4c27e3698227befc0f863a"
+          ],
+          "reason": "wrong_recipient"
+        },
+        "capacity": "own",
+        "concerns": [
+          "019a2f4c8e1b7c3da5e6f70812345678"
+        ],
+        "versions": {
+          "schema": [
+            -16,
+            "6611f36feecbf5b6d2643cb605708f9ea0f78d2bd829ace04dbea24cc41b304c"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "authority": {
+          "proof": "decision_receipt",
+          "digest": [
+            -16,
+            "eab286e0c148db28e0f24b7f2e12e455cdd01498c978ec97a18ca73660263bc0"
+          ]
+        },
+        "relations": [
+          {
+            "rel": "supersedes",
+            "target": [
+              "record",
+              [
+                -16,
+                "3287bc190e3e7480cd50b017bf544edd270fa1383e36b15ecdf36c496a00d395"
+              ]
+            ]
+          }
+        ],
+        "visibility": {
+          "see": "work"
+        }
+      },
+      "context": {
+        "origin": "direct",
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": []
+      },
+      "cddl": "pass",
+      "expect": {
+        "outcome": "accept"
+      }
+    },
+    {
+      "id": "responsibility/forward-candidates-other",
+      "rules": [
+        "RC-14",
+        "RC-17"
+      ],
+      "hex": "ad64626f647981a26470617274646e6f746566636f6d6d6974822f58206d6c98aae8e14e9756a17292bd03a0ff2b60d6e42ce695f6d71111244f7c0df9646b696e646b6465636c61726174696f6e6474797065782d68747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f666f72776172646562617369738066617574686f727070617274793a61636d653a616c696365666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee766706172616d73a266726561736f6e656f746865726a63616e64696461746573817470617274793a61636d653a62757965722d6f7267686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f58206611f36feecbf5b6d2643cb605708f9ea0f78d2bd829ace04dbea24cc41b304c6870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f58202163439508f024f3966d93dd926f8a1f2eddcca8eb75986e2a1fca86f1b76fc96972656c6174696f6e7381a26372656c6a737570657273656465736674617267657482667265636f7264822f58203287bc190e3e7480cd50b017bf544edd270fa1383e36b15ecdf36c496a00d3956a7669736962696c697479a16373656564776f726b",
+      "decoded": {
+        "body": [
+          {
+            "part": "note",
+            "commit": [
+              -16,
+              "6d6c98aae8e14e9756a17292bd03a0ff2b60d6e42ce695f6d71111244f7c0df9"
+            ]
+          }
+        ],
+        "kind": "declaration",
+        "type": "https://suiss.app/ns/work/declaration/forward",
+        "basis": [],
+        "author": "party:acme:alice",
+        "ledger": [
+          -16,
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
+        ],
+        "params": {
+          "reason": "other",
+          "candidates": [
+            "party:acme:buyer-org"
+          ]
+        },
+        "capacity": "own",
+        "concerns": [
+          "019a2f4c8e1b7c3da5e6f70812345678"
+        ],
+        "versions": {
+          "schema": [
+            -16,
+            "6611f36feecbf5b6d2643cb605708f9ea0f78d2bd829ace04dbea24cc41b304c"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "authority": {
+          "proof": "decision_receipt",
+          "digest": [
+            -16,
+            "2163439508f024f3966d93dd926f8a1f2eddcca8eb75986e2a1fca86f1b76fc9"
+          ]
+        },
+        "relations": [
+          {
+            "rel": "supersedes",
+            "target": [
+              "record",
+              [
+                -16,
+                "3287bc190e3e7480cd50b017bf544edd270fa1383e36b15ecdf36c496a00d395"
+              ]
+            ]
+          }
+        ],
+        "visibility": {
+          "see": "work"
+        }
+      },
+      "context": {
+        "origin": "direct",
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": []
+      },
+      "cddl": "pass",
+      "expect": {
+        "outcome": "accept"
+      }
+    },
+    {
+      "id": "responsibility/nominate",
+      "rules": [
+        "RC-17"
+      ],
+      "hex": "ac646b696e646b6465636c61726174696f6e6474797065782e68747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f6e6f6d696e6174656562617369738066617574686f727070617274793a61636d653a616c696365666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee766706172616d73a16570617274797470617274793a61636d653a62757965722d6f7267686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f58207b43dc8e7ca7c2718d8a5f4e630fc2a9c11cdb3b3a92f4eac619b7cbe4bb97226870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f582034451cf6b049c56588f11f038111901217e39b03567831cac4993f0de545eddc6972656c6174696f6e7381a26372656c6a737570657273656465736674617267657482667265636f7264822f58203287bc190e3e7480cd50b017bf544edd270fa1383e36b15ecdf36c496a00d3956a7669736962696c697479a16373656564776f726b",
+      "decoded": {
+        "kind": "declaration",
+        "type": "https://suiss.app/ns/work/declaration/nominate",
+        "basis": [],
+        "author": "party:acme:alice",
+        "ledger": [
+          -16,
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
+        ],
+        "params": {
+          "party": "party:acme:buyer-org"
+        },
+        "capacity": "own",
+        "concerns": [
+          "019a2f4c8e1b7c3da5e6f70812345678"
+        ],
+        "versions": {
+          "schema": [
+            -16,
+            "7b43dc8e7ca7c2718d8a5f4e630fc2a9c11cdb3b3a92f4eac619b7cbe4bb9722"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "authority": {
+          "proof": "decision_receipt",
+          "digest": [
+            -16,
+            "34451cf6b049c56588f11f038111901217e39b03567831cac4993f0de545eddc"
+          ]
+        },
+        "relations": [
+          {
+            "rel": "supersedes",
+            "target": [
+              "record",
+              [
+                -16,
+                "3287bc190e3e7480cd50b017bf544edd270fa1383e36b15ecdf36c496a00d395"
+              ]
+            ]
+          }
+        ],
+        "visibility": {
+          "see": "work"
+        }
+      },
+      "context": {
+        "origin": "direct",
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": []
+      },
+      "cddl": "pass",
+      "expect": {
+        "outcome": "accept"
+      }
+    },
+    {
+      "id": "responsibility/offer-push",
+      "rules": [
+        "RC-17",
+        "RC-21"
+      ],
+      "hex": "ac646b696e646b6465636c61726174696f6e6474797065782b68747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f6f666665726562617369738066617574686f727070617274793a61636d653a616c696365666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee766706172616d73a16570617274797570617274793a676c6f6265783a737570706c696572686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f5820335848d0efca9e8f7ac9c301aee965ca0c5a1438c79b43bb237e152b3b9758b16870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f5820c30c94132479820f33280844d5b6776047b6ccea8c24037a2d80161be0ccbe246972656c6174696f6e7381a26372656c6a737570657273656465736674617267657482667265636f7264822f58203287bc190e3e7480cd50b017bf544edd270fa1383e36b15ecdf36c496a00d3956a7669736962696c697479a16373656564776f726b",
+      "decoded": {
+        "kind": "declaration",
+        "type": "https://suiss.app/ns/work/declaration/offer",
+        "basis": [],
+        "author": "party:acme:alice",
+        "ledger": [
+          -16,
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
+        ],
+        "params": {
+          "party": "party:globex:supplier"
+        },
+        "capacity": "own",
+        "concerns": [
+          "019a2f4c8e1b7c3da5e6f70812345678"
+        ],
+        "versions": {
+          "schema": [
+            -16,
+            "335848d0efca9e8f7ac9c301aee965ca0c5a1438c79b43bb237e152b3b9758b1"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "authority": {
+          "proof": "decision_receipt",
+          "digest": [
+            -16,
+            "c30c94132479820f33280844d5b6776047b6ccea8c24037a2d80161be0ccbe24"
+          ]
+        },
+        "relations": [
+          {
+            "rel": "supersedes",
+            "target": [
+              "record",
+              [
+                -16,
+                "3287bc190e3e7480cd50b017bf544edd270fa1383e36b15ecdf36c496a00d395"
+              ]
+            ]
+          }
+        ],
+        "visibility": {
+          "see": "work"
+        }
+      },
+      "context": {
+        "origin": "direct",
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": []
+      },
+      "cddl": "pass",
+      "expect": {
+        "outcome": "accept"
+      }
+    },
+    {
+      "id": "responsibility/offer-policy",
+      "rules": [
+        "RC-21",
+        "RC-22",
+        "RC-23"
+      ],
+      "hex": "ac646b696e646b6465636c61726174696f6e6474797065782b68747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f6f6666657265626173697381822f5820478f6ad91726fc4a528fe4dd0cd643404eb21b78af4c27e3698227befc0f863a66617574686f72781970617274793a61636d653a776f726b2d7363686564756c6572666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee766706172616d73a36570617274797570617274793a676c6f6265783a737570706c69657266696e7075747381822f582083066ef4092e0c55eb7f18cfae037289bba4615123b97178a86ac5ade8564a9a66706f6c696379822f5820478f6ad91726fc4a528fe4dd0cd643404eb21b78af4c27e3698227befc0f863a686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f5820335848d0efca9e8f7ac9c301aee965ca0c5a1438c79b43bb237e152b3b9758b16870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f5820051db0c7df88e9b33472ce0c39cb14650aecd8191fcc03da4a46f5838c7ec77c6972656c6174696f6e7381a26372656c6a737570657273656465736674617267657482667265636f7264822f58203287bc190e3e7480cd50b017bf544edd270fa1383e36b15ecdf36c496a00d3956a7669736962696c697479a16373656564776f726b",
+      "decoded": {
+        "kind": "declaration",
+        "type": "https://suiss.app/ns/work/declaration/offer",
+        "basis": [
+          [
+            -16,
+            "478f6ad91726fc4a528fe4dd0cd643404eb21b78af4c27e3698227befc0f863a"
+          ]
+        ],
+        "author": "party:acme:work-scheduler",
+        "ledger": [
+          -16,
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
+        ],
+        "params": {
+          "party": "party:globex:supplier",
+          "inputs": [
+            [
+              -16,
+              "83066ef4092e0c55eb7f18cfae037289bba4615123b97178a86ac5ade8564a9a"
+            ]
+          ],
+          "policy": [
+            -16,
+            "478f6ad91726fc4a528fe4dd0cd643404eb21b78af4c27e3698227befc0f863a"
+          ]
+        },
+        "capacity": "own",
+        "concerns": [
+          "019a2f4c8e1b7c3da5e6f70812345678"
+        ],
+        "versions": {
+          "schema": [
+            -16,
+            "335848d0efca9e8f7ac9c301aee965ca0c5a1438c79b43bb237e152b3b9758b1"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "authority": {
+          "proof": "decision_receipt",
+          "digest": [
+            -16,
+            "051db0c7df88e9b33472ce0c39cb14650aecd8191fcc03da4a46f5838c7ec77c"
+          ]
+        },
+        "relations": [
+          {
+            "rel": "supersedes",
+            "target": [
+              "record",
+              [
+                -16,
+                "3287bc190e3e7480cd50b017bf544edd270fa1383e36b15ecdf36c496a00d395"
+              ]
+            ]
+          }
+        ],
+        "visibility": {
+          "see": "work"
+        }
+      },
+      "context": {
+        "origin": "automation",
+        "actor_type": {
+          "author": [
+            "system",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": []
+      },
+      "cddl": "pass",
+      "expect": {
+        "outcome": "accept"
+      }
+    },
+    {
+      "id": "responsibility/reassign",
+      "rules": [
+        "RC-17"
+      ],
+      "hex": "ac646b696e646b6465636c61726174696f6e6474797065782e68747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f726561737369676e6562617369738066617574686f727070617274793a61636d653a616c696365666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee766706172616d73a16570617274797470617274793a61636d653a62757965722d6f7267686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f58200dd97eadb56a89d8f87ab07287894298d9b9259473c1366023e88b787c7a07436870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f58204e1b9114ca750b5094e42ed74695750df6c8b8bce06680d0fe5906fce6a810dc6972656c6174696f6e7381a26372656c6a737570657273656465736674617267657482667265636f7264822f58205e7118e2da39b10430567679e7a10d83530bb73be5704c1a86b5f008608bae006a7669736962696c697479a16373656564776f726b",
+      "decoded": {
+        "kind": "declaration",
+        "type": "https://suiss.app/ns/work/declaration/reassign",
+        "basis": [],
+        "author": "party:acme:alice",
+        "ledger": [
+          -16,
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
+        ],
+        "params": {
+          "party": "party:acme:buyer-org"
+        },
+        "capacity": "own",
+        "concerns": [
+          "019a2f4c8e1b7c3da5e6f70812345678"
+        ],
+        "versions": {
+          "schema": [
+            -16,
+            "0dd97eadb56a89d8f87ab07287894298d9b9259473c1366023e88b787c7a0743"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "authority": {
+          "proof": "decision_receipt",
+          "digest": [
+            -16,
+            "4e1b9114ca750b5094e42ed74695750df6c8b8bce06680d0fe5906fce6a810dc"
+          ]
+        },
+        "relations": [
+          {
+            "rel": "supersedes",
+            "target": [
+              "record",
+              [
+                -16,
+                "5e7118e2da39b10430567679e7a10d83530bb73be5704c1a86b5f008608bae00"
+              ]
+            ]
+          }
+        ],
+        "visibility": {
+          "see": "work"
+        }
+      },
+      "context": {
+        "origin": "direct",
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": []
+      },
+      "cddl": "pass",
+      "expect": {
+        "outcome": "accept"
+      }
+    },
+    {
+      "id": "responsibility/renew-lease",
+      "rules": [
+        "RC-18"
+      ],
+      "hex": "ab646b696e646b6465636c61726174696f6e6474797065783168747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f72656e65775f6c656173656562617369738066617574686f727570617274793a676c6f6265783a737570706c696572666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f58208b52816405a68bcf36872b2d8fbf9bb48b879c4dd7beb607167ea7ff3266fb586870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f5820bc8e12d0d33c401adafaf3b3205f58c0ed94142be19c36587f26d09f1fe83f366972656c6174696f6e7381a26372656c6a737570657273656465736674617267657482667265636f7264822f58205e7118e2da39b10430567679e7a10d83530bb73be5704c1a86b5f008608bae006a7669736962696c697479a16373656564776f726b",
+      "decoded": {
+        "kind": "declaration",
+        "type": "https://suiss.app/ns/work/declaration/renew_lease",
+        "basis": [],
+        "author": "party:globex:supplier",
+        "ledger": [
+          -16,
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
+        ],
+        "capacity": "own",
+        "concerns": [
+          "019a2f4c8e1b7c3da5e6f70812345678"
+        ],
+        "versions": {
+          "schema": [
+            -16,
+            "8b52816405a68bcf36872b2d8fbf9bb48b879c4dd7beb607167ea7ff3266fb58"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "authority": {
+          "proof": "decision_receipt",
+          "digest": [
+            -16,
+            "bc8e12d0d33c401adafaf3b3205f58c0ed94142be19c36587f26d09f1fe83f36"
+          ]
+        },
+        "relations": [
+          {
+            "rel": "supersedes",
+            "target": [
+              "record",
+              [
+                -16,
+                "5e7118e2da39b10430567679e7a10d83530bb73be5704c1a86b5f008608bae00"
+              ]
+            ]
+          }
+        ],
+        "visibility": {
+          "see": "work"
+        }
+      },
+      "context": {
+        "origin": "direct",
+        "actor_type": {
+          "author": [
+            "organization",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": []
+      },
+      "cddl": "pass",
+      "expect": {
+        "outcome": "accept"
+      }
+    },
+    {
+      "id": "responsibility/amend-accountable-transfer",
+      "rules": [
+        "RC-7"
+      ],
+      "hex": "ac646b696e646b6465636c61726174696f6e6474797065782b68747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f616d656e646562617369738066617574686f727070617274793a61636d653a616c696365666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee766706172616d73a16b6163636f756e7461626c657570617274793a676c6f6265783a737570706c696572686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f582087ba9a78e4967682f583748b7995e709a90f884c47541bf1ae3e9485075048dd6870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f58202d3226d84c6dd3c1bbbf7d51d1f051e783f8f25a38b33a3525d26a5839566dd36972656c6174696f6e7381a26372656c6a737570657273656465736674617267657482667265636f7264822f58205e7118e2da39b10430567679e7a10d83530bb73be5704c1a86b5f008608bae006a7669736962696c697479a16373656564776f726b",
+      "decoded": {
+        "kind": "declaration",
+        "type": "https://suiss.app/ns/work/declaration/amend",
+        "basis": [],
+        "author": "party:acme:alice",
+        "ledger": [
+          -16,
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
+        ],
+        "params": {
+          "accountable": "party:globex:supplier"
+        },
+        "capacity": "own",
+        "concerns": [
+          "019a2f4c8e1b7c3da5e6f70812345678"
+        ],
+        "versions": {
+          "schema": [
+            -16,
+            "87ba9a78e4967682f583748b7995e709a90f884c47541bf1ae3e9485075048dd"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "authority": {
+          "proof": "decision_receipt",
+          "digest": [
+            -16,
+            "2d3226d84c6dd3c1bbbf7d51d1f051e783f8f25a38b33a3525d26a5839566dd3"
+          ]
+        },
+        "relations": [
+          {
+            "rel": "supersedes",
+            "target": [
+              "record",
+              [
+                -16,
+                "5e7118e2da39b10430567679e7a10d83530bb73be5704c1a86b5f008608bae00"
+              ]
+            ]
+          }
+        ],
+        "visibility": {
+          "see": "work"
+        }
+      },
+      "context": {
+        "origin": "direct",
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": []
+      },
+      "cddl": "pass",
+      "expect": {
+        "outcome": "accept"
+      }
+    },
+    {
+      "id": "responsibility/acknowledgement-transfer",
+      "rules": [
+        "RC-7"
+      ],
+      "hex": "ac646b696e646b6465636c61726174696f6e6474797065783568747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f61636b6e6f776c656467656d656e746562617369738066617574686f727070617274793a61636d653a616c696365666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee766706172616d73a16870726f706f73616c822f58205e7118e2da39b10430567679e7a10d83530bb73be5704c1a86b5f008608bae00686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f58209c2e70cdfec4b4470c14cea53f50491f178d0b2667e8fadab79066ebf345f4836870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f5820645b3afec78275b660e3aeb3f4fe1ca226746af1107fdb42c098178084a6435b6972656c6174696f6e7381a26372656c6a737570657273656465736674617267657482667265636f7264822f58205e7118e2da39b10430567679e7a10d83530bb73be5704c1a86b5f008608bae006a7669736962696c697479a16373656564776f726b",
+      "decoded": {
+        "kind": "declaration",
+        "type": "https://suiss.app/ns/work/declaration/acknowledgement",
+        "basis": [],
+        "author": "party:acme:alice",
+        "ledger": [
+          -16,
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
+        ],
+        "params": {
+          "proposal": [
+            -16,
+            "5e7118e2da39b10430567679e7a10d83530bb73be5704c1a86b5f008608bae00"
+          ]
+        },
+        "capacity": "own",
+        "concerns": [
+          "019a2f4c8e1b7c3da5e6f70812345678"
+        ],
+        "versions": {
+          "schema": [
+            -16,
+            "9c2e70cdfec4b4470c14cea53f50491f178d0b2667e8fadab79066ebf345f483"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "authority": {
+          "proof": "decision_receipt",
+          "digest": [
+            -16,
+            "645b3afec78275b660e3aeb3f4fe1ca226746af1107fdb42c098178084a6435b"
+          ]
+        },
+        "relations": [
+          {
+            "rel": "supersedes",
+            "target": [
+              "record",
+              [
+                -16,
+                "5e7118e2da39b10430567679e7a10d83530bb73be5704c1a86b5f008608bae00"
+              ]
+            ]
+          }
+        ],
+        "visibility": {
+          "see": "work"
+        }
+      },
+      "context": {
+        "origin": "direct",
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": []
+      },
+      "cddl": "pass",
+      "expect": {
+        "outcome": "accept"
+      }
+    },
+    {
+      "id": "responsibility/acknowledgement-take-over",
+      "rules": [
+        "RC-5"
+      ],
+      "hex": "ab646b696e646b6465636c61726174696f6e6474797065783568747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f61636b6e6f776c656467656d656e746562617369738066617574686f727570617274793a676c6f6265783a737570706c696572666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f58209c2e70cdfec4b4470c14cea53f50491f178d0b2667e8fadab79066ebf345f4836870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f5820ab0e585eee1f81040a6854c7546db0cbcfb053c10e3af5cb84f247c2be0662e16972656c6174696f6e7381a26372656c6a737570657273656465736674617267657482667265636f7264822f58203287bc190e3e7480cd50b017bf544edd270fa1383e36b15ecdf36c496a00d3956a7669736962696c697479a16373656564776f726b",
+      "decoded": {
+        "kind": "declaration",
+        "type": "https://suiss.app/ns/work/declaration/acknowledgement",
+        "basis": [],
+        "author": "party:globex:supplier",
+        "ledger": [
+          -16,
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
+        ],
+        "capacity": "own",
+        "concerns": [
+          "019a2f4c8e1b7c3da5e6f70812345678"
+        ],
+        "versions": {
+          "schema": [
+            -16,
+            "9c2e70cdfec4b4470c14cea53f50491f178d0b2667e8fadab79066ebf345f483"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "authority": {
+          "proof": "decision_receipt",
+          "digest": [
+            -16,
+            "ab0e585eee1f81040a6854c7546db0cbcfb053c10e3af5cb84f247c2be0662e1"
+          ]
+        },
+        "relations": [
+          {
+            "rel": "supersedes",
+            "target": [
+              "record",
+              [
+                -16,
+                "3287bc190e3e7480cd50b017bf544edd270fa1383e36b15ecdf36c496a00d395"
+              ]
+            ]
+          }
+        ],
+        "visibility": {
+          "see": "work"
+        }
+      },
+      "context": {
+        "origin": "direct",
+        "actor_type": {
+          "author": [
+            "organization",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": []
+      },
+      "cddl": "pass",
+      "expect": {
+        "outcome": "accept"
+      }
+    },
+    {
+      "id": "responsibility/waiver-commitment",
+      "rules": [
+        "RC-9"
+      ],
+      "hex": "ab646b696e646b6465636c61726174696f6e6474797065782c68747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f7761697665726562617369738066617574686f727070617274793a61636d653a616c696365666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee766706172616d73a365756e74696c1b000001a17720ca006967756172616e7465656e616476616e63655f6e6f746963656a636f6d6d69746d656e74822f58203287bc190e3e7480cd50b017bf544edd270fa1383e36b15ecdf36c496a00d395686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f5820d093497c57d1728a3693836ba2aa176bbef62232262a36c646e37ee05926a9e66870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f5820b0ce4bbc462379684663cca7caf1aed0a8673862d58ce282c3bd0810e9b0f7a46a7669736962696c697479a16373656564776f726b",
+      "decoded": {
+        "kind": "declaration",
+        "type": "https://suiss.app/ns/work/declaration/waiver",
+        "basis": [],
+        "author": "party:acme:alice",
+        "ledger": [
+          -16,
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
+        ],
+        "params": {
+          "until": 1793000000000,
+          "guarantee": "advance_notice",
+          "commitment": [
+            -16,
+            "3287bc190e3e7480cd50b017bf544edd270fa1383e36b15ecdf36c496a00d395"
+          ]
+        },
+        "capacity": "own",
+        "concerns": [
+          "019a2f4c8e1b7c3da5e6f70812345678"
+        ],
+        "versions": {
+          "schema": [
+            -16,
+            "d093497c57d1728a3693836ba2aa176bbef62232262a36c646e37ee05926a9e6"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "authority": {
+          "proof": "decision_receipt",
+          "digest": [
+            -16,
+            "b0ce4bbc462379684663cca7caf1aed0a8673862d58ce282c3bd0810e9b0f7a4"
+          ]
+        },
+        "visibility": {
+          "see": "work"
+        }
+      },
+      "context": {
+        "origin": "direct",
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": []
+      },
+      "cddl": "pass",
+      "expect": {
+        "outcome": "accept"
+      }
+    },
+    {
+      "id": "responsibility/participation-proactive",
+      "rules": [
+        "RC-44"
+      ],
+      "hex": "aa646b696e6465636c61696d6474797065782b68747470733a2f2f73756973732e6170702f6e732f776f726b2f636c61696d2f6f62736572766174696f6e66617574686f727070617274793a61636d653a616c696365666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee766706172616d73a16d70617274696369706174696f6e6970726f61637469766568636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f582008c478cb5168164f861aae4f1ac3d5b0a7d475b9a59cfa400676024d98b767f16870726f746f636f6c8201006972656c6174696f6e7381a36372656c6a656e67616765645f696e66736f7572636582657061727479781a70617274793a61636d653a6167656e742d70726f637572652d37667461726765748264776f726b50019a2f4c8e1b7c3da5e6f708123456786a7669736962696c697479a16373656564776f726b6b6f636375727265645f61741b000001a1420646b0",
+      "decoded": {
+        "kind": "claim",
+        "type": "https://suiss.app/ns/work/claim/observation",
+        "author": "party:acme:alice",
+        "ledger": [
+          -16,
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
+        ],
+        "params": {
+          "participation": "proactive"
+        },
+        "concerns": [
+          "019a2f4c8e1b7c3da5e6f70812345678"
+        ],
+        "versions": {
+          "schema": [
+            -16,
+            "08c478cb5168164f861aae4f1ac3d5b0a7d475b9a59cfa400676024d98b767f1"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "relations": [
+          {
+            "rel": "engaged_in",
+            "source": [
+              "party",
+              "party:acme:agent-procure-7"
+            ],
+            "target": [
+              "work",
+              "019a2f4c8e1b7c3da5e6f70812345678"
+            ]
+          }
+        ],
+        "visibility": {
+          "see": "work"
+        },
+        "occurred_at": 1792109070000
+      },
+      "context": {
+        "origin": "direct",
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": []
+      },
+      "cddl": "pass",
+      "expect": {
+        "outcome": "accept"
+      }
+    },
+    {
+      "id": "responsibility-reject/queue-definition-without-owner",
+      "rules": [
+        "RC-12"
+      ],
+      "hex": "ab646b696e646b6465636c61726174696f6e6474797065783668747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f71756575655f646566696e6974696f6e6562617369738066617574686f727070617274793a61636d653a616c696365666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee766706172616d73a16a63616e64696461746573817470617274793a61636d653a62757965722d6f7267686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f58209d9f542c686759a0186aae62ac121458eb235c83a4a367475fc4d5375113a2da6870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f58200cc0f1cabdd6439f52b63555505eb4e106bcba85374ddfead523e0e05b7ee7126a7669736962696c697479a16373656564776f726b",
+      "decoded": {
+        "kind": "declaration",
+        "type": "https://suiss.app/ns/work/declaration/queue_definition",
+        "basis": [],
+        "author": "party:acme:alice",
+        "ledger": [
+          -16,
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
+        ],
+        "params": {
+          "candidates": [
+            "party:acme:buyer-org"
+          ]
+        },
+        "capacity": "own",
+        "concerns": [
+          "019a2f4c8e1b7c3da5e6f70812345678"
+        ],
+        "versions": {
+          "schema": [
+            -16,
+            "9d9f542c686759a0186aae62ac121458eb235c83a4a367475fc4d5375113a2da"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "authority": {
+          "proof": "decision_receipt",
+          "digest": [
+            -16,
+            "0cc0f1cabdd6439f52b63555505eb4e106bcba85374ddfead523e0e05b7ee712"
+          ]
+        },
+        "visibility": {
+          "see": "work"
+        }
+      },
+      "context": {
+        "origin": "direct",
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": []
+      },
+      "cddl": "pass",
+      "expect": {
+        "outcome": "reject",
+        "reason": "schema:params"
+      }
+    },
+    {
+      "id": "responsibility-reject/queue-definition-two-candidate-sets",
+      "rules": [
+        "RC-11"
+      ],
+      "hex": "ab646b696e646b6465636c61726174696f6e6474797065783668747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f71756575655f646566696e6974696f6e6562617369738066617574686f727070617274793a61636d653a616c696365666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee766706172616d73a3656f776e65727070617274793a61636d653a616c6963656a63616e64696461746573817470617274793a61636d653a62757965722d6f72676f63616e6469646174655f67726f75707067726f75703a61636d653a6c6567616c686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f58209d9f542c686759a0186aae62ac121458eb235c83a4a367475fc4d5375113a2da6870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f58204332682ba5a1d7c45deab37955d7d16e512b78b10fe1c7ee21639088fce885f56a7669736962696c697479a16373656564776f726b",
+      "decoded": {
+        "kind": "declaration",
+        "type": "https://suiss.app/ns/work/declaration/queue_definition",
+        "basis": [],
+        "author": "party:acme:alice",
+        "ledger": [
+          -16,
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
+        ],
+        "params": {
+          "owner": "party:acme:alice",
+          "candidates": [
+            "party:acme:buyer-org"
+          ],
+          "candidate_group": "group:acme:legal"
+        },
+        "capacity": "own",
+        "concerns": [
+          "019a2f4c8e1b7c3da5e6f70812345678"
+        ],
+        "versions": {
+          "schema": [
+            -16,
+            "9d9f542c686759a0186aae62ac121458eb235c83a4a367475fc4d5375113a2da"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "authority": {
+          "proof": "decision_receipt",
+          "digest": [
+            -16,
+            "4332682ba5a1d7c45deab37955d7d16e512b78b10fe1c7ee21639088fce885f5"
+          ]
+        },
+        "visibility": {
+          "see": "work"
+        }
+      },
+      "context": {
+        "origin": "direct",
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": []
+      },
+      "cddl": "pass",
+      "expect": {
+        "outcome": "reject",
+        "reason": "schema:params"
+      }
+    },
+    {
+      "id": "responsibility-reject/queue-definition-lease-without-expiry",
+      "rules": [
+        "RC-18"
+      ],
+      "hex": "ab646b696e646b6465636c61726174696f6e6474797065783668747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f71756575655f646566696e6974696f6e6562617369738066617574686f727070617274793a61636d653a616c696365666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee766706172616d73a3656c6561736519ea60656f776e65727070617274793a61636d653a616c6963656a63616e64696461746573817470617274793a61636d653a62757965722d6f7267686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f58209d9f542c686759a0186aae62ac121458eb235c83a4a367475fc4d5375113a2da6870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f5820a0853363c10e7a43594f120d8ffafa534a6e93823ddc3bf8132eea4ac82b2a3c6a7669736962696c697479a16373656564776f726b",
+      "decoded": {
+        "kind": "declaration",
+        "type": "https://suiss.app/ns/work/declaration/queue_definition",
+        "basis": [],
+        "author": "party:acme:alice",
+        "ledger": [
+          -16,
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
+        ],
+        "params": {
+          "lease": 60000,
+          "owner": "party:acme:alice",
+          "candidates": [
+            "party:acme:buyer-org"
+          ]
+        },
+        "capacity": "own",
+        "concerns": [
+          "019a2f4c8e1b7c3da5e6f70812345678"
+        ],
+        "versions": {
+          "schema": [
+            -16,
+            "9d9f542c686759a0186aae62ac121458eb235c83a4a367475fc4d5375113a2da"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "authority": {
+          "proof": "decision_receipt",
+          "digest": [
+            -16,
+            "a0853363c10e7a43594f120d8ffafa534a6e93823ddc3bf8132eea4ac82b2a3c"
+          ]
+        },
+        "visibility": {
+          "see": "work"
+        }
+      },
+      "context": {
+        "origin": "direct",
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": []
+      },
+      "cddl": "pass",
+      "expect": {
+        "outcome": "reject",
+        "reason": "schema:params"
+      }
+    },
+    {
+      "id": "responsibility-reject/queue-definition-unknown-method",
+      "rules": [
+        "RC-21",
+        "RC-22"
+      ],
+      "hex": "ab646b696e646b6465636c61726174696f6e6474797065783668747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f71756575655f646566696e6974696f6e6562617369738066617574686f727070617274793a61636d653a616c696365666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee766706172616d73a3656f776e65727070617274793a61636d653a616c6963656a63616e64696461746573817470617274793a61636d653a62757965722d6f72676c646973747269627574696f6e6a626573745f6167656e74686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f58209d9f542c686759a0186aae62ac121458eb235c83a4a367475fc4d5375113a2da6870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f582008a15a6679c5da8bd5321bd07aa4f8ab647ecef5f98479e4f60a343dbc2878036a7669736962696c697479a16373656564776f726b",
+      "decoded": {
+        "kind": "declaration",
+        "type": "https://suiss.app/ns/work/declaration/queue_definition",
+        "basis": [],
+        "author": "party:acme:alice",
+        "ledger": [
+          -16,
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
+        ],
+        "params": {
+          "owner": "party:acme:alice",
+          "candidates": [
+            "party:acme:buyer-org"
+          ],
+          "distribution": "best_agent"
+        },
+        "capacity": "own",
+        "concerns": [
+          "019a2f4c8e1b7c3da5e6f70812345678"
+        ],
+        "versions": {
+          "schema": [
+            -16,
+            "9d9f542c686759a0186aae62ac121458eb235c83a4a367475fc4d5375113a2da"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "authority": {
+          "proof": "decision_receipt",
+          "digest": [
+            -16,
+            "08a15a6679c5da8bd5321bd07aa4f8ab647ecef5f98479e4f60a343dbc287803"
+          ]
+        },
+        "visibility": {
+          "see": "work"
+        }
+      },
+      "context": {
+        "origin": "direct",
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": []
+      },
+      "cddl": "pass",
+      "expect": {
+        "outcome": "reject",
+        "reason": "schema:params"
+      }
+    },
+    {
+      "id": "responsibility-reject/queue-definition-owner-is-a-reference",
+      "rules": [
+        "RC-12",
+        "RC-45"
+      ],
+      "hex": "ab646b696e646b6465636c61726174696f6e6474797065783668747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f71756575655f646566696e6974696f6e6562617369738066617574686f727070617274793a61636d653a616c696365666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee766706172616d73a2656f776e6572781968747470733a2f2f746f6f6c732e6578616d706c652f626f746a63616e64696461746573817470617274793a61636d653a62757965722d6f7267686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f58209d9f542c686759a0186aae62ac121458eb235c83a4a367475fc4d5375113a2da6870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f58207665f08e7952cbdaa0bd3f25619590ab88df7ce872afd90216db5ba103154e4d6a7669736962696c697479a16373656564776f726b",
+      "decoded": {
+        "kind": "declaration",
+        "type": "https://suiss.app/ns/work/declaration/queue_definition",
+        "basis": [],
+        "author": "party:acme:alice",
+        "ledger": [
+          -16,
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
+        ],
+        "params": {
+          "owner": "https://tools.example/bot",
+          "candidates": [
+            "party:acme:buyer-org"
+          ]
+        },
+        "capacity": "own",
+        "concerns": [
+          "019a2f4c8e1b7c3da5e6f70812345678"
+        ],
+        "versions": {
+          "schema": [
+            -16,
+            "9d9f542c686759a0186aae62ac121458eb235c83a4a367475fc4d5375113a2da"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "authority": {
+          "proof": "decision_receipt",
+          "digest": [
+            -16,
+            "7665f08e7952cbdaa0bd3f25619590ab88df7ce872afd90216db5ba103154e4d"
+          ]
+        },
+        "visibility": {
+          "see": "work"
+        }
+      },
+      "context": {
+        "origin": "direct",
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": []
+      },
+      "cddl": "pass",
+      "expect": {
+        "outcome": "reject",
+        "reason": "envelope_mismatch:actor_type"
+      }
+    },
+    {
+      "id": "responsibility-reject/org-rule-without-fallback",
+      "rules": [
+        "RC-48"
+      ],
+      "hex": "ab646b696e646b6465636c61726174696f6e6474797065782e68747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f6f72675f72756c656562617369738066617574686f727070617274793a61636d653a616c696365666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee766706172616d73a16c6f7267616e697a6174696f6e7470617274793a61636d653a62757965722d6f7267686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f5820e4ec4882d1684ddc2d77a435d8b7f7fba3d50701d9f576a9ddbf3538a2452ea76870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f582057c940983db1168849cb43540d575b746e789f92be2310fca38b5775c7a4685d6a7669736962696c697479a16373656564776f726b",
+      "decoded": {
+        "kind": "declaration",
+        "type": "https://suiss.app/ns/work/declaration/org_rule",
+        "basis": [],
+        "author": "party:acme:alice",
+        "ledger": [
+          -16,
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
+        ],
+        "params": {
+          "organization": "party:acme:buyer-org"
+        },
+        "capacity": "own",
+        "concerns": [
+          "019a2f4c8e1b7c3da5e6f70812345678"
+        ],
+        "versions": {
+          "schema": [
+            -16,
+            "e4ec4882d1684ddc2d77a435d8b7f7fba3d50701d9f576a9ddbf3538a2452ea7"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "authority": {
+          "proof": "decision_receipt",
+          "digest": [
+            -16,
+            "57c940983db1168849cb43540d575b746e789f92be2310fca38b5775c7a4685d"
+          ]
+        },
+        "visibility": {
+          "see": "work"
+        }
+      },
+      "context": {
+        "origin": "direct",
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": []
+      },
+      "cddl": "pass",
+      "expect": {
+        "outcome": "reject",
+        "reason": "schema:params"
+      }
+    },
+    {
+      "id": "responsibility-reject/org-rule-unpaired-groups",
+      "rules": [
+        "RC-48"
+      ],
+      "hex": "ab646b696e646b6465636c61726174696f6e6474797065782e68747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f6f72675f72756c656562617369738066617574686f727070617274793a61636d653a616c696365666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee766706172616d73a46770617274696573817070617274793a61636d653a616c6963656866616c6c6261636b7070617274793a61636d653a616c6963656c6f7267616e697a6174696f6e7470617274793a61636d653a62757965722d6f72676c70617274795f67726f757073827067726f75703a61636d653a6c6567616c6e67726f75703a61636d653a746178686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f5820e4ec4882d1684ddc2d77a435d8b7f7fba3d50701d9f576a9ddbf3538a2452ea76870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f5820e72312fef0553933010a2994b901308f0af993528b2e1f4645c3e6856f0c3e616a7669736962696c697479a16373656564776f726b",
+      "decoded": {
+        "kind": "declaration",
+        "type": "https://suiss.app/ns/work/declaration/org_rule",
+        "basis": [],
+        "author": "party:acme:alice",
+        "ledger": [
+          -16,
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
+        ],
+        "params": {
+          "parties": [
+            "party:acme:alice"
+          ],
+          "fallback": "party:acme:alice",
+          "organization": "party:acme:buyer-org",
+          "party_groups": [
+            "group:acme:legal",
+            "group:acme:tax"
+          ]
+        },
+        "capacity": "own",
+        "concerns": [
+          "019a2f4c8e1b7c3da5e6f70812345678"
+        ],
+        "versions": {
+          "schema": [
+            -16,
+            "e4ec4882d1684ddc2d77a435d8b7f7fba3d50701d9f576a9ddbf3538a2452ea7"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "authority": {
+          "proof": "decision_receipt",
+          "digest": [
+            -16,
+            "e72312fef0553933010a2994b901308f0af993528b2e1f4645c3e6856f0c3e61"
+          ]
+        },
+        "visibility": {
+          "see": "work"
+        }
+      },
+      "context": {
+        "origin": "direct",
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": []
+      },
+      "cddl": "pass",
+      "expect": {
+        "outcome": "reject",
+        "reason": "schema:params"
+      }
+    },
+    {
+      "id": "responsibility-reject/org-rule-group-twice",
+      "rules": [
+        "RC-48",
+        "RC-1"
+      ],
+      "hex": "ab646b696e646b6465636c61726174696f6e6474797065782e68747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f6f72675f72756c656562617369738066617574686f727070617274793a61636d653a616c696365666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee766706172616d73a665726f6c6573816e726f6c653a61636d653a6c6561646770617274696573817070617274793a61636d653a616c6963656866616c6c6261636b7070617274793a61636d653a616c6963656b726f6c655f67726f757073817067726f75703a61636d653a6c6567616c6c6f7267616e697a6174696f6e7470617274793a61636d653a62757965722d6f72676c70617274795f67726f757073817067726f75703a61636d653a6c6567616c686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f5820e4ec4882d1684ddc2d77a435d8b7f7fba3d50701d9f576a9ddbf3538a2452ea76870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f582072f55aa9a834ccd8b7fd4c72dfc6876ed9ed90986fd93484756f5cf20526961f6a7669736962696c697479a16373656564776f726b",
+      "decoded": {
+        "kind": "declaration",
+        "type": "https://suiss.app/ns/work/declaration/org_rule",
+        "basis": [],
+        "author": "party:acme:alice",
+        "ledger": [
+          -16,
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
+        ],
+        "params": {
+          "roles": [
+            "role:acme:lead"
+          ],
+          "parties": [
+            "party:acme:alice"
+          ],
+          "fallback": "party:acme:alice",
+          "role_groups": [
+            "group:acme:legal"
+          ],
+          "organization": "party:acme:buyer-org",
+          "party_groups": [
+            "group:acme:legal"
+          ]
+        },
+        "capacity": "own",
+        "concerns": [
+          "019a2f4c8e1b7c3da5e6f70812345678"
+        ],
+        "versions": {
+          "schema": [
+            -16,
+            "e4ec4882d1684ddc2d77a435d8b7f7fba3d50701d9f576a9ddbf3538a2452ea7"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "authority": {
+          "proof": "decision_receipt",
+          "digest": [
+            -16,
+            "72f55aa9a834ccd8b7fd4c72dfc6876ed9ed90986fd93484756f5cf20526961f"
+          ]
+        },
+        "visibility": {
+          "see": "work"
+        }
+      },
+      "context": {
+        "origin": "direct",
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": []
+      },
+      "cddl": "pass",
+      "expect": {
+        "outcome": "reject",
+        "reason": "schema:params"
+      }
+    },
+    {
+      "id": "responsibility-reject/org-rule-unknown-regime",
+      "rules": [
+        "RC-48",
+        "RC-6"
+      ],
+      "hex": "ab646b696e646b6465636c61726174696f6e6474797065782e68747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f6f72675f72756c656562617369738066617574686f727070617274793a61636d653a616c696365666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee766706172616d73a366726567696d65666167656e74736866616c6c6261636b7070617274793a61636d653a616c6963656c6f7267616e697a6174696f6e7470617274793a61636d653a62757965722d6f7267686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f5820e4ec4882d1684ddc2d77a435d8b7f7fba3d50701d9f576a9ddbf3538a2452ea76870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f582096c4f1fddd8f7b4acb9123b8f0de6a1980fe3120395c9ff357a133a9995950aa6a7669736962696c697479a16373656564776f726b",
+      "decoded": {
+        "kind": "declaration",
+        "type": "https://suiss.app/ns/work/declaration/org_rule",
+        "basis": [],
+        "author": "party:acme:alice",
+        "ledger": [
+          -16,
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
+        ],
+        "params": {
+          "regime": "agents",
+          "fallback": "party:acme:alice",
+          "organization": "party:acme:buyer-org"
+        },
+        "capacity": "own",
+        "concerns": [
+          "019a2f4c8e1b7c3da5e6f70812345678"
+        ],
+        "versions": {
+          "schema": [
+            -16,
+            "e4ec4882d1684ddc2d77a435d8b7f7fba3d50701d9f576a9ddbf3538a2452ea7"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "authority": {
+          "proof": "decision_receipt",
+          "digest": [
+            -16,
+            "96c4f1fddd8f7b4acb9123b8f0de6a1980fe3120395c9ff357a133a9995950aa"
+          ]
+        },
+        "visibility": {
+          "see": "work"
+        }
+      },
+      "context": {
+        "origin": "direct",
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": []
+      },
+      "cddl": "pass",
+      "expect": {
+        "outcome": "reject",
+        "reason": "schema:params"
+      }
+    },
+    {
+      "id": "responsibility-reject/forward-without-reason",
+      "rules": [
+        "RC-17"
+      ],
+      "hex": "ab646b696e646b6465636c61726174696f6e6474797065782d68747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f666f72776172646562617369738066617574686f727070617274793a61636d653a616c696365666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee766706172616d73a1657175657565822f5820478f6ad91726fc4a528fe4dd0cd643404eb21b78af4c27e3698227befc0f863a686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f58206611f36feecbf5b6d2643cb605708f9ea0f78d2bd829ace04dbea24cc41b304c6870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f5820868a7c43a14640b88922f6864d8f7d00c53a50b39486029d0122014688db60d76a7669736962696c697479a16373656564776f726b",
+      "decoded": {
+        "kind": "declaration",
+        "type": "https://suiss.app/ns/work/declaration/forward",
+        "basis": [],
+        "author": "party:acme:alice",
+        "ledger": [
+          -16,
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
+        ],
+        "params": {
+          "queue": [
+            -16,
+            "478f6ad91726fc4a528fe4dd0cd643404eb21b78af4c27e3698227befc0f863a"
+          ]
+        },
+        "capacity": "own",
+        "concerns": [
+          "019a2f4c8e1b7c3da5e6f70812345678"
+        ],
+        "versions": {
+          "schema": [
+            -16,
+            "6611f36feecbf5b6d2643cb605708f9ea0f78d2bd829ace04dbea24cc41b304c"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "authority": {
+          "proof": "decision_receipt",
+          "digest": [
+            -16,
+            "868a7c43a14640b88922f6864d8f7d00c53a50b39486029d0122014688db60d7"
+          ]
+        },
+        "visibility": {
+          "see": "work"
+        }
+      },
+      "context": {
+        "origin": "direct",
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": []
+      },
+      "cddl": "pass",
+      "expect": {
+        "outcome": "reject",
+        "reason": "schema:params"
+      }
+    },
+    {
+      "id": "responsibility-reject/forward-two-targets",
+      "rules": [
+        "RC-17"
+      ],
+      "hex": "ab646b696e646b6465636c61726174696f6e6474797065782d68747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f666f72776172646562617369738066617574686f727070617274793a61636d653a616c696365666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee766706172616d73a3657175657565822f5820478f6ad91726fc4a528fe4dd0cd643404eb21b78af4c27e3698227befc0f863a66726561736f6e6863617061636974796a63616e64696461746573817470617274793a61636d653a62757965722d6f7267686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f58206611f36feecbf5b6d2643cb605708f9ea0f78d2bd829ace04dbea24cc41b304c6870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f5820155da292ae390e59c4d5db8889120046799b20b147108085c3426dd8988e70f26a7669736962696c697479a16373656564776f726b",
+      "decoded": {
+        "kind": "declaration",
+        "type": "https://suiss.app/ns/work/declaration/forward",
+        "basis": [],
+        "author": "party:acme:alice",
+        "ledger": [
+          -16,
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
+        ],
+        "params": {
+          "queue": [
+            -16,
+            "478f6ad91726fc4a528fe4dd0cd643404eb21b78af4c27e3698227befc0f863a"
+          ],
+          "reason": "capacity",
+          "candidates": [
+            "party:acme:buyer-org"
+          ]
+        },
+        "capacity": "own",
+        "concerns": [
+          "019a2f4c8e1b7c3da5e6f70812345678"
+        ],
+        "versions": {
+          "schema": [
+            -16,
+            "6611f36feecbf5b6d2643cb605708f9ea0f78d2bd829ace04dbea24cc41b304c"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "authority": {
+          "proof": "decision_receipt",
+          "digest": [
+            -16,
+            "155da292ae390e59c4d5db8889120046799b20b147108085c3426dd8988e70f2"
+          ]
+        },
+        "visibility": {
+          "see": "work"
+        }
+      },
+      "context": {
+        "origin": "direct",
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": []
+      },
+      "cddl": "pass",
+      "expect": {
+        "outcome": "reject",
+        "reason": "schema:params"
+      }
+    },
+    {
+      "id": "responsibility-reject/forward-other-without-note",
+      "rules": [
+        "RC-17"
+      ],
+      "hex": "ab646b696e646b6465636c61726174696f6e6474797065782d68747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f666f72776172646562617369738066617574686f727070617274793a61636d653a616c696365666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee766706172616d73a2657175657565822f5820478f6ad91726fc4a528fe4dd0cd643404eb21b78af4c27e3698227befc0f863a66726561736f6e656f74686572686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f58206611f36feecbf5b6d2643cb605708f9ea0f78d2bd829ace04dbea24cc41b304c6870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f5820ba9ea3a4459e7bc691abd4acb1e677d213f2ff4f83ebdd05328f8ce5c713518c6a7669736962696c697479a16373656564776f726b",
+      "decoded": {
+        "kind": "declaration",
+        "type": "https://suiss.app/ns/work/declaration/forward",
+        "basis": [],
+        "author": "party:acme:alice",
+        "ledger": [
+          -16,
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
+        ],
+        "params": {
+          "queue": [
+            -16,
+            "478f6ad91726fc4a528fe4dd0cd643404eb21b78af4c27e3698227befc0f863a"
+          ],
+          "reason": "other"
+        },
+        "capacity": "own",
+        "concerns": [
+          "019a2f4c8e1b7c3da5e6f70812345678"
+        ],
+        "versions": {
+          "schema": [
+            -16,
+            "6611f36feecbf5b6d2643cb605708f9ea0f78d2bd829ace04dbea24cc41b304c"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "authority": {
+          "proof": "decision_receipt",
+          "digest": [
+            -16,
+            "ba9ea3a4459e7bc691abd4acb1e677d213f2ff4f83ebdd05328f8ce5c713518c"
+          ]
+        },
+        "visibility": {
+          "see": "work"
+        }
+      },
+      "context": {
+        "origin": "direct",
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": []
+      },
+      "cddl": "pass",
+      "expect": {
+        "outcome": "reject",
+        "reason": "schema:required_field"
+      }
+    },
+    {
+      "id": "responsibility-reject/offer-inputs-without-policy",
+      "rules": [
+        "RC-22"
+      ],
+      "hex": "ab646b696e646b6465636c61726174696f6e6474797065782b68747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f6f666665726562617369738066617574686f727070617274793a61636d653a616c696365666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee766706172616d73a26570617274797570617274793a676c6f6265783a737570706c69657266696e7075747381822f582083066ef4092e0c55eb7f18cfae037289bba4615123b97178a86ac5ade8564a9a686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f5820335848d0efca9e8f7ac9c301aee965ca0c5a1438c79b43bb237e152b3b9758b16870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f582073c6f79d50500d5bcc10d1749153144b8d4c2302fc57ba21ef6d043fa05f86176a7669736962696c697479a16373656564776f726b",
+      "decoded": {
+        "kind": "declaration",
+        "type": "https://suiss.app/ns/work/declaration/offer",
+        "basis": [],
+        "author": "party:acme:alice",
+        "ledger": [
+          -16,
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
+        ],
+        "params": {
+          "party": "party:globex:supplier",
+          "inputs": [
+            [
+              -16,
+              "83066ef4092e0c55eb7f18cfae037289bba4615123b97178a86ac5ade8564a9a"
+            ]
+          ]
+        },
+        "capacity": "own",
+        "concerns": [
+          "019a2f4c8e1b7c3da5e6f70812345678"
+        ],
+        "versions": {
+          "schema": [
+            -16,
+            "335848d0efca9e8f7ac9c301aee965ca0c5a1438c79b43bb237e152b3b9758b1"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "authority": {
+          "proof": "decision_receipt",
+          "digest": [
+            -16,
+            "73c6f79d50500d5bcc10d1749153144b8d4c2302fc57ba21ef6d043fa05f8617"
+          ]
+        },
+        "visibility": {
+          "see": "work"
+        }
+      },
+      "context": {
+        "origin": "direct",
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": []
+      },
+      "cddl": "pass",
+      "expect": {
+        "outcome": "reject",
+        "reason": "schema:params"
+      }
+    },
+    {
+      "id": "responsibility-reject/nominate-party-is-a-reference",
+      "rules": [
+        "RC-17",
+        "RC-45"
+      ],
+      "hex": "ab646b696e646b6465636c61726174696f6e6474797065782e68747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f6e6f6d696e6174656562617369738066617574686f727070617274793a61636d653a616c696365666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee766706172616d73a1657061727479781968747470733a2f2f746f6f6c732e6578616d706c652f626f74686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f58207b43dc8e7ca7c2718d8a5f4e630fc2a9c11cdb3b3a92f4eac619b7cbe4bb97226870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f582038597c5a9a7c52a0c64b3730bd75fcbcab657374c1ccd9e8b1160978c89b3b0f6a7669736962696c697479a16373656564776f726b",
+      "decoded": {
+        "kind": "declaration",
+        "type": "https://suiss.app/ns/work/declaration/nominate",
+        "basis": [],
+        "author": "party:acme:alice",
+        "ledger": [
+          -16,
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
+        ],
+        "params": {
+          "party": "https://tools.example/bot"
+        },
+        "capacity": "own",
+        "concerns": [
+          "019a2f4c8e1b7c3da5e6f70812345678"
+        ],
+        "versions": {
+          "schema": [
+            -16,
+            "7b43dc8e7ca7c2718d8a5f4e630fc2a9c11cdb3b3a92f4eac619b7cbe4bb9722"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "authority": {
+          "proof": "decision_receipt",
+          "digest": [
+            -16,
+            "38597c5a9a7c52a0c64b3730bd75fcbcab657374c1ccd9e8b1160978c89b3b0f"
+          ]
+        },
+        "visibility": {
+          "see": "work"
+        }
+      },
+      "context": {
+        "origin": "direct",
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": []
+      },
+      "cddl": "pass",
+      "expect": {
+        "outcome": "reject",
+        "reason": "envelope_mismatch:actor_type"
+      }
+    },
+    {
+      "id": "responsibility-reject/claim-with-params",
+      "rules": [
+        "RC-17"
+      ],
+      "hex": "ab646b696e646b6465636c61726174696f6e6474797065782b68747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f636c61696d6562617369738066617574686f727570617274793a676c6f6265783a737570706c696572666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee766706172616d73a16570617274797570617274793a676c6f6265783a737570706c696572686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f5820d0e3e9745a35aa64b660ce0fa0431125cd41e1deb217e264439f07da535bb38f6870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f582050b8de86e522215aea1f3b2de4e6e32be13f158daa16f6cefc42792b94b4a5b46a7669736962696c697479a16373656564776f726b",
+      "decoded": {
+        "kind": "declaration",
+        "type": "https://suiss.app/ns/work/declaration/claim",
+        "basis": [],
+        "author": "party:globex:supplier",
+        "ledger": [
+          -16,
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
+        ],
+        "params": {
+          "party": "party:globex:supplier"
+        },
+        "capacity": "own",
+        "concerns": [
+          "019a2f4c8e1b7c3da5e6f70812345678"
+        ],
+        "versions": {
+          "schema": [
+            -16,
+            "d0e3e9745a35aa64b660ce0fa0431125cd41e1deb217e264439f07da535bb38f"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "authority": {
+          "proof": "decision_receipt",
+          "digest": [
+            -16,
+            "50b8de86e522215aea1f3b2de4e6e32be13f158daa16f6cefc42792b94b4a5b4"
+          ]
+        },
+        "visibility": {
+          "see": "work"
+        }
+      },
+      "context": {
+        "origin": "direct",
+        "actor_type": {
+          "author": [
+            "organization",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": []
+      },
+      "cddl": "pass",
+      "expect": {
+        "outcome": "reject",
+        "reason": "schema:params"
+      }
+    },
+    {
+      "id": "responsibility-reject/waiver-oversight",
+      "rules": [
+        "RC-9"
+      ],
+      "hex": "ab646b696e646b6465636c61726174696f6e6474797065782c68747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f7761697665726562617369738066617574686f727070617274793a61636d653a616c696365666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee766706172616d73a26967756172616e746565696f76657273696768746a636f6d6d69746d656e74822f58203287bc190e3e7480cd50b017bf544edd270fa1383e36b15ecdf36c496a00d395686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f5820d093497c57d1728a3693836ba2aa176bbef62232262a36c646e37ee05926a9e66870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f5820c61056ba31f38dacc248fc6ba92a9260417369e2b7a0a0b3e751903bd701f6816a7669736962696c697479a16373656564776f726b",
+      "decoded": {
+        "kind": "declaration",
+        "type": "https://suiss.app/ns/work/declaration/waiver",
+        "basis": [],
+        "author": "party:acme:alice",
+        "ledger": [
+          -16,
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
+        ],
+        "params": {
+          "guarantee": "oversight",
+          "commitment": [
+            -16,
+            "3287bc190e3e7480cd50b017bf544edd270fa1383e36b15ecdf36c496a00d395"
+          ]
+        },
+        "capacity": "own",
+        "concerns": [
+          "019a2f4c8e1b7c3da5e6f70812345678"
+        ],
+        "versions": {
+          "schema": [
+            -16,
+            "d093497c57d1728a3693836ba2aa176bbef62232262a36c646e37ee05926a9e6"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "authority": {
+          "proof": "decision_receipt",
+          "digest": [
+            -16,
+            "c61056ba31f38dacc248fc6ba92a9260417369e2b7a0a0b3e751903bd701f681"
+          ]
+        },
+        "visibility": {
+          "see": "work"
+        }
+      },
+      "context": {
+        "origin": "direct",
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": []
+      },
+      "cddl": "pass",
+      "expect": {
+        "outcome": "reject",
+        "reason": "schema:params"
+      }
+    },
+    {
+      "id": "responsibility-reject/waiver-unscoped",
+      "rules": [
+        "RC-9"
+      ],
+      "hex": "ab646b696e646b6465636c61726174696f6e6474797065782c68747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f7761697665726562617369738066617574686f727070617274793a61636d653a616c696365666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee766706172616d73a16967756172616e7465656e616476616e63655f6e6f74696365686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f5820d093497c57d1728a3693836ba2aa176bbef62232262a36c646e37ee05926a9e66870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f5820f596ade3aae7da2af4e53dad972a35961585f26f1b9d12a3f2da1ec0267c99b26a7669736962696c697479a16373656564776f726b",
+      "decoded": {
+        "kind": "declaration",
+        "type": "https://suiss.app/ns/work/declaration/waiver",
+        "basis": [],
+        "author": "party:acme:alice",
+        "ledger": [
+          -16,
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
+        ],
+        "params": {
+          "guarantee": "advance_notice"
+        },
+        "capacity": "own",
+        "concerns": [
+          "019a2f4c8e1b7c3da5e6f70812345678"
+        ],
+        "versions": {
+          "schema": [
+            -16,
+            "d093497c57d1728a3693836ba2aa176bbef62232262a36c646e37ee05926a9e6"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "authority": {
+          "proof": "decision_receipt",
+          "digest": [
+            -16,
+            "f596ade3aae7da2af4e53dad972a35961585f26f1b9d12a3f2da1ec0267c99b2"
+          ]
+        },
+        "visibility": {
+          "see": "work"
+        }
+      },
+      "context": {
+        "origin": "direct",
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": []
+      },
+      "cddl": "pass",
+      "expect": {
+        "outcome": "reject",
+        "reason": "schema:params"
+      }
+    },
+    {
+      "id": "responsibility-reject/amend-accountable-with-instruction",
+      "rules": [
+        "RC-7"
+      ],
+      "hex": "ab646b696e646b6465636c61726174696f6e6474797065782b68747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f616d656e646562617369738066617574686f727070617274793a61636d653a616c696365666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee766706172616d73a26b6163636f756e7461626c657570617274793a676c6f6265783a737570706c6965726b686967685f696d70616374f5686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f582087ba9a78e4967682f583748b7995e709a90f884c47541bf1ae3e9485075048dd6870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f58200654f1932c012b96230478fc6e4b951a3a9384f5d824efd4f6b0fb4b1cd9a0eb6a7669736962696c697479a16373656564776f726b",
+      "decoded": {
+        "kind": "declaration",
+        "type": "https://suiss.app/ns/work/declaration/amend",
+        "basis": [],
+        "author": "party:acme:alice",
+        "ledger": [
+          -16,
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
+        ],
+        "params": {
+          "accountable": "party:globex:supplier",
+          "high_impact": true
+        },
+        "capacity": "own",
+        "concerns": [
+          "019a2f4c8e1b7c3da5e6f70812345678"
+        ],
+        "versions": {
+          "schema": [
+            -16,
+            "87ba9a78e4967682f583748b7995e709a90f884c47541bf1ae3e9485075048dd"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "authority": {
+          "proof": "decision_receipt",
+          "digest": [
+            -16,
+            "0654f1932c012b96230478fc6e4b951a3a9384f5d824efd4f6b0fb4b1cd9a0eb"
+          ]
+        },
+        "visibility": {
+          "see": "work"
+        }
+      },
+      "context": {
+        "origin": "direct",
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": []
+      },
+      "cddl": "pass",
+      "expect": {
+        "outcome": "reject",
+        "reason": "schema:params"
+      }
+    },
+    {
+      "id": "responsibility-reject/request-accountable-and-group",
+      "rules": [
+        "RC-1"
+      ],
+      "hex": "ab646b696e646b6465636c61726174696f6e6474797065782d68747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f726571756573746562617369738066617574686f727070617274793a61636d653a616c696365666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee766706172616d73a4676f626c69676f727570617274793a676c6f6265783a737570706c696572686163636570746f727070617274793a61636d653a616c6963656b6163636f756e7461626c657470617274793a61636d653a62757965722d6f7267716163636f756e7461626c655f67726f75707067726f75703a61636d653a6c6567616c686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f58203b1a89334cd6721a83549f1e9fc68f4d6d751d18b0ab9655264055fd3ac164eb6870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f5820afefacdf4331909f72ce30c2611e82034fa29b54ce6605851f81c324e9791bfb6a7669736962696c697479a16373656564776f726b",
+      "decoded": {
+        "kind": "declaration",
+        "type": "https://suiss.app/ns/work/declaration/request",
+        "basis": [],
+        "author": "party:acme:alice",
+        "ledger": [
+          -16,
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
+        ],
+        "params": {
+          "obligor": "party:globex:supplier",
+          "acceptor": "party:acme:alice",
+          "accountable": "party:acme:buyer-org",
+          "accountable_group": "group:acme:legal"
+        },
+        "capacity": "own",
+        "concerns": [
+          "019a2f4c8e1b7c3da5e6f70812345678"
+        ],
+        "versions": {
+          "schema": [
+            -16,
+            "3b1a89334cd6721a83549f1e9fc68f4d6d751d18b0ab9655264055fd3ac164eb"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "authority": {
+          "proof": "decision_receipt",
+          "digest": [
+            -16,
+            "afefacdf4331909f72ce30c2611e82034fa29b54ce6605851f81c324e9791bfb"
+          ]
+        },
+        "visibility": {
+          "see": "work"
+        }
+      },
+      "context": {
+        "origin": "direct",
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": []
+      },
+      "cddl": "pass",
+      "expect": {
+        "outcome": "reject",
+        "reason": "schema:params"
+      }
+    },
+    {
+      "id": "responsibility-reject/request-accountable-is-a-reference",
+      "rules": [
+        "RC-45",
+        "RC-6"
+      ],
+      "hex": "ab646b696e646b6465636c61726174696f6e6474797065782d68747470733a2f2f73756973732e6170702f6e732f776f726b2f6465636c61726174696f6e2f726571756573746562617369738066617574686f727070617274793a61636d653a616c696365666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee766706172616d73a3676f626c69676f727570617274793a676c6f6265783a737570706c696572686163636570746f727070617274793a61636d653a616c6963656b6163636f756e7461626c65782868747470733a2f2f636c696e69632e6578616d706c652f6e732f726f6c652f617474656e64696e67686361706163697479636f776e68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f58203b1a89334cd6721a83549f1e9fc68f4d6d751d18b0ab9655264055fd3ac164eb6870726f746f636f6c82010069617574686f72697479a26570726f6f66706465636973696f6e5f7265636569707466646967657374822f58203939e54e672d1811213f13e1e9aa529e5a4f838ef97f4941625ec9f99ce9df5c6a7669736962696c697479a16373656564776f726b",
+      "decoded": {
+        "kind": "declaration",
+        "type": "https://suiss.app/ns/work/declaration/request",
+        "basis": [],
+        "author": "party:acme:alice",
+        "ledger": [
+          -16,
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
+        ],
+        "params": {
+          "obligor": "party:globex:supplier",
+          "acceptor": "party:acme:alice",
+          "accountable": "https://clinic.example/ns/role/attending"
+        },
+        "capacity": "own",
+        "concerns": [
+          "019a2f4c8e1b7c3da5e6f70812345678"
+        ],
+        "versions": {
+          "schema": [
+            -16,
+            "3b1a89334cd6721a83549f1e9fc68f4d6d751d18b0ab9655264055fd3ac164eb"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "authority": {
+          "proof": "decision_receipt",
+          "digest": [
+            -16,
+            "3939e54e672d1811213f13e1e9aa529e5a4f838ef97f4941625ec9f99ce9df5c"
+          ]
+        },
+        "visibility": {
+          "see": "work"
+        }
+      },
+      "context": {
+        "origin": "direct",
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": []
+      },
+      "cddl": "pass",
+      "expect": {
+        "outcome": "reject",
+        "reason": "envelope_mismatch:actor_type"
+      }
+    },
+    {
+      "id": "responsibility-reject/participation-without-engaged-in",
+      "rules": [
+        "RC-44"
+      ],
+      "hex": "a9646b696e6465636c61696d6474797065782b68747470733a2f2f73756973732e6170702f6e732f776f726b2f636c61696d2f6f62736572766174696f6e66617574686f727070617274793a61636d653a616c696365666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee766706172616d73a16d70617274696369706174696f6e676f6e5f63616c6c68636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f582008c478cb5168164f861aae4f1ac3d5b0a7d475b9a59cfa400676024d98b767f16870726f746f636f6c8201006a7669736962696c697479a16373656564776f726b6b6f636375727265645f61741b000001a1420646b1",
+      "decoded": {
+        "kind": "claim",
+        "type": "https://suiss.app/ns/work/claim/observation",
+        "author": "party:acme:alice",
+        "ledger": [
+          -16,
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
+        ],
+        "params": {
+          "participation": "on_call"
+        },
+        "concerns": [
+          "019a2f4c8e1b7c3da5e6f70812345678"
+        ],
+        "versions": {
+          "schema": [
+            -16,
+            "08c478cb5168164f861aae4f1ac3d5b0a7d475b9a59cfa400676024d98b767f1"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "visibility": {
+          "see": "work"
+        },
+        "occurred_at": 1792109070001
+      },
+      "context": {
+        "origin": "direct",
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": []
+      },
+      "cddl": "pass",
+      "expect": {
+        "outcome": "reject",
+        "reason": "schema:params"
+      }
+    },
+    {
+      "id": "responsibility-reject/participation-unknown",
+      "rules": [
+        "RC-44"
+      ],
+      "hex": "aa646b696e6465636c61696d6474797065782b68747470733a2f2f73756973732e6170702f6e732f776f726b2f636c61696d2f6f62736572766174696f6e66617574686f727070617274793a61636d653a616c696365666c6564676572822f582013ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee766706172616d73a16d70617274696369706174696f6e66616c7761797368636f6e6365726e738150019a2f4c8e1b7c3da5e6f708123456786876657273696f6e73a266736368656d61822f582008c478cb5168164f861aae4f1ac3d5b0a7d475b9a59cfa400676024d98b767f16870726f746f636f6c8201006972656c6174696f6e7381a36372656c6a656e67616765645f696e66736f7572636582657061727479781a70617274793a61636d653a6167656e742d70726f637572652d37667461726765748264776f726b50019a2f4c8e1b7c3da5e6f708123456786a7669736962696c697479a16373656564776f726b6b6f636375727265645f61741b000001a1420646b2",
+      "decoded": {
+        "kind": "claim",
+        "type": "https://suiss.app/ns/work/claim/observation",
+        "author": "party:acme:alice",
+        "ledger": [
+          -16,
+          "13ed952e5c3f1b87cb519b7ca7168562b592823dddc513579df185407f97aee7"
+        ],
+        "params": {
+          "participation": "always"
+        },
+        "concerns": [
+          "019a2f4c8e1b7c3da5e6f70812345678"
+        ],
+        "versions": {
+          "schema": [
+            -16,
+            "08c478cb5168164f861aae4f1ac3d5b0a7d475b9a59cfa400676024d98b767f1"
+          ],
+          "protocol": [
+            1,
+            0
+          ]
+        },
+        "relations": [
+          {
+            "rel": "engaged_in",
+            "source": [
+              "party",
+              "party:acme:agent-procure-7"
+            ],
+            "target": [
+              "work",
+              "019a2f4c8e1b7c3da5e6f70812345678"
+            ]
+          }
+        ],
+        "visibility": {
+          "see": "work"
+        },
+        "occurred_at": 1792109070002
+      },
+      "context": {
+        "origin": "direct",
+        "actor_type": {
+          "author": [
+            "human",
+            "access_binding"
+          ]
+        },
+        "understood_extensions": []
+      },
+      "cddl": "pass",
+      "expect": {
+        "outcome": "reject",
+        "reason": "schema:params"
+      }
+    }
+  ]
+}

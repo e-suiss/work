@@ -1077,6 +1077,8 @@ stage = 6
 title = ""
 tests = [
   "crates/kernel/tests/ontology.rs::c_30_roles_live_on_commitments_and_relations_never_on_the_party",
+  "crates/kernel/tests/responsibility.rs::rc_1_a_group_is_accountable_only_once_the_org_rule_resolves_it",
+  "crates/kernel/tests/responsibility.rs::rc_5_accountability_is_one_party_explicit_or_derived_and_marked_derived",
 ]
 
 [[rule]]
@@ -1101,7 +1103,11 @@ family = "RC"
 status = "canonical-invariant"
 stage = 6
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/responsibility.rs::rc_5_accountability_is_one_party_explicit_or_derived_and_marked_derived",
+  "crates/kernel/tests/responsibility.rs::rc_6_the_regime_decides_the_end_and_an_agent_never_ends_the_chain",
+  "crates/kernel/tests/responsibility.rs::rc_7_an_accountability_transfer_needs_the_new_party_s_acceptance",
+]
 
 [[rule]]
 id = "RC-7"
@@ -1109,7 +1115,11 @@ family = "RC"
 status = "canonical-invariant"
 stage = 6
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/responsibility.rs::rc_12_pooled_work_and_the_queue_are_the_owner_s_and_never_ownerless",
+  "crates/kernel/tests/responsibility.rs::rc_7_a_disabled_party_falls_to_the_upper_accountable_or_the_fallback",
+  "crates/kernel/tests/responsibility.rs::rc_7_an_accountability_transfer_needs_the_new_party_s_acceptance",
+]
 
 [[rule]]
 id = "RC-9"
@@ -1117,7 +1127,10 @@ family = "RC"
 status = "canonical-invariant"
 stage = 6
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/record_vectors.rs::rc_17_responsibility_record_vectors",
+  "crates/kernel/tests/responsibility.rs::rc_9_four_guarantees_are_never_waived_and_a_waiver_is_scoped_and_recorded",
+]
 
 [[rule]]
 id = "RC-12"
@@ -1125,7 +1138,11 @@ family = "RC"
 status = "canonical-invariant"
 stage = 6
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/record_vectors.rs::rc_17_responsibility_record_vectors",
+  "crates/kernel/tests/responsibility.rs::rc_12_a_queue_without_an_owner_is_a_schema_error",
+  "crates/kernel/tests/responsibility.rs::rc_12_pooled_work_and_the_queue_are_the_owner_s_and_never_ownerless",
+]
 
 [[rule]]
 id = "RC-15"
@@ -1133,7 +1150,10 @@ family = "RC"
 status = "canonical-invariant"
 stage = 6
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/responsibility.rs::rc_13_nobody_took_it_after_the_start_deadline_or_without_candidates",
+  "crates/kernel/tests/responsibility.rs::rc_17_claim_promises_and_unclaim_returns_to_requested_without_a_release",
+]
 
 [[rule]]
 id = "RC-20"
@@ -1141,7 +1161,9 @@ family = "RC"
 status = "canonical-invariant"
 stage = 6
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/responsibility.rs::rc_20_assignment_grants_no_access_and_held_work_waits_for_it",
+]
 
 [[rule]]
 id = "RC-26"
@@ -1189,7 +1211,10 @@ family = "RC"
 status = "canonical-invariant"
 stage = 6
 title = ""
-tests = []
+tests = [
+  "crates/kernel/tests/record_vectors.rs::rc_17_responsibility_record_vectors",
+  "crates/kernel/tests/responsibility.rs::rc_45_a_role_label_carries_no_authority_and_no_responsibility",
+]
 
 [[rule]]
 id = "ST-1"
