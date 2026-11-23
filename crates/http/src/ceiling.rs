@@ -23,7 +23,7 @@ use crate::writes::{created, declaration_request, write_problem};
 pub const NOT_A_DECISION: &str = "ceiling:not_a_decision";
 
 /// Why a written decision is not forwarded to Relay: work-server holds no outbound Relay client.
-pub const UNFORWARDED: &str = "no_relay_client";
+pub const UNFORWARDED: &str = "relay_client_absent";
 
 /// The decision `request` carries, or the refusal of a record that is none (E-23).
 ///
