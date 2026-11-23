@@ -74,3 +74,117 @@ fn p_55_what_a_transition_still_needs_and_the_next_move_are_spelled_by_their_wir
         work_kernel::commitment::CommitmentState::Accepted.wire_name()
     );
 }
+
+// CM-50 CM-51 CM-48 CM-49 CM-53 CM-64
+#[test]
+fn cm_50_clocks_periodic_updates_and_budgets_are_answered_by_their_wire_names() {
+    use work_kernel::budget::{Budget, BudgetView, Choice, Decision, Measure};
+    use work_kernel::clock::{ClockView, Due, PeriodicView, Reached};
+    use work_kernel::currency;
+
+    let condition = RecordId(Digest::sha256([8; 32]));
+    let later = RecordId(Digest::sha256([9; 32]));
+    let breached = ClockProjection {
+        condition,
+        definition: later,
+        target: Target::Finish,
+        view: Ok(ClockView {
+            state: ClockState::Running,
+            version: 2,
+            elapsed: 61_000,
+            remaining: 0,
+            warning: Some(500),
+            breached: Some(Time(61_000)),
+            reached: vec![
+                Reached {
+                    tier: Tier::Warning(500),
+                    at: Time(51_000),
+                    version: 1,
+                },
+                Reached {
+                    tier: Tier::Breach,
+                    at: Time(61_000),
+                    version: 2,
+                },
+            ],
+            paused_since: None,
+            met_at: None,
+            refused: Vec::new(),
+            next_change: None,
+            tzdb: None,
+        }),
+        ignored: Vec::new(),
+    };
+    let answer = clock(&breached);
+    assert_eq!(answer.target, "finish");
+    assert_eq!(answer.state.as_deref(), Some("running"));
+    assert_eq!(answer.definition, later.to_external());
+    assert_eq!(
+        answer
+            .reached
+            .iter()
+            .map(|r| r.tier.as_str())
+            .collect::<Vec<_>>(),
+        ["warning", "breach"]
+    );
+    assert_eq!(answer.reached[0].version, 1);
+    assert_eq!(
+        answer.breached_at.as_deref(),
+        Some("1970-01-01T00:01:01.000Z")
+    );
+    let refused = clock(&ClockProjection {
+        view: Err(ClockError::Version),
+        ..breached
+    });
+    assert_eq!(refused.error.as_deref(), Some("version"));
+    assert_eq!(refused.state, None);
+    let euro = Measure::Money(currency::money("EUR").unwrap());
+    let exhausted = budget(&BudgetProjection {
+        condition,
+        definition: condition,
+        budget: Budget {
+            measure: euro,
+            limit: 10_000,
+            warnings: vec![800],
+        },
+        view: Ok(BudgetView {
+            own: 10_000,
+            children: 0,
+            consumed: 10_000,
+            remaining: 0,
+            warning: Some(800),
+            exhausted: true,
+            decision: Some(Decision {
+                choices: Choice::ALL,
+            }),
+            ignored: 1,
+            unmatched: 0,
+        }),
+        ignored: Vec::new(),
+    });
+    assert_eq!(exhausted.measure, "money");
+    assert_eq!(exhausted.currency.as_deref(), Some("EUR"));
+    assert!(exhausted.exhausted);
+    assert_eq!(exhausted.decision, ["continue", "reshape", "drop"]);
+    let missed = periodic(&PeriodicProjection {
+        condition,
+        definition: condition,
+        view: Ok(PeriodicView {
+            due: vec![Due {
+                expected: Time(0),
+                deadline: Time(1_000),
+                report: None,
+                missed: true,
+            }],
+            missed: 1,
+            next_deadline: None,
+            tzdb: "2026f".to_owned(),
+        }),
+        reports: 0,
+        ignored_reports: 2,
+        ignored: Vec::new(),
+    });
+    assert_eq!(missed.missed, 1);
+    assert!(missed.due[0].missed);
+    assert_eq!(missed.ignored_reports, 2);
+}

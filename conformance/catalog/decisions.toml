@@ -2245,6 +2245,7 @@ family = "CM"
 status = "frozen-product"
 title = ""
 tests = [
+  "crates/http/src/commitments/tests.rs::cm_50_clocks_periodic_updates_and_budgets_are_answered_by_their_wire_names",
   "crates/kernel/tests/commitment_time.rs::cm_48_budget_and_consumption_bodies_match_their_vectors",
   "crates/kernel/tests/commitment_time.rs::cm_48_consumption_comes_from_executor_claims_and_children_roll_up",
   "crates/kernel/tests/commitment_time.rs::cm_48_consumption_overflow_is_a_typed_error",
@@ -2259,6 +2260,7 @@ status = "frozen-product"
 stage = 5
 title = ""
 tests = [
+  "crates/http/src/commitments/tests.rs::cm_50_clocks_periodic_updates_and_budgets_are_answered_by_their_wire_names",
   "crates/kernel/tests/commitment_time.rs::cm_48_budget_and_consumption_bodies_match_their_vectors",
   "crates/kernel/tests/commitment_time.rs::cm_49_a_budget_never_widens_the_access_limit",
   "crates/kernel/tests/commitment_time.rs::cm_49_an_exhausted_budget_asks_the_accountable_party_and_changes_nothing",
@@ -2273,6 +2275,7 @@ status = "frozen-product"
 stage = 7
 title = ""
 tests = [
+  "crates/http/src/commitments/tests.rs::cm_50_clocks_periodic_updates_and_budgets_are_answered_by_their_wire_names",
   "crates/kernel/tests/commitment_time.rs::cm_50_a_business_calendar_counts_working_intervals_and_skips_holidays",
   "crates/kernel/tests/commitment_time.rs::cm_50_clock_and_periodic_bodies_match_their_vectors",
   "crates/kernel/tests/commitment_time.rs::cm_50_working_time_advance_and_count_agree",
@@ -2290,6 +2293,7 @@ stage = 5
 acceptance = "to-fill"
 title = ""
 tests = [
+  "crates/http/src/commitments/tests.rs::cm_50_clocks_periodic_updates_and_budgets_are_answered_by_their_wire_names",
   "crates/kernel/tests/commitment_time.rs::cm_50_clock_and_periodic_bodies_match_their_vectors",
   "crates/kernel/tests/commitment_time.rs::cm_50_working_time_advance_and_count_agree",
   "crates/kernel/tests/commitment_time.rs::cm_51_a_redefinition_applies_forward_without_rewriting_reached_tiers",
@@ -2304,6 +2308,7 @@ family = "CM"
 status = "frozen-product"
 title = ""
 tests = [
+  "crates/http/src/commitments/tests.rs::cm_50_clocks_periodic_updates_and_budgets_are_answered_by_their_wire_names",
   "crates/kernel/tests/commitment_time.rs::cm_53_a_report_missing_beyond_the_tolerance_is_a_breach_signal",
   "crates/kernel/tests/commitment_time.rs::cm_53_recurrence_rules_match_their_vectors",
   "crates/kernel/tests/commitments.rs::cm_47_a_breached_clock_of_a_sub_commitment_signals_its_parent",
@@ -2423,6 +2428,7 @@ stage = 5
 acceptance = "to-fill"
 title = ""
 tests = [
+  "crates/http/src/commitments/tests.rs::cm_50_clocks_periodic_updates_and_budgets_are_answered_by_their_wire_names",
   "crates/kernel/tests/commitments.rs::cm_53_reports_referencing_the_request_meet_the_periodic_update",
   "crates/query/src/domain/tzdb.rs::cm_64_every_vendored_zone_reads_at_the_pinned_release",
 ]
