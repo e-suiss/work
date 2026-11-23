@@ -13,7 +13,7 @@ use work_access_client::domain::keys::{AsOf, DomainId, KernelId, Kid};
 use work_access_client::domain::{AccessError, from_b64url};
 use work_access_client::ports::{Clock, PartyKinds, Transport};
 use work_kernel::codec::{Decoded, decode_record, record_id};
-use work_kernel::commitment::Operation;
+use work_kernel::commitment::{Operation, condition_of};
 use work_kernel::cose::{AuthorKeys, KeySet, parse_container};
 use work_kernel::id::{Digest, LedgerId, PartyRef, RecordId};
 use work_kernel::items::{ItemKey, touched};
@@ -300,16 +300,19 @@ fn declared(record: &Record, request: &DeclarationRequest) -> Result<DeclaredAct
 
 /// The Exercise a commitment Declaration refers to, with the intent it was approved for, when
 /// the record is one `work:commit` covers, names an `authority` and the intent is that of this
-/// ledger and valid now (E-45, P-13).
+/// ledger and valid now (E-45, P-13); a clock, periodic or budget Condition is part of the
+/// commitment's terms and takes `work:commit` too (WD-146).
 fn authority_of<'a>(
     record: &Record,
     request: &'a DeclarationRequest,
     ledger: &LedgerId,
     now_ms: u64,
 ) -> Result<(&'a AuthorityGiven, Intent), WriteRefusal> {
-    let action = operation_of(record)
-        .and_then(action_of)
-        .ok_or(WriteRefusal::Invalid("operation"))?;
+    let action = match operation_of(record) {
+        Some(op) => action_of(op),
+        None => condition_of(record).map(|_| "commit"),
+    }
+    .ok_or(WriteRefusal::Invalid("operation"))?;
     if record.core().authority.is_none() {
         return Err(WriteRefusal::Rejected("authority_missing".to_owned()));
     }
