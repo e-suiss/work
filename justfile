@@ -54,6 +54,14 @@ test-compose-signed dir wait="600":
 test-compose-only dir name:
     WORK_ACCESS_LOCAL="{{dir}}" SOFTHSM2_CONF="{{dir}}/softhsm2.conf" cargo nextest run --workspace --locked --no-tests=fail --run-ignored only -E 'binary(=compose) & test(={{name}})'
 
+# OP-45, T-56: one compose test by its full name over a fresh copy of the work-dev token in
+# `dir/live`, holding the ledger KEKs work-server created since `dev-access`
+test-compose-live dir name:
+    mkdir -p "{{dir}}/live/tokens"
+    {{compose}} exec -T softhsm tar -C /var/lib/softhsm/tokens -cf - . | tar -C "{{dir}}/live/tokens" -xf -
+    printf 'directories.tokendir = %s\nobjectstore.backend = file\nlog.level = ERROR\n' "$(cd "{{dir}}/live/tokens" && pwd)" > "{{dir}}/live/softhsm2.conf"
+    WORK_ACCESS_LOCAL="{{dir}}" SOFTHSM2_CONF="{{dir}}/live/softhsm2.conf" cargo nextest run --workspace --locked --no-tests=fail --run-ignored only -E 'binary(=compose) & test(={{name}})'
+
 fmt:
     cargo fmt --all
 

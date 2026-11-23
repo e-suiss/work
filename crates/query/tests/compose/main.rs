@@ -1638,6 +1638,7 @@ mod service {
 /// receipt the record's `authority` names, and marks the record once Access declares the user's
 /// Party compromised.
 mod commit {
+    use std::sync::Arc;
     use std::time::Duration;
 
     use serde_json::{Value, json};
@@ -1656,17 +1657,19 @@ mod commit {
     use work_access_client::domain::keys::{DomainId, KernelId};
     use work_access_client::domain::metadata::thumbprint;
     use work_access_client::domain::{b64url, fixed_b64url, from_b64url};
-    use work_kernel::codec::{Decoded, decode_record, record_id};
+    use work_kernel::codec::{Decoded, body_commitment, decode_record, record_id};
     use work_kernel::id::{Digest, LedgerId};
-    use work_kernel::record::Record;
+    use work_kernel::record::{PartName, Record};
     use work_kernel::rules::RuleSet;
-    use work_ledger::{GenesisInput, SystemRng, genesis};
+    use work_ledger::{BodyKeys, BodyReader, GenesisInput, PartRead, SystemRng, genesis};
     use work_proto::id::ExternalId as _;
     use work_store::{
         AccessPool, CellId, Durability, ExportLog, ReceivedRole, SequencerPool, WindowHit,
     };
 
-    use super::{ACCESS_PIN_FILE, ACCESS_TOKEN, Answer, Jar, Local, WORK, module, query};
+    use super::{
+        ACCESS_PIN_FILE, ACCESS_TOKEN, Answer, Jar, Local, PIN, TOKEN, WORK, module, query,
+    };
 
     const LEDGER_FILE: &str = "commit-ledger";
     const STATE_FILE: &str = "commit-state.json";
@@ -1689,6 +1692,8 @@ mod commit {
     const COMMITMENTS: &str =
         include_str!("../../../../conformance/vectors/records/commitments.json");
     const REASON: &str = "Work compose test: commit into the test ledger";
+    const PART_TYPE: &str = "text/plain";
+    const FILL36: &str = "Zq8kR2mN4vX7bT1yW9cL3pH6dF0sJ5gA2eUo";
 
     fn ledger(local: &Local) -> String {
         std::fs::read_to_string(local.dir.join(LEDGER_FILE))
@@ -2075,6 +2080,85 @@ mod commit {
         panic!("{last:?}");
     }
 
+    /// The text the test user writes into part `part` (P-68).
+    fn content(part: &str) -> Vec<u8> {
+        format!("The {part} the Work compose test writes").into_bytes()
+    }
+
+    /// The opening of `part` with `content` in `led` as a write carries it, and its commitment:
+    /// the salt comes from the ledger, the part and the content (P-68 items 2 and 3).
+    fn opening(led: &str, part: &str, content: &[u8]) -> (Value, [u8; 32]) {
+        let salt = sha256(&[led.as_bytes(), part.as_bytes(), content].concat());
+        let name = PartName::parse(part).unwrap();
+        let commit = *body_commitment(&salt, &name, PART_TYPE, content)
+            .unwrap()
+            .as_bytes();
+        let json = json!({
+            "part": part,
+            "media_type": PART_TYPE,
+            "content": b64url(content),
+            "salt": b64url(&salt),
+        });
+        (json, commit)
+    }
+
+    /// The names of the body parts `record` commits to, in author order.
+    fn part_names(record: &[u8]) -> Vec<String> {
+        let Decoded::Record(record) = decode_record(record).unwrap() else {
+            panic!("a record");
+        };
+        record
+            .core()
+            .body
+            .iter()
+            .flatten()
+            .map(|b| b.part.as_str().to_owned())
+            .collect()
+    }
+
+    /// The openings of every part `record` commits to, as the test user writes them in `led`.
+    fn openings(led: &str, record: &[u8]) -> Vec<Value> {
+        part_names(record)
+            .iter()
+            .map(|p| opening(led, p, &content(p)).0)
+            .collect()
+    }
+
+    /// `record` committing to `parts`, each a name and its content, in `led` (P-68).
+    fn with_body(record: &[u8], led: &str, parts: &[(String, Vec<u8>)]) -> Vec<u8> {
+        let Cbor::Map(fields) = dcbor::decode(record, Limits::CEILING).unwrap() else {
+            panic!("a record");
+        };
+        let mut entries: Vec<(String, Cbor)> = fields
+            .into_iter()
+            .filter_map(|(k, v)| match k {
+                Cbor::Text(k) if k != "body" => Some((k, v)),
+                _ => None,
+            })
+            .collect();
+        if !parts.is_empty() {
+            let body = parts
+                .iter()
+                .map(|(part, content)| {
+                    let commit = opening(led, part, content).1;
+                    map(vec![
+                        ("part", Cbor::text(part)),
+                        (
+                            "commit",
+                            Cbor::Array(vec![Cbor::int(-16), Cbor::Bytes(commit.to_vec())]),
+                        ),
+                    ])
+                })
+                .collect();
+            entries.push(("body".to_owned(), Cbor::Array(body)));
+        }
+        let entries = entries
+            .iter()
+            .map(|(k, v)| (k.as_str(), v.clone()))
+            .collect();
+        dcbor::encode(&map(entries), Limits::CEILING).unwrap()
+    }
+
     /// The golden commitment request rewritten as the test user's own unsigned Declaration in
     /// `led`: the user is the author and so the obligee, the capacity is `own` or, given,
     /// `FOR(p)` on behalf of `p`, and the `authority` names the receipt's SHA-256 (P-13, P-21,
@@ -2162,7 +2246,15 @@ mod commit {
                 ])]),
             ));
         }
-        dcbor::encode(&map(entries), Limits::CEILING).unwrap()
+        let bytes = dcbor::encode(&map(entries), Limits::CEILING).unwrap();
+        let parts: Vec<(String, Vec<u8>)> = part_names(&bytes)
+            .into_iter()
+            .map(|p| {
+                let text = content(&p);
+                (p, text)
+            })
+            .collect();
+        with_body(&bytes, led, &parts)
     }
 
     /// The Access `auth_context` artifact of the test user's session bound to `record`
@@ -2239,6 +2331,7 @@ mod commit {
                 "auth_context": {"artifact": ac["auth_context"], "digest": ac["digest"]},
                 "authority": {"exercise": self.exercise, "intent": b64url(envelope)},
                 "actor_types": {"author": "human", "on_behalf_of": on_behalf_of},
+                "body": openings(&self.led, record),
             }))
             .unwrap();
             let path = format!("/v1/ledgers/{}/declarations", self.led);
@@ -2249,12 +2342,26 @@ mod commit {
         /// The body of a write of `record` with its `auth_context`, under the Exercise and
         /// `envelope`.
         async fn body(&self, local: &Local, record: &[u8], envelope: &[u8]) -> Vec<u8> {
+            self.body_with(local, record, envelope, &openings(&self.led, record))
+                .await
+        }
+
+        /// The body of a write of `record` with its `auth_context` and the openings `body`,
+        /// under the Exercise and `envelope`.
+        async fn body_with(
+            &self,
+            local: &Local,
+            record: &[u8],
+            envelope: &[u8],
+            body: &[Value],
+        ) -> Vec<u8> {
             let ac = auth_context(local, &self.jar, record).await;
             serde_json::to_vec(&json!({
                 "record": b64url(record),
                 "auth_context": {"artifact": ac["auth_context"], "digest": ac["digest"]},
                 "authority": {"exercise": self.exercise, "intent": b64url(envelope)},
                 "actor_types": {"author": "human"},
+                "body": body,
             }))
             .unwrap()
         }
@@ -2635,6 +2742,94 @@ mod commit {
         let bytes = record(&local, &w.led, &w.receipt, Some(&principal));
         let problem = denied(&w.declare(&local, &bytes, &w.commit.bytes, &["human"]).await);
         assert_eq!(problem["code_detail"], "capacity_mismatch", "{problem}");
+    }
+
+    /// The position of the last record of the test ledger, 0 before the first.
+    async fn head(led: &str) -> u64 {
+        let pool = work_store::connect(APP, "work-compose-test", Duration::from_secs(30))
+            .await
+            .unwrap();
+        let mut tx = work_store::LedgerTx::begin(&pool, &store_ledger(led))
+            .await
+            .unwrap();
+        let head = tx.head().await.unwrap().and_then(|h| h.pos).unwrap_or(0);
+        tx.commit().await.unwrap();
+        head
+    }
+
+    // SEC-35 P-95 P-68 OP-45
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore = "needs the local environment with the Exercise Work's PEP got"]
+    async fn sec_35_work_server_refuses_a_body_carrying_a_secret_or_left_unopened() {
+        let local = Local::open();
+        let w = Writer::open(&local).await;
+        let before = head(&w.led).await;
+        let bytes = record(&local, &w.led, &w.receipt, None);
+        let leak = ["ghp_", FILL36].concat();
+        let parts: Vec<(String, Vec<u8>)> = part_names(&bytes)
+            .into_iter()
+            .map(|p| {
+                let text = if p == "purpose" {
+                    format!("Deploy with {leak}").into_bytes()
+                } else {
+                    content(&p)
+                };
+                (p, text)
+            })
+            .collect();
+        let leaking = with_body(&bytes, &w.led, &parts);
+        let body: Vec<Value> = parts.iter().map(|(p, c)| opening(&w.led, p, c).0).collect();
+        let path = format!("/v1/ledgers/{}/declarations", w.led);
+        let sent = w.body_with(&local, &leaking, &w.commit.bytes, &body).await;
+        let key = local.uuid7(local.access_now_s().await * 1000);
+        let answer = w.post(&local, &path, sent, &key, "\"0\"").await;
+        assert_eq!(answer.status, 422, "{answer:?}");
+        assert!(!answer.text().contains(FILL36), "{answer:?}");
+        let problem = answer.json();
+        assert_eq!(problem["code"], "secret_detected", "{problem}");
+        assert_eq!(problem["part"], "purpose", "{problem}");
+        assert_eq!(problem["rule"], "github-pat", "{problem}");
+        let unopened = w.body_with(&local, &bytes, &w.commit.bytes, &[]).await;
+        let key = local.uuid7(local.access_now_s().await * 1000);
+        let answer = w.post(&local, &path, unopened, &key, "\"0\"").await;
+        assert_eq!(answer.status, 400, "{answer:?}");
+        assert_eq!(answer.json()["code_detail"], "body_unopened", "{answer:?}");
+        assert_eq!(head(&w.led).await, before);
+    }
+
+    // OP-45 OP-13 P-68 T-56
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore = "needs the local environment with the Declaration work-server wrote and a fresh copy of its token"]
+    async fn op_45_the_offer_texts_of_the_written_request_read_back_from_the_ledger() {
+        let local = Local::open();
+        let led = ledger(&local);
+        let written = read(&local, WRITTEN_FILE);
+        let pos: u64 = written["pos"].as_u64().unwrap();
+        let keys = BodyKeys::open(&module(), TOKEN, &Secret::new(PIN.to_owned()), 1).unwrap();
+        let pool = work_store::connect(APP, "work-compose-test", Duration::from_secs(30))
+            .await
+            .unwrap();
+        let reader = BodyReader::in_database(Arc::new(keys), pool);
+        let now_ms = local.access_now_s().await * 1000;
+        let parts = reader.read(&store_ledger(&led), pos, now_ms).await.unwrap();
+        let names: Vec<&str> = parts.iter().map(|(p, _)| p.as_str()).collect();
+        assert_eq!(
+            names,
+            ["purpose", "delivery", "scope", "acceptance_criterion"],
+            "{parts:?}"
+        );
+        for (part, read) in &parts {
+            let PartRead::Readable(opened) = read else {
+                panic!("{part}: {read:?}");
+            };
+            assert_eq!(opened.part, *part);
+            assert_eq!(opened.media_type, PART_TYPE);
+            assert_eq!(opened.content, content(part));
+            assert_eq!(
+                opened.commitment().unwrap(),
+                opening(&led, part, &content(part)).1
+            );
+        }
     }
 
     // E-17 P-13 P-21 P-116 T-90 T-101

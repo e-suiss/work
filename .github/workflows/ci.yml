@@ -663,7 +663,7 @@ jobs:
         run: |
           just test-compose-only "$RUNNER_TEMP/access-local" commit::p_100_a_ledger_opens_in_work_server_s_cell_for_the_test_user_s_commit
           just test-compose-only "$RUNNER_TEMP/access-local" commit::e_45_an_intent_that_names_no_work_ledger_writes_nothing
-      - name: Work's PEP commits the test user's work:commit intent and Access asks for an approval and an AAL2 step-up, Work pushes the request with the contribution the device pre-signed, the test user approves it on the Approval Surface with the passkey, the approval return hands the contribution and the authentication Claim back once, the commit with both is allowed, and work-server refuses a tampered intent and a foreign capacity, then writes the AAL2 user's Declaration and keeps its receipt (E-17, E-26, E-45, P-13, P-21, P-116, T-101)
+      - name: Work's PEP commits the test user's work:commit intent and Access asks for an approval and an AAL2 step-up, Work pushes the request with the contribution the device pre-signed, the test user approves it on the Approval Surface with the passkey, the approval return hands the contribution and the authentication Claim back once, the commit with both is allowed, and work-server refuses a tampered intent and a foreign capacity, refuses a body carrying a secret or left unopened, then writes the AAL2 user's Declaration with its body parts sealed under the ledger's key, keeps its receipt and reads the parts back (E-17, E-26, E-45, P-13, P-21, P-116, T-101, SEC-35, P-95, OP-45)
         env:
           NEXTEST_PROFILE: ci
         run: |
@@ -677,7 +677,9 @@ jobs:
           just test-compose-only "$dir" commit::t_101_with_the_contribution_work_s_pep_gets_the_exercise_and_its_receipt
           just test-compose-only "$dir" commit::e_17_work_server_writes_nothing_for_an_intent_access_did_not_approve
           just test-compose-only "$dir" commit::p_13_work_server_writes_nothing_for_a_capacity_the_exercise_does_not_carry
+          just test-compose-only "$dir" commit::sec_35_work_server_refuses_a_body_carrying_a_secret_or_left_unopened
           just test-compose-only "$dir" commit::e_17_work_server_writes_the_declaration_access_approved_and_keeps_its_receipt
+          just test-compose-live "$dir" commit::op_45_the_offer_texts_of_the_written_request_read_back_from_the_ledger
           just test-compose-only "$dir" commit::e_12_access_takes_the_commitment_active_false_claim_work_hands_it
           just test-compose-only "$dir" commit::cm_25_the_test_user_s_own_commitment_is_stated_and_its_acceptance_needs_work_close
       - name: The routes that act for a caller, the declaration write among them, are mounted and ask for a DPoP token first (T-97, P-56, C-9, SEC-18, P-13)
