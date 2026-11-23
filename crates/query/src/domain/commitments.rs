@@ -234,6 +234,15 @@ impl Folded {
             .and_then(|t| self.areas.area_of(t))
     }
 
+    /// The ledger position of the record `id`, when the fold reads it.
+    #[must_use]
+    pub fn position_of(&self, id: &RecordId) -> Option<u64> {
+        self.entries()
+            .iter()
+            .find(|e| e.id() == *id)
+            .map(Entry::position)
+    }
+
     /// The stored version of the Commitment `root` opened, 0 before its request.
     #[must_use]
     pub fn version_of(&self, root: RecordId) -> u64 {

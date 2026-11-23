@@ -13,7 +13,8 @@ use work_access_client::domain::keys::{AsOf, DomainId, KernelId, Kid};
 use work_access_client::domain::{AccessError, from_b64url};
 use work_access_client::ports::{Clock, PartyKinds, Transport};
 use work_kernel::codec::{Decoded, decode_record, record_id};
-use work_kernel::commitment::{Operation, condition_of};
+use work_kernel::commitment::{Definition, Operation, condition_of};
+use work_kernel::commitment_time::DEFINITION_PART;
 use work_kernel::cose::{AuthorKeys, KeySet, parse_container};
 use work_kernel::id::{Digest, LedgerId, PartyRef, RecordId};
 use work_kernel::items::{ItemKey, touched};
@@ -742,6 +743,50 @@ where
         Err(WriteRefusal::Rejected(reason))
     }
 
+    /// The `definition` part a clock, periodic or budget Condition carries must be a
+    /// `work/commitment-time/1` body of its type, and one that supersedes an earlier Condition
+    /// must continue that Condition's definition (CM-48, CM-50, CM-51, CM-53, WD-146); a
+    /// refusal names the member, as `definition:<member>`.
+    async fn check_definition(
+        &self,
+        ledger: &LedgerId,
+        record: &Record,
+        request: &DeclarationRequest,
+        folded: Option<&Folded>,
+        now_ms: u64,
+    ) -> Result<(), WriteRefusal> {
+        let Some(kind) = condition_of(record) else {
+            return Ok(());
+        };
+        let refused = |member: &str| WriteRefusal::Rejected(format!("definition:{member}"));
+        let content = request
+            .body
+            .iter()
+            .find(|o| o.part == DEFINITION_PART)
+            .ok_or(WriteRefusal::Invalid("body_unopened"))?;
+        let next = Definition::decode(kind, &content.content).map_err(|e| refused(e.0))?;
+        let Some(previous) = record.supersedes().next() else {
+            return Ok(());
+        };
+        let pos = folded
+            .ok_or(WriteRefusal::NotRecorded)?
+            .position_of(previous)
+            .ok_or_else(|| refused("supersedes"))?;
+        let parts = self
+            .parts(ledger, pos, now_ms)
+            .await
+            .map_err(|_| WriteRefusal::NotRecorded)?;
+        let earlier = parts
+            .into_iter()
+            .find_map(|(name, read)| match read {
+                PartRead::Readable(o) if name == DEFINITION_PART => Some(o.content),
+                PartRead::Readable(_) | PartRead::Unreadable => None,
+            })
+            .and_then(|b| Definition::decode(kind, &b).ok())
+            .ok_or_else(|| refused("supersedes"))?;
+        next.continues(&earlier).map_err(|e| refused(e.0))
+    }
+
     async fn write(
         &self,
         caller: &Caller,
@@ -783,6 +828,8 @@ where
             .map_err(|_| WriteRefusal::NotRecorded)?;
         expected_version(record, request, folded.as_ref(), fresh.version)?;
         check_openings(record.core(), &request.body)?;
+        self.check_definition(ledger, record, request, folded.as_ref(), now_ms)
+            .await?;
         let at = Admission {
             caller,
             ledger,
