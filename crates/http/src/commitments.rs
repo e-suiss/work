@@ -21,10 +21,11 @@ use work_kernel::id::{LedgerId, RecordId, Time};
 use work_kernel::ontology::Obligor;
 use work_proto::id::{CommitmentId, ExternalId as _};
 use work_query::domain::commitments::{CommitmentRead, action_of};
-use work_query::domain::writes::{Expected, Kind, Written};
+use work_query::domain::writes::{Expected, Form, Kind, Written};
 
 use crate::common::RequestContext;
 use crate::conditional::etag;
+use crate::control::ControlAnswer;
 use crate::json::rfc3339_millis;
 use crate::position::{WORK_POSITION, min_position, position_header};
 use crate::problem::{Problem, ProblemCode};
@@ -280,6 +281,10 @@ pub struct CommitmentAnswer {
     pub at: String,
     /// The positions the answer reflects, `pos_…` (T-97 item 2).
     pub position: String,
+    /// Its control: the requests offered, the autonomy of the caller's moves, the control
+    /// axes, the stop requests, the interventions and the ownership lease (RC-3, RC-8, RC-27 …
+    /// RC-40, ST-4).
+    pub control: ControlAnswer,
 }
 
 fn time(t: Time) -> String {
@@ -836,6 +841,7 @@ impl CommitmentAnswer {
             time: time_answer(read),
             at: time(Time(read.at_ms)),
             position: read.position.to_external(),
+            control: ControlAnswer::of(&read.control),
         }
     }
 }
@@ -860,6 +866,7 @@ fn written(ledger: &LedgerId, commitment: &RecordId, w: &Written) -> Response {
 /// What one typed write names besides its body.
 pub(crate) struct Typed<'a> {
     pub(crate) kind: Kind,
+    pub(crate) form: Option<Form>,
     pub(crate) ledger: &'a str,
     pub(crate) commitment: Option<&'a str>,
 }
@@ -892,6 +899,7 @@ pub(crate) async fn write(
     request.expected = Some(Expected {
         kind: typed.kind,
         commitment,
+        form: typed.form,
     });
     match services.writes.declare(&caller, &ledger, &request).await {
         Ok(w) => written(&ledger, &commitment.unwrap_or(w.record), &w),
@@ -1005,6 +1013,7 @@ pub async fn create_commitment(
 ) -> Response {
     let typed = Typed {
         kind: Kind::Commitment(Operation::Request),
+        form: None,
         ledger: &ledger,
         commitment: None,
     };
@@ -1114,6 +1123,7 @@ macro_rules! operation {
         ) -> Response {
             let typed = Typed {
                 kind: Kind::Commitment($operation),
+                form: None,
                 ledger: &ledger,
                 commitment: Some(&commitment),
             };

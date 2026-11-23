@@ -244,7 +244,7 @@ pub fn declaration_request(
     })
 }
 
-fn created(ledger: &LedgerId, written: &Written) -> Response {
+pub(crate) fn created(ledger: &LedgerId, written: &Written) -> Response {
     let body = WrittenAnswer {
         ledger: ledger.to_external(),
         record: written.record.to_external(),

@@ -5,6 +5,7 @@ pub mod authority;
 pub mod commitments;
 pub mod common;
 pub mod conditional;
+pub mod control;
 pub mod deprecation;
 pub mod gateway;
 pub mod inbound;

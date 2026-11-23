@@ -15,6 +15,11 @@ use crate::commitments::{
     PeriodicAnswer, ReachedAnswer, SignalAnswer, StatementAnswer, StepAnswer, TermsAnswer,
     TimeAnswer,
 };
+use crate::control::{
+    ControlAnswer, ControlAutonomyAnswer, ControlAxesAnswer, ControlDriverAnswer,
+    ControlInterventionAnswer, ControlLeaseAnswer, ControlMoveAnswer, ControlRequestAnswer,
+    ControlStopAnswer,
+};
 use crate::problem::{FieldError, Problem, ProblemCode, ProblemType};
 use crate::reads::{
     AuthContextAnswer, AuthorSignature, ChangeEntry, ChangesAnswer, CheckpointAnswer,
@@ -86,7 +91,17 @@ fn security_scheme() -> Value {
         crate::commitments::notice,
         crate::commitments::declare_obsolete,
         crate::commitments::administrative_close,
-        crate::commitments::implicit_acceptance_terms
+        crate::commitments::implicit_acceptance_terms,
+        crate::control::grant_or_release_control_lease,
+        crate::control::write_handoff_note,
+        crate::control::request_attention,
+        crate::control::consult,
+        crate::control::request_stop,
+        crate::control::respond_to_stop,
+        crate::control::record_forced_stop,
+        crate::control::resume_after_stop,
+        crate::control::correct,
+        crate::control::set_autonomy_policy
     ),
     components(schemas(
         Problem,
@@ -136,7 +151,16 @@ fn security_scheme() -> Value {
         ReachedAnswer,
         PeriodicAnswer,
         DueAnswer,
-        BudgetAnswer
+        BudgetAnswer,
+        ControlAnswer,
+        ControlRequestAnswer,
+        ControlAutonomyAnswer,
+        ControlMoveAnswer,
+        ControlAxesAnswer,
+        ControlDriverAnswer,
+        ControlStopAnswer,
+        ControlInterventionAnswer,
+        ControlLeaseAnswer
     ))
 )]
 struct Api;

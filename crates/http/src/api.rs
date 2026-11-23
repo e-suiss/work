@@ -13,6 +13,7 @@ use axum::routing::{get, post};
 use crate::authority;
 use crate::commitments;
 use crate::common::{self, Common, TraceIds};
+use crate::control;
 use crate::gateway::Limits;
 use crate::problem::{Problem, ProblemCode, ProblemType};
 use crate::rate::RatePolicy;
@@ -110,6 +111,7 @@ pub fn router_with(
             post(writes::create_declaration),
         )
         .merge(commitments::routes())
+        .merge(control::routes())
         .route("/v1/works", post(works::create_work))
         .route(
             "/v1/authority-requests",
