@@ -14,6 +14,7 @@ use work_kernel::id::Digest;
 use work_kernel::reason::{Reason, Signature};
 use work_kernel::record::{AuthorityRef, BodyCommitment, PartName};
 use work_kernel::verify::{SignatureCheck, SignatureVerifier as _};
+use work_ledger::SystemRng;
 use work_proto::parser::ScanFailure;
 
 use super::*;
@@ -317,12 +318,13 @@ fn e_45_work_s_pep_commits_the_intent_of_every_commitment_write_action_and_no_ot
 }
 
 fn opening(part: &str, content: &[u8]) -> BodyOpening {
-    BodyOpening {
-        part: part.to_owned(),
-        media_type: "text/plain".to_owned(),
-        content: content.to_vec(),
-        salt: [7; 32],
-    }
+    BodyOpening::new(
+        &SystemRng,
+        part.to_owned(),
+        "text/plain".to_owned(),
+        content.to_vec(),
+    )
+    .unwrap()
 }
 
 /// The core of `record` committing to `openings` in their order (P-68).
@@ -372,7 +374,7 @@ fn p_68_the_openings_open_exactly_the_parts_the_record_commits_to() {
         WriteRefusal::Invalid("body_commitment")
     );
     let mut salted = note.clone();
-    salted.salt = [8; 32];
+    salted.salt[0] ^= 1;
     assert_eq!(
         refused(&[salted, detail.clone()]),
         WriteRefusal::Invalid("body_commitment")
